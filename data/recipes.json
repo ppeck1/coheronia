@@ -1,0 +1,51 @@
+{
+  "schema_version": "0.1",
+  "recipes": [
+    {
+      "recipe_id": "craft_torch",
+      "display_name": "Torch",
+      "inputs": {
+        "wood": 1,
+        "stone": 1
+      },
+      "outputs": {
+        "torch": 3
+      },
+      "station": "hand"
+    },
+    {
+      "recipe_id": "craft_wood_block",
+      "display_name": "Wood Block",
+      "inputs": {
+        "wood": 1
+      },
+      "outputs": {
+        "wood": 1
+      },
+      "station": "hand"
+    },
+    {
+      "recipe_id": "craft_stone_block",
+      "display_name": "Stone Block",
+      "inputs": {
+        "stone": 1
+      },
+      "outputs": {
+        "stone": 1
+      },
+      "station": "hand"
+    },
+    {
+      "recipe_id": "basic_pick_upgrade",
+      "display_name": "Basic Pick Upgrade",
+      "inputs": {
+        "wood": 3,
+        "stone": 5
+      },
+      "outputs": {
+        "tool_tier_1_pick": 1
+      },
+      "station": "town_hall"
+    }
+  ]
+}

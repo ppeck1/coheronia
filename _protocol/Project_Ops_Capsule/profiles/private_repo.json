@@ -1,0 +1,12 @@
+{
+  "schema_version": "0.2",
+  "profile": "private_repo",
+  "commit_run_ledgers": true,
+  "commit_sanitized_run_summaries": false,
+  "commit_raw_atlas_outbox": false,
+  "commit_raw_boh_outbox": false,
+  "commit_verification_artifacts": false,
+  "require_public_safety_check": false,
+  "notes": "Private repos commit run ledgers by default. Raw outboxes stay local unless project policy says otherwise."
+}
+

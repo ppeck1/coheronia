@@ -1,0 +1,17 @@
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+*.translation
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+.project/atlas_outbox/imported/*
+!.project/atlas_outbox/imported/.gitkeep
+.project/atlas_outbox/rejected/*
+!.project/atlas_outbox/rejected/.gitkeep
+.project/boh_outbox/imported/*
+!.project/boh_outbox/imported/.gitkeep
+.project/boh_outbox/rejected/*
+!.project/boh_outbox/rejected/.gitkeep

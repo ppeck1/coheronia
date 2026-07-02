@@ -1,0 +1,63 @@
+{
+  "schema_version": "0.2",
+  "project_id": "coheronia-game",
+  "display_name": "Coheronia",
+  "root": ".",
+  "repo_kind": "software",
+  "visibility": "private",
+  "profiles": [
+    "private_repo",
+    "software_project"
+  ],
+  "canonical_docs": {
+    "readme": "README.md",
+    "handoff": "docs/HANDOFF.md",
+    "variable_matrix": "docs/VARIABLE_MATRIX.md",
+    "roadmap": "docs/GAME_FEATURE_OUTLINE.md",
+    "architecture": "docs/MVP_VERTICAL_SLICE.md",
+    "operations": "docs/PROTOCOL_USAGE.md"
+  },
+  "validation": {
+    "required": [
+      "python scripts/validate_repo.py",
+      "python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile private_repo"
+    ],
+    "focused": [
+      "Godot editor: open project and check for missing resource/script errors",
+      "Godot run: launch res://scenes/main/Main.tscn after implementation"
+    ],
+    "smoke": [
+      "Manual play smoke: move, jump, mine, place, torch light, interact with Town Hall, observe C/L/R update, save F5, load F9"
+    ],
+    "manual": [
+      "Do not mark SIGNABLE until docs/MVP_VERTICAL_SLICE.md acceptance table is verified"
+    ]
+  },
+  "protected_paths": [
+    "reference/g1v5/",
+    "_protocol/Project_Ops_Capsule/"
+  ],
+  "generated_paths": [
+    ".project/runs/",
+    ".project/atlas_outbox/",
+    ".project/boh_outbox/"
+  ],
+  "secrets_policy": "names-only",
+  "atlas_sync": {
+    "enabled": true,
+    "mode": "outbox",
+    "project_key": "coheronia-game"
+  },
+  "boh_sync": {
+    "enabled": true,
+    "mode": "outbox",
+    "authority": "evidence-only",
+    "project_key": "coheronia-game"
+  },
+  "git_policy": {
+    "require_git": false,
+    "commit_after_signable_run": true,
+    "push_policy": "manual",
+    "allow_dirty_unrelated": false
+  }
+}

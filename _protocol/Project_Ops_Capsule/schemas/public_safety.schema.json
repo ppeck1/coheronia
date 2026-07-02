@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-ops-capsule.local/schemas/public_safety.schema.json",
+  "title": "Public Safety Review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile",
+    "result",
+    "checks",
+    "allowed_committed_paths",
+    "forbidden_committed_paths"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.2" },
+    "profile": { "type": "string", "enum": ["public_repo", "sensitive_project"] },
+    "result": { "type": "string", "enum": ["PASS", "FAIL", "NOT_CHECKED"] },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "result", "evidence"],
+        "properties": {
+          "name": { "type": "string" },
+          "result": { "type": "string", "enum": ["PASS", "FAIL", "NOT_CHECKED"] },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+    "allowed_committed_paths": { "type": "array", "items": { "type": "string" } },
+    "forbidden_committed_paths": { "type": "array", "items": { "type": "string" } }
+  }
+}
+

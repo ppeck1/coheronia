@@ -1,0 +1,30 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/main/game_root.gd" id="1_root"]
+[ext_resource type="PackedScene" path="res://scenes/world/World.tscn" id="2_world"]
+[ext_resource type="PackedScene" path="res://scenes/player/Player.tscn" id="3_player"]
+[ext_resource type="PackedScene" path="res://scenes/settlement/TownHall.tscn" id="4_hall"]
+[ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="5_hud"]
+[ext_resource type="Script" path="res://scripts/settlement/settlement_model.gd" id="6_settlement"]
+[ext_resource type="Script" path="res://scripts/save/save_manager.gd" id="7_save"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_root")
+
+[node name="World" parent="." instance=ExtResource("2_world")]
+
+[node name="TownHall" parent="." instance=ExtResource("4_hall")]
+
+[node name="Threats" type="Node2D" parent="."]
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+
+[node name="CanvasModulate" type="CanvasModulate" parent="."]
+
+[node name="SettlementModel" type="Node" parent="."]
+script = ExtResource("6_settlement")
+
+[node name="SaveManager" type="Node" parent="."]
+script = ExtResource("7_save")
+
+[node name="HUD" parent="." instance=ExtResource("5_hud")]

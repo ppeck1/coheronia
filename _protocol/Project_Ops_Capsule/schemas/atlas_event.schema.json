@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-ops-capsule.local/schemas/atlas_event.schema.json",
+  "title": "Project Atlas Run Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "project_id",
+    "project_root",
+    "repo_root",
+    "branch",
+    "start_commit",
+    "end_commit",
+    "run_state",
+    "started_at",
+    "ended_at",
+    "summary",
+    "validation_state",
+    "readme_state",
+    "variable_matrix_state",
+    "handoff_state",
+    "boh_sync_state",
+    "git_state",
+    "risk_level",
+    "next_action",
+    "ledger_path",
+    "atlas_packet_path",
+    "boh_packet_path",
+    "profiles",
+    "overrides"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.2" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "project_id": { "type": "string", "minLength": 1 },
+    "project_root": { "type": "string" },
+    "repo_root": { "type": "string" },
+    "remote_url": { "type": "string" },
+    "branch": { "type": "string" },
+    "start_commit": { "type": "string" },
+    "end_commit": { "type": "string" },
+    "run_state": {
+      "type": "string",
+      "enum": ["SIGNABLE", "PARTIAL", "BLOCKED", "FAILED", "EXPLORATORY", "READ_ONLY_REVIEW"]
+    },
+    "started_at": { "type": "string" },
+    "ended_at": { "type": "string" },
+    "summary": { "type": "string" },
+    "scope": { "type": "string" },
+    "validation_state": { "type": "string", "enum": ["pass", "fail", "partial", "not_checked", "blocked"] },
+    "readme_state": { "type": "string", "enum": ["updated", "audited_no_change", "not_checked", "blocked", "not_applicable"] },
+    "variable_matrix_state": { "type": "string", "enum": ["updated", "no_change_verified", "not_checked", "blocked", "not_applicable"] },
+    "handoff_state": { "type": "string", "enum": ["updated", "not_updated_read_only", "not_checked", "blocked", "not_applicable"] },
+    "boh_sync_state": { "type": "string", "enum": ["synced", "queued", "disabled", "blocked", "failed"] },
+    "git_state": { "type": "string", "enum": ["committed", "clean", "scoped_dirty", "unrelated_dirty", "dirty", "not_repo", "not_checked", "blocked"] },
+    "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
+    "next_action": { "type": "string" },
+    "ledger_path": { "type": "string" },
+    "atlas_packet_path": { "type": "string" },
+    "boh_packet_path": { "type": "string" },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["private_repo", "public_repo", "docs_only_project", "software_project", "sensitive_project"]
+      }
+    },
+    "overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check_skipped", "reason", "risk", "accepted_by", "follow_up_required"],
+        "additionalProperties": false,
+        "properties": {
+          "check_skipped": { "type": "string" },
+          "reason": { "type": "string" },
+          "risk": { "type": "string" },
+          "accepted_by": { "type": "string" },
+          "follow_up_required": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+

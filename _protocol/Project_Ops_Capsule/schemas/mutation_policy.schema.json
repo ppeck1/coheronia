@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-ops-capsule.local/schemas/mutation_policy.schema.json",
+  "title": "Mutation Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "states"],
+  "properties": {
+    "schema_version": { "const": "0.2" },
+    "states": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["SIGNABLE", "PARTIAL", "BLOCKED", "FAILED", "EXPLORATORY", "READ_ONLY_REVIEW"],
+      "properties": {
+        "SIGNABLE": { "$ref": "#/$defs/state_policy" },
+        "PARTIAL": { "$ref": "#/$defs/state_policy" },
+        "BLOCKED": { "$ref": "#/$defs/state_policy" },
+        "FAILED": { "$ref": "#/$defs/state_policy" },
+        "EXPLORATORY": { "$ref": "#/$defs/state_policy" },
+        "READ_ONLY_REVIEW": { "$ref": "#/$defs/state_policy" }
+      }
+    }
+  },
+  "$defs": {
+    "surface": {
+      "type": "string",
+      "enum": [
+        "canonical_docs",
+        "readme",
+        "variable_matrix",
+        "handoff",
+        "run_ledger",
+        "atlas_event",
+        "boh_packet",
+        "git_commit",
+        "github_push",
+        "boh_promotion"
+      ]
+    },
+    "state_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "disallowed", "required_evidence"],
+      "properties": {
+        "allowed": { "type": "array", "items": { "$ref": "#/$defs/surface" } },
+        "disallowed": { "type": "array", "items": { "$ref": "#/$defs/surface" } },
+        "required_evidence": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,14 @@
+{
+  "schema_version": "0.2",
+  "capsule_version": "0.2",
+  "installed_from": "B:/Projects/LLM_Modules/Project_Ops_Capsule",
+  "installed_at": "2026-06-30",
+  "run_ledger_required": true,
+  "repair_iteration_limit": 2,
+  "readme_update_mode": "audit-every-run",
+  "variable_matrix_update_mode": "audit-every-run",
+  "handoff_update_mode": "non-read-only",
+  "subagent_policy": "solo-default",
+  "profiles": ["private_repo", "software_project"]
+}
+

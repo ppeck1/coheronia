@@ -1,0 +1,41 @@
+{
+  "schema_version": "0.2",
+  "project_id": "example-private-repo",
+  "display_name": "Example Private Repo",
+  "root": ".",
+  "repo_kind": "software",
+  "visibility": "private",
+  "profiles": ["private_repo", "software_project"],
+  "canonical_docs": {
+    "readme": "README.md",
+    "handoff": "docs/HANDOFF.md",
+    "variable_matrix": "docs/VARIABLE_MATRIX.md"
+  },
+  "validation": {
+    "required": [],
+    "focused": [],
+    "smoke": [],
+    "manual": []
+  },
+  "protected_paths": [],
+  "generated_paths": [],
+  "secrets_policy": "names-only",
+  "atlas_sync": {
+    "enabled": true,
+    "mode": "outbox",
+    "project_key": "example-private-repo"
+  },
+  "boh_sync": {
+    "enabled": true,
+    "mode": "outbox",
+    "authority": "evidence-only",
+    "project_key": "example-private-repo"
+  },
+  "git_policy": {
+    "require_git": false,
+    "commit_after_signable_run": true,
+    "push_policy": "manual",
+    "allow_dirty_unrelated": false
+  }
+}
+

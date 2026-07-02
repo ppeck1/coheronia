@@ -1,0 +1,9 @@
+{
+  "schema_version": "0.2",
+  "profile": "docs_only_project",
+  "require_build_validation": false,
+  "require_docs_validation": true,
+  "default_validation_state_when_no_commands": "not_checked",
+  "notes": "Documentation-only projects still need README, handoff, variable matrix audit, and run evidence."
+}
+

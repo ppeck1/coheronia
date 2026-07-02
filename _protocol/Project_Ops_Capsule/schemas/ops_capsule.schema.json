@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-ops-capsule.local/schemas/ops_capsule.schema.json",
+  "title": "Project Ops Capsule Install Config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capsule_version",
+    "installed_from",
+    "installed_at",
+    "run_ledger_required",
+    "repair_iteration_limit",
+    "readme_update_mode",
+    "variable_matrix_update_mode",
+    "handoff_update_mode",
+    "subagent_policy",
+    "profiles"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.2" },
+    "capsule_version": { "const": "0.2" },
+    "installed_from": { "type": "string" },
+    "installed_at": { "type": "string" },
+    "run_ledger_required": { "type": "boolean" },
+    "repair_iteration_limit": { "type": "integer", "minimum": 0, "maximum": 5 },
+    "readme_update_mode": {
+      "type": "string",
+      "enum": ["audit-every-run", "status-block-every-run", "material-only"]
+    },
+    "variable_matrix_update_mode": {
+      "type": "string",
+      "enum": ["audit-every-run"]
+    },
+    "handoff_update_mode": {
+      "type": "string",
+      "enum": ["every-run", "non-read-only"]
+    },
+    "subagent_policy": {
+      "type": "string",
+      "enum": ["solo-default", "token-saving-default"]
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "private_repo",
+          "public_repo",
+          "docs_only_project",
+          "software_project",
+          "sensitive_project"
+        ]
+      }
+    }
+  }
+}
+

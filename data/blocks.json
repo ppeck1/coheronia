@@ -1,0 +1,132 @@
+{
+  "schema_version": "0.1",
+  "tile_size": 16,
+  "blocks": {
+    "air": {
+      "display_name": "Air",
+      "hardness": 0.0,
+      "required_tool_tier": 0,
+      "drops": {},
+      "is_placeable": false,
+      "is_solid": false,
+      "blocks_light": false,
+      "emits_light": false,
+      "light_radius": 0,
+      "settlement_tags": []
+    },
+    "dirt": {
+      "display_name": "Dirt",
+      "hardness": 0.35,
+      "required_tool_tier": 0,
+      "drops": {
+        "dirt": 1
+      },
+      "is_placeable": true,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "settlement_tags": [
+        "temporary_structure"
+      ]
+    },
+    "grass": {
+      "display_name": "Grass",
+      "hardness": 0.35,
+      "required_tool_tier": 0,
+      "drops": {
+        "dirt": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "settlement_tags": [
+        "surface"
+      ]
+    },
+    "wood": {
+      "display_name": "Wood",
+      "hardness": 0.55,
+      "required_tool_tier": 0,
+      "drops": {
+        "wood": 1
+      },
+      "is_placeable": true,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "settlement_tags": [
+        "structure",
+        "fuel"
+      ]
+    },
+    "stone": {
+      "display_name": "Stone",
+      "hardness": 1.1,
+      "required_tool_tier": 1,
+      "drops": {
+        "stone": 1
+      },
+      "is_placeable": true,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "settlement_tags": [
+        "structure",
+        "defense"
+      ]
+    },
+    "ore": {
+      "display_name": "Ore",
+      "hardness": 1.6,
+      "required_tool_tier": 1,
+      "drops": {
+        "ore": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "settlement_tags": [
+        "progression"
+      ]
+    },
+    "torch": {
+      "display_name": "Torch",
+      "hardness": 0.1,
+      "required_tool_tier": 0,
+      "drops": {
+        "torch": 1
+      },
+      "is_placeable": true,
+      "is_solid": false,
+      "blocks_light": false,
+      "emits_light": true,
+      "light_radius": 96,
+      "settlement_tags": [
+        "light",
+        "safety"
+      ]
+    },
+    "town_hall_core": {
+      "display_name": "Town Hall Core",
+      "hardness": 9999.0,
+      "required_tool_tier": 999,
+      "drops": {},
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "settlement_tags": [
+        "settlement_anchor",
+        "protected"
+      ]
+    }
+  }
+}

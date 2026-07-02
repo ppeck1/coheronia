@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.2",
+  "profile": "public_repo",
+  "commit_run_ledgers": false,
+  "commit_sanitized_run_summaries": true,
+  "commit_raw_atlas_outbox": false,
+  "commit_raw_boh_outbox": false,
+  "commit_verification_artifacts": false,
+  "require_public_safety_check": true,
+  "forbidden_paths": [
+    ".project/runs/",
+    ".project/atlas_outbox/",
+    ".project/boh_outbox/",
+    ".project/verification/"
+  ],
+  "notes": "Public repos use local raw evidence and optional sanitized summaries."
+}
+

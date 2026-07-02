@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-ops-capsule.local/schemas/boh_packet.schema.json",
+  "title": "BOH Run Packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "project_id",
+    "project_name",
+    "repo_root",
+    "branch",
+    "start_commit",
+    "end_commit",
+    "run_state",
+    "boh_packet_state",
+    "scope",
+    "summary",
+    "acceptance",
+    "validation",
+    "docs_updated",
+    "readme_state",
+    "variable_matrix_state",
+    "decisions",
+    "risks",
+    "next_action",
+    "authority",
+    "promotion_recommendation",
+    "source_paths",
+    "ledger_path",
+    "sensitivity",
+    "overrides",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.2" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "project_id": { "type": "string", "minLength": 1 },
+    "project_name": { "type": "string" },
+    "repo_root": { "type": "string" },
+    "remote_url": { "type": "string" },
+    "branch": { "type": "string" },
+    "start_commit": { "type": "string" },
+    "end_commit": { "type": "string" },
+    "run_state": {
+      "type": "string",
+      "enum": ["SIGNABLE", "PARTIAL", "BLOCKED", "FAILED", "EXPLORATORY", "READ_ONLY_REVIEW"]
+    },
+    "boh_packet_state": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "ingested",
+        "indexed-evidence-only",
+        "candidate-for-promotion",
+        "promoted",
+        "rejected",
+        "superseded"
+      ]
+    },
+    "scope": { "type": "string" },
+    "summary": { "type": "string" },
+    "acceptance": { "type": "array", "items": { "type": "string" } },
+    "validation": { "type": "array", "items": { "type": "string" } },
+    "docs_updated": { "type": "array", "items": { "type": "string" } },
+    "readme_state": { "type": "string", "enum": ["updated", "audited_no_change", "not_checked", "blocked", "not_applicable"] },
+    "variable_matrix_state": { "type": "string", "enum": ["updated", "no_change_verified", "not_checked", "blocked", "not_applicable"] },
+    "decisions": { "type": "array", "items": { "type": "string" } },
+    "risks": { "type": "array", "items": { "type": "string" } },
+    "next_action": { "type": "string" },
+    "authority": {
+      "type": "string",
+      "enum": [
+        "evidence-only",
+        "blocked-run-record",
+        "failed-run-record",
+        "project-local-truth",
+        "accepted-current-state",
+        "candidate-for-promotion"
+      ]
+    },
+    "promotion_recommendation": { "type": "string", "enum": ["none", "defer", "candidate"] },
+    "source_paths": { "type": "array", "items": { "type": "string" } },
+    "ledger_path": { "type": "string" },
+    "sensitivity": { "type": "string", "enum": ["private", "public-safe", "mixed"] },
+    "overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["check_skipped", "reason", "risk", "accepted_by", "follow_up_required"],
+        "additionalProperties": false,
+        "properties": {
+          "check_skipped": { "type": "string" },
+          "reason": { "type": "string" },
+          "risk": { "type": "string" },
+          "accepted_by": { "type": "string" },
+          "follow_up_required": { "type": "string" }
+        }
+      }
+    },
+    "created_at": { "type": "string" }
+  }
+}
+

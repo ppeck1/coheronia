@@ -1,0 +1,79 @@
+; Engine configuration file.
+; Scaffold generated for a governed Claude Code / Fable one-shot build.
+; Main scene is a safe bootstrap placeholder and should be replaced/extended by the MVP implementation.
+
+config_version=5
+
+[application]
+
+config/name="Coheronia"
+run/main_scene="res://scenes/main/Main.tscn"
+config/features=PackedStringArray("4.6")
+config/icon="res://icon.svg"
+
+[autoload]
+
+BlockRegistry="*res://scripts/world/block_registry.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/window_width_override=1280
+window/size/window_height_override=720
+
+[input]
+
+move_left={
+"deadzone": 0.5,
+"events": [{"device": -1,"keycode": 65,"type": "InputEventKey"},{"device": -1,"keycode": 4194319,"type": "InputEventKey"}]
+}
+move_right={
+"deadzone": 0.5,
+"events": [{"device": -1,"keycode": 68,"type": "InputEventKey"},{"device": -1,"keycode": 4194321,"type": "InputEventKey"}]
+}
+jump={
+"deadzone": 0.5,
+"events": [{"device": -1,"keycode": 32,"type": "InputEventKey"}]
+}
+mine={
+"deadzone": 0.5,
+"events": [{"button_index": 1,"device": -1,"type": "InputEventMouseButton"}]
+}
+place={
+"deadzone": 0.5,
+"events": [{"button_index": 2,"device": -1,"type": "InputEventMouseButton"}]
+}
+interact={
+"deadzone": 0.5,
+"events": [{"device": -1,"keycode": 69,"type": "InputEventKey"}]
+}
+toggle_town={
+"deadzone": 0.5,
+"events": [{"device": -1,"keycode": 84,"type": "InputEventKey"}]
+}
+craft={
+"deadzone": 0.5,
+"events": [{"device": -1,"keycode": 67,"type": "InputEventKey"}]
+}
+save_game={
+"deadzone": 0.5,
+"events": [{"device": -1,"keycode": 4194336,"type": "InputEventKey"}]
+}
+load_game={
+"deadzone": 0.5,
+"events": [{"device": -1,"keycode": 4194340,"type": "InputEventKey"}]
+}
+debug_overlay={
+"deadzone": 0.5,
+"events": [{"device": -1,"keycode": 4194334,"type": "InputEventKey"}]
+}
+hotbar_1={"deadzone": 0.5,"events": [{"device": -1,"keycode": 49,"type": "InputEventKey"}]}
+hotbar_2={"deadzone": 0.5,"events": [{"device": -1,"keycode": 50,"type": "InputEventKey"}]}
+hotbar_3={"deadzone": 0.5,"events": [{"device": -1,"keycode": 51,"type": "InputEventKey"}]}
+hotbar_4={"deadzone": 0.5,"events": [{"device": -1,"keycode": 52,"type": "InputEventKey"}]}
+hotbar_5={"deadzone": 0.5,"events": [{"device": -1,"keycode": 53,"type": "InputEventKey"}]}
+hotbar_6={"deadzone": 0.5,"events": [{"device": -1,"keycode": 54,"type": "InputEventKey"}]}
+hotbar_7={"deadzone": 0.5,"events": [{"device": -1,"keycode": 55,"type": "InputEventKey"}]}
+hotbar_8={"deadzone": 0.5,"events": [{"device": -1,"keycode": 56,"type": "InputEventKey"}]}
+hotbar_9={"deadzone": 0.5,"events": [{"device": -1,"keycode": 57,"type": "InputEventKey"}]}

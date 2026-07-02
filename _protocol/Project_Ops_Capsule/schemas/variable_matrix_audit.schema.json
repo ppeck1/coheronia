@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-ops-capsule.local/schemas/variable_matrix_audit.schema.json",
+  "title": "Variable Matrix Audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "state",
+    "checked_paths",
+    "entries_added",
+    "entries_changed",
+    "entries_removed",
+    "notes",
+    "last_verified"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.2" },
+    "state": { "type": "string", "enum": ["updated", "no_change_verified", "not_checked", "blocked", "not_applicable"] },
+    "checked_paths": { "type": "array", "items": { "type": "string" } },
+    "entries_added": { "type": "integer", "minimum": 0 },
+    "entries_changed": { "type": "integer", "minimum": 0 },
+    "entries_removed": { "type": "integer", "minimum": 0 },
+    "notes": { "type": "string" },
+    "last_verified": { "type": "string" }
+  }
+}
+

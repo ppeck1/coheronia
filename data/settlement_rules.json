@@ -1,0 +1,31 @@
+{
+  "schema_version": "0.1",
+  "tick_seconds": 5.0,
+  "clamp_min": 0,
+  "clamp_max": 100,
+  "inputs": [
+    "shelter_score",
+    "light_score",
+    "stockpile_score",
+    "defense_score",
+    "damage_score",
+    "threat_score",
+    "scarcity_penalty",
+    "population_pressure"
+  ],
+  "formulas": {
+    "coherence": "shelter_score + light_score + stockpile_score - damage_score - population_pressure",
+    "load": "threat_score + scarcity_penalty + damage_score + population_pressure - light_score * 0.25",
+    "resilience": "stockpile_score + defense_score + shelter_score + light_score * 0.5 - damage_score"
+  },
+  "mvp_observables": {
+    "shelter_score": "nearby solid blocks around/above Town Hall",
+    "light_score": "torches or light sources near Town Hall/shelter zone",
+    "stockpile_score": "Town Hall stored resources",
+    "defense_score": "stone/reinforced blocks near Town Hall",
+    "damage_score": "Town Hall damage or breached shelter",
+    "threat_score": "active enemy or pressure event severity",
+    "scarcity_penalty": "low food/supply reserve",
+    "population_pressure": "population count relative to food/shelter support"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": "0.2",
+  "profile": "software_project",
+  "require_build_validation": true,
+  "require_docs_validation": true,
+  "require_variable_matrix_audit": true,
+  "notes": "Software projects should declare required, focused, smoke, and manual validation commands, even if some lists are empty."
+}
+

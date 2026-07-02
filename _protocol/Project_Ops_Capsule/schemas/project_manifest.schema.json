@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-ops-capsule.local/schemas/project_manifest.schema.json",
+  "title": "Project Ops Capsule Project Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_id",
+    "display_name",
+    "root",
+    "repo_kind",
+    "visibility",
+    "profiles",
+    "canonical_docs",
+    "validation",
+    "protected_paths",
+    "generated_paths",
+    "secrets_policy",
+    "atlas_sync",
+    "boh_sync",
+    "git_policy"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.2" },
+    "project_id": { "type": "string", "minLength": 1 },
+    "display_name": { "type": "string", "minLength": 1 },
+    "root": { "type": "string", "minLength": 1 },
+    "repo_kind": {
+      "type": "string",
+      "enum": ["software", "docs", "hybrid", "data", "unknown"]
+    },
+    "visibility": {
+      "type": "string",
+      "enum": ["private", "public", "mixed", "unknown"]
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "private_repo",
+          "public_repo",
+          "docs_only_project",
+          "software_project",
+          "sensitive_project"
+        ]
+      }
+    },
+    "canonical_docs": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "required": ["readme", "handoff", "variable_matrix"],
+      "properties": {
+        "readme": { "type": "string" },
+        "handoff": { "type": "string" },
+        "variable_matrix": { "type": "string" },
+        "current_state": { "type": "string" },
+        "architecture": { "type": "string" },
+        "operations": { "type": "string" },
+        "decisions": { "type": "string" },
+        "roadmap": { "type": "string" },
+        "consolidation_log": { "type": "string" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "focused", "smoke", "manual"],
+      "properties": {
+        "required": { "type": "array", "items": { "type": "string" } },
+        "focused": { "type": "array", "items": { "type": "string" } },
+        "smoke": { "type": "array", "items": { "type": "string" } },
+        "manual": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "protected_paths": { "type": "array", "items": { "type": "string" } },
+    "generated_paths": { "type": "array", "items": { "type": "string" } },
+    "secrets_policy": {
+      "type": "string",
+      "enum": ["names-only", "none-public", "custom"]
+    },
+    "atlas_sync": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "mode", "project_key"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "mode": { "type": "string", "enum": ["outbox", "mcp", "api", "manual", "disabled"] },
+        "project_key": { "type": "string" }
+      }
+    },
+    "boh_sync": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "mode", "authority", "project_key"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "mode": { "type": "string", "enum": ["outbox", "mcp", "api", "manual", "disabled"] },
+        "authority": { "type": "string", "enum": ["evidence-only", "governed-intake", "disabled"] },
+        "project_key": { "type": "string" }
+      }
+    },
+    "git_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["require_git", "commit_after_signable_run", "push_policy", "allow_dirty_unrelated"],
+      "properties": {
+        "require_git": { "type": "boolean" },
+        "commit_after_signable_run": { "type": "boolean" },
+        "push_policy": { "type": "string", "enum": ["never", "manual", "auto-current-branch", "auto-pr"] },
+        "allow_dirty_unrelated": { "type": "boolean" }
+      }
+    }
+  }
+}
+
