@@ -35,6 +35,21 @@ func _run() -> void:
 		and world.block_at(world.hall_info["core_cells"][0]) == "town_hall_core")
 	_check("town_hall_core_protected", not world.can_mine(world.hall_info["core_cells"][0], 99))
 
+	# --- Real input bindings (programmatic action_press below bypasses the
+	# InputMap, so verify keys/mouse are actually bound to the actions) ---
+	var unbound := ""
+	for action in ["move_left", "move_right", "jump", "mine", "place", "interact",
+			"toggle_town", "craft", "save_game", "load_game", "debug_overlay",
+			"hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4"]:
+		var has_device_event := false
+		for ev in InputMap.action_get_events(action):
+			if ev is InputEventKey or ev is InputEventMouseButton:
+				has_device_event = true
+		if not has_device_event:
+			unbound += action + " "
+	_check("input_actions_bound", unbound == "",
+		("unbound: " + unbound) if unbound != "" else "all actions have device events")
+
 	# --- Movement ---
 	var start_x := player.global_position.x
 	Input.action_press("move_right")

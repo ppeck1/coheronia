@@ -1,0 +1,36 @@
+{
+  "name": "Coheronia - game",
+  "type": "desktop",
+  "group": "Local AI Stack",
+  "tags": [
+    "godot",
+    "game",
+    "prototype",
+    "settlement"
+  ],
+  "commands": {
+    "start": "& 'B:\\dev\\Coheronia\\project.godot\\Godot_v4.6.1-stable_win64.exe' --path 'B:\\dev\\Coheronia\\coheronia_fable_oneshot_repo'",
+    "test": "C:\\Users\\peckm\\AppData\\Local\\Programs\\Python\\Python311\\python.exe scripts\\validate_repo.py",
+    "smoke": "$env:COHERONIA_SMOKE='1'; & 'B:\\dev\\Coheronia\\project.godot\\Godot_v4.6.1-stable_win64.exe' --headless --path 'B:\\dev\\Coheronia\\coheronia_fable_oneshot_repo'"
+  },
+  "ports": [],
+  "urls": [],
+  "healthcheck_urls": [],
+  "docs": {
+    "HANDOFF": "docs/HANDOFF.md",
+    "VARIABLE_MATRIX": "docs/VARIABLE_MATRIX.md",
+    "OPERATIONS": "docs/PROTOCOL_USAGE.md",
+    "ROADMAP": "docs/GAME_FEATURE_OUTLINE.md",
+    "ARCHITECTURE": "docs/MVP_VERTICAL_SLICE.md"
+  },
+  "notes": "Godot 4.6.1 playable Coheronia v0.1 vertical slice. Launches the inner repo, not the outer B:\\dev\\Coheronia wrapper.",
+  "validation": {
+    "launch": "PASSED",
+    "launch_detail": "Godot 4.6.1 headless launch/smoke path exited 0 from Codex review on 2026-07-02; Windows binary did not emit console smoke lines.",
+    "tests": "PASSED",
+    "tests_detail": "scripts/validate_repo.py returned RESULT scaffold_valid; capsule_doctor.py . --profile private_repo returned usable_with_warnings with only no git remote.",
+    "last_checked_at": "2026-07-02T11:35:26-04:00",
+    "last_checked_commit": "a6654b1",
+    "last_checked_branch": "main"
+  }
+}
