@@ -3,8 +3,8 @@ extends Node
 ## goes through GameState into the current world's file (the world is a
 ## configured simulation container: config + terrain history + state).
 
-const SAVE_VERSION := "0.4"
-const ACCEPTED_VERSIONS := ["0.4"]
+const SAVE_VERSION := "0.5"
+const ACCEPTED_VERSIONS := ["0.5", "0.4"]
 
 var world: Node2D
 var player: CharacterBody2D

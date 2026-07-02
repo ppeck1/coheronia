@@ -379,6 +379,55 @@ func _run() -> void:
 		"max_health=%.0f speed %.2f→%.2f" % [player.max_health, default_speed, player.effective_mine_speed()])
 	player.apply_character(GameState.current_character)
 
+	# --- Enemy registry and data-driven spawning (v0.5) ---
+	# Clear any threats left from earlier phases before spawning test enemies.
+	for t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(t):
+			t.queue_free()
+	await get_tree().process_frame
+
+	var enemy_reg = load("res://scripts/data/enemy_registry.gd").new()
+	_check("enemies_json_loads", enemy_reg.live_defs().size() == 3,
+		"%d live defs" % enemy_reg.live_defs().size())
+
+	var slime_node: Node = root.spawn_enemy_for_test("surface_slime")
+	_check("surface_slime_spawns", slime_node != null
+		and str(slime_node.enemy_id) == "surface_slime",
+		"id=%s" % (str(slime_node.enemy_id) if slime_node != null else "null"))
+
+	var crawler_node: Node = root.spawn_enemy_for_test("cave_crawler")
+	_check("cave_crawler_spawns", crawler_node != null
+		and str(crawler_node.enemy_id) == "cave_crawler",
+		"family=%s" % (str(crawler_node.family) if crawler_node != null else "null"))
+
+	var raider_node: Node = root.spawn_enemy_for_test("raider_basic")
+	_check("raider_basic_spawns", raider_node != null
+		and str(raider_node.enemy_id) == "raider_basic",
+		"family=%s" % (str(raider_node.family) if raider_node != null else "null"))
+
+	# Kill slime with forced 1.0 drop chance; all drops should land.
+	var inv_before: int = player.inventory.total()
+	if slime_node != null and is_instance_valid(slime_node):
+		slime_node.drop_chance_override = 1.0
+		slime_node.take_hit(99)
+	await get_tree().process_frame
+	_check("enemy_drop_on_death", player.inventory.total() > inv_before,
+		"inventory total %d→%d" % [inv_before, player.inventory.total()])
+
+	# Serialize/apply round-trip: raider_basic enemy_id must survive.
+	if crawler_node != null and is_instance_valid(crawler_node):
+		crawler_node.queue_free()
+	await get_tree().process_frame
+	var serialized_threats: Array = root.serialize_threats()
+	root.apply_threats(serialized_threats)
+	var raider_restored := false
+	for t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(t) and not t.is_queued_for_deletion() \
+				and str(t.enemy_id) == "raider_basic":
+			raider_restored = true
+	_check("save_load_enemy_id", raider_restored,
+		"raider_basic found after serialize/apply")
+
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":
 		# Frame the Town Hall and its torches so lighting/shadows are visible.

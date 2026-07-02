@@ -3,6 +3,7 @@ extends Node2D
 ## cycle and the night pressure event, and handles save/load/interact input.
 
 const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
+const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
 
 const DAY_LENGTH_SECONDS := 100.0
 const NIGHT_START := 0.65          # time_of_day fraction where night begins
@@ -21,6 +22,10 @@ const STORM_DURATION := 18.0
 const STORM_SEVERITY := 8.0
 const STORM_MAX_DPS := 3.0
 
+## Cave crawler spawning: checks every N seconds when player is underground.
+const CAVE_SPAWN_INTERVAL := 30.0
+const CAVE_CRAWLER_CAP := 2
+
 @onready var world: Node2D = $World
 @onready var player: CharacterBody2D = $Player
 @onready var town_hall: Node2D = $TownHall
@@ -37,9 +42,13 @@ var storm_active := false
 var storm_time_left := 0.0
 var _storm_rolled_today := false
 
+var _enemy_registry = null  # EnemyRegistryClass instance
+var _cave_spawn_timer := 0.0
+
 
 func _ready() -> void:
 	GameState.ensure_play_context()
+	_enemy_registry = EnemyRegistryClass.new()
 	_wire_references()
 	_wire_signals()
 	player.apply_character(GameState.current_character)
@@ -129,6 +138,7 @@ func _position_actors() -> void:
 
 func _process(delta: float) -> void:
 	_advance_time(delta)
+	_advance_cave_spawns(delta)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -218,7 +228,8 @@ func _on_nightfall() -> void:
 	else:
 		log_event("Night falls.")
 	for i in range(spawn_count):
-		_spawn_threat(i)
+		_spawn_surface_slime(i)
+	_maybe_spawn_raider()
 	hud.update_time(day_count, true, spawn_count)
 	settlement.compute()
 
@@ -301,20 +312,106 @@ func _update_population(meal: Dictionary, coherence_at_dawn: float) -> void:
 	town_hall.stockpile_changed.emit()
 
 
-func _spawn_threat(index: int) -> void:
-	var threat := SimpleThreatScene.instantiate()
-	threat.world = world
-	threat.town_hall = town_hall
-	threat.player = player
+## Spawn a surface_slime at night (replaces hardcoded night threat).
+func _spawn_surface_slime(index: int) -> void:
+	var def: Dictionary = {}
+	if _enemy_registry != null:
+		def = _enemy_registry.get_def("surface_slime")
 	var side := -1 if index % 2 == 0 else 1
 	var hall_cell: Vector2i = world.hall_info["center_cell"]
 	var spawn_x: int = hall_cell.x + side * 22
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
-	threat.position = world.cell_center(Vector2i(spawn_x, surf_y - 2))
+	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
+
+
+## Spawn a raider_basic at nightfall after day 5 or when stockpile is large.
+func _maybe_spawn_raider() -> void:
+	if _enemy_registry == null:
+		return
+	if not config().rule("darkness_increases_enemies"):
+		return
+	var stockpile_big: bool = town_hall.total_stock() >= 10
+	if day_count < 5 and not stockpile_big:
+		return
+	if randf() > 0.30 * config().difficulty("enemy"):
+		return
+	var def: Dictionary = _enemy_registry.get_def("raider_basic")
+	if def.is_empty():
+		return
+	var hall_cell: Vector2i = world.hall_info["center_cell"]
+	var side := 1 if randi() % 2 == 0 else -1
+	var spawn_x: int = hall_cell.x + side * 35
+	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
+	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
+	log_event("A raider approaches the settlement!")
+
+
+## Advance the cave crawler periodic spawn timer; spawn underground when ready.
+func _advance_cave_spawns(delta: float) -> void:
+	if _enemy_registry == null:
+		return
+	_cave_spawn_timer += delta
+	if _cave_spawn_timer < CAVE_SPAWN_INTERVAL:
+		return
+	_cave_spawn_timer = 0.0
+	# Count live cave crawlers.
+	var crawler_count := 0
+	for t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(t) and not t.is_queued_for_deletion():
+			if t.enemy_id == "cave_crawler":
+				crawler_count += 1
+	if crawler_count >= CAVE_CRAWLER_CAP:
+		return
+	# Only spawn if the player is underground (below the surface y).
+	var pcell: Vector2i = world.cell_of(player.global_position)
+	var surf_y: int = world.surface.get(pcell.x, 0)
+	if pcell.y <= surf_y:
+		return
+	# Find a nearby air cell underground for the spawn.
+	var spawn_cell := Vector2i(pcell.x + (randi() % 7 - 3), pcell.y + 1)
+	var tries := 0
+	while world.block_at(spawn_cell) != "air" and tries < 8:
+		spawn_cell.y += 1
+		tries += 1
+	if world.block_at(spawn_cell) != "air":
+		return
+	var def: Dictionary = _enemy_registry.get_def("cave_crawler")
+	if def.is_empty():
+		return
+	_spawn_enemy_at(def, world.cell_center(spawn_cell))
+	log_event("A Cave Crawler lurks in the dark below.")
+
+
+## Generic enemy spawner configured from a def dict.
+func _spawn_enemy_at(def: Dictionary, pos: Vector2) -> Node:
+	var scaling := {"density_mult": 1.0, "loot_mult": 1.0}
+	if _enemy_registry != null:
+		scaling = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
+	var threat := SimpleThreatScene.instantiate()
+	threat.world = world
+	threat.town_hall = town_hall
+	threat.player = player
+	threat.position = pos
+	threat.enemy_id = str(def.get("id", "surface_slime"))
+	threat.family = str(def.get("family", "surface"))
+	threat.drops = def.get("drops", [])
+	threat.loot_mult = float(scaling.get("loot_mult", 1.0))
 	threat.hp = threat_hp()
 	threat.hall_dps = 4.0 * config().difficulty("enemy")
 	threat.died.connect(_on_threat_died)
 	threats.add_child(threat)
+	return threat
+
+
+## Smoke-test hook: spawn one enemy by id at a deterministic test position.
+func spawn_enemy_for_test(enemy_id: String) -> Node:
+	var def: Dictionary = {}
+	if _enemy_registry != null:
+		def = _enemy_registry.get_def(enemy_id)
+	var hall_cell: Vector2i = world.hall_info.get("center_cell", Vector2i(world.width / 2, 0))
+	var spawn_x: int = hall_cell.x + 30
+	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
+	return _spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
 
 
 func _on_threat_died() -> void:
@@ -429,6 +526,7 @@ func serialize_threats() -> Array:
 				"x": threat.global_position.x,
 				"y": threat.global_position.y,
 				"hp": threat.hp,
+				"enemy_id": threat.enemy_id,
 			})
 	return out
 
@@ -437,12 +535,23 @@ func apply_threats(data: Array) -> void:
 	for threat in get_tree().get_nodes_in_group("threats"):
 		threat.queue_free()
 	for entry in data:
+		var eid: String = str(entry.get("enemy_id", "surface_slime"))
+		var def: Dictionary = {}
+		if _enemy_registry != null:
+			def = _enemy_registry.get_def(eid)
+		var scaling := {"density_mult": 1.0, "loot_mult": 1.0}
+		if _enemy_registry != null:
+			scaling = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
 		var threat := SimpleThreatScene.instantiate()
 		threat.world = world
 		threat.town_hall = town_hall
 		threat.player = player
 		threat.position = Vector2(float(entry.get("x", 0)), float(entry.get("y", 0)))
 		threat.hp = int(entry.get("hp", 3))
+		threat.enemy_id = eid
+		threat.family = str(def.get("family", "surface"))
+		threat.drops = def.get("drops", [])
+		threat.loot_mult = float(scaling.get("loot_mult", 1.0))
 		threat.died.connect(_on_threat_died)
 		threats.add_child(threat)
 
