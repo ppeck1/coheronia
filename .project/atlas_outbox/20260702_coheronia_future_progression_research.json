@@ -1,0 +1,31 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260702_coheronia_future_progression_research",
+  "project_id": "coheronia-game",
+  "project_root": ".",
+  "repo_root": ".",
+  "branch": "main",
+  "start_commit": "ede26d7",
+  "end_commit": "pending-closeout-commit-see-git-log",
+  "run_state": "SIGNABLE",
+  "started_at": "2026-07-02T14:42:00-04:00",
+  "ended_at": "2026-07-02T14:47:45-04:00",
+  "summary": "Docs-only future work-order update: added planned player XP, base levels, research domains, districts, laws/decrees, factions, world-scale expansion, threat escalation, and progression implementation phases.",
+  "scope": "Future progression/research/base-level planning only; no gameplay code changed.",
+  "validation_state": "pass",
+  "readme_state": "updated",
+  "variable_matrix_state": "no_change_needed",
+  "handoff_state": "updated",
+  "boh_sync_state": "queued",
+  "git_state": "pending_public_push",
+  "risk_level": "low",
+  "next_action": "Commit and push docs update.",
+  "ledger_path": ".project/runs/20260702_coheronia_future_progression_research.md",
+  "atlas_packet_path": ".project/atlas_outbox/20260702_coheronia_future_progression_research.json",
+  "boh_packet_path": ".project/boh_outbox/20260702_coheronia_future_progression_research.json",
+  "profiles": [
+    "public_repo",
+    "software_project"
+  ],
+  "overrides": []
+}

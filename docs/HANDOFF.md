@@ -47,6 +47,7 @@ v0.1 remains intact: playable C/L/R settlement loop with movement, mining, place
 - Project paths in old run ledgers are historical evidence. Public-facing docs have been updated to relative/generic commands.
 - `docs/FUTURE_ENEMY_DESIGN.md` is future implementation planning only. It is not live gameplay yet.
 - `docs/FUTURE_ANCESTRIES_AND_BIOMES.md` is future implementation planning only. It is not live gameplay yet.
+- `docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md` is future implementation planning only. It is not live gameplay yet.
 
 ## Next Action
 
@@ -60,5 +61,6 @@ After publication, the next design increment should choose from:
 - threat variety
 - enemy-family integration from `docs/FUTURE_ENEMY_DESIGN.md`
 - ancestry/biome integration from `docs/FUTURE_ANCESTRIES_AND_BIOMES.md`
+- progression/base/research integration from `docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`
 
-Recommended next product move: farming plus a compact crafting menu, followed by surface slime / cave crawler / raider basic integration. After that, implement ancestry data first, then Human/Dwarf/Elf/Goblin/Orc player effects, then deep ancestry underground spawn rules.
+Recommended next product move: farming plus a compact crafting menu, then a small player XP/base XP data model. After that, implement surface slime / cave crawler / raider basic, ancestry data, and the first base-level unlocks.

@@ -318,6 +318,8 @@ MVP arc:
 Spawn → find Town Hall → gather dirt/stone/wood → place torches → build shelter → deposit resources → survive one threat pulse.
 ```
 
+Future progression planning is tracked in `docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`. It defines planned player XP, base levels, research domains, districts, laws/decrees, factions, world-scale expansion, threat escalation, and implementation phases.
+
 ## 13. UI
 
 Desired UI:

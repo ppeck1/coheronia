@@ -88,6 +88,7 @@ Future design references:
 
 - `docs/FUTURE_ENEMY_DESIGN.md`: planned enemy families, bosses, loot, density, and expansion order.
 - `docs/FUTURE_ANCESTRIES_AND_BIOMES.md`: planned ancestry, biome, spawn, player-effect, and settlement-effect matrices.
+- `docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`: planned player XP, base levels, research, laws, districts, factions, and world-scale progression.
 
 These are design-confirmed/planned material and are **not integrated as live gameplay yet**.
 
