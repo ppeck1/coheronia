@@ -1,0 +1,189 @@
+{
+  "schema_version": "0.5",
+  "research_domains": [
+    {
+      "id": "craft",
+      "display_name": "Craft Research",
+      "status": "phase_d_target",
+      "inputs": [
+        "ore",
+        "wood",
+        "stone",
+        "crafted_samples",
+        "tool_use",
+        "workstation_output"
+      ],
+      "unlocks": [
+        "tools",
+        "stations",
+        "blocks",
+        "durability_upgrades",
+        "rare_recipes",
+        "tool_enchantments"
+      ]
+    },
+    {
+      "id": "survival",
+      "display_name": "Survival Research",
+      "status": "phase_d_target",
+      "inputs": [
+        "food",
+        "weather_exposure",
+        "biome_samples",
+        "medicine_plants",
+        "cold_resistance_test",
+        "poison_exposure"
+      ],
+      "unlocks": [
+        "farming",
+        "medicine",
+        "clothing",
+        "shelter_upgrades",
+        "food_preservation",
+        "biome_adaptation"
+      ]
+    },
+    {
+      "id": "military",
+      "display_name": "Military Research",
+      "status": "phase_d_target",
+      "inputs": [
+        "enemy_drops",
+        "raids_survived",
+        "damaged_walls",
+        "trophies",
+        "trap_components",
+        "defensive_analysis"
+      ],
+      "unlocks": [
+        "walls",
+        "traps",
+        "militia_gear",
+        "watchtowers",
+        "siege_defense",
+        "tactical_formations"
+      ]
+    },
+    {
+      "id": "civic",
+      "display_name": "Civic Research",
+      "status": "planned",
+      "inputs": [
+        "population",
+        "morale_data",
+        "ledgers",
+        "relics",
+        "dispute_records",
+        "heritage_objects"
+      ],
+      "unlocks": [
+        "laws",
+        "roles",
+        "legitimacy_systems",
+        "governance_upgrades",
+        "taxation",
+        "succession_rules"
+      ]
+    },
+    {
+      "id": "arcane_natural",
+      "display_name": "Arcane / Natural Research",
+      "status": "planned",
+      "inputs": [
+        "crystals",
+        "spores",
+        "rare_plants",
+        "boss_relics",
+        "ancient_artifacts",
+        "elemental_samples"
+      ],
+      "unlocks": [
+        "lights",
+        "rituals",
+        "ancestry_systems",
+        "civic_wards",
+        "enchantments",
+        "elemental_crafting"
+      ]
+    },
+    {
+      "id": "engineering",
+      "display_name": "Engineering Research",
+      "status": "planned",
+      "inputs": [
+        "gears",
+        "scrap",
+        "stone_plates",
+        "workshop_output",
+        "lever_mechanisms",
+        "pulley_systems"
+      ],
+      "unlocks": [
+        "automation",
+        "pumps",
+        "lifts",
+        "signal_towers",
+        "bridges",
+        "elaborate_machinery"
+      ]
+    },
+    {
+      "id": "boss",
+      "display_name": "Boss Research",
+      "status": "planned",
+      "inputs": [
+        "boss_trophies",
+        "special_relics",
+        "world_scars",
+        "boss_corpse_analysis",
+        "summoning_components",
+        "victory_records"
+      ],
+      "unlocks": [
+        "major_system_unlocks",
+        "region_progression",
+        "world_event_triggers",
+        "legendary_structures",
+        "destiny_perks",
+        "world_transformation"
+      ]
+    }
+  ],
+  "research_flow": [
+    {
+      "step_id": "discover",
+      "display_name": "Discover",
+      "sequence": 1,
+      "player_action": "Find enemy, biome, ruin, resource, or crisis in the world",
+      "settlement_meaning": "The world reveals a question; a research opportunity emerges"
+    },
+    {
+      "step_id": "collect",
+      "display_name": "Collect",
+      "sequence": 2,
+      "player_action": "Bring samples, drops, records, or relics home to the settlement",
+      "settlement_meaning": "The settlement can study and analyze the discovery"
+    },
+    {
+      "step_id": "support",
+      "display_name": "Support",
+      "sequence": 3,
+      "player_action": "Provide workstation, subject role, light, food, safety for research",
+      "settlement_meaning": "Research needs civilization support and infrastructure to progress"
+    },
+    {
+      "step_id": "choose",
+      "display_name": "Choose",
+      "sequence": 4,
+      "player_action": "Spend time and resources on a specific research domain",
+      "settlement_meaning": "The player and settlement steer civilization development direction"
+    },
+    {
+      "step_id": "unlock",
+      "display_name": "Unlock",
+      "sequence": 5,
+      "player_action": "Gain new recipe, law, structure, district, or ability",
+      "settlement_meaning": "Research changes future play and expands what the civilization can achieve"
+    }
+  ]
+}

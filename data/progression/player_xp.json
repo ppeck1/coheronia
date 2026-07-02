@@ -1,0 +1,186 @@
+{
+  "schema_version": "0.5",
+  "xp_types": [
+    {
+      "id": "combat",
+      "display_name": "Combat XP",
+      "sources": [
+        "enemy_defeated",
+        "raid_survived",
+        "boss_defeated",
+        "subject_defended"
+      ],
+      "unlock_direction": "Health, weapon handling, active abilities, threat control"
+    },
+    {
+      "id": "labor",
+      "display_name": "Labor XP",
+      "sources": [
+        "block_mined",
+        "block_placed",
+        "woodcutting",
+        "hauling",
+        "building",
+        "repairing"
+      ],
+      "unlock_direction": "Speed, stamina, reach, tool handling, placement efficiency"
+    },
+    {
+      "id": "survival",
+      "display_name": "Survival XP",
+      "sources": [
+        "storm_survived",
+        "night_survived",
+        "cave_trip",
+        "harsh_biome_explored",
+        "poison_resisted",
+        "cold_resisted"
+      ],
+      "unlock_direction": "Resistance, food efficiency, weather tolerance, emergency recovery"
+    },
+    {
+      "id": "civic",
+      "display_name": "Civic XP",
+      "sources": [
+        "resource_deposited",
+        "subject_fed",
+        "town_hall_repaired",
+        "crisis_resolved",
+        "subject_needs_met"
+      ],
+      "unlock_direction": "Leadership perks, morale effects, legitimacy, command radius"
+    },
+    {
+      "id": "exploration",
+      "display_name": "Exploration XP",
+      "sources": [
+        "new_depth_reached",
+        "biome_discovered",
+        "ruin_discovered",
+        "cave_discovered",
+        "boss_discovered",
+        "rare_resource_found"
+      ],
+      "unlock_direction": "Map reveal, rare-resource detection, travel bonuses, scouting"
+    },
+    {
+      "id": "craft",
+      "display_name": "Craft XP",
+      "sources": [
+        "tool_crafted",
+        "tool_upgraded",
+        "workstation_built",
+        "rare_drop_used"
+      ],
+      "unlock_direction": "Recipe quality, durability, station efficiency, experimentation"
+    }
+  ],
+  "xp_events": [
+    {
+      "event_id": "enemy_defeated",
+      "xp_type": "combat",
+      "base_amount": 10,
+      "scales_with": [
+        "enemy_tier",
+        "world_difficulty.enemy"
+      ],
+      "also_awards": {
+        "base_xp": 2
+      }
+    },
+    {
+      "event_id": "block_mined",
+      "xp_type": "labor",
+      "base_amount": 1,
+      "scales_with": [
+        "world_difficulty.economy"
+      ],
+      "also_awards": {
+        "base_xp": 1
+      }
+    },
+    {
+      "event_id": "block_placed",
+      "xp_type": "labor",
+      "base_amount": 1,
+      "scales_with": [
+        "world_difficulty.economy"
+      ],
+      "also_awards": {
+        "base_xp": 1
+      }
+    },
+    {
+      "event_id": "resource_deposited",
+      "xp_type": "civic",
+      "base_amount": 2,
+      "scales_with": [
+        "resource_value"
+      ],
+      "also_awards": {
+        "base_xp": 1
+      }
+    },
+    {
+      "event_id": "storm_survived",
+      "xp_type": "survival",
+      "base_amount": 8,
+      "scales_with": [
+        "storm_severity",
+        "world_difficulty.survival"
+      ],
+      "also_awards": {
+        "base_xp": 2
+      }
+    },
+    {
+      "event_id": "night_survived",
+      "xp_type": "survival",
+      "base_amount": 3,
+      "scales_with": [
+        "world_difficulty.survival"
+      ],
+      "also_awards": {
+        "base_xp": 1
+      }
+    },
+    {
+      "event_id": "subject_fed",
+      "xp_type": "civic",
+      "base_amount": 3,
+      "scales_with": [
+        "population"
+      ],
+      "also_awards": {
+        "base_xp": 1
+      }
+    },
+    {
+      "event_id": "tool_crafted",
+      "xp_type": "craft",
+      "base_amount": 5,
+      "scales_with": [
+        "tool_rarity"
+      ],
+      "also_awards": {
+        "base_xp": 1
+      }
+    },
+    {
+      "event_id": "new_depth_reached",
+      "xp_type": "exploration",
+      "base_amount": 6,
+      "scales_with": [
+        "depth_tier"
+      ],
+      "also_awards": {
+        "base_xp": 1
+      }
+    }
+  ],
+  "level_curve": {
+    "base": 100,
+    "growth": 1.35,
+    "formula": "xp_to_next = base * growth^(level-1)"
+  }
+}

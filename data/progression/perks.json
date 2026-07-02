@@ -1,0 +1,202 @@
+{
+  "schema_version": "0.5",
+  "perk_lanes": [
+    {
+      "id": "miner",
+      "display_name": "Miner",
+      "theme": "Deep extraction, ore sensing, tunnel safety",
+      "perks": [
+        {
+          "id": "deep_sense",
+          "display_name": "Deep Sense",
+          "effect_key": "detect_ore_range",
+          "effect_value": 1.2,
+          "xp_type_gate": "labor"
+        },
+        {
+          "id": "stone_recovery",
+          "display_name": "Stone Recovery",
+          "effect_key": "mining_speed",
+          "effect_value": 1.15,
+          "xp_type_gate": "labor"
+        },
+        {
+          "id": "tunnel_safety",
+          "display_name": "Tunnel Safety",
+          "effect_key": "cave_safety",
+          "effect_value": 1.2,
+          "xp_type_gate": "labor"
+        }
+      ]
+    },
+    {
+      "id": "builder",
+      "display_name": "Builder",
+      "theme": "Physical construction, placement reach, structural bonuses",
+      "perks": [
+        {
+          "id": "reach_extension",
+          "display_name": "Reach Extension",
+          "effect_key": "placement_reach",
+          "effect_value": 1.15,
+          "xp_type_gate": "labor"
+        },
+        {
+          "id": "quick_placement",
+          "display_name": "Quick Placement",
+          "effect_key": "placement_speed",
+          "effect_value": 1.2,
+          "xp_type_gate": "labor"
+        },
+        {
+          "id": "structural_bonus",
+          "display_name": "Structural Bonus",
+          "effect_key": "block_durability",
+          "effect_value": 1.15,
+          "xp_type_gate": "labor"
+        }
+      ]
+    },
+    {
+      "id": "warden",
+      "display_name": "Warden",
+      "theme": "Defense and combat, threat control, guard command",
+      "perks": [
+        {
+          "id": "health_boost",
+          "display_name": "Health Boost",
+          "effect_key": "max_health",
+          "effect_value": 1.2,
+          "xp_type_gate": "combat"
+        },
+        {
+          "id": "threat_mastery",
+          "display_name": "Threat Mastery",
+          "effect_key": "threat_damage",
+          "effect_value": 1.25,
+          "xp_type_gate": "combat"
+        },
+        {
+          "id": "guard_command",
+          "display_name": "Guard Command",
+          "effect_key": "guard_effectiveness",
+          "effect_value": 1.15,
+          "xp_type_gate": "combat"
+        }
+      ]
+    },
+    {
+      "id": "forager",
+      "display_name": "Forager",
+      "theme": "Food and ecology, yield, farming, rare plant sensing",
+      "perks": [
+        {
+          "id": "plant_yield",
+          "display_name": "Plant Yield",
+          "effect_key": "gathering_yield",
+          "effect_value": 1.2,
+          "xp_type_gate": "survival"
+        },
+        {
+          "id": "farm_start",
+          "display_name": "Farm Start",
+          "effect_key": "farming_speed",
+          "effect_value": 1.15,
+          "xp_type_gate": "survival"
+        },
+        {
+          "id": "rare_sensing",
+          "display_name": "Rare Sensing",
+          "effect_key": "rare_plant_detection",
+          "effect_value": 1.2,
+          "xp_type_gate": "survival"
+        }
+      ]
+    },
+    {
+      "id": "ruler",
+      "display_name": "Ruler",
+      "theme": "Governance, morale, legitimacy, base growth",
+      "perks": [
+        {
+          "id": "morale_aura",
+          "display_name": "Morale Aura",
+          "effect_key": "subject_morale",
+          "effect_value": 1.15,
+          "xp_type_gate": "civic"
+        },
+        {
+          "id": "rebellion_resistance",
+          "display_name": "Rebellion Resistance",
+          "effect_key": "rebellion_pressure",
+          "effect_value": 1.2,
+          "xp_type_gate": "civic"
+        },
+        {
+          "id": "base_xp_boost",
+          "display_name": "Base XP Boost",
+          "effect_key": "base_xp_gain",
+          "effect_value": 1.15,
+          "xp_type_gate": "civic"
+        }
+      ]
+    },
+    {
+      "id": "explorer",
+      "display_name": "Explorer",
+      "theme": "Movement and discovery, fall resistance, biome reveal",
+      "perks": [
+        {
+          "id": "fall_resistance",
+          "display_name": "Fall Resistance",
+          "effect_key": "fall_damage_reduction",
+          "effect_value": 1.2,
+          "xp_type_gate": "exploration"
+        },
+        {
+          "id": "biome_reveal",
+          "display_name": "Biome Reveal",
+          "effect_key": "map_discovery_speed",
+          "effect_value": 1.15,
+          "xp_type_gate": "exploration"
+        },
+        {
+          "id": "cave_navigation",
+          "display_name": "Cave Navigation",
+          "effect_key": "cave_speedboost",
+          "effect_value": 1.2,
+          "xp_type_gate": "exploration"
+        }
+      ]
+    },
+    {
+      "id": "artisan",
+      "display_name": "Artisan",
+      "theme": "Crafting quality, durability, station efficiency",
+      "perks": [
+        {
+          "id": "durability_craft",
+          "display_name": "Durability Craft",
+          "effect_key": "tool_durability",
+          "effect_value": 1.2,
+          "xp_type_gate": "craft"
+        },
+        {
+          "id": "station_output",
+          "display_name": "Station Output",
+          "effect_key": "station_yield",
+          "effect_value": 1.15,
+          "xp_type_gate": "craft"
+        },
+        {
+          "id": "rare_recipe_chance",
+          "display_name": "Rare Recipe Chance",
+          "effect_key": "rare_recipe_discovery",
+          "effect_value": 1.2,
+          "xp_type_gate": "craft"
+        }
+      ]
+    }
+  ],
+  "rule": "Perk lanes never hard-lock roles. Ancestry and settlement create bias only; any player can invest in any lane."
+}

@@ -20,6 +20,12 @@ REQUIRED_FILES = [
     "data/settlement_rules.json",
     "data/world_settings.json",
     "data/character_data.json",
+    "data/enemies.json",
+    "data/ancestries.json",
+    "data/progression/player_xp.json",
+    "data/progression/base_levels.json",
+    "data/progression/research_domains.json",
+    "data/progression/perks.json",
     ".project/project_manifest.json",
     ".project/ops_capsule.json",
 ]
@@ -42,6 +48,12 @@ JSON_FILES = [
     "data/settlement_rules.json",
     "data/world_settings.json",
     "data/character_data.json",
+    "data/enemies.json",
+    "data/ancestries.json",
+    "data/progression/player_xp.json",
+    "data/progression/base_levels.json",
+    "data/progression/research_domains.json",
+    "data/progression/perks.json",
     ".project/project_manifest.json",
     ".project/ops_capsule.json",
 ]
@@ -87,5 +99,71 @@ for section in ["species", "traits", "roles", "appearances"]:
     if section not in character_data:
         fail(f"character_data.json missing section: {section}")
 print("PASS character data")
+
+enemies_data = json.loads((ROOT / "data/enemies.json").read_text(encoding="utf-8"))
+for section in ["enemies", "mini_bosses", "bosses", "region_density", "difficulty_scaling", "loot_philosophy", "mvp_expansion_order"]:
+    if section not in enemies_data:
+        fail(f"enemies.json missing section: {section}")
+enemy_ids = {e["id"] for e in enemies_data["enemies"]}
+for required in ["surface_slime", "cave_crawler", "raider_basic"]:
+    if required not in enemy_ids:
+        fail(f"enemies.json missing required enemy: {required}")
+    entry = next(e for e in enemies_data["enemies"] if e["id"] == required)
+    if entry.get("status") != "live":
+        fail(f"enemies.json enemy not marked live: {required}")
+for e in enemies_data["enemies"]:
+    for field in ["id", "display_name", "family", "status", "drops"]:
+        if field not in e:
+            fail(f"enemies.json enemy {e.get('id', '?')} missing field: {field}")
+    for drop in e["drops"]:
+        if not (0.0 < drop["chance"] <= 1.0):
+            fail(f"enemies.json enemy {e['id']} drop chance out of range: {drop}")
+print("PASS enemies data")
+
+ancestries_data = json.loads((ROOT / "data/ancestries.json").read_text(encoding="utf-8"))
+ancestry_ids = {a["id"] for a in ancestries_data["ancestries"]}
+expected_ancestries = {"human", "dwarf", "deep_dwarf", "elf", "deep_elf", "orc", "goblin", "deep_goblin", "gnome", "deep_gnome", "lizardfolk", "dragonkin"}
+if ancestry_ids != expected_ancestries:
+    fail(f"ancestries.json id mismatch: {sorted(ancestry_ids ^ expected_ancestries)}")
+for a in ancestries_data["ancestries"]:
+    for field in ["id", "display_name", "spawn_band", "bones", "player_effects", "settlement_effects", "biome_affinity", "spawn", "implementation_phase"]:
+        if field not in a:
+            fail(f"ancestries.json ancestry {a.get('id', '?')} missing field: {field}")
+    for biome, mark in a["biome_affinity"].items():
+        if not isinstance(mark, int) or not (-2 <= mark <= 3):
+            fail(f"ancestries.json {a['id']} biome_affinity out of range: {biome}={mark}")
+if len(ancestries_data.get("dragonkin_types", [])) != 6:
+    fail("ancestries.json must define 6 dragonkin types")
+print("PASS ancestries data")
+
+player_xp = json.loads((ROOT / "data/progression/player_xp.json").read_text(encoding="utf-8"))
+xp_type_ids = set(player_xp["xp_types"].keys()) if isinstance(player_xp["xp_types"], dict) else {t["id"] for t in player_xp["xp_types"]}
+for ev in player_xp["xp_events"]:
+    for field in ["event_id", "xp_type", "base_amount"]:
+        if field not in ev:
+            fail(f"player_xp.json event missing field: {field}")
+    if ev["xp_type"] not in xp_type_ids:
+        fail(f"player_xp.json event {ev['event_id']} has unknown xp_type: {ev['xp_type']}")
+if "level_curve" not in player_xp:
+    fail("player_xp.json missing level_curve")
+print("PASS player xp data")
+
+base_levels = json.loads((ROOT / "data/progression/base_levels.json").read_text(encoding="utf-8"))
+levels = base_levels["base_levels"]
+if [l["level"] for l in levels] != [1, 2, 3, 4, 5, 6]:
+    fail("base_levels.json levels must be 1..6 in order")
+for l in levels:
+    for field in ["id", "display_name", "requires", "unlocks"]:
+        if field not in l:
+            fail(f"base_levels.json level {l.get('id', '?')} missing field: {field}")
+print("PASS base levels data")
+
+research = json.loads((ROOT / "data/progression/research_domains.json").read_text(encoding="utf-8"))
+if len(research["research_domains"]) != 7:
+    fail("research_domains.json must define 7 domains")
+perks = json.loads((ROOT / "data/progression/perks.json").read_text(encoding="utf-8"))
+if len(perks["perk_lanes"]) != 7:
+    fail("perks.json must define 7 perk lanes")
+print("PASS research and perks data")
 
 print("RESULT scaffold_valid")

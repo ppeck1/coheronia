@@ -1,0 +1,672 @@
+{
+  "schema_version": "0.5",
+  "enemies": [
+    {
+      "id": "surface_slime",
+      "display_name": "Surface Slime",
+      "family": "surface",
+      "status": "live",
+      "location": "Grass, ponds",
+      "density": {
+        "count_min": 1,
+        "count_max": 3,
+        "per_tiles": 100
+      },
+      "drops": [
+        {
+          "item_id": "slime_gel",
+          "chance": 0.70
+        },
+        {
+          "item_id": "wet_fiber",
+          "chance": 0.25
+        },
+        {
+          "item_id": "tiny_core",
+          "chance": 0.05
+        }
+      ],
+      "role": "Early surface nuisance, basic crafting source"
+    },
+    {
+      "id": "thornrat",
+      "display_name": "Thornrat",
+      "family": "surface",
+      "status": "planned",
+      "location": "Grasslands, farms",
+      "density": {
+        "count_min": 1,
+        "count_max": 2,
+        "per_tiles": 120
+      },
+      "drops": [
+        {
+          "item_id": "meat",
+          "chance": 0.65
+        },
+        {
+          "item_id": "thorn_quill",
+          "chance": 0.30
+        },
+        {
+          "item_id": "hide_scrap",
+          "chance": 0.05
+        }
+      ],
+      "role": "Pressures early agriculture, provides leather materials"
+    },
+    {
+      "id": "ash_wasp",
+      "display_name": "Ash Wasp",
+      "family": "surface",
+      "status": "planned",
+      "location": "Burned forest",
+      "density": {
+        "count_min": 1,
+        "count_max": 1,
+        "per_tiles": 250
+      },
+      "drops": [
+        {
+          "item_id": "wax",
+          "chance": 0.60
+        },
+        {
+          "item_id": "wings",
+          "chance": 0.35
+        },
+        {
+          "item_id": "venom",
+          "chance": 0.05
+        }
+      ],
+      "role": "Nest-based enemy in burned areas, supplies crafting materials"
+    },
+    {
+      "id": "mudling",
+      "display_name": "Mudling",
+      "family": "surface",
+      "status": "planned",
+      "location": "Swamps",
+      "density": {
+        "count_min": 1,
+        "count_max": 2,
+        "per_tiles": 150
+      },
+      "drops": [
+        {
+          "item_id": "clay",
+          "chance": 0.60
+        },
+        {
+          "item_id": "mud",
+          "chance": 0.30
+        },
+        {
+          "item_id": "reed_fiber",
+          "chance": 0.10
+        }
+      ],
+      "role": "Swamp dweller, provides construction and weaving materials"
+    },
+    {
+      "id": "hollow_stag",
+      "display_name": "Hollow Stag",
+      "family": "surface",
+      "status": "planned",
+      "location": "Deep forest",
+      "density": {
+        "count_min": 1,
+        "count_max": 1,
+        "per_tiles": 500
+      },
+      "drops": [
+        {
+          "item_id": "venison",
+          "chance": 0.70
+        },
+        {
+          "item_id": "hide",
+          "chance": 0.25
+        },
+        {
+          "item_id": "antlers",
+          "chance": 0.05
+        }
+      ],
+      "role": "Rare forest encounter, premium food and crafting source"
+    },
+    {
+      "id": "cave_crawler",
+      "display_name": "Cave Crawler",
+      "family": "underground",
+      "status": "live",
+      "location": "Early caves",
+      "density": {
+        "count_min": 2,
+        "count_max": 4,
+        "per_tiles": 100
+      },
+      "drops": [
+        {
+          "item_id": "chitin",
+          "chance": 0.65
+        },
+        {
+          "item_id": "silk",
+          "chance": 0.30
+        },
+        {
+          "item_id": "eyes",
+          "chance": 0.05
+        }
+      ],
+      "role": "Underground ambush enemy, chitin and silk source"
+    },
+    {
+      "id": "ore_tick",
+      "display_name": "Ore Tick",
+      "family": "underground",
+      "status": "planned",
+      "location": "Ore veins",
+      "density": {
+        "count_min": 1,
+        "count_max": 3,
+        "per_tiles": 100
+      },
+      "drops": [
+        {
+          "item_id": "ore_flecks",
+          "chance": 0.70
+        },
+        {
+          "item_id": "shell",
+          "chance": 0.30
+        }
+      ],
+      "role": "Ore pocket nuisance, provides metal residue"
+    },
+    {
+      "id": "lantern_leech",
+      "display_name": "Lantern Leech",
+      "family": "underground",
+      "status": "planned",
+      "location": "Cave pools",
+      "density": {
+        "count_min": 1,
+        "count_max": 2,
+        "per_tiles": 180
+      },
+      "drops": [
+        {
+          "item_id": "glow_gland",
+          "chance": 0.45
+        },
+        {
+          "item_id": "oil",
+          "chance": 0.55
+        }
+      ],
+      "role": "Cave pool dweller, provides light and fuel materials"
+    },
+    {
+      "id": "stoneback_beetle",
+      "display_name": "Stoneback Beetle",
+      "family": "underground",
+      "status": "planned",
+      "location": "Stone caverns",
+      "density": {
+        "count_min": 1,
+        "count_max": 1,
+        "per_tiles": 250
+      },
+      "drops": [
+        {
+          "item_id": "stone_plates",
+          "chance": 0.80
+        }
+      ],
+      "role": "Rare stone cavern dweller, provides construction material"
+    },
+    {
+      "id": "sporekin",
+      "display_name": "Sporekin",
+      "family": "underground",
+      "status": "planned",
+      "location": "Fungal caves",
+      "density": {
+        "count_min": 2,
+        "count_max": 5,
+        "per_tiles": 100
+      },
+      "drops": [
+        {
+          "item_id": "spores",
+          "chance": 0.65
+        },
+        {
+          "item_id": "fungal_thread",
+          "chance": 0.35
+        }
+      ],
+      "role": "Fungal cave cluster enemy, provides alchemy and crafting materials"
+    },
+    {
+      "id": "burrow_maw",
+      "display_name": "Burrow Maw",
+      "family": "underground",
+      "status": "planned",
+      "location": "Mine shafts",
+      "density": {
+        "count_min": 1,
+        "count_max": 1,
+        "per_tiles": 425
+      },
+      "drops": [
+        {
+          "item_id": "teeth",
+          "chance": 0.50
+        },
+        {
+          "item_id": "hide",
+          "chance": 0.50
+        }
+      ],
+      "role": "Rare mine shaft threat, provides bone and leather materials"
+    },
+    {
+      "id": "raider_basic",
+      "display_name": "Raider Basic",
+      "family": "raider",
+      "status": "live",
+      "location": "Raider camps and raid waves",
+      "density": {
+        "count_min": 1,
+        "count_max": 3,
+        "per_tiles": null
+      },
+      "drops": [
+        {
+          "item_id": "coins",
+          "chance": 0.75
+        },
+        {
+          "item_id": "scrap_weapons",
+          "chance": 0.40
+        }
+      ],
+      "role": "Settlement raid unit targeting player, Town Hall, or subjects"
+    },
+    {
+      "id": "raider_torchbearer",
+      "display_name": "Raider Torchbearer",
+      "family": "raider",
+      "status": "planned",
+      "location": "Raider camps and raid waves",
+      "density": {
+        "count_min": 1,
+        "count_max": 2,
+        "per_tiles": null
+      },
+      "drops": [
+        {
+          "item_id": "oil_rags",
+          "chance": 0.60
+        },
+        {
+          "item_id": "torch_heads",
+          "chance": 0.40
+        }
+      ],
+      "role": "Raider with fire attacks, supplies raid consumables"
+    },
+    {
+      "id": "raider_sapper",
+      "display_name": "Raider Sapper",
+      "family": "raider",
+      "status": "planned",
+      "location": "Raider camps and raid waves",
+      "density": {
+        "count_min": 1,
+        "count_max": 2,
+        "per_tiles": null
+      },
+      "drops": [
+        {
+          "item_id": "picks",
+          "chance": 0.50
+        },
+        {
+          "item_id": "fuse_cord",
+          "chance": 0.35
+        }
+      ],
+      "role": "Wall destruction specialist, threatens settlement defenses"
+    },
+    {
+      "id": "hungry_deserter",
+      "display_name": "Hungry Deserter",
+      "family": "raider",
+      "status": "planned",
+      "location": "Raider camps and raid waves",
+      "density": {
+        "count_min": 1,
+        "count_max": 1,
+        "per_tiles": null
+      },
+      "drops": [
+        {
+          "item_id": "coins",
+          "chance": 0.50
+        }
+      ],
+      "role": "Moral choice encounter, potential recruitment opportunity"
+    },
+    {
+      "id": "false_taxman",
+      "display_name": "False Taxman",
+      "family": "raider",
+      "status": "planned",
+      "location": "Raider camps and raid waves",
+      "density": {
+        "count_min": 1,
+        "count_max": 1,
+        "per_tiles": null
+      },
+      "drops": [
+        {
+          "item_id": "forged_seal",
+          "chance": 0.30
+        },
+        {
+          "item_id": "coins",
+          "chance": 0.85
+        }
+      ],
+      "role": "Governance event encounter, supplies authority-related items"
+    }
+  ],
+  "mini_bosses": [
+    {
+      "id": "broodmother_crawler",
+      "display_name": "Broodmother Crawler",
+      "family": "underground",
+      "status": "planned",
+      "location": "Underground nest",
+      "guaranteed_drops": [
+        {
+          "item_id": "brood_chitin",
+          "chance": 1.0
+        }
+      ],
+      "possible_drops": [
+        {
+          "item_id": "eggs",
+          "chance": 0.40
+        },
+        {
+          "item_id": "silk_bundle",
+          "chance": 0.35
+        },
+        {
+          "item_id": "brood_venom",
+          "chance": 0.25
+        },
+        {
+          "item_id": "matriarch_eye",
+          "chance": 0.15
+        },
+        {
+          "item_id": "rare_nest_core",
+          "chance": 0.08
+        }
+      ],
+      "mechanics": [
+        "Summons cave crawlers",
+        "Destroying nest reduces local spawn density"
+      ],
+      "unlocks": [
+        "Advanced chitin crafting"
+      ]
+    },
+    {
+      "id": "bandit_standard_bearer",
+      "display_name": "Bandit Standard-Bearer",
+      "family": "raider",
+      "status": "planned",
+      "location": "Organized raid formations",
+      "guaranteed_drops": [
+        {
+          "item_id": "torn_war_banner",
+          "chance": 1.0
+        }
+      ],
+      "possible_drops": [
+        {
+          "item_id": "orders",
+          "chance": 0.35
+        },
+        {
+          "item_id": "coin_pouch",
+          "chance": 0.40
+        },
+        {
+          "item_id": "fine_blade",
+          "chance": 0.25
+        },
+        {
+          "item_id": "captured_map",
+          "chance": 0.15
+        }
+      ],
+      "mechanics": [
+        "Leads organized raids",
+        "Buffs nearby raiders",
+        "Influences future raid frequency"
+      ],
+      "unlocks": [
+        "Raider recruitment"
+      ]
+    },
+    {
+      "id": "rotroot_boar",
+      "display_name": "Rotroot Boar",
+      "family": "surface",
+      "status": "planned",
+      "location": "Ancient forests",
+      "guaranteed_drops": [
+        {
+          "item_id": "rotroot_tusk",
+          "chance": 1.0
+        }
+      ],
+      "possible_drops": [
+        {
+          "item_id": "meat",
+          "chance": 0.70
+        },
+        {
+          "item_id": "hide",
+          "chance": 0.40
+        }
+      ],
+      "mechanics": [
+        "Destroys farms and fences",
+        "Agricultural threat"
+      ],
+      "unlocks": [
+        "Agricultural defenses"
+      ]
+    }
+  ],
+  "bosses": [
+    {
+      "id": "hollow_king",
+      "display_name": "The Hollow King",
+      "family": "surface",
+      "status": "planned",
+      "location": "Failed kingdom",
+      "guaranteed_drops": [
+        {
+          "item_id": "hollow_crown_fragment",
+          "chance": 1.0
+        }
+      ],
+      "possible_drops": [
+        {
+          "item_id": "royal_ledger",
+          "chance": 0.70
+        },
+        {
+          "item_id": "authority_sigil",
+          "chance": 0.60
+        },
+        {
+          "item_id": "crownstone_core",
+          "chance": 0.40
+        }
+      ],
+      "mechanics": [
+        "Summons hollow subjects",
+        "Drains morale and resources",
+        "Terrain destruction and darkness"
+      ],
+      "unlocks": [
+        "Advanced rulership systems",
+        "Civic upgrades",
+        "Governance mechanics"
+      ]
+    },
+    {
+      "id": "world_worm",
+      "display_name": "The World-Worm",
+      "family": "underground",
+      "status": "planned",
+      "location": "Deep mining",
+      "guaranteed_drops": [
+        {
+          "item_id": "worm_core",
+          "chance": 1.0
+        }
+      ],
+      "possible_drops": [
+        {
+          "item_id": "seismic_stone",
+          "chance": 0.70
+        },
+        {
+          "item_id": "tunneling_gland",
+          "chance": 0.50
+        },
+        {
+          "item_id": "geological_chart",
+          "chance": 0.30
+        }
+      ],
+      "mechanics": [
+        "Tunnel collapse",
+        "Burrowing attacks",
+        "Earthquakes"
+      ],
+      "unlocks": [
+        "Deep mining",
+        "Reinforced foundations",
+        "Advanced masonry"
+      ]
+    }
+  ],
+  "region_density": {
+    "safe_town": {
+      "min": 0,
+      "max": 1,
+      "per_tiles": 150
+    },
+    "surface_wilderness": {
+      "min": 1,
+      "max": 3,
+      "per_tiles": 100
+    },
+    "forest": {
+      "min": 2,
+      "max": 4,
+      "per_tiles": 100
+    },
+    "swamp": {
+      "min": 2,
+      "max": 5,
+      "per_tiles": 100
+    },
+    "early_cave": {
+      "min": 3,
+      "max": 6,
+      "per_tiles": 100
+    },
+    "ore_cave": {
+      "min": 4,
+      "max": 7,
+      "per_tiles": 100
+    },
+    "deep_cave": {
+      "min": 5,
+      "max": 9,
+      "per_tiles": 100
+    },
+    "raider_camp": {
+      "min": 4,
+      "max": 10,
+      "per_tiles": null
+    },
+    "early_raid": {
+      "min": 2,
+      "max": 5,
+      "per_tiles": null
+    },
+    "mid_raid": {
+      "min": 6,
+      "max": 12,
+      "per_tiles": null
+    },
+    "late_raid": {
+      "min": 12,
+      "max": 20,
+      "per_tiles": null
+    }
+  },
+  "difficulty_scaling": {
+    "peaceful": {
+      "density_mult": 0.25,
+      "loot_mult": 0.75
+    },
+    "easy": {
+      "density_mult": 0.6,
+      "loot_mult": 1.0
+    },
+    "normal": {
+      "density_mult": 1.0,
+      "loot_mult": 1.0
+    },
+    "hard": {
+      "density_mult": 1.4,
+      "loot_mult": 1.1
+    },
+    "brutal": {
+      "density_mult": 1.8,
+      "loot_mult": 1.25
+    }
+  },
+  "loot_philosophy": {
+    "common": [0.45, 1.0],
+    "uncommon": [0.15, 0.45],
+    "rare": [0.03, 0.12]
+  },
+  "mvp_expansion_order": [
+    "surface_slime",
+    "cave_crawler",
+    "raider_basic",
+    "thornrat",
+    "ore_tick",
+    "raider_torchbearer",
+    "broodmother_crawler",
+    "bandit_standard_bearer"
+  ]
+}

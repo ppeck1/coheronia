@@ -1,0 +1,232 @@
+{
+  "schema_version": "0.5",
+  "base_levels": [
+    {
+      "id": "camp",
+      "level": 1,
+      "display_name": "Camp",
+      "requires": {
+        "population": 1,
+        "shelter_score": 4
+      },
+      "unlocks": {
+        "population_cap": 2,
+        "structures": [
+          "town_hall",
+          "storage"
+        ],
+        "research_domains": [],
+        "notes": "Establishes the settlement foundation. Basic stockpile and shelter scoring begin."
+      }
+    },
+    {
+      "id": "hamlet",
+      "level": 2,
+      "display_name": "Hamlet",
+      "requires": {
+        "population": 3,
+        "food_reserve": 8,
+        "light_score": 16,
+        "shelter_score": 12
+      },
+      "unlocks": {
+        "population_cap": 8,
+        "structures": [
+          "basic_farm",
+          "fence",
+          "torch_sconce"
+        ],
+        "research_domains": [
+          "survival"
+        ],
+        "notes": "First true settlers arrive. Food stability and basic fortifications unlock."
+      }
+    },
+    {
+      "id": "village",
+      "level": 3,
+      "display_name": "Village",
+      "requires": {
+        "population": 8,
+        "food_reserve": 20,
+        "light_score": 30,
+        "shelter_score": 24,
+        "stockpile_value": 50
+      },
+      "unlocks": {
+        "population_cap": 16,
+        "structures": [
+          "workshop",
+          "research_bench",
+          "wall",
+          "improved_storage"
+        ],
+        "research_domains": [
+          "craft",
+          "civic"
+        ],
+        "notes": "Workshop and research infrastructure emerge. Civic roles and multiple districts become possible."
+      }
+    },
+    {
+      "id": "town",
+      "level": 4,
+      "display_name": "Town",
+      "requires": {
+        "population": 15,
+        "food_reserve": 40,
+        "light_score": 50,
+        "shelter_score": 40,
+        "defense_score": 20,
+        "stockpile_value": 120
+      },
+      "unlocks": {
+        "population_cap": 30,
+        "structures": [
+          "barracks",
+          "watchtower",
+          "forge",
+          "market",
+          "defensive_wall"
+        ],
+        "research_domains": [
+          "military",
+          "engineering"
+        ],
+        "notes": "Organized defense and industry emerge. Districts become spatial gameplay. Laws and militia system unlock."
+      }
+    },
+    {
+      "id": "keep",
+      "level": 5,
+      "display_name": "Keep",
+      "requires": {
+        "population": 25,
+        "food_reserve": 60,
+        "light_score": 70,
+        "shelter_score": 60,
+        "defense_score": 40,
+        "raids_survived": 3,
+        "stockpile_value": 200
+      },
+      "unlocks": {
+        "population_cap": 50,
+        "structures": [
+          "advanced_gate",
+          "stone_tower",
+          "smithy",
+          "library",
+          "shrine"
+        ],
+        "research_domains": [
+          "arcane_natural"
+        ],
+        "notes": "Fortified stronghold. Ruler systems, legitimacy mechanics, and civic upgrades enable deeper governance."
+      }
+    },
+    {
+      "id": "city_state",
+      "level": 6,
+      "display_name": "City-State",
+      "requires": {
+        "population": 40,
+        "food_reserve": 100,
+        "light_score": 100,
+        "shelter_score": 100,
+        "defense_score": 60,
+        "raids_survived": 8,
+        "stockpile_value": 400,
+        "biome_links": 2,
+        "boss_defeated": 1
+      },
+      "unlocks": {
+        "population_cap": 100,
+        "structures": [
+          "capital_hall",
+          "grand_shrine",
+          "university",
+          "royal_vault",
+          "command_tower"
+        ],
+        "research_domains": [
+          "boss"
+        ],
+        "notes": "Regional power. Factions, large raids, formal governance, and major research systems activate. World recognition unlocked."
+      }
+    }
+  ],
+  "base_xp_sources": [
+    {
+      "source_id": "stockpile_value",
+      "examples": [
+        "Food stored",
+        "Stone accumulated",
+        "Ore reserves",
+        "Wood stockpiled",
+        "Rare materials"
+      ],
+      "rationale": "Measures survival capacity and resource management."
+    },
+    {
+      "source_id": "structure_quality",
+      "examples": [
+        "Roofed hall completion",
+        "Walls constructed",
+        "Light coverage expansion",
+        "Defense infrastructure"
+      ],
+      "rationale": "Makes building matter spatially and rewards defensive construction."
+    },
+    {
+      "source_id": "population_support",
+      "examples": [
+        "Settlers fed",
+        "Settlers housed",
+        "Settlers protected",
+        "Morale maintained"
+      ],
+      "rationale": "Connects growth to responsibility and leadership."
+    },
+    {
+      "source_id": "stability_recovery",
+      "examples": [
+        "Coherence maintained over time",
+        "Load reduced after spike",
+        "Resilience improved",
+        "Crisis recovery"
+      ],
+      "rationale": "Rewards resilient design and crisis recovery over pure expansion."
+    },
+    {
+      "source_id": "events_survived",
+      "examples": [
+        "Storm weathered",
+        "Raid defended",
+        "Boss attack survived",
+        "Resource shortage overcome"
+      ],
+      "rationale": "Turns crisis recovery into progress and validates defensive strategy."
+    },
+    {
+      "source_id": "civic_milestone",
+      "examples": [
+        "First farm completed",
+        "Workshop constructed",
+        "Shrine built",
+        "Barracks established",
+        "Market opened"
+      ],
+      "rationale": "New structures push base identity and unlock systems."
+    },
+    {
+      "source_id": "biome_expansion",
+      "examples": [
+        "New biome discovered",
+        "Outpost established",
+        "Cave system explored",
+        "Biome link connected"
+      ],
+      "rationale": "Encourages world expansion and multi-region settlement development."
+    }
+  ]
+}

@@ -1,0 +1,702 @@
+{
+  "schema_version": "0.5",
+  "affinity_scale": {
+    "+++": 3,
+    "++": 2,
+    "+": 1,
+    "0": 0,
+    "-": -1,
+    "--": -2
+  },
+  "ancestries": [
+    {
+      "id": "human",
+      "display_name": "Human",
+      "spawn_band": "surface",
+      "preferred_biomes": ["plains", "forest", "riverlands", "hills"],
+      "bones": {
+        "physical": "Balanced",
+        "cultural": "Adaptable, civic",
+        "environmental": "Anywhere",
+        "innate": "Fast learning",
+        "constraint": "No specialization"
+      },
+      "player_effects": {
+        "learning_speed_mult": 1.05,
+        "diplomacy_mult": 1.05,
+        "notes": ["no terrain penalties"]
+      },
+      "settlement_effects": {
+        "civic_upgrade_speed_mult": 1.05,
+        "mixed_coherence_mult": 1.05,
+        "notes": ["better mixed-population coherence", "no terrain specialization"]
+      },
+      "biome_affinity": {
+        "plains": 2,
+        "forest": 2,
+        "ancient_forest": 1,
+        "hills": 2,
+        "mountains": 1,
+        "badlands": 1,
+        "desert": 1,
+        "swamp": 0,
+        "riverlands": 2,
+        "snow_tundra": 1,
+        "surface_ruins": 2,
+        "early_caves": 1,
+        "ore_caves": 0,
+        "fungal_caves": -1,
+        "crystal_caves": 0,
+        "deep_caverns": -1,
+        "volcanic": -1
+      },
+      "spawn": {
+        "default_spawn_type": "surface_settlement",
+        "valid_start_biomes": ["plains", "forest", "riverlands", "hills"]
+      },
+      "implementation_phase": "B",
+      "implementation_priority": 1,
+      "status": "planned"
+    },
+    {
+      "id": "dwarf",
+      "display_name": "Dwarf",
+      "spawn_band": "surface_mountain",
+      "preferred_biomes": ["mountains", "foothills", "early_caves"],
+      "bones": {
+        "physical": "Heavy, sturdy",
+        "cultural": "Industry, masonry",
+        "environmental": "Stone, ore, caves",
+        "innate": "Master Craftsman",
+        "constraint": "Slower movement, lower jump"
+      },
+      "player_effects": {
+        "hotbar_slots_bonus": 1,
+        "stone_ore_mining_mult": 1.2,
+        "move_speed_mult": 0.9,
+        "jump_mult": 0.85,
+        "notes": ["knockback resistance", "better tool durability"]
+      },
+      "settlement_effects": {
+        "stone_resilience_mult": 1.1,
+        "ore_stockpile_value_mult": 1.1,
+        "notes": ["lower food/forest efficiency"]
+      },
+      "biome_affinity": {
+        "plains": 1,
+        "forest": 0,
+        "ancient_forest": -1,
+        "hills": 2,
+        "mountains": 3,
+        "badlands": 2,
+        "desert": 0,
+        "swamp": -1,
+        "riverlands": 1,
+        "snow_tundra": 2,
+        "surface_ruins": 1,
+        "early_caves": 3,
+        "ore_caves": 3,
+        "fungal_caves": 2,
+        "crystal_caves": 2,
+        "deep_caverns": 2,
+        "volcanic": 1
+      },
+      "spawn": {
+        "default_spawn_type": "mountain_settlement",
+        "valid_start_biomes": ["foothills", "mountains", "cave_mouth"]
+      },
+      "implementation_phase": "B",
+      "implementation_priority": 2,
+      "status": "planned"
+    },
+    {
+      "id": "deep_dwarf",
+      "display_name": "Deep Dwarf",
+      "spawn_band": "underground",
+      "preferred_biomes": ["early_caves", "ore_caves", "deep_caverns"],
+      "bones": {
+        "physical": "Very sturdy, compact",
+        "cultural": "Fortress, mining clans",
+        "environmental": "Deep stone, ore",
+        "innate": "Stone Sense",
+        "constraint": "Weak surface farming/forestry"
+      },
+      "player_effects": {
+        "ore_mining_mult": 1.25,
+        "fall_damage_reduction_stone": 0.5,
+        "notes": ["better underground visibility", "reduced fall damage on stone"]
+      },
+      "settlement_effects": {
+        "underground_load_reduction": 0.8,
+        "mine_production_mult": 1.25,
+        "deep_defense_mult": 1.1,
+        "notes": ["surface settlements gain less coherence"]
+      },
+      "biome_affinity": {
+        "plains": -1,
+        "forest": -2,
+        "ancient_forest": -2,
+        "hills": 0,
+        "mountains": 2,
+        "badlands": 1,
+        "desert": -1,
+        "swamp": -1,
+        "riverlands": -1,
+        "snow_tundra": 1,
+        "surface_ruins": 0,
+        "early_caves": 3,
+        "ore_caves": 3,
+        "fungal_caves": 2,
+        "crystal_caves": 3,
+        "deep_caverns": 3,
+        "volcanic": 1
+      },
+      "spawn": {
+        "default_spawn_type": "underground_settlement",
+        "valid_start_biomes": ["early_caves", "ore_caves", "deep_caverns"]
+      },
+      "implementation_phase": "C",
+      "implementation_priority": null,
+      "status": "planned"
+    },
+    {
+      "id": "elf",
+      "display_name": "Elf",
+      "spawn_band": "surface",
+      "preferred_biomes": ["forest", "ancient_forest", "riverlands"],
+      "bones": {
+        "physical": "Agile, light",
+        "cultural": "Harmony, forestry",
+        "environmental": "Trees, animals, plants",
+        "innate": "Nature Sense",
+        "constraint": "Lower hauling/carry efficiency"
+      },
+      "player_effects": {
+        "jump_bonus": 0.15,
+        "forest_movement_mult": 1.1,
+        "fall_damage_reduction": 0.5,
+        "carry_efficiency_mult": 0.8,
+        "notes": ["higher jump", "better forest movement", "reduced fall damage", "plant detection"]
+      },
+      "settlement_effects": {
+        "tree_recovery_mult": 1.1,
+        "animal_aggression_reduction": 0.8,
+        "forest_shelter_coherence_bonus": 1.05,
+        "notes": ["stone-heavy industry adds more load"]
+      },
+      "biome_affinity": {
+        "plains": 1,
+        "forest": 3,
+        "ancient_forest": 3,
+        "hills": 1,
+        "mountains": 0,
+        "badlands": -1,
+        "desert": -1,
+        "swamp": 1,
+        "riverlands": 2,
+        "snow_tundra": 1,
+        "surface_ruins": 0,
+        "early_caves": -1,
+        "ore_caves": -2,
+        "fungal_caves": -1,
+        "crystal_caves": -1,
+        "deep_caverns": -2,
+        "volcanic": -2
+      },
+      "spawn": {
+        "default_spawn_type": "forest_settlement",
+        "valid_start_biomes": ["forest", "ancient_forest", "riverlands"]
+      },
+      "implementation_phase": "B",
+      "implementation_priority": 3,
+      "status": "planned"
+    },
+    {
+      "id": "deep_elf",
+      "display_name": "Deep Elf",
+      "spawn_band": "underground",
+      "preferred_biomes": ["crystal_caves", "fungal_caves", "deep_caverns"],
+      "bones": {
+        "physical": "Agile, precise",
+        "cultural": "Secrecy, hidden cities",
+        "environmental": "Darkness, crystals, fungi",
+        "innate": "Dark Vision",
+        "constraint": "Sunlight/bright surface penalty"
+      },
+      "player_effects": {
+        "dark_vision": true,
+        "mushroom_harvest_mult": 1.2,
+        "crystal_harvest_mult": 1.2,
+        "underground_movement_mult": 1.1,
+        "sunlight_stamina_penalty": -0.25,
+        "notes": ["dark vision", "mushroom/crystal harvest bonus", "faster underground movement", "sunlight/bright surface stamina penalty"]
+      },
+      "settlement_effects": {
+        "darkness_load_reduction": 0.85,
+        "fungal_crystal_economy_mult": 1.15,
+        "notes": ["surface daylight settlements less efficient"]
+      },
+      "biome_affinity": {
+        "plains": -1,
+        "forest": -1,
+        "ancient_forest": -1,
+        "hills": -1,
+        "mountains": 1,
+        "badlands": 0,
+        "desert": -1,
+        "swamp": 0,
+        "riverlands": -1,
+        "snow_tundra": -1,
+        "surface_ruins": 0,
+        "early_caves": 2,
+        "ore_caves": 2,
+        "fungal_caves": 3,
+        "crystal_caves": 3,
+        "deep_caverns": 3,
+        "volcanic": 0
+      },
+      "spawn": {
+        "default_spawn_type": "underground_settlement",
+        "valid_start_biomes": ["crystal_caves", "fungal_caves", "deep_caverns"]
+      },
+      "implementation_phase": "C",
+      "implementation_priority": 6,
+      "status": "planned"
+    },
+    {
+      "id": "orc",
+      "display_name": "Orc",
+      "spawn_band": "surface",
+      "preferred_biomes": ["badlands", "plains", "mountains"],
+      "bones": {
+        "physical": "Powerful, durable",
+        "cultural": "Expansion, endurance",
+        "environmental": "Harsh terrain",
+        "innate": "War Cry",
+        "constraint": "Lower stealth/diplomacy finesse"
+      },
+      "player_effects": {
+        "health_bonus": 25,
+        "stamina_endurance_mult": 1.1,
+        "tree_clearing_speed_mult": 1.15,
+        "stealth_mult": 0.8,
+        "diplomacy_mult": 0.8,
+        "notes": ["melee bonus", "stamina endurance", "faster tree clearing", "lower stealth/diplomacy finesse"]
+      },
+      "settlement_effects": {
+        "raid_fear_reduction": 0.8,
+        "militia_strength_mult": 1.1,
+        "expansion_pressure_reduction": 0.8,
+        "notes": ["diplomacy and subtle governance harder"]
+      },
+      "biome_affinity": {
+        "plains": 2,
+        "forest": 1,
+        "ancient_forest": 0,
+        "hills": 2,
+        "mountains": 3,
+        "badlands": 3,
+        "desert": 2,
+        "swamp": 1,
+        "riverlands": 1,
+        "snow_tundra": 2,
+        "surface_ruins": 2,
+        "early_caves": 1,
+        "ore_caves": 1,
+        "fungal_caves": 0,
+        "crystal_caves": 0,
+        "deep_caverns": 0,
+        "volcanic": 2
+      },
+      "spawn": {
+        "default_spawn_type": "frontier_camp",
+        "valid_start_biomes": ["badlands", "plains", "mountains"]
+      },
+      "implementation_phase": "B",
+      "implementation_priority": 5,
+      "status": "planned"
+    },
+    {
+      "id": "goblin",
+      "display_name": "Goblin",
+      "spawn_band": "surface_shallow",
+      "preferred_biomes": ["surface_ruins", "early_caves", "hills"],
+      "bones": {
+        "physical": "Small, quick",
+        "cultural": "Ingenuity, scavenging",
+        "environmental": "Salvage, traps",
+        "innate": "Scavenger",
+        "constraint": "Fragile, lower trust/coherence"
+      },
+      "player_effects": {
+        "hitbox_reduction": 0.7,
+        "trap_cost_reduction": 0.7,
+        "material_recovery_chance": 0.25,
+        "health_reduction": 0.8,
+        "notes": ["smaller hitbox", "cheaper traps", "material recovery chance", "lower health"]
+      },
+      "settlement_effects": {
+        "repair_cost_reduction": 0.7,
+        "trap_cost_reduction_settlement": 0.7,
+        "salvage_resilience_bonus": 1.1,
+        "baseline_coherence_penalty": -5,
+        "notes": ["lower baseline coherence/trust", "ruins become valuable"]
+      },
+      "biome_affinity": {
+        "plains": 1,
+        "forest": 1,
+        "ancient_forest": 0,
+        "hills": 1,
+        "mountains": 1,
+        "badlands": 2,
+        "desert": 0,
+        "swamp": 2,
+        "riverlands": 1,
+        "snow_tundra": -1,
+        "surface_ruins": 3,
+        "early_caves": 2,
+        "ore_caves": 2,
+        "fungal_caves": 2,
+        "crystal_caves": 1,
+        "deep_caverns": 1,
+        "volcanic": 0
+      },
+      "spawn": {
+        "default_spawn_type": "scrapyard_camp",
+        "valid_start_biomes": ["surface_ruins", "early_caves", "hills"]
+      },
+      "implementation_phase": "B",
+      "implementation_priority": 4,
+      "status": "planned"
+    },
+    {
+      "id": "deep_goblin",
+      "display_name": "Deep Goblin",
+      "spawn_band": "underground",
+      "preferred_biomes": ["surface_ruins", "early_caves", "ore_caves"],
+      "bones": {
+        "physical": "Small, fast crawler",
+        "cultural": "Tunnel gangs, salvage dens",
+        "environmental": "Tight caves, scrap, traps",
+        "innate": "Improvisation",
+        "constraint": "Very fragile, poor open-field defense"
+      },
+      "player_effects": {
+        "cave_crawl_speed_mult": 1.3,
+        "scrap_recovery_mult": 1.25,
+        "trap_bonus_underground": 1.2,
+        "health_reduction": 0.7,
+        "notes": ["fastest crawl/tunnel movement", "scrap bonus", "trap bonus underground", "fragile", "weak surface morale"]
+      },
+      "settlement_effects": {
+        "underground_trap_repair_mult": 1.15,
+        "abandoned_mine_reclaim_mult": 1.1,
+        "notes": ["underground traps/repairs excellent"]
+      },
+      "biome_affinity": {
+        "plains": -1,
+        "forest": -1,
+        "ancient_forest": -1,
+        "hills": 0,
+        "mountains": 1,
+        "badlands": 1,
+        "desert": -1,
+        "swamp": 1,
+        "riverlands": -1,
+        "snow_tundra": -1,
+        "surface_ruins": 2,
+        "early_caves": 3,
+        "ore_caves": 3,
+        "fungal_caves": 3,
+        "crystal_caves": 2,
+        "deep_caverns": 3,
+        "volcanic": 0
+      },
+      "spawn": {
+        "default_spawn_type": "underground_den",
+        "valid_start_biomes": ["early_caves", "ore_caves", "surface_ruins"]
+      },
+      "implementation_phase": "C",
+      "implementation_priority": null,
+      "status": "planned"
+    },
+    {
+      "id": "gnome",
+      "display_name": "Gnome",
+      "spawn_band": "surface",
+      "preferred_biomes": ["hills", "riverlands", "plains"],
+      "bones": {
+        "physical": "Small, careful",
+        "cultural": "Engineering, invention",
+        "environmental": "Hills, machines",
+        "innate": "Tinkering",
+        "constraint": "Weak melee, lower durability"
+      },
+      "player_effects": {
+        "crafting_speed_mult": 1.15,
+        "machine_cost_reduction": 0.85,
+        "trap_cost_reduction_gnome": 0.85,
+        "melee_penalty": 0.8,
+        "health_reduction": 0.85,
+        "notes": ["faster crafting", "cheaper machines/traps", "automation bonus later", "weak melee", "lower health"]
+      },
+      "settlement_effects": {
+        "workshop_cost_reduction": 0.85,
+        "automation_bonus": 1.1,
+        "notes": ["workshops, automation, civic machines cheaper", "weak militia without defenses"]
+      },
+      "biome_affinity": {
+        "plains": 2,
+        "forest": 1,
+        "ancient_forest": 1,
+        "hills": 3,
+        "mountains": 2,
+        "badlands": 0,
+        "desert": 0,
+        "swamp": -1,
+        "riverlands": 2,
+        "snow_tundra": 0,
+        "surface_ruins": 2,
+        "early_caves": 1,
+        "ore_caves": 1,
+        "fungal_caves": 0,
+        "crystal_caves": 1,
+        "deep_caverns": -1,
+        "volcanic": -1
+      },
+      "spawn": {
+        "default_spawn_type": "hill_workshop",
+        "valid_start_biomes": ["hills", "riverlands", "plains"]
+      },
+      "implementation_phase": "D",
+      "implementation_priority": null,
+      "status": "planned"
+    },
+    {
+      "id": "deep_gnome",
+      "display_name": "Deep Gnome",
+      "spawn_band": "underground",
+      "preferred_biomes": ["crystal_caves", "ore_caves", "early_caves"],
+      "bones": {
+        "physical": "Small, precise",
+        "cultural": "Automation, hidden workshops",
+        "environmental": "Crystals, mechanisms",
+        "innate": "Precision Tinkering",
+        "constraint": "Poor surface survival"
+      },
+      "player_effects": {
+        "crystal_machine_bonus": 1.15,
+        "precision_crafting_mult": 1.2,
+        "automation_bonus_deep": 1.15,
+        "surface_survival_penalty": 0.85,
+        "notes": ["crystal/machine bonus", "precision crafting", "automation bonus", "poor surface survival"]
+      },
+      "settlement_effects": {
+        "underground_automation_mult": 1.2,
+        "crystal_device_mult": 1.15,
+        "food_production_penalty": 0.85,
+        "notes": ["underground automation and crystal devices stronger", "food production harder"]
+      },
+      "biome_affinity": {
+        "plains": -1,
+        "forest": -1,
+        "ancient_forest": -1,
+        "hills": 0,
+        "mountains": 2,
+        "badlands": 0,
+        "desert": -1,
+        "swamp": -1,
+        "riverlands": -1,
+        "snow_tundra": -1,
+        "surface_ruins": 1,
+        "early_caves": 2,
+        "ore_caves": 3,
+        "fungal_caves": 2,
+        "crystal_caves": 3,
+        "deep_caverns": 3,
+        "volcanic": 0
+      },
+      "spawn": {
+        "default_spawn_type": "underground_workshop",
+        "valid_start_biomes": ["crystal_caves", "ore_caves", "early_caves"]
+      },
+      "implementation_phase": "D",
+      "implementation_priority": null,
+      "status": "planned"
+    },
+    {
+      "id": "lizardfolk",
+      "display_name": "Lizardfolk",
+      "spawn_band": "surface",
+      "preferred_biomes": ["swamp", "riverlands", "plains"],
+      "bones": {
+        "physical": "Strong, amphibious",
+        "cultural": "Survival, clans",
+        "environmental": "Water, reeds, mud",
+        "innate": "Amphibious",
+        "constraint": "Cold penalty"
+      },
+      "player_effects": {
+        "swim_speed_mult": 1.3,
+        "water_breathing": true,
+        "poison_resistance_mult": 1.25,
+        "swamp_movement_mult": 1.2,
+        "cold_food_stamina_mult": 1.2,
+        "notes": ["swim speed", "water breathing", "poison resistance", "swamp movement", "cold increases food/stamina cost"]
+      },
+      "settlement_effects": {
+        "swamp_food_economy_mult": 1.15,
+        "swamp_water_economy_mult": 1.15,
+        "poison_sickness_resistance": 0.8,
+        "cold_settlement_consumption": 1.2,
+        "notes": ["swamp food/water economy stronger", "sickness/poison pressure lower", "cold settlements consume more"]
+      },
+      "biome_affinity": {
+        "plains": 0,
+        "forest": 1,
+        "ancient_forest": 1,
+        "hills": 0,
+        "mountains": -1,
+        "badlands": -1,
+        "desert": -2,
+        "swamp": 3,
+        "riverlands": 3,
+        "snow_tundra": -2,
+        "surface_ruins": 0,
+        "early_caves": -1,
+        "ore_caves": -1,
+        "fungal_caves": 0,
+        "crystal_caves": -1,
+        "deep_caverns": -2,
+        "volcanic": -2
+      },
+      "spawn": {
+        "default_spawn_type": "wetland_camp",
+        "valid_start_biomes": ["swamp", "riverlands"]
+      },
+      "implementation_phase": "D",
+      "implementation_priority": 7,
+      "status": "planned"
+    },
+    {
+      "id": "dragonkin",
+      "display_name": "Dragonkin",
+      "spawn_band": "special",
+      "preferred_biomes": [],
+      "bones": {
+        "physical": "Large, imposing",
+        "cultural": "Pride, legacy, authority",
+        "environmental": "Elemental terrain",
+        "innate": "Breath Ability",
+        "constraint": "High food need, long cooldown"
+      },
+      "player_effects": {
+        "breath_ability": true,
+        "elemental_resistance": true,
+        "intimidation_mult": 1.15,
+        "food_need_mult": 1.3,
+        "notes": ["elemental breath", "matching resistance", "intimidation", "high food need", "long cooldown", "larger body"]
+      },
+      "settlement_effects": {
+        "ruler_legitimacy_mult": 1.2,
+        "intimidation_bonus": 1.15,
+        "food_demand_mult": 1.3,
+        "notes": ["ruler legitimacy/intimidation bonus", "elemental infrastructure later", "higher food demand and social pressure"]
+      },
+      "biome_affinity": {
+        "plains": 1,
+        "forest": 0,
+        "ancient_forest": 0,
+        "hills": 1,
+        "mountains": 2,
+        "badlands": 2,
+        "desert": 3,
+        "swamp": 3,
+        "riverlands": 1,
+        "snow_tundra": 3,
+        "surface_ruins": 1,
+        "early_caves": 2,
+        "ore_caves": 3,
+        "fungal_caves": 2,
+        "crystal_caves": 3,
+        "deep_caverns": 2,
+        "volcanic": 3
+      },
+      "biome_affinity_notes": {
+        "desert": "Fire +++ (conditional on fire dragonkin)",
+        "swamp": "Poison +++ (conditional on poison dragonkin)",
+        "snow_tundra": "Ice +++ (conditional on ice dragonkin)",
+        "early_caves": "Crystal ++ (conditional on crystal dragonkin)",
+        "ore_caves": "Crystal +++ (conditional on crystal dragonkin)",
+        "fungal_caves": "Poison ++ (conditional on poison dragonkin)",
+        "crystal_caves": "Crystal +++ (conditional on crystal dragonkin)",
+        "deep_caverns": "Crystal ++ (conditional on crystal dragonkin)",
+        "volcanic": "Fire +++ (conditional on fire dragonkin)"
+      },
+      "spawn": {
+        "default_spawn_type": "elemental_enclave",
+        "valid_start_biomes": []
+      },
+      "implementation_phase": "E",
+      "implementation_priority": 8,
+      "status": "planned"
+    }
+  ],
+  "dragonkin_types": [
+    {
+      "id": "fire",
+      "display_name": "Fire",
+      "spawn_biomes": ["volcanic", "desert"],
+      "breath": "Cone flame",
+      "resistance": "heat/fire",
+      "settlement_bias": "forge, intimidation, land clearing",
+      "constraint": "high food need, fire risk"
+    },
+    {
+      "id": "ice",
+      "display_name": "Ice",
+      "spawn_biomes": ["snow_tundra"],
+      "breath": "Frost burst",
+      "resistance": "cold",
+      "settlement_bias": "preservation, defense, slow enemies",
+      "constraint": "poor hot climates"
+    },
+    {
+      "id": "lightning",
+      "display_name": "Lightning",
+      "spawn_biomes": ["mountains"],
+      "breath": "Chain lightning",
+      "resistance": "shock/storm",
+      "settlement_bias": "power, signal towers, machinery",
+      "constraint": "unstable near water"
+    },
+    {
+      "id": "poison",
+      "display_name": "Poison",
+      "spawn_biomes": ["swamp"],
+      "breath": "Gas cloud",
+      "resistance": "poison/sickness",
+      "settlement_bias": "alchemy, disease resistance",
+      "constraint": "diplomacy penalty"
+    },
+    {
+      "id": "acid",
+      "display_name": "Acid",
+      "spawn_biomes": ["swamp", "early_caves"],
+      "breath": "Corrosion spray",
+      "resistance": "acid",
+      "settlement_bias": "siege, mining, armor break",
+      "constraint": "damages structures if careless"
+    },
+    {
+      "id": "crystal",
+      "display_name": "Crystal",
+      "spawn_biomes": ["crystal_caves"],
+      "breath": "Beam",
+      "resistance": "pressure/darkness",
+      "settlement_bias": "mining, sensing, civic prestige",
+      "constraint": "poor farming affinity"
+    }
+  ],
+  "core_rule": "deep ancestries spawn underground by default"
+}
