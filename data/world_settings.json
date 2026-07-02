@@ -1,0 +1,91 @@
+{
+  "schema_version": "0.4",
+  "sizes": {
+    "small": { "display_name": "Small", "width": 160, "height": 64, "surface_base": 26 },
+    "medium": { "display_name": "Medium", "width": 240, "height": 80, "surface_base": 30 },
+    "large": { "display_name": "Large", "width": 360, "height": 100, "surface_base": 36 }
+  },
+  "defaults": {
+    "name": "New World",
+    "size": "medium",
+    "seed": 0,
+    "preset": "custom",
+    "difficulty": {
+      "enemy": 1.0,
+      "ruler": 1.0,
+      "survival": 1.0,
+      "economy": 1.0,
+      "social": 1.0,
+      "impressionability": 1.0
+    },
+    "environment_danger": 1.0,
+    "rules": {
+      "subjects_require_food": true,
+      "subjects_require_sleep": false,
+      "sickness_enabled": false,
+      "morale_matters": false,
+      "loyalty_decays": false,
+      "rebellion_enabled": false,
+      "enemies_scale_over_time": true,
+      "ruler_pressure_grows": false,
+      "scarcity_increases": false,
+      "weather_affects_survival": true,
+      "lighting_affects_safety": true,
+      "darkness_increases_enemies": true
+    },
+    "generation": {
+      "terrain_amplitude": 1.0,
+      "terrain_frequency": 1.0,
+      "dirt_depth": 4,
+      "ore_abundance": 1.0,
+      "tree_density": 1.0,
+      "bush_density": 1.0,
+      "ore_seed_offset": 1337,
+      "tree_seed_offset": 0,
+      "bush_seed_offset": 7
+    }
+  },
+  "presets": {
+    "peaceful_builder": {
+      "display_name": "Peaceful Builder",
+      "difficulty": { "enemy": 0.0, "ruler": 0.5, "survival": 0.5, "economy": 0.75, "social": 0.5, "impressionability": 1.5 },
+      "environment_danger": 0.5,
+      "rules": { "darkness_increases_enemies": false, "weather_affects_survival": false, "enemies_scale_over_time": false },
+      "generation": { "ore_abundance": 1.5, "tree_density": 1.5, "bush_density": 1.5 }
+    },
+    "folk_kingdom": {
+      "display_name": "Folk Kingdom",
+      "difficulty": { "enemy": 1.0, "ruler": 1.0, "survival": 1.0, "economy": 1.0, "social": 1.0, "impressionability": 1.0 },
+      "environment_danger": 1.0,
+      "rules": {},
+      "generation": {}
+    },
+    "tyrants_burden": {
+      "display_name": "Tyrant's Burden",
+      "difficulty": { "enemy": 0.5, "ruler": 2.0, "survival": 1.0, "economy": 1.25, "social": 1.75, "impressionability": 0.4 },
+      "environment_danger": 1.0,
+      "rules": {},
+      "generation": {}
+    },
+    "dark_frontier": {
+      "display_name": "Dark Frontier",
+      "difficulty": { "enemy": 1.75, "ruler": 1.0, "survival": 1.25, "economy": 1.5, "social": 1.25, "impressionability": 1.0 },
+      "environment_danger": 1.5,
+      "rules": { "enemies_scale_over_time": true },
+      "generation": { "ore_abundance": 0.6, "tree_density": 0.7, "bush_density": 0.6 }
+    },
+    "mythic_survival": {
+      "display_name": "Mythic Survival",
+      "difficulty": { "enemy": 2.0, "ruler": 1.25, "survival": 2.0, "economy": 1.75, "social": 1.5, "impressionability": 0.75 },
+      "environment_danger": 2.0,
+      "rules": { "enemies_scale_over_time": true },
+      "generation": { "ore_abundance": 0.5, "tree_density": 0.6, "bush_density": 0.5 }
+    },
+    "custom": {
+      "display_name": "Custom",
+      "difficulty": {},
+      "rules": {},
+      "generation": {}
+    }
+  }
+}

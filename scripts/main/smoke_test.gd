@@ -4,6 +4,7 @@ extends Node
 ## (windowed runs only), and quits with a nonzero exit code on failure.
 
 var _results: Array = []
+var _details: Dictionary = {}
 
 
 func _ready() -> void:
@@ -12,6 +13,7 @@ func _ready() -> void:
 
 func _check(name: String, ok: bool, detail: String = "") -> void:
 	_results.append([name, ok])
+	_details[name] = detail
 	print("SMOKE %s: %s%s" % ["PASS" if ok else "FAIL", name, (" — " + detail) if detail != "" else ""])
 
 
@@ -49,6 +51,29 @@ func _run() -> void:
 			unbound += action + " "
 	_check("input_actions_bound", unbound == "",
 		("unbound: " + unbound) if unbound != "" else "all actions have device events")
+	_check("role_items_granted", player.inventory.count("dirt") >= 10,
+		"dirt=%d (homesteader start)" % player.inventory.count("dirt"))
+
+	# --- Shell persistence: characters + worlds as simulation containers ---
+	var test_char: Dictionary = GameState.create_character({
+		"name": "Smoke Tester", "role": "prospector", "traits": ["hardy"], "appearance": "ash"})
+	var df_config: Dictionary = WorldConfig.from_preset("dark_frontier")
+	df_config["name"] = "Smoke Frontier"
+	df_config["seed"] = 777
+	df_config["size"] = "small"
+	var test_world_id: String = GameState.create_world(df_config)
+	GameState.load_shell()   # force a fresh read from disk
+	var reloaded_char: Dictionary = GameState.get_character(str(test_char["id"]))
+	var reloaded_cfg := WorldConfig.new(GameState.load_world_file(test_world_id).get("config", {}))
+	_check("shell_persists_characters", not reloaded_char.is_empty()
+		and str(reloaded_char.get("role", "")) == "prospector"
+		and "hardy" in reloaded_char.get("traits", []))
+	_check("shell_persists_worlds", reloaded_cfg.difficulty("enemy") == 1.75
+		and reloaded_cfg.seed_value() == 777 and reloaded_cfg.size_id() == "small")
+	_check("presets_apply", not WorldConfig.new(
+		WorldConfig.from_preset("peaceful_builder")).rule("darkness_increases_enemies"))
+	GameState.delete_world(test_world_id)
+	GameState.delete_character(str(test_char["id"]))
 
 	# --- Movement ---
 	var start_x := player.global_position.x
@@ -177,6 +202,38 @@ func _run() -> void:
 	_check("population_caps_at_max", hall.population == root.POPULATION_MAX,
 		"pop=%d" % hall.population)
 
+	# --- Simulation rule toggles read from the world config ---
+	var rules: Dictionary = GameState.current_config.data["rules"]
+	var pop_no_rule: int = hall.population
+	var food_no_rule: int = int(hall.stockpile.get("food", 0))
+	rules["subjects_require_food"] = false
+	settlement.coherence = 10.0
+	root.consume_daily_food()
+	_check("food_rule_toggle", hall.population == pop_no_rule
+		and int(hall.stockpile.get("food", 0)) == food_no_rule,
+		"no eating or starvation when feeding disabled")
+	rules["subjects_require_food"] = true
+	rules["weather_affects_survival"] = false
+	var storm_started: bool = root.force_storm()
+	_check("weather_rule_toggle", not storm_started and not root.storm_active)
+	rules["weather_affects_survival"] = true
+	rules["darkness_increases_enemies"] = false
+	_check("darkness_rule_toggle", root.night_spawn_count() == 0)
+	rules["darkness_increases_enemies"] = true
+	var diff: Dictionary = GameState.current_config.data["difficulty"]
+	diff["enemy"] = 2.0
+	var hard_count: int = root.night_spawn_count()
+	var hard_hp: int = root.threat_hp()
+	diff["enemy"] = 1.0
+	_check("enemy_difficulty_scales", hard_count > root.night_spawn_count()
+		and hard_hp == 6 and root.threat_hp() == 3,
+		"count %d vs %d, hp %d vs 3" % [hard_count, root.night_spawn_count(), hard_hp])
+	diff["impressionability"] = 2.0
+	var easy_threshold: float = root.growth_threshold()
+	diff["impressionability"] = 1.0
+	_check("impressionability_scales", easy_threshold < root.growth_threshold(),
+		"threshold %.0f vs %.0f" % [easy_threshold, root.growth_threshold()])
+
 	# --- Lantern (ore sink) crafted at the Town Hall ---
 	player.inventory.add("ore", 2)
 	player.inventory.add("wood", 1)
@@ -281,6 +338,47 @@ func _run() -> void:
 
 	player.set_physics_process(true)
 
+	# --- World size + per-block seed variation (regenerates terrain; the
+	# live state was already saved above and is restored afterwards) ---
+	var original_config: WorldConfig = GameState.current_config
+	GameState.current_config = WorldConfig.new({"size": "small"})
+	world.setup(777)
+	_check("world_size_setting", world.width == 160 and world.height == 64,
+		"%dx%d" % [world.width, world.height])
+	GameState.current_config = WorldConfig.new({"generation": {"ore_abundance": 2.0}})
+	world.setup(777)
+	var ore_rich: int = _count_blocks(world, "ore")
+	GameState.current_config = WorldConfig.new({"generation": {"ore_abundance": 0.0}})
+	world.setup(777)
+	var ore_none: int = _count_blocks(world, "ore")
+	_check("ore_abundance_setting", ore_rich > 0 and ore_none == 0,
+		"rich=%d none=%d" % [ore_rich, ore_none])
+	GameState.current_config = WorldConfig.new({"generation": {"ore_seed_offset": 9999}})
+	world.setup(777)
+	var ore_cells_alt: Array = _block_cells(world, "ore")
+	GameState.current_config = WorldConfig.new({})
+	world.setup(777)
+	var ore_cells_default: Array = _block_cells(world, "ore")
+	_check("per_block_seed_variation", ore_cells_alt.size() > 0
+		and ore_cells_default.size() > 0 and ore_cells_alt != ore_cells_default,
+		"offset-9999 veins=%d default veins=%d (layouts differ)" % [
+			ore_cells_alt.size(), ore_cells_default.size()])
+	GameState.current_config = WorldConfig.new(
+		{"generation": {"tree_density": 0.0, "bush_density": 0.0}})
+	world.setup(777)
+	_check("density_settings", _count_blocks(world, "wood") == 0
+		and _count_blocks(world, "berry_bush") == 0)
+	GameState.current_config = original_config
+	_check("world_restored_after_config_tests", root.load_game())
+
+	# --- Character traits/roles affect the player ---
+	var default_speed: float = player.effective_mine_speed()
+	player.apply_character({"appearance": "umber", "traits": ["hardy", "miner"], "role": "warden"})
+	_check("character_traits_apply", absf(player.max_health - 140.0) < 0.01
+		and player.effective_mine_speed() > default_speed * 1.19,
+		"max_health=%.0f speed %.2f→%.2f" % [player.max_health, default_speed, player.effective_mine_speed()])
+	player.apply_character(GameState.current_character)
+
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":
 		# Frame the Town Hall and its torches so lighting/shadows are visible.
@@ -295,12 +393,29 @@ func _run() -> void:
 		print("SMOKE screenshot saved to user://smoke_screenshot.png")
 
 	var failed := 0
+	var failed_names: Array = []
 	for r in _results:
 		if not r[1]:
 			failed += 1
+			failed_names.append(r[0])
+	_write_result_file(failed, failed_names)
 	print("SMOKE RESULT: %s (%d/%d passed)" % [
 		"PASS" if failed == 0 else "FAIL", _results.size() - failed, _results.size()])
 	get_tree().quit(0 if failed == 0 else 1)
+
+
+func _write_result_file(failed: int, failed_names: Array) -> void:
+	var file := FileAccess.open("user://smoke_results.json", FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(JSON.stringify({
+		"result": "PASS" if failed == 0 else "FAIL",
+		"passed": _results.size() - failed,
+		"total": _results.size(),
+		"failed": failed_names,
+		"details": _details,
+		"timestamp": Time.get_datetime_string_from_system(),
+	}, "  "))
 
 
 func _mine_cell(world: Node2D, player: CharacterBody2D, cell: Vector2i) -> int:
@@ -313,6 +428,23 @@ func _mine_cell(world: Node2D, player: CharacterBody2D, cell: Vector2i) -> int:
 			return frames
 		await get_tree().process_frame
 	return frames
+
+
+func _count_blocks(world: Node2D, block_id: String) -> int:
+	var count := 0
+	for cell in world.cells:
+		if world.cells[cell] == block_id:
+			count += 1
+	return count
+
+
+func _block_cells(world: Node2D, block_id: String) -> Array:
+	var out: Array = []
+	for cell in world.cells:
+		if world.cells[cell] == block_id:
+			out.append(cell)
+	out.sort()
+	return out
 
 
 ## Finds a mineable cell of the given type, preferring cells away from the hall.

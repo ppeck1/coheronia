@@ -1,11 +1,12 @@
 extends Node
-## Autoload singleton. Single authority for data-driven definitions loaded
-## from data/blocks.json, data/recipes.json, and data/settlement_rules.json.
+## Autoload singleton. Single authority for data-driven JSON definitions.
 
 var tile_size: int = 16
 var blocks: Dictionary = {}
 var recipes: Array = []
 var settlement_rules: Dictionary = {}
+var world_settings: Dictionary = {}
+var character_data: Dictionary = {}
 
 
 func _ready() -> void:
@@ -18,8 +19,33 @@ func _load_all() -> void:
 	blocks = block_data.get("blocks", {})
 	recipes = _load_json("res://data/recipes.json").get("recipes", [])
 	settlement_rules = _load_json("res://data/settlement_rules.json")
+	world_settings = _load_json("res://data/world_settings.json")
+	character_data = _load_json("res://data/character_data.json")
 	if blocks.is_empty():
 		push_error("BlockRegistry: no blocks loaded from data/blocks.json")
+
+
+func trait_effects(trait_ids: Array) -> Dictionary:
+	var combined := {}
+	for trait_def in character_data.get("traits", []):
+		if trait_def.get("id", "") in trait_ids:
+			for key in trait_def.get("effects", {}):
+				combined[key] = trait_def["effects"][key]
+	return combined
+
+
+func role_def(role_id: String) -> Dictionary:
+	for role in character_data.get("roles", []):
+		if role.get("id", "") == role_id:
+			return role
+	return {}
+
+
+func appearance_def(appearance_id: String) -> Dictionary:
+	for appearance in character_data.get("appearances", []):
+		if appearance.get("id", "") == appearance_id:
+			return appearance
+	return {"body": "ebd48c", "trim": "59402e"}
 
 
 func _load_json(path: String) -> Dictionary:

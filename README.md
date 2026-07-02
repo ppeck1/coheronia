@@ -1,18 +1,54 @@
-# Coheronia — v0.1 Playable Vertical Slice
+# Coheronia - v0.4 Persistent Shell Prototype
 
-Coheronia is a Godot 4 2D side-view survival settlement sandbox. The player physically reshapes terrain while indirectly managing a settlement through three systemic pressures: **Coherence / Load / Resilience**.
+Coheronia is a Godot 4 side-view survival settlement sandbox. The player reshapes terrain directly while managing a settlement through three systemic pressures: **Coherence / Load / Resilience**.
 
-Current state: **v0.3 implemented and verified** (Godot 4.6.1). The C/L/R settlement loop is connected to actual world state: shelter blocks, torch light, stockpile, defense blocks, hall damage, threats, scarcity, and population pressure around the Town Hall all feed the HUD bars.
+Current state: **v0.4 implemented and closed out** on Godot 4.6.1. The project now launches into a persistent outer shell for characters, worlds, saves, and simulation settings. Each world is a configured simulation container: terrain seed, world size, generation variation, difficulty axes, rule toggles, save state, and summary metadata live together in `user://worlds/<id>.json`.
 
-- v0.2 added tool-tier progression (forge a tier-2 pick at the Town Hall to mine ore and mine faster), the food loop (berry bushes → food → settlers eat at dawn), per-tile light occlusion, and threat persistence in saves.
-- v0.3 adds **berry regrowth** (bushes regrow ~90 s after harvest), **dynamic population** (settlers arrive when the settlement is coherent and food-rich, leave when starved; population drives food need and pressure), a **storm event** (daytime hazard that damages the hall unless you build a roof over it), **lanterns** (2 ore + 1 wood at the Town Hall; brighter than torches, hotbar slot 5), and UX polish (mining progress at the cursor, active-threat warning, save-availability hint).
+## Version Highlights
 
-## Running the game
+- v0.1: playable C/L/R vertical slice with movement, mining, block placement, torches, Town Hall stockpile, pressure events, HUD, and F5/F9 save/load.
+- v0.2: tool-tier progression, ore gating, food loop, berry bushes, light occlusion, and threat persistence.
+- v0.3: berry regrowth, dynamic population 1-8, storm hazard with roof mitigation, lanterns, and UX polish.
+- v0.4: persistent shell, character creation/selection, world creation/selection, world size, presets, six difficulty axes, simulation rule toggles, per-block-type seed variation, and per-world save files.
 
-1. Open this folder as a project in Godot 4.6+ (tested with 4.6.1).
-2. Run the main scene (`res://scenes/main/Main.tscn`, set as the project main scene).
+## The Shell
 
-Or from a terminal:
+The configured main scene is `res://scenes/shell/Shell.tscn`.
+
+On launch:
+
+1. Choose **Continue**, **Play**, or **Quit**.
+2. Select or create a character.
+3. Select or create a world.
+4. Enter the playable settlement scene.
+
+Character creation currently supports name, species, appearance, traits, and role/background. Species is intentionally future-facing: only human is available now, but the data model leaves room for species abilities, needs modifiers, social effects, lifespans, weaknesses, and faction reactions.
+
+World creation supports:
+
+- world name
+- world size: small, medium, large
+- seed, with 0 meaning random
+- presets: Peaceful Builder, Folk Kingdom, Tyrant's Burden, Dark Frontier, Mythic Survival, Custom
+- difficulty axes: enemy, ruler, survival, economy, social, subject impressionability
+- environment danger
+- generation controls: terrain amplitude/frequency, dirt depth, ore/tree/bush density, and independent ore/tree/bush seed channels
+- simulation rules: food requirements, weather survival, lighting safety, darkness threat, enemy time scaling, plus reserved future social/survival toggles
+
+Persistence lives in:
+
+```text
+user://shell.json
+user://worlds/<id>.json
+```
+
+Esc in-game saves the current world and returns to the shell.
+
+## Running
+
+Open this folder as a Godot 4.6+ project and run the configured main scene.
+
+From PowerShell:
 
 ```powershell
 & <path-to-godot-4.6> --path <this-repo-root>
@@ -24,73 +60,95 @@ Or from a terminal:
 |---|---|
 | Move | A/D or arrow keys |
 | Jump | Space |
-| Mine (hold) | Left mouse button |
-| Place selected block | Right mouse button |
-| Select hotbar slot | 1–5 |
-| Interact with Town Hall (open/close panel) | E (or T) |
-| Craft torch (1 wood + 1 stone → 3 torches) | C |
+| Mine / hit threat | Hold left mouse |
+| Place selected block | Right mouse |
+| Select hotbar slot | 1-5 |
+| Interact with Town Hall | E or T |
+| Craft torch | C |
 | Save | F5 |
 | Load | F9 |
-| Debug overlay (raw C/L/R inputs) | F3 |
+| Debug overlay | F3 |
+| Save and return to shell | Esc |
 
-## The loop
+## Play Loop
 
-Spawn near the Town Hall → mine dirt/wood/stone (harder blocks take longer) and berry bushes for food (they regrow in ~90 s) → place blocks to shelter the hall, including a **roof**: storms roll in some days and damage the hall wherever it lacks overhead cover → place torches for light (walls block light, so caves need torches) → deposit resources at the hall (E → Deposit) → forge the tier-2 pick (3 wood + 5 stone) to mine ore and mine ~50% faster, then craft lanterns (2 ore + 1 wood) for brighter light → keep food stocked: settlers eat ⌈population/2⌉ food at every dawn; a fed, coherent settlement attracts new settlers (up to 8), a starved one loses them (down to 1) → watch Coherence/Load/Resilience react → survive the night pressure event (slimes approach the hall and gnaw it; walls block them, light reduces how many spawn, and you can whack them with the mine action) → repair the hall with stockpiled stone → repeat.
+Spawn near the Town Hall, mine dirt/wood/stone, gather food from berry bushes, place blocks and torches, shelter the hall, deposit resources, forge the tier-2 pick, mine ore, craft lanterns, feed the settlement, survive night threats, roof against storms, repair damage, and repeat. C/L/R bars are computed from real world state, not decorative values.
 
 ## Architecture
 
 ```text
-scenes/main/Main.tscn            root scene wiring all instances
-scenes/world/World.tscn          block grid + TileMapLayer + torch lights
-scenes/player/Player.tscn        movement, mining, placement, crafting
-scenes/settlement/TownHall.tscn  stockpile, damage, repair, population
-scenes/ui/HUD.tscn               code-built HUD (bars, log, town panel)
-scenes/entities/SimpleThreat.tscn night slime
-scripts/main/game_root.gd        orchestration, day/night, threat event
-scripts/main/smoke_test.gd       automated acceptance test (COHERONIA_SMOKE=1)
-scripts/world/block_registry.gd  autoload; loads data/*.json (authoritative)
-scripts/world/world_gen.gd       seeded terrain generation
-scripts/world/world.gd           grid, mining/placement API, terrain deltas
-scripts/inventory/inventory.gd   stackable counts
-scripts/settlement/settlement_model.gd  C/L/R from world state (formulas
-                                 evaluated from data/settlement_rules.json)
-scripts/save/save_manager.gd     F5/F9 JSON persistence in user://
+scenes/shell/Shell.tscn          persistent shell entrypoint
+scripts/shell/shell_ui.gd        title, character, and world screens
+scripts/shell/game_state.gd      autoload: profile, characters, worlds
+scripts/shell/world_config.gd    per-world simulation rules and defaults
+scenes/main/Main.tscn            playable scene root
+scripts/main/game_root.gd        day/night, storms, threats, population, flow
+scripts/main/smoke_test.gd       automated acceptance smoke test
+scenes/world/World.tscn          grid, TileMapLayer, lights
+scripts/world/world.gd           mining, placement, deltas, regrowth
+scripts/world/world_gen.gd       config-driven deterministic generation
+scripts/world/block_registry.gd  data authority autoload
+scripts/player/player.gd         movement, mining, placement, traits
+scripts/save/save_manager.gd     per-world state collection/application
+scripts/settlement/*.gd          Town Hall and C/L/R model
+scripts/ui/hud.gd                code-built HUD
 ```
 
-Block behavior (hardness, drops, light, tags) comes from `data/blocks.json`; recipes from `data/recipes.json`; C/L/R formulas, tick rate, and clamps from `data/settlement_rules.json`.
+Data authorities:
+
+- `data/blocks.json`: block behavior, drops, light, tags
+- `data/recipes.json`: craft/forge recipes
+- `data/settlement_rules.json`: C/L/R formulas, clamps, tick rate
+- `data/world_settings.json`: sizes, defaults, presets, difficulty/rule/generation defaults
+- `data/character_data.json`: species, traits, roles, appearances
 
 ## Validation
 
 ```powershell
 python scripts/validate_repo.py
-python B:\Projects\LLM_Modules\Project_Ops_Capsule\scripts\capsule_doctor.py . --profile private_repo
+python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile public_repo
 ```
 
-Automated acceptance smoke test (47 checks — input bindings, movement, mining timing, tool-tier forge/gating, food loop + regrowth, population dynamics and bounds, lantern crafting, placement, torch light + occlusion, storm damage + roof mitigation, deposit, C/L/R reaction, threat event, save/load round trip incl. threat/storm/regrow persistence; saves a screenshot in windowed runs):
+Automated smoke:
 
 ```powershell
 $env:COHERONIA_SMOKE = "1"
-& <path-to-godot-4.6> --path <this-repo-root>          # windowed, with screenshot
-& <path-to-godot-4.6> --headless --path <this-repo-root>  # headless
+& <path-to-godot-4.6> --path <this-repo-root>
 ```
 
-Exit code 0 = all checks passed.
+When using the Windows GUI Godot binary from a non-interactive shell, prefer:
 
-## Known limitations (v0.3)
+```powershell
+$env:COHERONIA_SMOKE = "1"
+Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-repo-root>") -Wait
+```
+
+The smoke test exercises the real gameplay path and currently contains 62 checks covering shell persistence, world config, input bindings, movement, mining, tool tiers, food/regrowth, population, rule toggles, difficulty scaling, lanterns, C/L/R reactions, storm mitigation, threat persistence, save/load, world size, per-block seed variation, density controls, and character trait effects.
+
+In addition to console `SMOKE` lines, it writes:
+
+```text
+user://smoke_results.json
+user://smoke_screenshot.png   # windowed runs only
+```
+
+## Known Limitations
 
 - Placeholder art: colored tiles and `_draw()` rectangles; no animation or audio.
-- Population is an abstract number (1–8); settlers are not simulated as NPCs.
-- Two hazards (night slime, daytime storm); the slime has trivial movement (walk + hop), no pathfinding.
-- Single save slot (`user://coheronia_save.json`). Save version 0.3; v0.1/v0.2 saves still load (new state simply absent).
-- Torch crafting is hotkey-only (C); pick and lantern are crafted via the Town Hall panel. No general crafting menu.
-- World is finite (240×80 tiles) with a single surface biome.
+- Population is still abstract; settlers are not simulated as NPCs.
+- Two hazards exist: night slime and daytime storm. Slime movement is simple walk/hop, with no pathfinding.
+- Pre-v0.4 standalone saves at `user://coheronia_save.json` are not migrated into the new shell world files.
+- Several rule toggles are reserved for future systems: sleep, sickness, morale, loyalty decay, rebellion, ruler pressure growth, and scarcity growth.
+- Social difficulty is stored but not yet consumed by a social simulation.
+- A character entering a world last played by another character inherits that world's player state; traits and appearance come from the entering character.
+- Terrain is finite, up to 360 x 100 tiles, with one surface biome.
 
 ## Protocol
 
-This repo is governed by the Project Ops Capsule (`.project/`, `_protocol/Project_Ops_Capsule/`):
+This repo includes the Project Ops Capsule under `.project/` and `_protocol/Project_Ops_Capsule/`.
 
 ```text
 Every run records evidence; only signable runs update accepted truth.
 ```
 
-Run ledgers live in `.project/runs/`; Atlas/BOH outbox packets in `.project/atlas_outbox/` and `.project/boh_outbox/`. Do not mutate `reference/g1v5/` or `_protocol/Project_Ops_Capsule/`. Do not push to GitHub automatically.
+Run ledgers live in `.project/runs/`. Atlas/BOH packets live in `.project/atlas_outbox/` and `.project/boh_outbox/`.

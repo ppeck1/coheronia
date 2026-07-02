@@ -19,6 +19,14 @@ var max_health := 100.0
 var tool_tier := 1
 var base_mine_speed := 1.0
 var inventory := InventoryData.new()
+
+# Character-driven modifiers (see data/character_data.json).
+var body_color := Color(0.92, 0.83, 0.55)
+var trim_color := Color(0.35, 0.25, 0.18)
+var trait_mine_mult := 1.0
+var reach_bonus := 0.0
+var bush_bonus_food := 0
+var growth_threshold_delta := 0.0
 var hotbar: Array[String] = ["dirt", "wood", "stone", "torch", "lantern"]
 var selected_slot := 0
 
@@ -31,6 +39,28 @@ var _hurt_cooldown := 0.0
 
 func selected_item() -> String:
 	return hotbar[selected_slot]
+
+
+## Applies a shell character (appearance, traits, role effects) to this
+## player. Called by game_root before the world starts.
+func apply_character(character: Dictionary) -> void:
+	var appearance: Dictionary = BlockRegistry.appearance_def(str(character.get("appearance", "tan")))
+	body_color = Color.from_string("#" + str(appearance.get("body", "ebd48c")), body_color)
+	trim_color = Color.from_string("#" + str(appearance.get("trim", "59402e")), trim_color)
+	var effects: Dictionary = BlockRegistry.trait_effects(character.get("traits", []))
+	var role: Dictionary = BlockRegistry.role_def(str(character.get("role", "")))
+	for key in role.get("effects", {}):
+		if key.ends_with("_bonus"):
+			effects[key] = float(effects.get(key, 0.0)) + float(role["effects"][key])
+		else:
+			effects[key] = role["effects"][key]
+	max_health = 100.0 + float(effects.get("max_health_bonus", 0.0))
+	health = minf(health, max_health)
+	trait_mine_mult = float(effects.get("mine_speed_mult", 1.0))
+	reach_bonus = float(effects.get("reach_bonus", 0.0))
+	bush_bonus_food = int(effects.get("bush_bonus_food", 0))
+	growth_threshold_delta = float(effects.get("growth_threshold_delta", 0.0))
+	queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
@@ -87,6 +117,8 @@ func process_mining(cell: Vector2i, delta: float) -> bool:
 	var block_id: String = world.block_at(cell)
 	var drops: Dictionary = world.break_block(cell)
 	inventory.add_many(drops)
+	if block_id == "berry_bush" and bush_bonus_food > 0:
+		inventory.add("food", bush_bonus_food)
 	_reset_mining()
 	inventory_changed.emit()
 	mined.emit(block_id, drops)
@@ -107,9 +139,9 @@ func try_place(cell: Vector2i, block_id: String) -> bool:
 	return true
 
 
-## Better picks mine faster: +50% speed per tier above 1.
+## Better picks mine faster: +50% speed per tier above 1; traits multiply.
 func effective_mine_speed() -> float:
-	return base_mine_speed * (1.0 + 0.5 * float(tool_tier - 1))
+	return base_mine_speed * trait_mine_mult * (1.0 + 0.5 * float(tool_tier - 1))
 
 
 func craft(recipe_id: String) -> bool:
@@ -160,7 +192,7 @@ func _reset_mining() -> void:
 
 func _in_reach(cell: Vector2i) -> bool:
 	var t: float = float(world.tile_size())
-	return global_position.distance_to(world.cell_center(cell)) <= REACH_TILES * t
+	return global_position.distance_to(world.cell_center(cell)) <= (REACH_TILES + reach_bonus) * t
 
 
 func _cell_overlaps_body(cell: Vector2i) -> bool:
@@ -181,9 +213,9 @@ func _try_hit_threat(at: Vector2) -> bool:
 
 
 func _draw() -> void:
-	# Placeholder body.
-	draw_rect(Rect2(-6, -14, 12, 28), Color(0.92, 0.83, 0.55))
-	draw_rect(Rect2(-4, -12, 8, 6), Color(0.35, 0.25, 0.18))
+	# Placeholder body in the character's appearance colors.
+	draw_rect(Rect2(-6, -14, 12, 28), body_color)
+	draw_rect(Rect2(-4, -12, 8, 6), trim_color)
 	# Mining target highlight with progress fill at the cursor.
 	if world != null and Input.is_action_pressed("mine") and mine_required > 0.0:
 		var t: float = float(world.tile_size())

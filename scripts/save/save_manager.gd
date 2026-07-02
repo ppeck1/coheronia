@@ -1,10 +1,10 @@
 extends Node
-## F5/F9 save/load. Persists seed + terrain deltas, player state, inventory,
-## Town Hall stockpile/damage, and time/pressure state as JSON in user://.
+## F5/F9 save/load. Builds/applies the simulation state dict; persistence
+## goes through GameState into the current world's file (the world is a
+## configured simulation container: config + terrain history + state).
 
-const SAVE_PATH := "user://coheronia_save.json"
-const SAVE_VERSION := "0.3"
-const ACCEPTED_VERSIONS := ["0.1", "0.2", "0.3"]
+const SAVE_VERSION := "0.4"
+const ACCEPTED_VERSIONS := ["0.4"]
 
 var world: Node2D
 var player: CharacterBody2D
@@ -12,9 +12,10 @@ var town_hall: Node2D
 var game_root: Node
 
 
-func save_game() -> bool:
-	var state := {
+func collect_state() -> Dictionary:
+	return {
 		"save_version": SAVE_VERSION,
+		"character_id": str(GameState.current_character.get("id", "")),
 		"world_seed": world.world_seed,
 		"terrain_deltas": world.serialize_deltas(),
 		"player": {
@@ -30,28 +31,29 @@ func save_game() -> bool:
 		"threats": game_root.serialize_threats(),
 		"bush_regrow": world.serialize_bush_regrow(),
 	}
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file == null:
-		push_error("SaveManager: cannot open %s for writing" % SAVE_PATH)
-		return false
-	file.store_string(JSON.stringify(state, "  "))
-	return true
+
+
+func save_game() -> bool:
+	return GameState.save_current_world_state(collect_state(), game_root.summary())
 
 
 func has_save() -> bool:
-	return FileAccess.file_exists(SAVE_PATH)
+	return not GameState.get_current_state().is_empty()
 
 
 func load_game() -> bool:
-	if not has_save():
+	var state: Dictionary = GameState.get_current_state()
+	if state.is_empty():
 		return false
-	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if file == null:
+	if not apply_state(state):
 		return false
-	var state = JSON.parse_string(file.get_as_text())
-	if not state is Dictionary:
-		push_error("SaveManager: save file did not parse")
-		return false
+	apply_player_position(state)
+	return true
+
+
+## Rebuilds the world/simulation from a state dict. Player position is
+## applied separately so the fresh-boot path can keep the default spawn.
+func apply_state(state: Dictionary) -> bool:
 	if str(state.get("save_version", "")) not in ACCEPTED_VERSIONS:
 		push_error("SaveManager: unsupported save version")
 		return false
@@ -61,8 +63,6 @@ func load_game() -> bool:
 		world.parse_bush_regrow(state.get("bush_regrow", {})))
 
 	var p: Dictionary = state.get("player", {})
-	player.global_position = Vector2(float(p.get("x", 0)), float(p.get("y", 0)))
-	player.velocity = Vector2.ZERO
 	player.health = float(p.get("health", 100.0))
 	player.tool_tier = int(p.get("tool_tier", 1))
 	player.selected_slot = clampi(int(p.get("selected_slot", 0)), 0, player.hotbar.size() - 1)
@@ -74,3 +74,10 @@ func load_game() -> bool:
 	game_root.apply_time_state(state.get("time", {}))
 	game_root.apply_threats(state.get("threats", []))
 	return true
+
+
+func apply_player_position(state: Dictionary) -> void:
+	var p: Dictionary = state.get("player", {})
+	if p.has("x") and p.has("y"):
+		player.global_position = Vector2(float(p["x"]), float(p["y"]))
+		player.velocity = Vector2.ZERO

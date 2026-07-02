@@ -14,7 +14,6 @@ const NIGHT_TINT := Color(0.22, 0.24, 0.38)
 const STORM_TINT := Color(0.55, 0.58, 0.66)
 
 const POPULATION_MAX := 8
-const GROWTH_COHERENCE := 55.0
 
 const STORM_CHANCE_PER_DAY := 0.5
 const STORM_ROLL_TIME := 0.35      # midday roll point
@@ -40,10 +39,20 @@ var _storm_rolled_today := false
 
 
 func _ready() -> void:
-	world.setup(randi() % 1000000)
+	GameState.ensure_play_context()
 	_wire_references()
 	_wire_signals()
+	player.apply_character(GameState.current_character)
+	var saved_state: Dictionary = GameState.get_current_state()
+	if saved_state.is_empty():
+		world.setup(config().seed_value())
+		_grant_role_items()
+	else:
+		save_manager.apply_state(saved_state)
 	_position_actors()
+	if not saved_state.is_empty():
+		# Saved player position overrides the default spawn.
+		save_manager.apply_player_position(saved_state)
 	hud.update_inventory()
 	hud.update_health(player.health)
 	hud.update_time(day_count, is_night)
@@ -54,6 +63,27 @@ func _ready() -> void:
 		var smoke := preload("res://scripts/main/smoke_test.gd").new()
 		smoke.name = "SmokeTest"
 		add_child(smoke)
+
+
+func config() -> WorldConfig:
+	return GameState.current_config
+
+
+func _grant_role_items() -> void:
+	var role: Dictionary = BlockRegistry.role_def(str(GameState.current_character.get("role", "")))
+	var items: Dictionary = role.get("starting_items", {})
+	if not items.is_empty():
+		player.inventory.add_many(items)
+		player.inventory_changed.emit()
+
+
+func summary() -> Dictionary:
+	return {
+		"day": day_count,
+		"population": town_hall.population,
+		"coherence": int(round(settlement.coherence)),
+		"damage": int(round(town_hall.damage)),
+	}
 
 
 func _wire_references() -> void:
@@ -115,6 +145,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			log_event("No save to load.")
 	elif event.is_action_pressed("interact") or event.is_action_pressed("toggle_town"):
 		_try_interact()
+	elif event.is_action_pressed("ui_cancel"):
+		if hud.town_panel_open():
+			hud.toggle_town_panel()
+		else:
+			save_manager.save_game()
+			log_event("Saved. Returning to the shell...")
+			GameState.exit_to_shell()
 
 
 func _advance_time(delta: float) -> void:
@@ -138,7 +175,8 @@ func _advance_time(delta: float) -> void:
 func _advance_storm(delta: float) -> void:
 	if not _storm_rolled_today and not is_night and time_of_day >= STORM_ROLL_TIME:
 		_storm_rolled_today = true
-		if randf() < STORM_CHANCE_PER_DAY:
+		if config().rule("weather_affects_survival") \
+				and randf() < STORM_CHANCE_PER_DAY * config().environment_danger():
 			start_storm()
 	if not storm_active:
 		return
@@ -146,7 +184,7 @@ func _advance_storm(delta: float) -> void:
 	# Exposure: a roofed hall shrugs storms off; ground fill does not help.
 	var exposure: float = clampf(1.0 - settlement.roof_coverage(), 0.0, 1.0)
 	if exposure > 0.05:
-		town_hall.take_damage(STORM_MAX_DPS * exposure * delta)
+		town_hall.take_damage(STORM_MAX_DPS * config().environment_danger() * exposure * delta)
 		town_hall.queue_redraw()
 	if storm_time_left <= 0.0:
 		storm_active = false
@@ -161,22 +199,53 @@ func start_storm() -> void:
 	settlement.compute()
 
 
-## Deterministic entry point for the smoke test.
-func force_storm() -> void:
+## Deterministic entry point for the smoke test. Respects the weather
+## rule; returns whether a storm actually started.
+func force_storm() -> bool:
 	_storm_rolled_today = true
+	if not config().rule("weather_affects_survival"):
+		return false
 	start_storm()
+	return true
 
 
 func _on_nightfall() -> void:
 	is_night = true
-	var light_score: float = settlement.gather_inputs().get("light_score", 0.0)
-	var spawn_count := 1 if light_score >= 16.0 else 2
-	log_event("Night falls. Pressure rises (%d threat%s approaching)." % [
-		spawn_count, "" if spawn_count == 1 else "s"])
+	var spawn_count := night_spawn_count()
+	if spawn_count > 0:
+		log_event("Night falls. Pressure rises (%d threat%s approaching)." % [
+			spawn_count, "" if spawn_count == 1 else "s"])
+	else:
+		log_event("Night falls.")
 	for i in range(spawn_count):
 		_spawn_threat(i)
 	hud.update_time(day_count, true, spawn_count)
 	settlement.compute()
+
+
+## Threats per night from the world config: darkness rule gates spawns,
+## the lighting rule lets torches near the hall reduce them, and the
+## enemy difficulty axis scales the count.
+func night_spawn_count() -> int:
+	if not config().rule("darkness_increases_enemies"):
+		return 0
+	var enemy: float = config().difficulty("enemy")
+	if enemy <= 0.0:
+		return 0
+	var base := 2
+	if config().rule("lighting_affects_safety"):
+		var light_score: float = settlement.gather_inputs().get("light_score", 0.0)
+		if light_score >= 16.0:
+			base = 1
+	return clampi(int(ceil(base * enemy)), 1, 5)
+
+
+## Threat hp from enemy difficulty, plus time scaling when enabled.
+func threat_hp() -> int:
+	var hp := maxi(1, int(round(3.0 * config().difficulty("enemy"))))
+	if config().rule("enemies_scale_over_time"):
+		hp += (day_count - 1) / 3
+	return hp
 
 
 func _on_dawn() -> void:
@@ -191,7 +260,13 @@ func _on_dawn() -> void:
 
 
 func daily_food_need() -> int:
-	return maxi(1, ceili(town_hall.population / 2.0))
+	return maxi(1, ceili(town_hall.population / 2.0 * config().difficulty("survival")))
+
+
+## Coherence needed for a settler to arrive: lower when subjects are
+## impressionable, adjusted by the character's charisma.
+func growth_threshold() -> float:
+	return 70.0 - 15.0 * config().difficulty("impressionability") + player.growth_threshold_delta
 
 
 ## Population eats at dawn. Shortage feeds scarcity_penalty via the
@@ -199,6 +274,9 @@ func daily_food_need() -> int:
 ## settlement attracts newcomers.
 func consume_daily_food() -> void:
 	var coherence_at_dawn: float = settlement.coherence
+	if not config().rule("subjects_require_food"):
+		_update_population({"eaten": 0, "needed": 0}, coherence_at_dawn)
+		return
 	var result: Dictionary = town_hall.consume_food(daily_food_need())
 	if result["eaten"] >= result["needed"]:
 		log_event("Settlers ate %d food from the stockpile." % result["eaten"])
@@ -209,12 +287,14 @@ func consume_daily_food() -> void:
 
 
 func _update_population(meal: Dictionary, coherence_at_dawn: float) -> void:
+	var requires_food: bool = config().rule("subjects_require_food")
+	var food_ok: bool = not requires_food \
+		or int(town_hall.stockpile.get("food", 0)) >= town_hall.population
 	if meal["eaten"] < meal["needed"]:
 		if town_hall.population > 1:
 			town_hall.population -= 1
 			log_event("A settler left after going hungry. Population is now %d." % town_hall.population)
-	elif coherence_at_dawn >= GROWTH_COHERENCE \
-			and int(town_hall.stockpile.get("food", 0)) >= town_hall.population \
+	elif coherence_at_dawn >= growth_threshold() and food_ok \
 			and town_hall.population < POPULATION_MAX:
 		town_hall.population += 1
 		log_event("Drawn by a thriving settlement, a settler arrived. Population is now %d." % town_hall.population)
@@ -231,6 +311,8 @@ func _spawn_threat(index: int) -> void:
 	var spawn_x: int = hall_cell.x + side * 22
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	threat.position = world.cell_center(Vector2i(spawn_x, surf_y - 2))
+	threat.hp = threat_hp()
+	threat.hall_dps = 4.0 * config().difficulty("enemy")
 	threat.died.connect(_on_threat_died)
 	threats.add_child(threat)
 
@@ -257,7 +339,7 @@ func _refresh_threat_display() -> void:
 ## Total severity of active pressure, consumed by the settlement model.
 func current_threat_severity() -> float:
 	var severity := 0.0
-	if is_night:
+	if is_night and config().rule("darkness_increases_enemies"):
 		severity += NIGHT_BASE_SEVERITY
 	if storm_active:
 		severity += STORM_SEVERITY

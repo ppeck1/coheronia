@@ -1,4 +1,6 @@
-# Claude Code / Fable Prompt — Coheronia v0.1 One-Shot Build
+# Claude Code / Fable Prompt - Coheronia v0.1 One-Shot Build
+
+Historical note: this prompt created the original v0.1 scaffold. The repo is now a public v0.4 prototype; follow `README.md`, `docs/HANDOFF.md`, and `.project/project_manifest.json` for current state.
 
 You are working on **Coheronia**, a Godot 4 2D side-view survival settlement sandbox.
 
@@ -10,10 +12,10 @@ The prototype is successful when it proves the **Coherence / Load / Resilience s
 
 ## Operator context
 
-- The intended Project Ops Capsule root is:
+- The included Project Ops Capsule copy is:
 
 ```text
-B:\Projects\LLM_Modules\Project_Ops_Capsule
+_protocol/Project_Ops_Capsule
 ```
 
 - This project is already represented in Project Atlas MCP. Do not create a duplicate Atlas project identity. Queue an outbox event for the existing project key unless the repo manifest says otherwise.
@@ -34,10 +36,8 @@ Before coding:
 1. Inspect repo state and tree.
 2. Run:
    python scripts/validate_repo.py
-3. Run capsule doctor, preferring the canonical local capsule root if present:
-   python B:\Projects\LLM_Modules\Project_Ops_Capsule\scripts\capsule_doctor.py . --profile private_repo
-   If that path is unavailable, run:
-   python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile private_repo
+3. Run capsule doctor:
+   python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile public_repo
 4. Read:
    docs/GAME_FEATURE_OUTLINE.md
    docs/MVP_VERTICAL_SLICE.md

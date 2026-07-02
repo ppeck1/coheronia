@@ -57,21 +57,30 @@ func gather_inputs() -> Dictionary:
 			return BlockRegistry.has_tag(block_id, "defense"))
 
 	var total_stock: int = town_hall.total_stock()
-	var food_stock: int = int(town_hall.stockpile.get("food", 0))
-	var food_short := maxf(0.0, float(town_hall.population) - float(food_stock))
 	var threat_severity: float = 0.0
+	var economy := 1.0
+	var ruler := 1.0
+	var requires_food := true
 	if game_root != null:
 		threat_severity = game_root.current_threat_severity()
+		var cfg: WorldConfig = game_root.config()
+		economy = maxf(0.25, cfg.difficulty("economy"))
+		ruler = cfg.difficulty("ruler")
+		requires_food = cfg.rule("subjects_require_food")
+	var food_short := 0.0
+	if requires_food:
+		var food_stock: int = int(town_hall.stockpile.get("food", 0))
+		food_short = maxf(0.0, float(town_hall.population) - float(food_stock))
 
 	return {
 		"shelter_score": minf(shelter_count * 0.5, 30.0),
 		"light_score": minf(torch_count * 8.0, 30.0),
-		"stockpile_score": minf(total_stock * 0.5, 30.0),
+		"stockpile_score": minf(total_stock * 0.5 / economy, 30.0),
 		"defense_score": minf(defense_count * 0.75, 25.0),
 		"damage_score": minf(town_hall.damage * 0.3, 30.0),
 		"threat_score": minf(threat_severity, 40.0),
-		"scarcity_penalty": clampf((10.0 - total_stock) * 1.0 + food_short, 0.0, 15.0),
-		"population_pressure": clampf(town_hall.population * 2.0 - total_stock * 0.1, 0.0, 20.0),
+		"scarcity_penalty": clampf((10.0 * economy - total_stock) * 1.0 + food_short, 0.0, 15.0),
+		"population_pressure": clampf((town_hall.population * 2.0 - total_stock * 0.1) * ruler, 0.0, 20.0),
 	}
 
 

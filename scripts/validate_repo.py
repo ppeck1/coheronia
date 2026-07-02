@@ -18,6 +18,8 @@ REQUIRED_FILES = [
     "data/blocks.json",
     "data/recipes.json",
     "data/settlement_rules.json",
+    "data/world_settings.json",
+    "data/character_data.json",
     ".project/project_manifest.json",
     ".project/ops_capsule.json",
 ]
@@ -28,7 +30,9 @@ REQUIRED_DIRS = [
     ".project/boh_outbox/imported",
     ".project/boh_outbox/rejected",
     "scenes/main",
+    "scenes/shell",
     "scripts/main",
+    "scripts/shell",
     "reference/g1v5",
     "_protocol/Project_Ops_Capsule",
 ]
@@ -36,6 +40,8 @@ JSON_FILES = [
     "data/blocks.json",
     "data/recipes.json",
     "data/settlement_rules.json",
+    "data/world_settings.json",
+    "data/character_data.json",
     ".project/project_manifest.json",
     ".project/ops_capsule.json",
 ]
@@ -62,9 +68,24 @@ for rel in JSON_FILES:
     print(f"PASS json: {rel}")
 
 blocks = json.loads((ROOT / "data/blocks.json").read_text(encoding="utf-8"))["blocks"]
-for required in ["dirt", "stone", "wood", "torch", "town_hall_core"]:
+for required in ["dirt", "stone", "wood", "ore", "berry_bush", "torch", "lantern", "town_hall_core"]:
     if required not in blocks:
         fail(f"blocks.json missing required block: {required}")
 print("PASS required block ids")
+
+world_settings = json.loads((ROOT / "data/world_settings.json").read_text(encoding="utf-8"))
+for section in ["sizes", "defaults", "presets"]:
+    if section not in world_settings:
+        fail(f"world_settings.json missing section: {section}")
+for size_id in ["small", "medium", "large"]:
+    if size_id not in world_settings["sizes"]:
+        fail(f"world_settings.json missing size: {size_id}")
+print("PASS world settings")
+
+character_data = json.loads((ROOT / "data/character_data.json").read_text(encoding="utf-8"))
+for section in ["species", "traits", "roles", "appearances"]:
+    if section not in character_data:
+        fail(f"character_data.json missing section: {section}")
+print("PASS character data")
 
 print("RESULT scaffold_valid")

@@ -1,0 +1,35 @@
+{
+  "schema_version": "0.4",
+  "max_traits": 2,
+  "species": [
+    {
+      "id": "human",
+      "display_name": "Human",
+      "description": "The founding species of Coheronia.",
+      "abilities": [],
+      "needs_modifiers": {},
+      "social_effects": {},
+      "lifespan": "standard",
+      "weaknesses": [],
+      "faction_reactions": {}
+    }
+  ],
+  "traits": [
+    { "id": "hardy", "display_name": "Hardy", "description": "+25 max health.", "effects": { "max_health_bonus": 25 } },
+    { "id": "miner", "display_name": "Born Miner", "description": "+20% mining speed.", "effects": { "mine_speed_mult": 1.2 } },
+    { "id": "forager", "display_name": "Forager", "description": "+1 food from berry bushes.", "effects": { "bush_bonus_food": 1 } },
+    { "id": "charismatic", "display_name": "Charismatic", "description": "Settlers arrive at lower Coherence.", "effects": { "growth_threshold_delta": -5 } },
+    { "id": "long_reach", "display_name": "Long Reach", "description": "+1 tile mining/placement reach.", "effects": { "reach_bonus": 1 } }
+  ],
+  "roles": [
+    { "id": "homesteader", "display_name": "Homesteader", "description": "Starts with building materials.", "starting_items": { "dirt": 10, "wood": 5 }, "effects": {} },
+    { "id": "prospector", "display_name": "Prospector", "description": "Starts with torches and stone.", "starting_items": { "torch": 3, "stone": 2 }, "effects": {} },
+    { "id": "warden", "display_name": "Warden", "description": "+15 max health, starts empty-handed.", "starting_items": {}, "effects": { "max_health_bonus": 15 } }
+  ],
+  "appearances": [
+    { "id": "tan", "display_name": "Tan", "body": "ebd48c", "trim": "59402e" },
+    { "id": "pale", "display_name": "Pale", "body": "e8d8c8", "trim": "3a2c20" },
+    { "id": "umber", "display_name": "Umber", "body": "9c6b3f", "trim": "2e1f14" },
+    { "id": "ash", "display_name": "Ash", "body": "b8b8c0", "trim": "26262e" }
+  ]
+}

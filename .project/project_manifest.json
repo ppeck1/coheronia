@@ -4,9 +4,9 @@
   "display_name": "Coheronia",
   "root": ".",
   "repo_kind": "software",
-  "visibility": "private",
+  "visibility": "public",
   "profiles": [
-    "private_repo",
+    "public_repo",
     "software_project"
   ],
   "canonical_docs": {
@@ -20,17 +20,18 @@
   "validation": {
     "required": [
       "python scripts/validate_repo.py",
-      "python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile private_repo"
+      "python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile public_repo"
     ],
     "focused": [
-      "Godot editor: open project and check for missing resource/script errors",
-      "Godot run: launch res://scenes/main/Main.tscn after implementation"
+      "Godot 4.6.1: open project and check for missing resource/script errors",
+      "Godot run: launch res://scenes/shell/Shell.tscn",
+      "COHERONIA_SMOKE=1: verify user://smoke_results.json reports PASS"
     ],
     "smoke": [
-      "Manual play smoke: move, jump, mine, place, torch light, interact with Town Hall, observe C/L/R update, save F5, load F9"
+      "Manual play smoke: create/select character, create/select world, enter game, move, jump, mine, place, torch light, interact with Town Hall, observe C/L/R update, save F5, load F9, Esc returns to shell"
     ],
     "manual": [
-      "Do not mark SIGNABLE until docs/MVP_VERTICAL_SLICE.md acceptance table is verified"
+      "Do not mark SIGNABLE until docs/MVP_VERTICAL_SLICE.md acceptance table is verified or a narrow exception is recorded"
     ]
   },
   "protected_paths": [
@@ -55,9 +56,9 @@
     "project_key": "coheronia-game"
   },
   "git_policy": {
-    "require_git": false,
+    "require_git": true,
     "commit_after_signable_run": true,
-    "push_policy": "manual",
+    "push_policy": "explicit_operator_request",
     "allow_dirty_unrelated": false
   }
 }

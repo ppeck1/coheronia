@@ -7,13 +7,14 @@ config_version=5
 [application]
 
 config/name="Coheronia"
-run/main_scene="res://scenes/main/Main.tscn"
+run/main_scene="res://scenes/shell/Shell.tscn"
 config/features=PackedStringArray("4.6")
 config/icon="res://icon.svg"
 
 [autoload]
 
 BlockRegistry="*res://scripts/world/block_registry.gd"
+GameState="*res://scripts/shell/game_state.gd"
 
 [display]
 

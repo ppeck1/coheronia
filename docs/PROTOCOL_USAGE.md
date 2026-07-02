@@ -1,24 +1,18 @@
 # Project Ops Capsule Usage for Coheronia
 
-Canonical capsule root:
-
-```text
-B:\Projects\LLM_Modules\Project_Ops_Capsule
-```
-
-Included fallback/reference copy:
+Included capsule copy:
 
 ```text
 _protocol/Project_Ops_Capsule
 ```
 
-## Constitutional rule
+## Constitutional Rule
 
 ```text
 Every run records evidence; only signable runs update accepted truth.
 ```
 
-## Required closeout files
+## Required Closeout Files
 
 Every implementation run should update or create:
 
@@ -31,22 +25,36 @@ docs/VARIABLE_MATRIX.md
 README.md if behavior/setup/status changed
 ```
 
-## Atlas note
+## Validation
 
-The user indicated this project already exists in Project Atlas MCP. Queue an outbox event for the existing project identity; do not create a new Atlas identity unless instructed.
+```powershell
+python scripts/validate_repo.py
+python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile public_repo
+```
 
-Suggested project key:
+For gameplay verification:
+
+```powershell
+$env:COHERONIA_SMOKE = "1"
+Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<repo-root>") -Wait
+```
+
+The smoke test writes `user://smoke_results.json`. Windowed smoke runs also write `user://smoke_screenshot.png`.
+
+## Atlas Note
+
+Queue an outbox event for the existing project key:
 
 ```text
 coheronia-game
 ```
 
-## BOH note
+## BOH Note
 
 BOH packets are evidence-only unless explicitly promoted by the operator.
 
-## Git behavior
+## Git Behavior
 
-- Do not push automatically.
-- Commit only after a signable run if the operator allows it.
+- Commit only after a signable run or explicit operator request.
+- Push only on explicit operator request.
 - Do not claim accepted truth from unvalidated work.

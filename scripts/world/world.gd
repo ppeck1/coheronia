@@ -4,11 +4,11 @@ extends Node2D
 
 signal block_changed(cell: Vector2i, block_id: String)
 
-const WIDTH := 240
-const HEIGHT := 80
-const SURFACE_BASE := 30
 const BUSH_REGROW_SECONDS := 90.0
 const BUSH_RETRY_SECONDS := 10.0
+
+var width := 240
+var height := 80
 
 var world_seed: int = 0
 var cells: Dictionary = {}          # Vector2i -> block_id (air cells absent)
@@ -70,10 +70,15 @@ func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionar
 	for cell in _lights.keys():
 		_lights[cell].queue_free()
 	_lights.clear()
-	var gen := WorldGen.generate(world_seed, WIDTH, HEIGHT, SURFACE_BASE)
+	var config: WorldConfig = GameState.current_config
+	if config == null:
+		config = WorldConfig.new()
+	var gen := WorldGen.generate(world_seed, config)
 	cells = gen["cells"]
 	surface = gen["surface"]
-	hall_info = WorldGen.stamp_town_hall(cells, surface, WIDTH / 2)
+	width = int(gen["width"])
+	height = int(gen["height"])
+	hall_info = WorldGen.stamp_town_hall(cells, surface, width / 2)
 	for cell in deltas:
 		var block_id: String = deltas[cell]
 		if block_id == "air":
@@ -159,7 +164,7 @@ func count_near(center: Vector2i, radius: int, predicate: Callable) -> int:
 
 
 func world_bounds() -> Rect2:
-	return Rect2(0, 0, WIDTH * tile_size(), HEIGHT * tile_size())
+	return Rect2(0, 0, width * tile_size(), height * tile_size())
 
 
 func _redraw_all() -> void:
