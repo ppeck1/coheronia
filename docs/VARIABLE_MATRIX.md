@@ -1,6 +1,6 @@
 # Coheronia — Variable Matrix
 
-State: audited against the v0.2 implementation (run `20260702_coheronia_v02_increment`). All MVP-required variables exist and are connected to game state.
+State: audited against the v0.3 implementation (run `20260702_coheronia_v03_increment`). All MVP-required variables exist and are connected to game state.
 
 ## Authority
 
@@ -14,7 +14,7 @@ State: audited against the v0.2 implementation (run `20260702_coheronia_v02_incr
 | Variable | Type | Authority | Required for MVP | Implemented in |
 |---|---|---|---|---|
 | `tile_size` | int | `data/blocks.json` | Yes | `BlockRegistry.tile_size` (16 px) |
-| `block_id` | string | `data/blocks.json` | Yes | dirt, grass, wood, stone, ore, berry_bush, torch, town_hall_core, air |
+| `block_id` | string | `data/blocks.json` | Yes | dirt, grass, wood, stone, ore, berry_bush, torch, lantern, town_hall_core, air |
 | `hardness` | float | `data/blocks.json` | Yes | `world.mine_time()` → mining duration |
 | `required_tool_tier` | int | `data/blocks.json` | Yes | gate in `world.can_mine()`; ore raised to tier 2 in v0.2 (forge gate) |
 | `drops` | dictionary | `data/blocks.json` | Yes | `world.break_block()` return → inventory |
@@ -37,7 +37,7 @@ State: audited against the v0.2 implementation (run `20260702_coheronia_v02_incr
 | `tool_tier` | int | `player.gd` | Should | starts at 1 (dirt/wood/stone); tier 2 via Town Hall forge unlocks ore and +50% speed; saved |
 | `town_hall_position` | Vector2i | `world.hall_info` | Yes | stamped by `WorldGen.stamp_town_hall` |
 | `town_hall_stockpile` | dictionary | `town_hall.gd` / save | Yes | deposit via hall panel; repair spends stone |
-| `population_count` | int | `town_hall.gd` | Yes | abstract, fixed 4; saved |
+| `population_count` | int | `town_hall.gd` | Yes | dynamic 1–8 since v0.3: −1 on a starved dawn, +1 on a fed dawn with coherence ≥ 55 and food ≥ population; saved |
 | `shelter_score` | float | `settlement_model.gd` | Yes | solid blocks within Chebyshev r=6 of hall × 0.5, cap 30 |
 | `light_score` | float | `settlement_model.gd` | Yes | light-emitting blocks within r=8 × 8, cap 30 |
 | `stockpile_score` | float | `settlement_model.gd` | Yes | total stored × 0.5, cap 30 |
@@ -52,7 +52,7 @@ State: audited against the v0.2 implementation (run `20260702_coheronia_v02_incr
 | `time_of_day` | float | `game_root.gd` / save | Should | 0–1 over 100 s; night ≥ 0.65 |
 | `is_night` | bool | `game_root.gd` | Should | derived from `time_of_day`; drives tint + threat event |
 | `event_log` | array | `hud.gd` | Yes | last 6 messages, top-right |
-| `save_version` | string | `save_manager.gd` | Yes | "0.2"; accepts {"0.1", "0.2"}, others rejected |
+| `save_version` | string | `save_manager.gd` | Yes | "0.3"; accepts {"0.1", "0.2", "0.3"}, others rejected |
 
 ## Variables added during implementation
 
@@ -76,6 +76,19 @@ State: audited against the v0.2 implementation (run `20260702_coheronia_v02_incr
 | `effective_mine_speed()` | float | `player.gd` | base_mine_speed × (1 + 0.5 × (tool_tier − 1)) |
 | `FORGE_RECIPE_ID` | const | `town_hall.gd` | "basic_pick_upgrade" from `data/recipes.json` (station town_hall, outputs tool_tier_2_pick) |
 | `threats` (save key) | array | `save_manager.gd` / `game_root.serialize_threats()` | [{x, y, hp}]; restored on load |
+
+## Variables added in v0.3
+
+| Variable | Type | Authority | Notes |
+|---|---|---|---|
+| `bush_regrow` | dictionary | `world.gd` / save (`bush_regrow` key) | Vector2i → seconds until a harvested bush regrows (90 s; 10 s retry if the cell is occupied) |
+| `lantern` | block | `data/blocks.json` | Placeable light, radius 160; crafted at the Town Hall (`craft_lantern`: 2 ore + 1 wood); hotbar slot 5 |
+| `craft_from_stockpile()` | method | `town_hall.gd` | Generic town_hall-station crafting; `forge_pick` now uses it |
+| `daily_food_need()` | int | `game_root.gd` | max(1, ⌈population/2⌉); replaces the fixed DAILY_FOOD_NEED |
+| `POPULATION_MAX`, `GROWTH_COHERENCE` | const | `game_root.gd` | 8; 55.0 — growth gates checked against the pre-meal dawn coherence snapshot |
+| `storm_active`, `storm_time_left`, `_storm_rolled_today` | state | `game_root.gd` / save (time dict) | 50%/day roll at time 0.35; 18 s; severity 8; up to 3 dps × (1 − roof_coverage) |
+| `roof_coverage()` | float | `settlement_model.gd` | Fraction of 7 hall columns with any solid cell above the hall (scans to the world top); storms only punish missing roof |
+| `_live_threat_count()` | int | `game_root.gd` | Valid, non-queued threats; drives the HUD threat warning |
 
 ## Required audit behavior
 

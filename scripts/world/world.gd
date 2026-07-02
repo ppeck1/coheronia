@@ -7,12 +7,15 @@ signal block_changed(cell: Vector2i, block_id: String)
 const WIDTH := 240
 const HEIGHT := 80
 const SURFACE_BASE := 30
+const BUSH_REGROW_SECONDS := 90.0
+const BUSH_RETRY_SECONDS := 10.0
 
 var world_seed: int = 0
 var cells: Dictionary = {}          # Vector2i -> block_id (air cells absent)
 var deltas: Dictionary = {}         # Vector2i -> block_id ("air" = mined out)
 var surface: Dictionary = {}        # int x -> int y of surface
 var hall_info: Dictionary = {}
+var bush_regrow: Dictionary = {}    # Vector2i -> float seconds until regrowth
 
 var _tilemap: TileMapLayer
 var _source_ids: Dictionary = {}    # block_id -> tileset source id
@@ -26,6 +29,7 @@ const BLOCK_COLORS := {
 	"stone": Color(0.45, 0.46, 0.50),
 	"ore": Color(0.72, 0.62, 0.35),
 	"torch": Color(1.0, 0.75, 0.25),
+	"lantern": Color(0.95, 0.90, 0.55),
 	"berry_bush": Color(0.20, 0.45, 0.18),
 	"town_hall_core": Color(0.42, 0.30, 0.55),
 }
@@ -39,9 +43,30 @@ func _ready() -> void:
 	add_child(_tilemap)
 
 
-func setup(new_seed: int, saved_deltas: Dictionary = {}) -> void:
+func _process(delta: float) -> void:
+	_tick_bush_regrowth(delta)
+
+
+func _tick_bush_regrowth(delta: float) -> void:
+	for cell in bush_regrow.keys():
+		bush_regrow[cell] -= delta
+		if bush_regrow[cell] > 0.0:
+			continue
+		if block_at(cell) == "air":
+			cells[cell] = "berry_bush"
+			deltas[cell] = "berry_bush"
+			_set_tile(cell, "berry_bush")
+			block_changed.emit(cell, "berry_bush")
+			bush_regrow.erase(cell)
+		else:
+			# Cell is occupied (player built there); try again later.
+			bush_regrow[cell] = BUSH_RETRY_SECONDS
+
+
+func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionary = {}) -> void:
 	world_seed = new_seed
 	deltas = saved_deltas.duplicate()
+	bush_regrow = saved_regrow.duplicate()
 	for cell in _lights.keys():
 		_lights[cell].queue_free()
 	_lights.clear()
@@ -100,6 +125,8 @@ func break_block(cell: Vector2i) -> Dictionary:
 	cells.erase(cell)
 	deltas[cell] = "air"
 	_set_tile(cell, "air")
+	if block_id == "berry_bush":
+		bush_regrow[cell] = BUSH_REGROW_SECONDS
 	block_changed.emit(cell, "air")
 	return block_drops
 
@@ -215,6 +242,14 @@ func _make_block_texture(block_id: String, t: int) -> ImageTexture:
 				img.set_pixel(x, y, color)
 		for dot in [Vector2i(4, 8), Vector2i(9, 6), Vector2i(12, 10), Vector2i(6, 12)]:
 			img.set_pixel(dot.x, dot.y, Color(0.85, 0.15, 0.20))
+	elif block_id == "lantern":
+		# Hanging lamp: small bright housing on a short hook.
+		img.fill(Color(0, 0, 0, 0))
+		for y in range(2, 5):
+			img.set_pixel(t / 2, y, Color(0.4, 0.4, 0.45))
+		for y in range(5, 12):
+			for x in range(t / 2 - 3, t / 2 + 3):
+				img.set_pixel(x, y, color)
 	elif block_id == "torch":
 		# Transparent tile with a small stick + flame so torches read as objects.
 		img.fill(Color(0, 0, 0, 0))
@@ -252,6 +287,22 @@ func serialize_deltas() -> Dictionary:
 	var out := {}
 	for cell in deltas:
 		out["%d,%d" % [cell.x, cell.y]] = deltas[cell]
+	return out
+
+
+func serialize_bush_regrow() -> Dictionary:
+	var out := {}
+	for cell in bush_regrow:
+		out["%d,%d" % [cell.x, cell.y]] = bush_regrow[cell]
+	return out
+
+
+static func parse_bush_regrow(raw: Dictionary) -> Dictionary:
+	var out := {}
+	for key in raw:
+		var parts: PackedStringArray = str(key).split(",")
+		if parts.size() == 2:
+			out[Vector2i(int(parts[0]), int(parts[1]))] = float(raw[key])
 	return out
 
 

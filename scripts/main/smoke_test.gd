@@ -40,7 +40,7 @@ func _run() -> void:
 	var unbound := ""
 	for action in ["move_left", "move_right", "jump", "mine", "place", "interact",
 			"toggle_town", "craft", "save_game", "load_game", "debug_overlay",
-			"hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4"]:
+			"hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5"]:
 		var has_device_event := false
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventKey or ev is InputEventMouseButton:
@@ -114,6 +114,12 @@ func _run() -> void:
 		await _mine_cell(world, player, bush_cell)
 	_check("food_from_bush", player.inventory.count("food") >= 2,
 		"food=%d" % player.inventory.count("food"))
+	if bush_cell != null:
+		_check("bush_regrow_timer_started", world.bush_regrow.has(bush_cell))
+		world.bush_regrow[bush_cell] = 0.05
+		for i in range(10):
+			await get_tree().process_frame
+		_check("bush_regrows", world.block_at(bush_cell) == "berry_bush")
 
 	# --- Placement ---
 	player.global_position = world.cell_center(dirt_cell) + Vector2(0, -40.0)
@@ -149,6 +155,42 @@ func _run() -> void:
 	_check("population_consumes_food", food_before > 0 and food_after < food_before,
 		"food %d→%d" % [food_before, food_after])
 
+	# --- Population reacts to C/L/R and food ---
+	var pop_start: int = hall.population
+	root.consume_daily_food()          # stockpile food is now 0 -> starvation
+	_check("population_shrinks_when_starved", hall.population == pop_start - 1,
+		"pop %d→%d" % [pop_start, hall.population])
+	hall.stockpile["food"] = 20
+	settlement.coherence = 80.0        # force a thriving dawn snapshot
+	root.consume_daily_food()
+	_check("population_grows_when_thriving", hall.population == pop_start,
+		"pop back to %d, food=%d" % [hall.population, int(hall.stockpile.get("food", 0))])
+	# Bounds: repeated starvation floors at 1; repeated thriving caps at max.
+	for i in range(6):
+		hall.stockpile.erase("food")
+		root.consume_daily_food()
+	_check("population_floors_at_one", hall.population == 1, "pop=%d" % hall.population)
+	hall.stockpile["food"] = 100
+	for i in range(10):
+		settlement.coherence = 80.0
+		root.consume_daily_food()
+	_check("population_caps_at_max", hall.population == root.POPULATION_MAX,
+		"pop=%d" % hall.population)
+
+	# --- Lantern (ore sink) crafted at the Town Hall ---
+	player.inventory.add("ore", 2)
+	player.inventory.add("wood", 1)
+	hall.deposit_all(player.inventory)
+	var lantern_crafted: bool = hall.craft_from_stockpile("craft_lantern", player)
+	_check("lantern_crafted_from_stockpile",
+		lantern_crafted and player.inventory.count("lantern") >= 1)
+	var lantern_cell := Vector2i(place_cell.x + 1, place_cell.y - 2)
+	while world.block_at(lantern_cell) != "air":
+		lantern_cell.y -= 1
+	player.global_position = world.cell_center(lantern_cell) + Vector2(0, 24.0)
+	var lantern_placed: bool = player.try_place(lantern_cell, "lantern")
+	_check("lantern_emits_light", lantern_placed and world.has_light_at(lantern_cell))
+
 	# --- C/L/R responds to state ---
 	settlement.compute()
 	var c_before: float = settlement.coherence
@@ -163,6 +205,30 @@ func _run() -> void:
 		and settlement.coherence > c_before,
 		"C %.1f→%.1f light %.1f→%.1f" % [c_before, settlement.coherence, light_before,
 			settlement.inputs.get("light_score", 0.0)])
+
+	# --- Storm event (daytime pressure mitigated by shelter) ---
+	var storm_sev_before: float = root.current_threat_severity()
+	var storm_damage_before: float = hall.damage
+	root.force_storm()
+	_check("storm_raises_pressure",
+		root.storm_active and root.current_threat_severity() > storm_sev_before,
+		"severity %.1f→%.1f" % [storm_sev_before, root.current_threat_severity()])
+	for i in range(30):
+		await get_tree().physics_frame
+	_check("storm_damages_exposed_hall", hall.damage > storm_damage_before,
+		"damage %.2f→%.2f" % [storm_damage_before, hall.damage])
+	# Mitigation: a full roof over the hall stops storm damage.
+	var ground_y: int = world.hall_info["ground_y"]
+	for dx in range(-3, 4):
+		var roof_cell := Vector2i(hall_cell.x + dx, ground_y - 3)
+		if world.block_at(roof_cell) == "air":
+			world.place_block(roof_cell, "wood")
+	var roofed_damage: float = hall.damage
+	for i in range(30):
+		await get_tree().physics_frame
+	_check("roof_blocks_storm_damage",
+		settlement.roof_coverage() >= 0.99 and hall.damage - roofed_damage < 0.01,
+		"coverage=%.2f damage %.2f→%.2f" % [settlement.roof_coverage(), roofed_damage, hall.damage])
 
 	# --- Threat/pressure event ---
 	var load_before: float = settlement.load_value
@@ -181,6 +247,9 @@ func _run() -> void:
 	var save_dirt: int = player.inventory.count("dirt")
 	var save_stock: int = hall.total_stock()
 	var mined_before_save: Vector2i = wood_cell            # mined pre-save, must stay air
+	if bush_cell != null:
+		world.break_block(bush_cell)                       # pending regrow timer to persist
+	var storm_at_save: bool = root.storm_active
 	var saved: bool = root.save_manager.save_game()
 	_check("save_game", saved)
 
@@ -205,6 +274,10 @@ func _run() -> void:
 			live_threats += 1
 	_check("load_restores_threats", live_threats > 0, "%d live threats" % live_threats)
 	_check("load_restores_tool_tier", player.tool_tier == 2)
+	_check("load_restores_bush_regrow_timer",
+		bush_cell != null and world.bush_regrow.has(bush_cell))
+	_check("load_restores_storm_state", root.storm_active == storm_at_save,
+		"storm at save=%s after load=%s" % [storm_at_save, root.storm_active])
 
 	player.set_physics_process(true)
 

@@ -75,6 +75,20 @@ func gather_inputs() -> Dictionary:
 	}
 
 
+## Fraction (0..1) of columns above the hall with any solid cover.
+## Storms punish missing roof, not missing walls/ground.
+func roof_coverage() -> float:
+	var hall_cell: Vector2i = world.hall_info.get("center_cell", Vector2i.ZERO)
+	var ground_y: int = world.hall_info.get("ground_y", hall_cell.y + 1)
+	var covered := 0
+	for dx in range(-3, 4):
+		for y in range(0, ground_y - 2):
+			if world.is_solid_at(Vector2i(hall_cell.x + dx, y)):
+				covered += 1
+				break
+	return float(covered) / 7.0
+
+
 func compute() -> void:
 	if world == null or town_hall == null:
 		return

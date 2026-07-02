@@ -36,6 +36,18 @@
       "station": "hand"
     },
     {
+      "recipe_id": "craft_lantern",
+      "display_name": "Lantern",
+      "inputs": {
+        "ore": 2,
+        "wood": 1
+      },
+      "outputs": {
+        "lantern": 1
+      },
+      "station": "town_hall"
+    },
+    {
       "recipe_id": "basic_pick_upgrade",
       "display_name": "Basic Pick Upgrade",
       "inputs": {

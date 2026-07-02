@@ -3,8 +3,8 @@ extends Node
 ## Town Hall stockpile/damage, and time/pressure state as JSON in user://.
 
 const SAVE_PATH := "user://coheronia_save.json"
-const SAVE_VERSION := "0.2"
-const ACCEPTED_VERSIONS := ["0.1", "0.2"]
+const SAVE_VERSION := "0.3"
+const ACCEPTED_VERSIONS := ["0.1", "0.2", "0.3"]
 
 var world: Node2D
 var player: CharacterBody2D
@@ -28,6 +28,7 @@ func save_game() -> bool:
 		"town_hall": town_hall.to_dict(),
 		"time": game_root.time_state(),
 		"threats": game_root.serialize_threats(),
+		"bush_regrow": world.serialize_bush_regrow(),
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -56,7 +57,8 @@ func load_game() -> bool:
 		return false
 
 	world.setup(int(state.get("world_seed", 0)),
-		world.parse_deltas(state.get("terrain_deltas", {})))
+		world.parse_deltas(state.get("terrain_deltas", {})),
+		world.parse_bush_regrow(state.get("bush_regrow", {})))
 
 	var p: Dictionary = state.get("player", {})
 	player.global_position = Vector2(float(p.get("x", 0)), float(p.get("y", 0)))

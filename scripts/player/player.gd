@@ -19,7 +19,7 @@ var max_health := 100.0
 var tool_tier := 1
 var base_mine_speed := 1.0
 var inventory := InventoryData.new()
-var hotbar: Array[String] = ["dirt", "wood", "stone", "torch"]
+var hotbar: Array[String] = ["dirt", "wood", "stone", "torch", "lantern"]
 var selected_slot := 0
 
 var mine_target := Vector2i(-99999, -99999)
@@ -184,8 +184,12 @@ func _draw() -> void:
 	# Placeholder body.
 	draw_rect(Rect2(-6, -14, 12, 28), Color(0.92, 0.83, 0.55))
 	draw_rect(Rect2(-4, -12, 8, 6), Color(0.35, 0.25, 0.18))
-	# Mining target highlight.
+	# Mining target highlight with progress fill at the cursor.
 	if world != null and Input.is_action_pressed("mine") and mine_required > 0.0:
 		var t: float = float(world.tile_size())
 		var local := to_local(Vector2(mine_target) * t)
 		draw_rect(Rect2(local, Vector2(t, t)), Color(1, 1, 1, 0.6), false, 1.5)
+		var ratio := mine_progress_ratio()
+		if ratio > 0.0:
+			draw_rect(Rect2(local + Vector2(0, t + 2), Vector2(t, 3)), Color(0, 0, 0, 0.5))
+			draw_rect(Rect2(local + Vector2(0, t + 2), Vector2(t * ratio, 3)), Color(1.0, 0.85, 0.3))

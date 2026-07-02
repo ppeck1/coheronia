@@ -129,6 +129,23 @@
         "safety"
       ]
     },
+    "lantern": {
+      "display_name": "Lantern",
+      "hardness": 0.2,
+      "required_tool_tier": 0,
+      "drops": {
+        "lantern": 1
+      },
+      "is_placeable": true,
+      "is_solid": false,
+      "blocks_light": false,
+      "emits_light": true,
+      "light_radius": 160,
+      "settlement_tags": [
+        "light",
+        "safety"
+      ]
+    },
     "town_hall_core": {
       "display_name": "Town Hall Core",
       "hardness": 9999.0,

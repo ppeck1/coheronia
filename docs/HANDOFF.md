@@ -2,7 +2,17 @@
 
 ## Current state
 
-**v0.2 implemented and verified** (run `20260702_coheronia_v02_increment`; builds on `20260702_coheronia_mvp_v01_oneshot` + input repair run `20260702_coheronia_input_repair`, Godot 4.6.1 stable).
+**v0.3 implemented and verified** (run `20260702_coheronia_v03_increment`; lineage: `20260702_coheronia_mvp_v01_oneshot` → `20260702_coheronia_input_repair` → `20260702_coheronia_v02_increment`, Godot 4.6.1 stable).
+
+v0.3 additions (operator-directed continuation with a subagent verification/optimization loop):
+
+- **Berry regrowth:** harvested bushes regrow after 90 s (`world.bush_regrow`, ticked in `world._process`, persisted in saves; 10 s retry if the player built in the cell). Food is now sustainable.
+- **Dynamic population (1–8):** settlers eat ⌈pop/2⌉ food at dawn; a starved dawn loses a settler, a fed dawn with coherence ≥ 55 (pre-meal snapshot) and food ≥ population gains one. Population drives food need and `population_pressure`.
+- **Storm event:** 50%/day daytime hazard (18 s, severity 8) damaging the hall at up to 3 dps scaled by missing **roof coverage** — `settlement_model.roof_coverage()` counts solid cover above the hall only, so ground fill doesn't help; build a roof. Persisted across save/load.
+- **Lanterns:** ore sink at the Town Hall (2 ore + 1 wood → light radius 160, hotbar slot 5) via the generic `town_hall.craft_from_stockpile()`.
+- **UX:** mining progress bar at the target cell, "⚠ N threats active" in the time label (refreshed on kill/load), save-availability hint.
+
+Verification loop: an independent subagent reviewed the uncommitted diff and returned 9 findings (1 likely-bug: HUD bottom box overflow; 4 minor: stale threat count, storm re-roll on old saves, save version not bumped, roof scan height cap; 4 smoke coverage gaps). All 9 were applied and the suite re-passed. One design flaw was also caught by the smoke test itself mid-build: storm exposure originally keyed on `shelter_score`, which the flattened ground under the hall saturates — storms could never hurt anyone. Rekeyed to roof coverage, giving each hazard a distinct counter (storm → roof, slime → walls, darkness → light).
 
 v0.2 additions (all from the GAME_FEATURE_OUTLINE / documented v0.1 limitations, operator-authorized continuation):
 
@@ -30,7 +40,7 @@ Key implementation facts:
 | JSON data parses / scaffold valid | PASS | `python scripts/validate_repo.py` → `RESULT scaffold_valid` |
 | Capsule doctor | PASS | `usable_with_warnings` → now `usable` expected (git initialized this run) |
 | Godot import, no missing refs | PASS | headless `--import` clean (only benign warning: nested `reference/g1v5` project ignored) |
-| Acceptance smoke test | PASS 34/34 | headless and windowed runs, exit 0 (v0.2 adds forge/ore-gating, tier speed, food loop, occlusion config, threat persistence checks) |
+| Acceptance smoke test | PASS 47/47 | headless and windowed runs, exit 0 (v0.3 adds regrowth, population dynamics + bounds, lantern, storm damage + roof mitigation, storm/regrow persistence checks) |
 | Visual check (torch light, HUD bars, night tint) | PASS | `user://smoke_screenshot.png` reviewed |
 | Manual human playthrough | NOT-CHECKED | recommended but not blocking; all mechanics covered by automated checks |
 
@@ -46,7 +56,7 @@ Smoke evidence highlights: mining frames dirt=21 wood=33 stone=66 (hardness orde
 
 ## Next action
 
-Human playthrough for feel/tuning (day length 100 s, night at 65%, threat DPS 4, 2 food/dawn, bush density 0.07/column). Then decide v0.3 scope — remaining candidates from `docs/GAME_FEATURE_OUTLINE.md`: berry regrowth or farming, population growth tied to Coherence, a second threat/hazard type, lanterns/fuel-based light, workbench/crafting menu, deeper ore uses (tier-3 tools).
+Human playthrough for feel/tuning (day 100 s, night at 65%; storm 50%/day, 18 s, 3 dps unroofed; ⌈pop/2⌉ food/dawn, bush regrow 90 s, pop 1–8 with growth at coherence ≥ 55). Then decide v0.4 scope — remaining candidates from `docs/GAME_FEATURE_OUTLINE.md`: farming/plantable bushes, tier-3 tools with a deeper stone layer, a workbench/crafting menu (recipe count now justifies it: 4), fuel-based light decay, settler role assignment (still abstract), threat variety (digger that breaks blocks).
 
 ## Closeout expectation for next run
 

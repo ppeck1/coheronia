@@ -6,6 +6,7 @@ extends CanvasLayer
 signal deposit_requested
 signal repair_requested
 signal forge_requested
+signal lantern_requested
 
 var player: CharacterBody2D
 var town_hall: Node2D
@@ -22,6 +23,7 @@ var _log_lines: Array[String] = []
 var _town_panel: PanelContainer
 var _town_info: Label
 var _forge_button: Button
+var _save_label: Label
 var _debug_label: Label
 
 
@@ -60,7 +62,7 @@ func _build_bottom_left() -> void:
 	box.anchor_top = 1.0
 	box.anchor_bottom = 1.0
 	box.offset_left = 12
-	box.offset_top = -74
+	box.offset_top = -96
 	add_child(box)
 	_mine_bar = ProgressBar.new()
 	_mine_bar.custom_minimum_size = Vector2(180, 10)
@@ -69,6 +71,7 @@ func _build_bottom_left() -> void:
 	box.add_child(_mine_bar)
 	_hotbar_label = _label(box, "")
 	_label(box, "LMB mine · RMB place · E town hall · C craft torch · F5 save · F9 load")
+	_save_label = _label(box, "No save yet — press F5 to save.")
 
 
 func _build_log() -> void:
@@ -112,6 +115,10 @@ func _build_town_panel() -> void:
 	_forge_button.text = "Forge pick upgrade (3 wood + 5 stone)"
 	_forge_button.pressed.connect(func() -> void: forge_requested.emit())
 	box.add_child(_forge_button)
+	var lantern := Button.new()
+	lantern.text = "Craft lantern (2 ore + 1 wood)"
+	lantern.pressed.connect(func() -> void: lantern_requested.emit())
+	box.add_child(lantern)
 	_label(box, "Press E to close")
 
 
@@ -175,8 +182,16 @@ func update_health(health: float) -> void:
 	_health_label.text = "Health: %d" % int(round(health))
 
 
-func update_time(day: int, is_night: bool) -> void:
-	_time_label.text = "Day %d — %s" % [day, "Night" if is_night else "Day"]
+func update_time(day: int, is_night: bool, threat_count: int = 0) -> void:
+	var text := "Day %d — %s" % [day, "Night" if is_night else "Day"]
+	if threat_count > 0:
+		text += "  ⚠ %d threat%s active" % [threat_count, "" if threat_count == 1 else "s"]
+	_time_label.text = text
+
+
+func set_save_hint(has_save: bool) -> void:
+	_save_label.text = "Save available — press F9 to load." if has_save \
+		else "No save yet — press F5 to save."
 
 
 func update_inventory() -> void:

@@ -1,0 +1,54 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260702_coheronia_v03_increment",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "1f498be",
+  "end_commit": "pending-closeout-commit-see-git-log",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "Coheronia v0.3: berry regrowth, dynamic population, storm hazard with roof mitigation, lanterns, UX polish; includes a subagent verification/optimization loop.",
+  "summary": "Implements the v0.3 slate inline (features overlap in the same six files, so parallel implementation agents were rejected as conflict-prone), then closes a verification loop: (1) the smoke suite itself caught that storm exposure keyed on shelter_score could never deal damage because ground fill under the hall saturates the score - rekeyed to roof_coverage() so each hazard has a distinct counter (storm->roof, slime->walls, darkness->light); (2) an independent read-only subagent reviewed the diff and returned 9 findings, all applied; (3) suite re-passed 47/47 headless and windowed.",
+  "acceptance": [
+    "Harvested berry bushes start a 90s regrow timer, regrow in place, and the timer survives save/load",
+    "Population drops on a starved dawn, grows on a fed dawn with coherence >= 55 and food surplus, floors at 1 and caps at 8; food need scales as ceil(pop/2)",
+    "Forced storm raises threat severity 0->8 and damages the unroofed hall (0->1.52 over 30 frames); a full 7-column roof drops coverage-scaled damage to zero (1.52->1.52)",
+    "Lantern crafted at the Town Hall from stockpile (2 ore + 1 wood), placed from hotbar slot 5, emits light",
+    "Storm state and regrow timers persist across the save/load round trip; pre-v0.3 saves load without a surprise storm re-roll",
+    "All 34 pre-existing checks unchanged; suite total 47/47, exit 0, screenshot reviewed (roofed hall, lantern, threat warning, save hint, settler-arrival log)"
+  ],
+  "validation": [
+    "COHERONIA_SMOKE=1 headless -> SMOKE RESULT: PASS (47/47), exit 0",
+    "COHERONIA_SMOKE=1 windowed -> 47/47 + user://smoke_screenshot.png reviewed",
+    "python scripts/validate_repo.py -> RESULT scaffold_valid",
+    "Subagent diff review (agent a694b79a): 9 findings, 9 applied, re-verified"
+  ],
+  "docs_updated": ["README.md", "docs/HANDOFF.md", "docs/VARIABLE_MATRIX.md"],
+  "readme_state": "updated",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Implementation kept inline rather than parallel subagents: the five features share game_root/world/hud/town_hall/save/smoke files and context was already resident; subagents used for what they are good at - independent verification",
+    "Storm mitigation keyed to roof coverage above the hall (scanning to world top), not shelter_score, after the smoke test proved ground fill made shelter-based exposure unwinnable for the storm",
+    "Population growth reads a pre-meal dawn coherence snapshot to avoid re-entrant recompute ordering issues",
+    "Save version 0.3 accepts 0.1/0.2 saves; missing keys default safely, including storm_rolled_today derived from time_of_day"
+  ],
+  "risks": [
+    "Widened tuning surface untested by human play (storm 50%/day at 3 dps, growth threshold 55, regrow 90s)",
+    "Roof coverage assumes the current 7-column hall footprint"
+  ],
+  "next_action": "Operator playthrough (storm with/without roof, grow to 8 settlers), then v0.4 scoping.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260702_coheronia_v03_increment.md",
+    "docs/HANDOFF.md",
+    "docs/VARIABLE_MATRIX.md",
+    "README.md"
+  ],
+  "ledger_path": ".project/runs/20260702_coheronia_v03_increment.md",
+  "sensitivity": "private",
+  "overrides": [],
+  "created_at": "2026-07-02T13:40:00-04:00"
+}

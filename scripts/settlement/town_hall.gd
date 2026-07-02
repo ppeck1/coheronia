@@ -57,12 +57,12 @@ func repair() -> bool:
 	return true
 
 
-## Spends stockpile per the town_hall-station recipe to upgrade the
-## player's pick to tier 2. Returns true if the forge happened.
-func forge_pick(player: CharacterBody2D) -> bool:
-	if player.tool_tier >= 2:
+## Crafts a town_hall-station recipe: inputs come from the stockpile,
+## outputs go to the player's inventory. Returns true on success.
+func craft_from_stockpile(recipe_id: String, player: CharacterBody2D) -> bool:
+	var recipe: Dictionary = BlockRegistry.get_recipe(recipe_id)
+	if str(recipe.get("station", "")) != "town_hall":
 		return false
-	var recipe: Dictionary = BlockRegistry.get_recipe(FORGE_RECIPE_ID)
 	var inputs: Dictionary = recipe.get("inputs", {})
 	for item_id in inputs:
 		if int(stockpile.get(item_id, 0)) < int(inputs[item_id]):
@@ -71,10 +71,20 @@ func forge_pick(player: CharacterBody2D) -> bool:
 		stockpile[item_id] = int(stockpile[item_id]) - int(inputs[item_id])
 		if int(stockpile[item_id]) <= 0:
 			stockpile.erase(item_id)
-	player.tool_tier = 2
 	player.inventory.add_many(recipe.get("outputs", {}))
 	player.inventory_changed.emit()
 	stockpile_changed.emit()
+	return true
+
+
+## Spends stockpile per the town_hall-station recipe to upgrade the
+## player's pick to tier 2. Returns true if the forge happened.
+func forge_pick(player: CharacterBody2D) -> bool:
+	if player.tool_tier >= 2:
+		return false
+	if not craft_from_stockpile(FORGE_RECIPE_ID, player):
+		return false
+	player.tool_tier = 2
 	return true
 
 
