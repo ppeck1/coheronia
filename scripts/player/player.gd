@@ -31,6 +31,13 @@ var growth_threshold_delta := 0.0
 var hotbar: Array[String] = ["dirt", "wood", "stone", "torch", "lantern"]
 var selected_slot := 0
 
+# Ancestry effects (Phase B; reset in apply_character, set by apply_ancestry_effects).
+var ancestry_move_mult := 1.0
+var ancestry_jump_mult := 1.0
+var stone_ore_mine_mult := 1.0
+var ancestry_health_bonus := 0.0
+var learning_speed_mult := 1.0
+
 var mine_target := Vector2i(-99999, -99999)
 var mine_progress := 0.0
 var mine_required := 0.0
@@ -43,8 +50,15 @@ func selected_item() -> String:
 
 
 ## Applies a shell character (appearance, traits, role effects) to this
-## player. Called by game_root before the world starts.
+## player. Resets ancestry effects to defaults; call apply_ancestry_effects
+## afterwards when an ancestry should be active.
 func apply_character(character: Dictionary) -> void:
+	# Reset ancestry vars first so stale values never persist across calls.
+	ancestry_move_mult = 1.0
+	ancestry_jump_mult = 1.0
+	stone_ore_mine_mult = 1.0
+	ancestry_health_bonus = 0.0
+	learning_speed_mult = 1.0
 	var appearance: Dictionary = BlockRegistry.appearance_def(str(character.get("appearance", "tan")))
 	body_color = Color.from_string("#" + str(appearance.get("body", "ebd48c")), body_color)
 	trim_color = Color.from_string("#" + str(appearance.get("trim", "59402e")), trim_color)
@@ -64,13 +78,28 @@ func apply_character(character: Dictionary) -> void:
 	queue_redraw()
 
 
+## Applies ancestry player_effects dict to this player. Call after
+## apply_character. Pass {} (or let game_root call apply_ancestry_for_species)
+## to keep defaults for unknown/non-Phase-B species.
+## Wired keys: move_speed_mult, jump_mult, stone_ore_mining_mult,
+##             learning_speed_mult, health_bonus.
+func apply_ancestry_effects(effects: Dictionary) -> void:
+	ancestry_move_mult = float(effects.get("move_speed_mult", 1.0))
+	ancestry_jump_mult = float(effects.get("jump_mult", 1.0))
+	stone_ore_mine_mult = float(effects.get("stone_ore_mining_mult", 1.0))
+	learning_speed_mult = float(effects.get("learning_speed_mult", 1.0))
+	ancestry_health_bonus = float(effects.get("health_bonus", 0.0))
+	max_health += ancestry_health_bonus
+	health = minf(health, max_health)
+
+
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y += GRAVITY * delta
 	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = JUMP_VELOCITY
+		velocity.y = JUMP_VELOCITY * ancestry_jump_mult
 	var direction := Input.get_axis("move_left", "move_right")
-	velocity.x = direction * SPEED
+	velocity.x = direction * SPEED * ancestry_move_mult
 	move_and_slide()
 	_hurt_cooldown = maxf(0.0, _hurt_cooldown - delta)
 
@@ -111,7 +140,12 @@ func process_mining(cell: Vector2i, delta: float) -> bool:
 	if cell != mine_target:
 		mine_target = cell
 		mine_progress = 0.0
-		mine_required = world.mine_time(cell, effective_mine_speed())
+		var _mine_speed := effective_mine_speed()
+		if stone_ore_mine_mult != 1.0:
+			var _bid: String = world.block_at(cell)
+			if _bid == "stone" or _bid == "ore":
+				_mine_speed *= stone_ore_mine_mult
+		mine_required = world.mine_time(cell, _mine_speed)
 	mine_progress += delta
 	if mine_progress < mine_required:
 		return false

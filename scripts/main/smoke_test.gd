@@ -501,6 +501,61 @@ func _run() -> void:
 		and int(root.xp_totals.get("labor", 0)) == 77,
 		"base_level=%d labor_xp=%d" % [root.base_level, int(root.xp_totals.get("labor", 0))])
 
+	# --- Ancestry Phase B: registry loads + player_effects wired ---
+
+	# Registry loads all 12 ancestries; phase_b_ids returns exactly 5.
+	var ancestry_reg = load("res://scripts/data/ancestry_registry.gd").new()
+	_check("ancestries_json_loads_via_registry", ancestry_reg.all_count() == 12,
+		"%d ancestries loaded" % ancestry_reg.all_count())
+	_check("ancestry_phase_b_ids_count", ancestry_reg.phase_b_ids().size() == 5,
+		"phase_b_ids=%s" % str(ancestry_reg.phase_b_ids()))
+
+	# Dwarf: 0.9x move speed and 1.2x stone/ore mining vs baseline defaults.
+	player.apply_character(GameState.current_character)
+	var baseline_move_mult: float = player.ancestry_move_mult  # 1.0 after reset
+	var baseline_mine_mult: float = player.stone_ore_mine_mult  # 1.0 after reset
+	root.apply_ancestry_for_species("dwarf")
+	_check("dwarf_move_speed_09x", absf(player.ancestry_move_mult - 0.9 * baseline_move_mult) < 0.001,
+		"ancestry_move_mult=%.3f (expected %.3f)" % [player.ancestry_move_mult, 0.9 * baseline_move_mult])
+	_check("dwarf_stone_ore_mining_12x", absf(player.stone_ore_mine_mult - 1.2 * baseline_mine_mult) < 0.001,
+		"stone_ore_mine_mult=%.3f (expected %.3f)" % [player.stone_ore_mine_mult, 1.2 * baseline_mine_mult])
+
+	# Orc: max health rises by exactly 25 above the trait/role baseline.
+	player.apply_character(GameState.current_character)
+	var baseline_max_health: float = player.max_health
+	root.apply_ancestry_for_species("orc")
+	_check("orc_health_bonus_25", absf(player.max_health - (baseline_max_health + 25.0)) < 0.01,
+		"max_health=%.0f baseline=%.0f" % [player.max_health, baseline_max_health])
+
+	# Human: award_xp yields >= the baseline amount (1.05x, rounded).
+	player.apply_character(GameState.current_character)
+	var _labor_snap: int = int(root.xp_totals.get("labor", 0))
+	root.award_xp("block_mined")
+	var baseline_gain: int = int(root.xp_totals.get("labor", 0)) - _labor_snap
+	root.xp_totals["labor"] = _labor_snap  # restore before human test
+	player.apply_character(GameState.current_character)
+	root.apply_ancestry_for_species("human")
+	var _human_snap: int = int(root.xp_totals.get("labor", 0))
+	root.award_xp("block_mined")
+	var human_gain: int = int(root.xp_totals.get("labor", 0)) - _human_snap
+	_check("human_learning_mult_xp", human_gain >= baseline_gain,
+		"human_gain=%d baseline_gain=%d" % [human_gain, baseline_gain])
+
+	# Unknown/legacy species: all ancestry multipliers stay at their safe defaults.
+	player.apply_character(GameState.current_character)
+	root.apply_ancestry_for_species("unknown_legacy_species")
+	_check("unknown_species_at_baseline",
+		absf(player.ancestry_move_mult - 1.0) < 0.001
+		and absf(player.ancestry_jump_mult - 1.0) < 0.001
+		and absf(player.stone_ore_mine_mult - 1.0) < 0.001
+		and absf(player.learning_speed_mult - 1.0) < 0.001,
+		"move=%.3f jump=%.3f mine=%.3f learn=%.3f" % [player.ancestry_move_mult,
+			player.ancestry_jump_mult, player.stone_ore_mine_mult, player.learning_speed_mult])
+
+	# Restore: apply the current character and its ancestry before the screenshot.
+	player.apply_character(GameState.current_character)
+	root.apply_ancestry_for_species(str(GameState.current_character.get("species", "")))
+
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":
 		# Frame the Town Hall and its torches so lighting/shadows are visible.

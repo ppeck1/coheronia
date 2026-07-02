@@ -12,6 +12,50 @@
       "lifespan": "standard",
       "weaknesses": [],
       "faction_reactions": {}
+    },
+    {
+      "id": "dwarf",
+      "display_name": "Dwarf",
+      "description": "Sturdy mountain folk. Slower movement, but master miners.",
+      "abilities": [],
+      "needs_modifiers": {},
+      "social_effects": {},
+      "lifespan": "standard",
+      "weaknesses": [],
+      "faction_reactions": {}
+    },
+    {
+      "id": "elf",
+      "display_name": "Elf",
+      "description": "Agile forest-dwellers attuned to nature.",
+      "abilities": [],
+      "needs_modifiers": {},
+      "social_effects": {},
+      "lifespan": "standard",
+      "weaknesses": [],
+      "faction_reactions": {}
+    },
+    {
+      "id": "goblin",
+      "display_name": "Goblin",
+      "description": "Small and quick scavengers with a knack for ingenuity.",
+      "abilities": [],
+      "needs_modifiers": {},
+      "social_effects": {},
+      "lifespan": "standard",
+      "weaknesses": [],
+      "faction_reactions": {}
+    },
+    {
+      "id": "orc",
+      "display_name": "Orc",
+      "description": "Powerful and durable. High health, built for endurance.",
+      "abilities": [],
+      "needs_modifiers": {},
+      "social_effects": {},
+      "lifespan": "standard",
+      "weaknesses": [],
+      "faction_reactions": {}
     }
   ],
   "traits": [

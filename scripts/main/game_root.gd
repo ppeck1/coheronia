@@ -5,6 +5,7 @@ extends Node2D
 const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
 const ProgressionRegistryClass := preload("res://scripts/data/progression_registry.gd")
+const AncestryRegistryClass := preload("res://scripts/data/ancestry_registry.gd")
 
 const DAY_LENGTH_SECONDS := 100.0
 const NIGHT_START := 0.65          # time_of_day fraction where night begins
@@ -48,6 +49,7 @@ var _enemy_registry = null          # EnemyRegistryClass instance
 var _cave_spawn_timer := 0.0
 
 var _progression_registry = null    # ProgressionRegistryClass instance
+var _ancestry_registry = null       # AncestryRegistryClass instance
 var xp_totals: Dictionary = {}      # xp_type_id -> int (per-type totals)
 var player_level := 1
 var base_xp := 0                    # informational; base_level check is authoritative
@@ -60,12 +62,14 @@ func _ready() -> void:
 	GameState.ensure_play_context()
 	_enemy_registry = EnemyRegistryClass.new()
 	_progression_registry = ProgressionRegistryClass.new()
+	_ancestry_registry = AncestryRegistryClass.new()
 	# Initialise XP totals to zero for every known type.
 	for t: Dictionary in _progression_registry.xp_types():
 		xp_totals[str(t.get("id", ""))] = 0
 	_wire_references()
 	_wire_signals()
 	player.apply_character(GameState.current_character)
+	apply_ancestry_for_species(str(GameState.current_character.get("species", "")))
 	var saved_state: Dictionary = GameState.get_current_state()
 	if saved_state.is_empty():
 		world.setup(config().seed_value())
@@ -629,6 +633,21 @@ func force_night() -> void:
 # Progression: player XP, levels, base level
 # ---------------------------------------------------------------------------
 
+## Applies the wired Phase B player_effects for species_id to the player.
+## Non-Phase-B or unknown species receive all-default values (mult 1.0, bonus 0).
+## Always call this after player.apply_character() so ancestry_health_bonus
+## stacks correctly on top of the trait/role max_health base.
+func apply_ancestry_for_species(species_id: String) -> void:
+	if _ancestry_registry == null:
+		player.apply_ancestry_effects({})
+		return
+	if species_id in _ancestry_registry.phase_b_ids():
+		var ancestry: Dictionary = _ancestry_registry.get_ancestry(species_id)
+		player.apply_ancestry_effects(ancestry.get("player_effects", {}))
+	else:
+		player.apply_ancestry_effects({})
+
+
 ## Award XP for event_id (defined in player_xp.json).
 ## Adds the event's base_amount to the matching xp_type total and
 ## also_awards.base_xp to the base XP pool, then recalculates player level.
@@ -639,7 +658,8 @@ func award_xp(event_id: String) -> void:
 	if ev.is_empty():
 		return
 	var xp_type: String = str(ev.get("xp_type", ""))
-	var amount: int = int(ev.get("base_amount", 0))
+	var raw_amount: int = int(ev.get("base_amount", 0))
+	var amount: int = int(round(float(raw_amount) * player.learning_speed_mult))
 	var base_gain: int = int(ev.get("also_awards", {}).get("base_xp", 0))
 	if xp_type != "":
 		xp_totals[xp_type] = int(xp_totals.get(xp_type, 0)) + amount
