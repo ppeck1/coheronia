@@ -84,7 +84,12 @@ Coheronia is meant to sit between a survival sandbox and a civilization pressure
 
 Planned civilization systems include subject roles, civic upgrades, ruler legitimacy, morale, loyalty, rebellion pressure, infrastructure needs, and events where enemies are not just monsters but political and social forces. The current v0.4 shell already stores many of these knobs as world rules so later gameplay can consume them without rewriting the save model.
 
-Future enemy and boss design notes live in `docs/FUTURE_ENEMY_DESIGN.md`. They are design-confirmed/planned material and are **not integrated as live gameplay yet**.
+Future design references:
+
+- `docs/FUTURE_ENEMY_DESIGN.md`: planned enemy families, bosses, loot, density, and expansion order.
+- `docs/FUTURE_ANCESTRIES_AND_BIOMES.md`: planned ancestry, biome, spawn, player-effect, and settlement-effect matrices.
+
+These are design-confirmed/planned material and are **not integrated as live gameplay yet**.
 
 ## Architecture
 

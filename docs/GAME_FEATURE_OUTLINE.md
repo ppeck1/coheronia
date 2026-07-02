@@ -285,6 +285,8 @@ MVP rule:
 
 Use abstract population values only. Do not build full NPC AI in v0.1.
 
+Future ancestry and biome planning is tracked in `docs/FUTURE_ANCESTRIES_AND_BIOMES.md`. It defines planned ancestry bones, biome affinities, deep-underground spawn rules, player effects, settlement effects, and phased implementation order.
+
 ## 11. Crafting and tools
 
 Desired features:
