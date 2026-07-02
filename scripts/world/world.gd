@@ -26,6 +26,7 @@ const BLOCK_COLORS := {
 	"stone": Color(0.45, 0.46, 0.50),
 	"ore": Color(0.72, 0.62, 0.35),
 	"torch": Color(1.0, 0.75, 0.25),
+	"berry_bush": Color(0.20, 0.45, 0.18),
 	"town_hall_core": Color(0.42, 0.30, 0.55),
 }
 
@@ -157,6 +158,8 @@ func _update_light(cell: Vector2i, block_id: String) -> void:
 		light.texture_scale = (radius * 2.0) / float(_light_texture.width)
 		light.energy = 1.3
 		light.color = Color(1.0, 0.85, 0.6)
+		light.shadow_enabled = true
+		light.shadow_filter = PointLight2D.SHADOW_FILTER_PCF5
 		light.position = cell_center(cell)
 		add_child(light)
 		_lights[cell] = light
@@ -171,6 +174,7 @@ func _build_tileset() -> TileSet:
 	ts.tile_size = Vector2i(t, t)
 	ts.add_physics_layer()
 	ts.set_physics_layer_collision_layer(0, 1)
+	ts.add_occlusion_layer()
 	var half := t / 2.0
 	var square := PackedVector2Array([
 		Vector2(-half, -half), Vector2(half, -half),
@@ -185,17 +189,33 @@ func _build_tileset() -> TileSet:
 		src.create_tile(Vector2i.ZERO)
 		var sid := ts.add_source(src)
 		_source_ids[block_id] = sid
+		var tile_data := src.get_tile_data(Vector2i.ZERO, 0)
 		if BlockRegistry.is_solid(block_id):
-			var tile_data := src.get_tile_data(Vector2i.ZERO, 0)
 			tile_data.add_collision_polygon(0)
 			tile_data.set_collision_polygon_points(0, 0, square)
+		if BlockRegistry.blocks_light(block_id):
+			var occluder := OccluderPolygon2D.new()
+			occluder.polygon = square
+			if tile_data.has_method("add_occluder_polygon"):
+				tile_data.add_occluder_polygon(0)
+				tile_data.set_occluder_polygon(0, 0, occluder)
+			else:
+				tile_data.set_occluder(0, occluder)
 	return ts
 
 
 func _make_block_texture(block_id: String, t: int) -> ImageTexture:
 	var color: Color = BLOCK_COLORS.get(block_id, Color.MAGENTA)
 	var img := Image.create(t, t, false, Image.FORMAT_RGBA8)
-	if block_id == "torch":
+	if block_id == "berry_bush":
+		# Transparent tile with a rounded bush and berries.
+		img.fill(Color(0, 0, 0, 0))
+		for y in range(t / 4, t):
+			for x in range(2, t - 2):
+				img.set_pixel(x, y, color)
+		for dot in [Vector2i(4, 8), Vector2i(9, 6), Vector2i(12, 10), Vector2i(6, 12)]:
+			img.set_pixel(dot.x, dot.y, Color(0.85, 0.15, 0.20))
+	elif block_id == "torch":
 		# Transparent tile with a small stick + flame so torches read as objects.
 		img.fill(Color(0, 0, 0, 0))
 		for y in range(t / 2, t):

@@ -87,6 +87,34 @@ func _run() -> void:
 	_check("hardness_orders_mining_time", dirt_frames < wood_frames and wood_frames < stone_frames,
 		"frames dirt=%d wood=%d stone=%d" % [dirt_frames, wood_frames, stone_frames])
 
+	# --- Tool tier progression (forge at Town Hall) ---
+	var ore_cell: Variant = _find_block(world, hall_cell, "ore", 2)
+	_check("ore_exists_in_world", ore_cell != null)
+	if ore_cell != null:
+		_check("ore_gated_by_tool_tier", not world.can_mine(ore_cell, player.tool_tier))
+	player.inventory.add("wood", 3)
+	player.inventory.add("stone", 5)
+	hall.deposit_all(player.inventory)
+	var forged: bool = hall.forge_pick(player)
+	_check("forge_pick_upgrade", forged and player.tool_tier == 2,
+		"stock after forge=%s" % str(hall.stockpile))
+	var dirt_cell2: Variant = _find_block(world, hall_cell, "dirt")
+	var dirt_frames_t2 := await _mine_cell(world, player, dirt_cell2)
+	_check("tier2_mines_faster", dirt_frames_t2 < dirt_frames,
+		"frames tier1=%d tier2=%d" % [dirt_frames, dirt_frames_t2])
+	if ore_cell != null:
+		var ore_frames := await _mine_cell(world, player, ore_cell)
+		_check("ore_mineable_after_forge", player.inventory.count("ore") >= 1,
+			"%d frames" % ore_frames)
+
+	# --- Food source ---
+	var bush_cell: Variant = _find_block(world, hall_cell, "berry_bush")
+	_check("berry_bush_exists", bush_cell != null)
+	if bush_cell != null:
+		await _mine_cell(world, player, bush_cell)
+	_check("food_from_bush", player.inventory.count("food") >= 2,
+		"food=%d" % player.inventory.count("food"))
+
 	# --- Placement ---
 	player.global_position = world.cell_center(dirt_cell) + Vector2(0, -40.0)
 	var place_cell: Vector2i = dirt_cell
@@ -104,12 +132,22 @@ func _run() -> void:
 	_check("torch_placement", torch_placed and world.block_at(torch_cell) == "torch")
 	_check("torch_emits_light", world.has_light_at(torch_cell)
 		and world._lights[torch_cell].energy > 0.0)
+	_check("light_occlusion_configured",
+		world._tilemap.tile_set.get_occlusion_layers_count() > 0
+		and world._lights[torch_cell].shadow_enabled)
 
 	# --- Town Hall deposit ---
 	var stock_before: int = hall.total_stock()
 	var moved: Dictionary = hall.deposit_all(player.inventory)
 	_check("town_hall_deposit", hall.total_stock() > stock_before and not moved.is_empty(),
 		"stock=%d" % hall.total_stock())
+
+	# --- Population food consumption at dawn ---
+	var food_before: int = int(hall.stockpile.get("food", 0))
+	root.consume_daily_food()
+	var food_after: int = int(hall.stockpile.get("food", 0))
+	_check("population_consumes_food", food_before > 0 and food_after < food_before,
+		"food %d→%d" % [food_before, food_after])
 
 	# --- C/L/R responds to state ---
 	settlement.compute()
@@ -161,11 +199,23 @@ func _run() -> void:
 		and world.block_at(torch_cell) == "torch")
 	_check("load_restores_stockpile", hall.total_stock() == save_stock)
 	_check("load_keeps_torch_light", world.has_light_at(torch_cell))
+	var live_threats := 0
+	for threat in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(threat) and not threat.is_queued_for_deletion():
+			live_threats += 1
+	_check("load_restores_threats", live_threats > 0, "%d live threats" % live_threats)
+	_check("load_restores_tool_tier", player.tool_tier == 2)
 
 	player.set_physics_process(true)
 
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":
+		# Frame the Town Hall and its torches so lighting/shadows are visible.
+		player.global_position = world.cell_center(hall_cell) + Vector2(-48, -24)
+		player.velocity = Vector2.ZERO
+		player.get_node("Camera2D").reset_smoothing()
+		for i in range(20):
+			await get_tree().physics_frame
 		await RenderingServer.frame_post_draw
 		var img := get_viewport().get_texture().get_image()
 		img.save_png("user://smoke_screenshot.png")
@@ -193,11 +243,11 @@ func _mine_cell(world: Node2D, player: CharacterBody2D, cell: Vector2i) -> int:
 
 
 ## Finds a mineable cell of the given type, preferring cells away from the hall.
-func _find_block(world: Node2D, near: Vector2i, block_id: String) -> Variant:
+func _find_block(world: Node2D, near: Vector2i, block_id: String, tool_tier: int = 1) -> Variant:
 	for radius in range(8, 60):
 		for dx in range(-radius, radius + 1):
 			for dy in range(-12, 30):
 				var cell := near + Vector2i(dx, dy)
-				if world.block_at(cell) == block_id and world.can_mine(cell, 1):
+				if world.block_at(cell) == block_id and world.can_mine(cell, tool_tier):
 					return cell
 	return null

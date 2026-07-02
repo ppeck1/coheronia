@@ -1,6 +1,6 @@
 # Coheronia — Variable Matrix
 
-State: audited against the v0.1 implementation (run `2026-07-02-mvp-v01-oneshot`). All MVP-required variables exist and are connected to game state.
+State: audited against the v0.2 implementation (run `20260702_coheronia_v02_increment`). All MVP-required variables exist and are connected to game state.
 
 ## Authority
 
@@ -14,13 +14,13 @@ State: audited against the v0.1 implementation (run `2026-07-02-mvp-v01-oneshot`
 | Variable | Type | Authority | Required for MVP | Implemented in |
 |---|---|---|---|---|
 | `tile_size` | int | `data/blocks.json` | Yes | `BlockRegistry.tile_size` (16 px) |
-| `block_id` | string | `data/blocks.json` | Yes | dirt, grass, wood, stone, ore, torch, town_hall_core, air |
+| `block_id` | string | `data/blocks.json` | Yes | dirt, grass, wood, stone, ore, berry_bush, torch, town_hall_core, air |
 | `hardness` | float | `data/blocks.json` | Yes | `world.mine_time()` → mining duration |
-| `required_tool_tier` | int | `data/blocks.json` | Yes | gate in `world.can_mine()` |
+| `required_tool_tier` | int | `data/blocks.json` | Yes | gate in `world.can_mine()`; ore raised to tier 2 in v0.2 (forge gate) |
 | `drops` | dictionary | `data/blocks.json` | Yes | `world.break_block()` return → inventory |
 | `is_placeable` | bool | `data/blocks.json` | Yes | gate in `world.place_block()` |
 | `is_solid` | bool | `data/blocks.json` | Yes | collision polygons + shelter/defense scores |
-| `blocks_light` | bool | `data/blocks.json` | Yes | present in data; per-tile occlusion NOT simulated in v0.1 (known limitation) |
+| `blocks_light` | bool | `data/blocks.json` | Yes | SIMULATED since v0.2: per-tile `OccluderPolygon2D` in the runtime TileSet + shadow-enabled torch lights |
 | `emits_light` | bool | `data/blocks.json` | Yes | spawns `PointLight2D` in `world._update_light()` |
 | `light_radius` | int | `data/blocks.json` | Yes | scales the light texture (torch = 96 px) |
 | `settlement_tags` | array | `data/blocks.json` | Yes | `protected` blocks mining; `defense` feeds defense_score |
@@ -33,8 +33,8 @@ State: audited against the v0.1 implementation (run `2026-07-02-mvp-v01-oneshot`
 | `selected_item_id` | string | `player.gd` | Yes | `player.selected_item()` from hotbar |
 | `mine_target` | Vector2i | `player.gd` | Yes | progress resets on target change |
 | `mine_progress` | float | `player.gd` | Yes | HUD progress bar |
-| `base_mine_speed` | float | `player.gd` | Yes | 1.0; time = hardness / speed |
-| `tool_tier` | int | `player.gd` | Should | starts at 1 (can mine stone/ore); saved |
+| `base_mine_speed` | float | `player.gd` | Yes | 1.0; time = hardness / `effective_mine_speed()` |
+| `tool_tier` | int | `player.gd` | Should | starts at 1 (dirt/wood/stone); tier 2 via Town Hall forge unlocks ore and +50% speed; saved |
 | `town_hall_position` | Vector2i | `world.hall_info` | Yes | stamped by `WorldGen.stamp_town_hall` |
 | `town_hall_stockpile` | dictionary | `town_hall.gd` / save | Yes | deposit via hall panel; repair spends stone |
 | `population_count` | int | `town_hall.gd` | Yes | abstract, fixed 4; saved |
@@ -44,7 +44,7 @@ State: audited against the v0.1 implementation (run `2026-07-02-mvp-v01-oneshot`
 | `defense_score` | float | `settlement_model.gd` | Should | `defense`-tagged blocks within r=6 × 0.75, cap 25 |
 | `damage_score` | float | `settlement_model.gd` | Should | hall damage (0–100) × 0.3, cap 30 |
 | `threat_score` | float | `game_root.gd` → model | Yes | night base 10 + 10 per live threat, cap 40 |
-| `scarcity_penalty` | float | `settlement_model.gd` | Should | (10 − total stock) × 1.5, clamp 0–15 |
+| `scarcity_penalty` | float | `settlement_model.gd` | Should | (10 − total stock) × 1.0 + max(0, population − food stock), clamp 0–15 (food-aware since v0.2) |
 | `population_pressure` | float | `settlement_model.gd` | Should | pop × 2 − stock × 0.1, clamp 0–20 |
 | `coherence` | float | formulas in `settlement_rules.json` | Yes | HUD bar, clamp 0–100 |
 | `load` | float | formulas in `settlement_rules.json` | Yes | HUD bar (named `load_value` in code; `load` is a GDScript built-in) |
@@ -52,7 +52,7 @@ State: audited against the v0.1 implementation (run `2026-07-02-mvp-v01-oneshot`
 | `time_of_day` | float | `game_root.gd` / save | Should | 0–1 over 100 s; night ≥ 0.65 |
 | `is_night` | bool | `game_root.gd` | Should | derived from `time_of_day`; drives tint + threat event |
 | `event_log` | array | `hud.gd` | Yes | last 6 messages, top-right |
-| `save_version` | string | `save_manager.gd` | Yes | "0.1"; mismatched saves rejected |
+| `save_version` | string | `save_manager.gd` | Yes | "0.2"; accepts {"0.1", "0.2"}, others rejected |
 
 ## Variables added during implementation
 
@@ -66,8 +66,19 @@ State: audited against the v0.1 implementation (run `2026-07-02-mvp-v01-oneshot`
 | `DAY_LENGTH_SECONDS`, `NIGHT_START` | const | `game_root.gd` | 100 s day; night at 65% |
 | `hall_info` | dictionary | `world.gd` | center cell, ground y, protected core cells |
 
+## Variables added in v0.2
+
+| Variable | Type | Authority | Notes |
+|---|---|---|---|
+| `food` | resource id | `data/blocks.json` (berry_bush drops) | Depositable; settlers consume it; feeds scarcity_penalty |
+| `berry_bush` | block | `data/blocks.json` | Surface food source, non-solid, drops food ×2, does not regrow |
+| `DAILY_FOOD_NEED` | const int | `game_root.gd` | 2 food eaten at each dawn (`consume_daily_food()`) |
+| `effective_mine_speed()` | float | `player.gd` | base_mine_speed × (1 + 0.5 × (tool_tier − 1)) |
+| `FORGE_RECIPE_ID` | const | `town_hall.gd` | "basic_pick_upgrade" from `data/recipes.json` (station town_hall, outputs tool_tier_2_pick) |
+| `threats` (save key) | array | `save_manager.gd` / `game_root.serialize_threats()` | [{x, y, hp}]; restored on load |
+
 ## Required audit behavior
 
 After implementation runs, update this file when variables are added, removed, renamed, or moved between authority surfaces.
 
-A run is not SIGNABLE if core C/L/R variables exist only as decorative HUD values with no connection to world state. **v0.1 verified:** smoke checks `clr_reacts_to_light` (C 31.2→53.2 when torches placed near the hall) and `threat_event_raises_load` (Load 12.3→32.3 at nightfall) prove the connection.
+A run is not SIGNABLE if core C/L/R variables exist only as decorative HUD values with no connection to world state. **v0.2 verified:** smoke checks `clr_reacts_to_light` (C 32.4→54.4 when torches placed near the hall) and `threat_event_raises_load` (Load 10.1→30.1 at nightfall) prove the connection.

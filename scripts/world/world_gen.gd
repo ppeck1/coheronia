@@ -49,6 +49,15 @@ static func generate(world_seed: int, width: int, height: int, surface_base: int
 				cells[Vector2i(x_cursor, surf_y2 - 1 - i)] = "wood"
 		x_cursor += rng.randi_range(7, 14)
 
+	# Berry bushes: surface food source. Separate RNG stream so terrain and
+	# trees stay byte-identical to pre-food worlds with the same seed.
+	var bush_rng := RandomNumberGenerator.new()
+	bush_rng.seed = world_seed + 7
+	for x in range(2, width - 2):
+		var above := Vector2i(x, surface[x] - 1)
+		if bush_rng.randf() < 0.07 and not cells.has(above):
+			cells[above] = "berry_bush"
+
 	return {"cells": cells, "surface": surface}
 
 

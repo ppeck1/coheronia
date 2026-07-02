@@ -5,6 +5,7 @@ extends CanvasLayer
 
 signal deposit_requested
 signal repair_requested
+signal forge_requested
 
 var player: CharacterBody2D
 var town_hall: Node2D
@@ -20,6 +21,7 @@ var _log_label: Label
 var _log_lines: Array[String] = []
 var _town_panel: PanelContainer
 var _town_info: Label
+var _forge_button: Button
 var _debug_label: Label
 
 
@@ -106,6 +108,10 @@ func _build_town_panel() -> void:
 	repair.text = "Repair (2 stone → -25 damage)"
 	repair.pressed.connect(func() -> void: repair_requested.emit())
 	box.add_child(repair)
+	_forge_button = Button.new()
+	_forge_button.text = "Forge pick upgrade (3 wood + 5 stone)"
+	_forge_button.pressed.connect(func() -> void: forge_requested.emit())
+	box.add_child(_forge_button)
 	_label(box, "Press E to close")
 
 
@@ -181,9 +187,11 @@ func update_inventory() -> void:
 		var item_id: String = player.hotbar[i]
 		var marker := "▶" if i == player.selected_slot else " "
 		parts.append("%s[%d] %s ×%d" % [marker, i + 1, BlockRegistry.display_name(item_id), player.inventory.count(item_id)])
-	var extra: int = player.inventory.count("ore")
-	if extra > 0:
-		parts.append("  Ore ×%d" % extra)
+	for extra_id in ["ore", "food"]:
+		var extra: int = player.inventory.count(extra_id)
+		if extra > 0:
+			parts.append("  %s ×%d" % [BlockRegistry.display_name(extra_id).capitalize(), extra])
+	parts.append("  Pick tier %d" % player.tool_tier)
 	_hotbar_label.text = "  ".join(parts)
 	_refresh_stock()
 
@@ -216,6 +224,10 @@ func refresh_town_panel() -> void:
 	for item_id in town_hall.stockpile:
 		lines.append("  %s ×%d" % [BlockRegistry.display_name(item_id), town_hall.stockpile[item_id]])
 	_town_info.text = "\n".join(lines)
+	if player != null:
+		var forged: bool = player.tool_tier >= 2
+		_forge_button.disabled = forged
+		_forge_button.text = "Pick forged (tier 2)" if forged else "Forge pick upgrade (3 wood + 5 stone)"
 
 
 func _refresh_stock() -> void:

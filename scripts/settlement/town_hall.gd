@@ -6,9 +6,10 @@ extends Node2D
 signal stockpile_changed
 signal damaged(amount: float)
 
-const DEPOSITABLE := ["dirt", "stone", "wood", "ore"]
+const DEPOSITABLE := ["dirt", "stone", "wood", "ore", "food"]
 const REPAIR_COST := {"stone": 2}
 const REPAIR_AMOUNT := 25.0
+const FORGE_RECIPE_ID := "basic_pick_upgrade"
 
 var stockpile: Dictionary = {}
 var damage := 0.0            # 0 (intact) .. 100 (ruined)
@@ -54,6 +55,40 @@ func repair() -> bool:
 	damage = maxf(0.0, damage - REPAIR_AMOUNT)
 	stockpile_changed.emit()
 	return true
+
+
+## Spends stockpile per the town_hall-station recipe to upgrade the
+## player's pick to tier 2. Returns true if the forge happened.
+func forge_pick(player: CharacterBody2D) -> bool:
+	if player.tool_tier >= 2:
+		return false
+	var recipe: Dictionary = BlockRegistry.get_recipe(FORGE_RECIPE_ID)
+	var inputs: Dictionary = recipe.get("inputs", {})
+	for item_id in inputs:
+		if int(stockpile.get(item_id, 0)) < int(inputs[item_id]):
+			return false
+	for item_id in inputs:
+		stockpile[item_id] = int(stockpile[item_id]) - int(inputs[item_id])
+		if int(stockpile[item_id]) <= 0:
+			stockpile.erase(item_id)
+	player.tool_tier = 2
+	player.inventory.add_many(recipe.get("outputs", {}))
+	player.inventory_changed.emit()
+	stockpile_changed.emit()
+	return true
+
+
+## Population eats from the stockpile once per dawn.
+## Returns { "eaten": int, "needed": int }.
+func consume_food(needed: int) -> Dictionary:
+	var available := int(stockpile.get("food", 0))
+	var eaten := mini(needed, available)
+	if eaten > 0:
+		stockpile["food"] = available - eaten
+		if int(stockpile["food"]) <= 0:
+			stockpile.erase("food")
+		stockpile_changed.emit()
+	return {"eaten": eaten, "needed": needed}
 
 
 func to_dict() -> Dictionary:

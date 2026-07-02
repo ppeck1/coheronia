@@ -3,7 +3,8 @@ extends Node
 ## Town Hall stockpile/damage, and time/pressure state as JSON in user://.
 
 const SAVE_PATH := "user://coheronia_save.json"
-const SAVE_VERSION := "0.1"
+const SAVE_VERSION := "0.2"
+const ACCEPTED_VERSIONS := ["0.1", "0.2"]
 
 var world: Node2D
 var player: CharacterBody2D
@@ -26,6 +27,7 @@ func save_game() -> bool:
 		},
 		"town_hall": town_hall.to_dict(),
 		"time": game_root.time_state(),
+		"threats": game_root.serialize_threats(),
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -49,7 +51,7 @@ func load_game() -> bool:
 	if not state is Dictionary:
 		push_error("SaveManager: save file did not parse")
 		return false
-	if str(state.get("save_version", "")) != SAVE_VERSION:
+	if str(state.get("save_version", "")) not in ACCEPTED_VERSIONS:
 		push_error("SaveManager: unsupported save version")
 		return false
 
@@ -68,4 +70,5 @@ func load_game() -> bool:
 
 	town_hall.from_dict(state.get("town_hall", {}))
 	game_root.apply_time_state(state.get("time", {}))
+	game_root.apply_threats(state.get("threats", []))
 	return true

@@ -80,7 +80,7 @@ func process_mining(cell: Vector2i, delta: float) -> bool:
 	if cell != mine_target:
 		mine_target = cell
 		mine_progress = 0.0
-		mine_required = world.mine_time(cell, base_mine_speed)
+		mine_required = world.mine_time(cell, effective_mine_speed())
 	mine_progress += delta
 	if mine_progress < mine_required:
 		return false
@@ -107,9 +107,16 @@ func try_place(cell: Vector2i, block_id: String) -> bool:
 	return true
 
 
+## Better picks mine faster: +50% speed per tier above 1.
+func effective_mine_speed() -> float:
+	return base_mine_speed * (1.0 + 0.5 * float(tool_tier - 1))
+
+
 func craft(recipe_id: String) -> bool:
 	var recipe: Dictionary = BlockRegistry.get_recipe(recipe_id)
 	if recipe.is_empty():
+		return false
+	if str(recipe.get("station", "hand")) != "hand":
 		return false
 	if not inventory.remove_all(recipe.get("inputs", {})):
 		player_event.emit("Cannot craft %s: missing materials." % recipe.get("display_name", recipe_id))

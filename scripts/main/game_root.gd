@@ -11,6 +11,7 @@ const INTERACT_RANGE := 72.0
 
 const DAY_TINT := Color(1, 1, 1)
 const NIGHT_TINT := Color(0.22, 0.24, 0.38)
+const DAILY_FOOD_NEED := 2
 
 @onready var world: Node2D = $World
 @onready var player: CharacterBody2D = $Player
@@ -67,6 +68,7 @@ func _wire_signals() -> void:
 	settlement.updated.connect(hud.update_settlement)
 	hud.deposit_requested.connect(_on_deposit_requested)
 	hud.repair_requested.connect(_on_repair_requested)
+	hud.forge_requested.connect(_on_forge_requested)
 
 
 func _position_actors() -> void:
@@ -135,7 +137,19 @@ func _on_dawn() -> void:
 	for threat in get_tree().get_nodes_in_group("threats"):
 		threat.queue_free()
 	log_event("Dawn breaks. The pressure recedes." if survived > 0 else "Dawn breaks.")
+	consume_daily_food()
 	settlement.compute()
+
+
+## Population eats at dawn. Shortage feeds scarcity_penalty via the
+## settlement model rather than dealing direct damage.
+func consume_daily_food() -> void:
+	var result: Dictionary = town_hall.consume_food(DAILY_FOOD_NEED)
+	if result["eaten"] >= result["needed"]:
+		log_event("Settlers ate %d food from the stockpile." % result["eaten"])
+	else:
+		log_event("Food shortage! Settlers needed %d food, found %d. Gather berries." % [
+			result["needed"], result["eaten"]])
 
 
 func _spawn_threat(index: int) -> void:
@@ -197,6 +211,14 @@ func _on_repair_requested() -> void:
 	hud.refresh_town_panel()
 
 
+func _on_forge_requested() -> void:
+	if town_hall.forge_pick(player):
+		log_event("Forged a sturdier pick (tier 2). Ore is now mineable, and mining is faster.")
+	else:
+		log_event("Cannot forge pick (already forged, or stockpile lacks 3 wood + 5 stone).")
+	hud.refresh_town_panel()
+
+
 func _on_player_mined(block_id: String, drops: Dictionary) -> void:
 	var parts: Array[String] = []
 	for item_id in drops:
@@ -215,12 +237,38 @@ func log_event(message: String) -> void:
 func load_game() -> bool:
 	if not save_manager.load_game():
 		return false
-	for threat in get_tree().get_nodes_in_group("threats"):
-		threat.queue_free()
 	hud.update_time(day_count, is_night)
 	hud.update_inventory()
 	settlement.compute()
 	return true
+
+
+func serialize_threats() -> Array:
+	var out: Array = []
+	for threat in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(threat) and not threat.is_queued_for_deletion():
+			out.append({
+				"x": threat.global_position.x,
+				"y": threat.global_position.y,
+				"hp": threat.hp,
+			})
+	return out
+
+
+func apply_threats(data: Array) -> void:
+	for threat in get_tree().get_nodes_in_group("threats"):
+		threat.queue_free()
+	for entry in data:
+		var threat := SimpleThreatScene.instantiate()
+		threat.world = world
+		threat.town_hall = town_hall
+		threat.player = player
+		threat.position = Vector2(float(entry.get("x", 0)), float(entry.get("y", 0)))
+		threat.hp = int(entry.get("hp", 3))
+		threat.died.connect(func() -> void:
+			log_event("A threat was destroyed.")
+			settlement.compute())
+		threats.add_child(threat)
 
 
 func time_state() -> Dictionary:

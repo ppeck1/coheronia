@@ -83,7 +83,7 @@
     "ore": {
       "display_name": "Ore",
       "hardness": 1.6,
-      "required_tool_tier": 1,
+      "required_tool_tier": 2,
       "drops": {
         "ore": 1
       },
@@ -94,6 +94,22 @@
       "light_radius": 0,
       "settlement_tags": [
         "progression"
+      ]
+    },
+    "berry_bush": {
+      "display_name": "Berry Bush",
+      "hardness": 0.15,
+      "required_tool_tier": 0,
+      "drops": {
+        "food": 2
+      },
+      "is_placeable": false,
+      "is_solid": false,
+      "blocks_light": false,
+      "emits_light": false,
+      "light_radius": 0,
+      "settlement_tags": [
+        "food_source"
       ]
     },
     "torch": {

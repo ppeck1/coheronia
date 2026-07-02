@@ -2,7 +2,7 @@
 
 Coheronia is a Godot 4 2D side-view survival settlement sandbox. The player physically reshapes terrain while indirectly managing a settlement through three systemic pressures: **Coherence / Load / Resilience**.
 
-Current state: **v0.1 MVP implemented and verified** (Godot 4.6.1). The C/L/R settlement loop is connected to actual world state: shelter blocks, torch light, stockpile, defense blocks, hall damage, threats, scarcity, and population pressure around the Town Hall all feed the HUD bars.
+Current state: **v0.2 implemented and verified** (Godot 4.6.1). The C/L/R settlement loop is connected to actual world state: shelter blocks, torch light, stockpile, defense blocks, hall damage, threats, scarcity, and population pressure around the Town Hall all feed the HUD bars. v0.2 adds tool-tier progression (forge a tier-2 pick at the Town Hall to mine ore and mine faster), a food loop (berry bushes → food → settlers eat at dawn, shortages raise scarcity), per-tile light occlusion (walls actually block torch light; caves are dark), and threat persistence in saves.
 
 ## Running the game
 
@@ -32,7 +32,7 @@ Or from a terminal:
 
 ## The loop
 
-Spawn near the Town Hall → mine dirt/wood/stone (harder blocks take longer; ore needs tool tier 1, which you start with) → place blocks to shelter the hall → place torches for light → deposit resources at the hall (E → Deposit) → watch Coherence/Load/Resilience react → survive the night pressure event (slimes approach the hall and gnaw it; walls block them, light reduces how many spawn, and you can whack them with the mine action) → repair the hall with stockpiled stone → repeat.
+Spawn near the Town Hall → mine dirt/wood/stone (harder blocks take longer) and berry bushes for food → place blocks to shelter the hall → place torches for light (walls block light, so caves need torches) → deposit resources at the hall (E → Deposit) → forge the tier-2 pick at the hall (3 wood + 5 stone from the stockpile) to mine ore and mine ~50% faster → keep food stocked: settlers eat 2 food at every dawn, and shortages raise scarcity → watch Coherence/Load/Resilience react → survive the night pressure event (slimes approach the hall and gnaw it; walls block them, light reduces how many spawn, and you can whack them with the mine action) → repair the hall with stockpiled stone → repeat.
 
 ## Architecture
 
@@ -63,7 +63,7 @@ python scripts/validate_repo.py
 python B:\Projects\LLM_Modules\Project_Ops_Capsule\scripts\capsule_doctor.py . --profile private_repo
 ```
 
-Automated acceptance smoke test (22 checks — movement, mining timing, placement, torch light, deposit, C/L/R reaction, threat event, save/load round trip; saves a screenshot in windowed runs):
+Automated acceptance smoke test (34 checks — input bindings, movement, mining timing, tool-tier forge/gating, food loop, placement, torch light + occlusion, deposit, C/L/R reaction, threat event, save/load round trip incl. threat persistence; saves a screenshot in windowed runs):
 
 ```powershell
 $env:COHERONIA_SMOKE = "1"
@@ -73,14 +73,14 @@ $env:COHERONIA_SMOKE = "1"
 
 Exit code 0 = all checks passed.
 
-## Known limitations (v0.1)
+## Known limitations (v0.2)
 
 - Placeholder art: colored tiles and `_draw()` rectangles; no animation or audio.
-- Population is a fixed abstract value (4); no NPC simulation.
+- Population is a fixed abstract value (4) that eats 2 food per dawn; no NPC simulation.
 - One threat type (night slime) with trivial movement (walk + hop); no pathfinding.
-- Single save slot (`user://coheronia_save.json`); active threats are not persisted (they despawn on load; night pressure re-derives from time of day).
-- Crafting is hotkey-only (C for torches); no crafting menu. The tool-tier architecture exists in data/code but the pick-upgrade recipe has no UI.
-- Lighting is additive torch glow + day/night tint; per-tile light occlusion (`blocks_light`) is not simulated.
+- Single save slot (`user://coheronia_save.json`). Save version 0.2; v0.1 saves still load (threats simply absent).
+- Torch crafting is hotkey-only (C); the pick upgrade is forged via the Town Hall panel. No general crafting menu.
+- Berry bushes do not regrow; food is a finite surface resource for now.
 - World is finite (240×80 tiles) with a single surface biome.
 
 ## Protocol

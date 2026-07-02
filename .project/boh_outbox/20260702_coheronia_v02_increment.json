@@ -1,0 +1,55 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260702_coheronia_v02_increment",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "4507936",
+  "end_commit": "pending-closeout-commit-see-git-log",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "Coheronia v0.2 increment: tool-tier progression, food loop, light occlusion, threat persistence.",
+  "summary": "Extends the signed v0.1 slice along the HANDOFF's own v0.2 candidates. Ore now requires a tier-2 pick forged at the Town Hall (3 wood + 5 stone from the stockpile, recipe basic_pick_upgrade); higher tiers mine ~50% faster per tier. Berry bushes spawn on the surface (separate RNG stream keeps same-seed terrain identical) and drop food; settlers eat 2 food at each dawn and shortages raise a now food-aware scarcity_penalty. Every blocks_light tile carries an occluder polygon and torch lights cast shadows, so walls block light and caves are dark. Saves are version 0.2 with threat persistence ({x,y,hp}); v0.1 saves still load.",
+  "acceptance": [
+    "Ore exists and is NOT mineable at tier 1; forging at the hall consumes stockpile and sets tier 2",
+    "Tier 2 mines dirt in 14 frames vs 21 at tier 1; ore mineable after forge (64 frames)",
+    "Berry bush mined for 2 food; food depositable; dawn consumption eats food 2->0 with log feedback",
+    "TileSet has an occlusion layer, blocks_light tiles have occluders, torch lights shadow-enabled",
+    "Save/load round trip restores live threats and tool tier alongside all v0.1 state",
+    "All 23 pre-existing checks unchanged (mining frames identical 21/33/66); suite total 34/34, exit 0",
+    "Hall-framed night screenshot reviewed: torch glow with shadows, dark occluded terrain, restored threat visible, HUD shows Pick tier 2 and food events"
+  ],
+  "validation": [
+    "COHERONIA_SMOKE=1 headless run -> SMOKE RESULT: PASS (34/34), exit 0",
+    "COHERONIA_SMOKE=1 windowed run -> 34/34 + user://smoke_screenshot.png reviewed",
+    "python scripts/validate_repo.py -> RESULT scaffold_valid"
+  ],
+  "docs_updated": ["README.md", "docs/HANDOFF.md", "docs/VARIABLE_MATRIX.md"],
+  "readme_state": "updated",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Ore raised to required_tool_tier 2 in blocks.json to make the existing forge recipe a real progression gate (start tier 1 keeps the MVP acceptance 'can mine dirt/stone/wood' intact)",
+    "Berry bushes generated on a separate RNG stream (seed+7) so pre-v0.2 worlds regenerate byte-identical terrain and trees",
+    "Food shortage feeds scarcity_penalty rather than dealing direct damage, keeping pressure systemic per the C/L/R design",
+    "Occlusion uses TileData occluder polygons with a has_method fallback for older TileData APIs",
+    "Save version bumped to 0.2 with explicit 0.1 acceptance instead of rejecting old saves"
+  ],
+  "risks": [
+    "Food pacing untested by human play (2/dawn vs ~0.07 bushes/column, no regrowth)",
+    "Shadow-casting lights unmeasured at extreme torch counts (expected fine at this scale)"
+  ],
+  "next_action": "Operator playthrough of v0.2, then choose v0.3 scope from HANDOFF candidates.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260702_coheronia_v02_increment.md",
+    "docs/HANDOFF.md",
+    "docs/VARIABLE_MATRIX.md",
+    "README.md"
+  ],
+  "ledger_path": ".project/runs/20260702_coheronia_v02_increment.md",
+  "sensitivity": "private",
+  "overrides": [],
+  "created_at": "2026-07-02T12:40:00-04:00"
+}
