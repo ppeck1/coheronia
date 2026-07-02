@@ -1,0 +1,60 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260702_coheronia_mvp_v01_oneshot",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "none-repo-initialized-this-run",
+  "end_commit": "5ffcabf8701eb377c33b78ca8ff8e9ffd61680fe",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "Coheronia v0.1 MVP vertical slice one-shot implementation (Godot 4.6), constrained to docs/MVP_VERTICAL_SLICE.md.",
+  "summary": "Playable settlement-loop prototype: mine/place blocks with hardness timing, torches with dynamic visible light, Town Hall stockpile/deposit/repair, Coherence/Load/Resilience computed from real world state using formulas evaluated from data/settlement_rules.json, day/night cycle with a night slime threat event, and F5/F9 save/load. Verified by a 22-check automated smoke test through real gameplay code paths plus reviewed screenshot.",
+  "acceptance": [
+    "Godot project imports clean with no missing script/resource references (Godot 4.6.1 headless --import)",
+    "Main scene launches; 11,868 terrain cells generated from seed",
+    "Player moves and jumps (smoke: dx=34, jump velocity -300)",
+    "Mining works for dirt/wood/stone with hardness ordering (21/33/66 frames) and inventory drops",
+    "Block placement consumes inventory; torch placement creates a live PointLight2D",
+    "Town Hall exists, core blocks protected from mining, deposit raises stockpile",
+    "C/L/R react to world state: Coherence 31.2->53.2 when torches placed near hall; Load 12.3->32.3 under forced night threat",
+    "Threat entities spawn at nightfall and damage the hall on contact",
+    "F5/F9 save/load round trip restores terrain deltas, placed blocks, torch lights, player position, inventory, and stockpile",
+    "HUD renders health, hotbar, C/L/R bars, status labels, day/night, event log (screenshot reviewed)"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> RESULT scaffold_valid",
+    "capsule_doctor.py --profile private_repo -> usable (git warning resolved by initializing repo)",
+    "COHERONIA_SMOKE=1 headless run -> SMOKE RESULT: PASS (22/22), exit 0",
+    "COHERONIA_SMOKE=1 windowed run -> 22/22 + user://smoke_screenshot.png reviewed"
+  ],
+  "docs_updated": ["README.md", "docs/HANDOFF.md", "docs/VARIABLE_MATRIX.md"],
+  "readme_state": "updated",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "TileSet (colored tiles + collision polygons) generated at runtime; no imported art assets, placeholder visuals via _draw()",
+    "C/L/R formulas evaluated from data/settlement_rules.json strings via Godot Expression class to keep data files authoritative",
+    "Saves persist world_seed + terrain deltas only; base terrain regenerates deterministically",
+    "HUD built in code on a thin CanvasLayer scene to minimize hand-written .tscn risk",
+    "Git repo initialized this run per manifest git_policy.commit_after_signable_run; not pushed (push_policy manual)"
+  ],
+  "risks": [
+    "No human playthrough yet; tuning unverified by a person",
+    "Active threats not persisted in saves (despawn on load; night pressure re-derives from time)",
+    "blocks_light per-tile occlusion present in data but not simulated in v0.1"
+  ],
+  "next_action": "Operator playthrough in Godot 4.6.1 for feel/tuning, then scope v0.2.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260702_coheronia_mvp_v01_oneshot.md",
+    "docs/HANDOFF.md",
+    "docs/VARIABLE_MATRIX.md",
+    "README.md"
+  ],
+  "ledger_path": ".project/runs/20260702_coheronia_mvp_v01_oneshot.md",
+  "sensitivity": "private",
+  "overrides": [],
+  "created_at": "2026-07-02T11:35:00-04:00"
+}
