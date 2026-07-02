@@ -266,6 +266,8 @@ MVP recommendation:
 
 Use one simple enemy or abstract pressure event. It should affect Load and/or Resilience and be mitigated by light, shelter, or defense.
 
+Future enemy implementation notes are tracked in `docs/FUTURE_ENEMY_DESIGN.md`. They describe planned surface, underground, raider, mini-boss, and major-boss families that still need integration.
+
 ## 10. NPCs and population
 
 NPCs are future scope unless extremely cheap.

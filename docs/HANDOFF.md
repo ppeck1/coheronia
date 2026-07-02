@@ -45,6 +45,7 @@ v0.1 remains intact: playable C/L/R settlement loop with movement, mining, place
 - Social difficulty is stored but does not yet drive a social simulation.
 - Existing world state is shared by all characters entering that world; character appearance/traits come from the entering character.
 - Project paths in old run ledgers are historical evidence. Public-facing docs have been updated to relative/generic commands.
+- `docs/FUTURE_ENEMY_DESIGN.md` is future implementation planning only. It is not live gameplay yet.
 
 ## Next Action
 
@@ -56,5 +57,6 @@ After publication, the next design increment should choose from:
 - fuel-based light decay
 - settler roles or abstract assignment
 - threat variety
+- enemy-family integration from `docs/FUTURE_ENEMY_DESIGN.md`
 
-Recommended next product move: farming plus a compact crafting menu, because v0.4 already exposes world rules and resource abundance, and the recipe count is now high enough that hotkeys/buttons are getting cramped.
+Recommended next product move: farming plus a compact crafting menu, followed by surface slime / cave crawler / raider basic integration. That order preserves the Terraria-like gather/build loop while beginning to connect threats to civilization defense.

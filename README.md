@@ -1,6 +1,10 @@
 # Coheronia - v0.4 Persistent Shell Prototype
 
-Coheronia is a Godot 4 side-view survival settlement sandbox. The player reshapes terrain directly while managing a settlement through three systemic pressures: **Coherence / Load / Resilience**.
+Coheronia is a Godot 4 side-view survival settlement sandbox inspired by the pleasures of Terraria-style digging/building, survival crafting, and civilization sims. The player is not just trying to survive as one person: the long-term fantasy is to carve out a place in a hostile world, rule a small civilization, and watch that civilization's needs, fears, politics, infrastructure, and defenses push back through play.
+
+![Coheronia v0.4 smoke screenshot](docs/screenshots/v0.4-smoke.png)
+
+Today, the player reshapes terrain directly while managing a settlement through three systemic pressures: **Coherence / Load / Resilience**.
 
 Current state: **v0.4 implemented and closed out** on Godot 4.6.1. The project now launches into a persistent outer shell for characters, worlds, saves, and simulation settings. Each world is a configured simulation container: terrain seed, world size, generation variation, difficulty axes, rule toggles, save state, and summary metadata live together in `user://worlds/<id>.json`.
 
@@ -73,6 +77,14 @@ From PowerShell:
 ## Play Loop
 
 Spawn near the Town Hall, mine dirt/wood/stone, gather food from berry bushes, place blocks and torches, shelter the hall, deposit resources, forge the tier-2 pick, mine ore, craft lanterns, feed the settlement, survive night threats, roof against storms, repair damage, and repeat. C/L/R bars are computed from real world state, not decorative values.
+
+## Design Direction
+
+Coheronia is meant to sit between a survival sandbox and a civilization pressure sim. The world should feel physical and cozy in the minute-to-minute: mine a tunnel, roof a hall, place a torch, bring food home. Over time, those simple actions should become the foundation of rule: subjects need food and shelter, raids test defenses, scarcity stresses loyalty, darkness changes public safety, and the player's choices shape whether the settlement becomes a folk kingdom, a fragile frontier town, or a collapsing tyranny.
+
+Planned civilization systems include subject roles, civic upgrades, ruler legitimacy, morale, loyalty, rebellion pressure, infrastructure needs, and events where enemies are not just monsters but political and social forces. The current v0.4 shell already stores many of these knobs as world rules so later gameplay can consume them without rewriting the save model.
+
+Future enemy and boss design notes live in `docs/FUTURE_ENEMY_DESIGN.md`. They are design-confirmed/planned material and are **not integrated as live gameplay yet**.
 
 ## Architecture
 
