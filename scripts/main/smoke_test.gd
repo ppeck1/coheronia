@@ -196,6 +196,7 @@ func _run() -> void:
 		root.consume_daily_food()
 	_check("population_floors_at_one", hall.population == 1, "pop=%d" % hall.population)
 	hall.stockpile["food"] = 100
+	root.base_level = 3  # village cap reaches POPULATION_MAX; growth is gated by base level
 	for i in range(10):
 		settlement.coherence = 80.0
 		root.consume_daily_food()
@@ -427,6 +428,78 @@ func _run() -> void:
 			raider_restored = true
 	_check("save_load_enemy_id", raider_restored,
 		"raider_basic found after serialize/apply")
+
+	# --- Progression MVP: XP, player level, base levels, population cap ---
+
+	# Both JSON files load via registry; event and level counts are correct.
+	var prog_reg = load("res://scripts/data/progression_registry.gd").new()
+	_check("progression_jsons_load",
+		prog_reg.base_levels_ordered().size() == 6
+		and prog_reg.xp_event("block_mined").get("xp_type") == "labor",
+		"base_levels=%d block_mined_type=%s" % [
+			prog_reg.base_levels_ordered().size(),
+			str(prog_reg.xp_event("block_mined").get("xp_type", "?"))])
+
+	# Level-curve: xp_to_next(1) must equal the base value of 100.
+	_check("xp_to_next_level_1", prog_reg.xp_to_next(1) == 100,
+		"xp_to_next(1)=%d" % prog_reg.xp_to_next(1))
+
+	# award_xp("block_mined") increases labor XP.
+	var labor_before: int = int(root.xp_totals.get("labor", 0))
+	root.award_xp("block_mined")
+	_check("award_xp_increases_labor_xp",
+		int(root.xp_totals.get("labor", 0)) > labor_before,
+		"labor %d→%d" % [labor_before, int(root.xp_totals.get("labor", 0))])
+
+	# Simulate requires-met conditions to advance base_level from camp (1) to hamlet (2).
+	# We set settlement.inputs directly to inject the needed shelter/light values,
+	# and prime the food stockpile, then call _check_base_level() as the test hook.
+	var saved_base_level: int = root.base_level
+	root.base_level = 1
+	settlement.inputs["shelter_score"] = 15.0
+	settlement.inputs["light_score"] = 20.0
+	hall.stockpile["food"] = 20
+	root._check_base_level()
+	_check("base_level_advances_to_hamlet", root.base_level == 2,
+		"base_level=%d" % root.base_level)
+
+	# population_cap reflects base_level from registry data.
+	root.base_level = 1   # camp -> cap 4
+	_check("population_cap_at_camp", root.effective_population_cap() == 4,
+		"cap=%d" % root.effective_population_cap())
+	root.base_level = 2   # hamlet -> cap 6
+	_check("population_cap_at_hamlet", root.effective_population_cap() == 6,
+		"cap=%d" % root.effective_population_cap())
+	root.base_level = 3   # village -> data cap 16 clamps to POPULATION_MAX
+	_check("population_cap_at_village", root.effective_population_cap() == root.POPULATION_MAX,
+		"cap=%d" % root.effective_population_cap())
+
+	# Growth is gated by the effective cap: at camp (cap 4) a thriving dawn
+	# does not grow population past the cap. _update_population is called
+	# directly so the settlement tick cannot auto-advance the level mid-check.
+	root.base_level = 1
+	hall.population = 4
+	hall.stockpile["food"] = 100
+	root._update_population({"eaten": 4, "needed": 4}, 80.0)
+	_check("population_growth_gated_by_cap", hall.population == 4,
+		"pop=%d cap=%d" % [hall.population, root.effective_population_cap()])
+
+	# Restore base level for the next section.
+	root.base_level = maxi(saved_base_level, 2)
+
+	# Save/load round-trips XP totals and base level.
+	var prog_base_save: int = root.base_level
+	root.xp_totals["labor"] = 77
+	root.player_level = 1
+	var prog_saved: bool = root.save_manager.save_game()
+	root.base_level = 1
+	root.xp_totals["labor"] = 0
+	var prog_loaded: bool = root.load_game()
+	_check("save_load_round_trips_progression",
+		prog_saved and prog_loaded
+		and root.base_level == prog_base_save
+		and int(root.xp_totals.get("labor", 0)) == 77,
+		"base_level=%d labor_xp=%d" % [root.base_level, int(root.xp_totals.get("labor", 0))])
 
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":

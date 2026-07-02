@@ -16,6 +16,7 @@ var _bars: Dictionary = {}       # "coherence"/"load"/"resilience" -> ProgressBa
 var _status_label: Label
 var _time_label: Label
 var _stock_label: Label
+var _progression_label: Label
 var _hotbar_label: Label
 var _mine_bar: ProgressBar
 var _log_label: Label
@@ -55,6 +56,7 @@ func _build_top_left() -> void:
 	_status_label = _label(box, "Status: —")
 	_time_label = _label(box, "Day 1 — Day")
 	_stock_label = _label(box, "Town Hall: empty")
+	_progression_label = _label(box, "Lv.1 Camp  XP: 0/100")
 
 
 func _build_bottom_left() -> void:
@@ -180,6 +182,10 @@ func update_settlement(coherence: float, load_value: float, resilience: float,
 
 func update_health(health: float) -> void:
 	_health_label.text = "Health: %d" % int(round(health))
+
+
+func update_progression(player_level: int, xp_current: int, xp_next: int, base_name: String) -> void:
+	_progression_label.text = "Lv.%d %s  XP: %d/%d" % [player_level, base_name, xp_current, xp_next]
 
 
 func update_time(day: int, is_night: bool, threat_count: int = 0) -> void:

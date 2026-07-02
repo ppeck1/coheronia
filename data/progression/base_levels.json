@@ -10,7 +10,7 @@
         "shelter_score": 4
       },
       "unlocks": {
-        "population_cap": 2,
+        "population_cap": 4,
         "structures": [
           "town_hall",
           "storage"
@@ -30,7 +30,7 @@
         "shelter_score": 12
       },
       "unlocks": {
-        "population_cap": 8,
+        "population_cap": 6,
         "structures": [
           "basic_farm",
           "fence",

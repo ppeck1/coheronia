@@ -6,6 +6,7 @@ signal inventory_changed
 signal health_changed(health: float)
 signal mined(block_id: String, drops: Dictionary)
 signal crafted(recipe_id: String)
+signal placed(block_id: String)
 signal player_event(message: String)
 
 const SPEED := 140.0
@@ -136,6 +137,7 @@ func try_place(cell: Vector2i, block_id: String) -> bool:
 		return false
 	inventory.remove(block_id)
 	inventory_changed.emit()
+	placed.emit(block_id)
 	return true
 
 

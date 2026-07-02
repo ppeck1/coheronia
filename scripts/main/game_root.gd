@@ -4,6 +4,7 @@ extends Node2D
 
 const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
+const ProgressionRegistryClass := preload("res://scripts/data/progression_registry.gd")
 
 const DAY_LENGTH_SECONDS := 100.0
 const NIGHT_START := 0.65          # time_of_day fraction where night begins
@@ -14,7 +15,8 @@ const DAY_TINT := Color(1, 1, 1)
 const NIGHT_TINT := Color(0.22, 0.24, 0.38)
 const STORM_TINT := Color(0.55, 0.58, 0.66)
 
-const POPULATION_MAX := 8
+const POPULATION_MAX := 8        # absolute ceiling; base_level gates effective cap
+const BASE_LEVEL_MAX_MVP := 3   # progression capped at village for MVP
 
 const STORM_CHANCE_PER_DAY := 0.5
 const STORM_ROLL_TIME := 0.35      # midday roll point
@@ -42,13 +44,25 @@ var storm_active := false
 var storm_time_left := 0.0
 var _storm_rolled_today := false
 
-var _enemy_registry = null  # EnemyRegistryClass instance
+var _enemy_registry = null          # EnemyRegistryClass instance
 var _cave_spawn_timer := 0.0
+
+var _progression_registry = null    # ProgressionRegistryClass instance
+var xp_totals: Dictionary = {}      # xp_type_id -> int (per-type totals)
+var player_level := 1
+var base_xp := 0                    # informational; base_level check is authoritative
+var base_level := 1                 # ratchets up, never decreases; capped at BASE_LEVEL_MAX_MVP
+var _depth_hwm := 0                 # highest depth band reached (10 tiles per band)
+var _depth_check_timer := 0.0
 
 
 func _ready() -> void:
 	GameState.ensure_play_context()
 	_enemy_registry = EnemyRegistryClass.new()
+	_progression_registry = ProgressionRegistryClass.new()
+	# Initialise XP totals to zero for every known type.
+	for t: Dictionary in _progression_registry.xp_types():
+		xp_totals[str(t.get("id", ""))] = 0
 	_wire_references()
 	_wire_signals()
 	player.apply_character(GameState.current_character)
@@ -65,6 +79,8 @@ func _ready() -> void:
 	hud.update_inventory()
 	hud.update_health(player.health)
 	hud.update_time(day_count, is_night)
+	hud.update_progression(player_level, _xp_toward_next(),
+		_progression_registry.xp_to_next(player_level), _base_level_display_name())
 	log_event("Welcome to Coheronia. Shelter and light the Town Hall.")
 	hud.set_save_hint(save_manager.has_save())
 	settlement.compute()
@@ -113,11 +129,15 @@ func _wire_signals() -> void:
 	player.health_changed.connect(hud.update_health)
 	player.mined.connect(_on_player_mined)
 	player.crafted.connect(_on_player_crafted)
+	player.placed.connect(_on_player_placed)
 	player.player_event.connect(log_event)
 	town_hall.stockpile_changed.connect(func() -> void:
 		hud.update_inventory()
 		settlement.compute())
 	settlement.updated.connect(hud.update_settlement)
+	settlement.updated.connect(
+		func(_c: float, _l: float, _r: float, _i: Dictionary, _lb: Array) -> void:
+			_check_base_level())
 	hud.deposit_requested.connect(_on_deposit_requested)
 	hud.repair_requested.connect(_on_repair_requested)
 	hud.forge_requested.connect(_on_forge_requested)
@@ -136,9 +156,15 @@ func _position_actors() -> void:
 	camera.limit_top = -200
 
 
+const _DEPTH_CHECK_INTERVAL := 3.0
+
 func _process(delta: float) -> void:
 	_advance_time(delta)
 	_advance_cave_spawns(delta)
+	_depth_check_timer += delta
+	if _depth_check_timer >= _DEPTH_CHECK_INTERVAL:
+		_depth_check_timer = 0.0
+		_check_depth_xp()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -199,6 +225,8 @@ func _advance_storm(delta: float) -> void:
 	if storm_time_left <= 0.0:
 		storm_active = false
 		log_event("The storm passes.")
+		if player.health > 0.0:
+			award_xp("storm_survived")
 		settlement.compute()
 
 
@@ -266,6 +294,7 @@ func _on_dawn() -> void:
 	for threat in get_tree().get_nodes_in_group("threats"):
 		threat.queue_free()
 	log_event("Dawn breaks. The pressure recedes." if survived > 0 else "Dawn breaks.")
+	award_xp("night_survived")
 	consume_daily_food()
 	settlement.compute()
 
@@ -291,6 +320,7 @@ func consume_daily_food() -> void:
 	var result: Dictionary = town_hall.consume_food(daily_food_need())
 	if result["eaten"] >= result["needed"]:
 		log_event("Settlers ate %d food from the stockpile." % result["eaten"])
+		award_xp("subject_fed")
 	else:
 		log_event("Food shortage! Settlers needed %d food, found %d. Gather berries." % [
 			result["needed"], result["eaten"]])
@@ -306,7 +336,7 @@ func _update_population(meal: Dictionary, coherence_at_dawn: float) -> void:
 			town_hall.population -= 1
 			log_event("A settler left after going hungry. Population is now %d." % town_hall.population)
 	elif coherence_at_dawn >= growth_threshold() and food_ok \
-			and town_hall.population < POPULATION_MAX:
+			and town_hall.population < effective_population_cap():
 		town_hall.population += 1
 		log_event("Drawn by a thriving settlement, a settler arrived. Population is now %d." % town_hall.population)
 	town_hall.stockpile_changed.emit()
@@ -416,6 +446,7 @@ func spawn_enemy_for_test(enemy_id: String) -> Node:
 
 func _on_threat_died() -> void:
 	log_event("A threat was destroyed.")
+	award_xp("enemy_defeated")
 	settlement.compute()
 	call_deferred("_refresh_threat_display")
 
@@ -465,6 +496,7 @@ func _on_deposit_requested() -> void:
 		for item_id in moved:
 			parts.append("%s ×%d" % [BlockRegistry.display_name(item_id), moved[item_id]])
 		log_event("Deposited %s." % ", ".join(parts))
+		award_xp("resource_deposited")
 	player.inventory_changed.emit()
 	hud.refresh_town_panel()
 
@@ -481,6 +513,7 @@ func _on_repair_requested() -> void:
 func _on_forge_requested() -> void:
 	if town_hall.forge_pick(player):
 		log_event("Forged a sturdier pick (tier 2). Ore is now mineable, and mining is faster.")
+		award_xp("tool_crafted")
 	else:
 		log_event("Cannot forge pick (already forged, or stockpile lacks 3 wood + 5 stone).")
 	hud.refresh_town_panel()
@@ -499,10 +532,16 @@ func _on_player_mined(block_id: String, drops: Dictionary) -> void:
 	for item_id in drops:
 		parts.append("%s ×%d" % [BlockRegistry.display_name(item_id), drops[item_id]])
 	log_event("Mined %s (+%s)." % [BlockRegistry.display_name(block_id), ", ".join(parts)])
+	award_xp("block_mined")
+
+
+func _on_player_placed(_block_id: String) -> void:
+	award_xp("block_placed")
 
 
 func _on_player_crafted(recipe_id: String) -> void:
 	log_event("Crafted %s." % BlockRegistry.get_recipe(recipe_id).get("display_name", recipe_id))
+	award_xp("tool_crafted")
 
 
 func log_event(message: String) -> void:
@@ -514,6 +553,8 @@ func load_game() -> bool:
 		return false
 	hud.update_time(day_count, is_night, _live_threat_count())
 	hud.update_inventory()
+	hud.update_progression(player_level, _xp_toward_next(),
+		_progression_registry.xp_to_next(player_level), _base_level_display_name())
 	settlement.compute()
 	return true
 
@@ -582,3 +623,169 @@ func apply_time_state(data: Dictionary) -> void:
 func force_night() -> void:
 	time_of_day = NIGHT_START + 0.01
 	_on_nightfall()
+
+
+# ---------------------------------------------------------------------------
+# Progression: player XP, levels, base level
+# ---------------------------------------------------------------------------
+
+## Award XP for event_id (defined in player_xp.json).
+## Adds the event's base_amount to the matching xp_type total and
+## also_awards.base_xp to the base XP pool, then recalculates player level.
+func award_xp(event_id: String) -> void:
+	if _progression_registry == null:
+		return
+	var ev: Dictionary = _progression_registry.xp_event(event_id)
+	if ev.is_empty():
+		return
+	var xp_type: String = str(ev.get("xp_type", ""))
+	var amount: int = int(ev.get("base_amount", 0))
+	var base_gain: int = int(ev.get("also_awards", {}).get("base_xp", 0))
+	if xp_type != "":
+		xp_totals[xp_type] = int(xp_totals.get(xp_type, 0)) + amount
+	base_xp += base_gain
+	_recalc_player_level()
+	hud.update_progression(player_level, _xp_toward_next(),
+		_progression_registry.xp_to_next(player_level), _base_level_display_name())
+
+
+## Recomputes player_level from cumulative XP across all types.
+func _recalc_player_level() -> void:
+	var total := 0
+	for t in xp_totals:
+		total += int(xp_totals[t])
+	var lv := 1
+	var cumulative := 0
+	while true:
+		var needed: int = _progression_registry.xp_to_next(lv)
+		if cumulative + needed > total:
+			break
+		cumulative += needed
+		lv += 1
+		if lv > 999:
+			break
+	player_level = lv
+
+
+## XP accumulated in the current level (toward xp_to_next).
+func _xp_toward_next() -> int:
+	if _progression_registry == null:
+		return 0
+	var total := 0
+	for t in xp_totals:
+		total += int(xp_totals[t])
+	var cumulative := 0
+	var lv := 1
+	while lv < player_level:
+		cumulative += _progression_registry.xp_to_next(lv)
+		lv += 1
+	return total - cumulative
+
+
+## Evaluate base level requirements from settlement state (ratchet, never decreases).
+## Population is intentionally excluded from the check here to avoid a
+## circular dependency: the population cap depends on base_level advancing,
+## but hamlet requires population >= 3 which can't be reached at camp cap=2.
+## Physical conditions (shelter, light, food reserve, stockpile) are the
+## authoritative gate; population will naturally grow once the cap is lifted.
+func _check_base_level() -> void:
+	if _progression_registry == null:
+		return
+	var new_level := base_level
+	for bl: Dictionary in _progression_registry.base_levels_ordered():
+		var lv: int = int(bl.get("level", 0))
+		if lv <= base_level:
+			continue
+		if lv > BASE_LEVEL_MAX_MVP:
+			break
+		if _meets_base_level_requires(bl.get("requires", {})):
+			new_level = lv
+	if new_level != base_level:
+		base_level = new_level
+		var name_str: String = _base_level_display_name()
+		log_event("Settlement advanced to %s!" % name_str)
+		hud.update_progression(player_level, _xp_toward_next(),
+			_progression_registry.xp_to_next(player_level), name_str)
+
+
+## Check whether physical world conditions in req are met.
+## Reads settlement.inputs for shelter_score and light_score;
+## reads stockpile directly for food_reserve and stockpile_value.
+func _meets_base_level_requires(req: Dictionary) -> bool:
+	var si: Dictionary = settlement.inputs
+	if req.has("shelter_score") and si.get("shelter_score", 0.0) < float(req["shelter_score"]):
+		return false
+	if req.has("light_score") and si.get("light_score", 0.0) < float(req["light_score"]):
+		return false
+	if req.has("food_reserve") and int(town_hall.stockpile.get("food", 0)) < int(req["food_reserve"]):
+		return false
+	if req.has("stockpile_value") and town_hall.total_stock() < int(req["stockpile_value"]):
+		return false
+	# population, defense_score and future keys are out-of-scope for MVP.
+	return true
+
+
+## Display name of the current base level.
+func _base_level_display_name() -> String:
+	if _progression_registry == null:
+		return "Camp"
+	for bl: Dictionary in _progression_registry.base_levels_ordered():
+		if int(bl.get("level", 0)) == base_level:
+			return str(bl.get("display_name", "Camp"))
+	return "Camp"
+
+
+## Population cap gated by base level; never exceeds POPULATION_MAX.
+func effective_population_cap() -> int:
+	if _progression_registry == null:
+		return POPULATION_MAX
+	for bl: Dictionary in _progression_registry.base_levels_ordered():
+		if int(bl.get("level", 0)) == base_level:
+			var cap: int = int(bl.get("unlocks", {}).get("population_cap", POPULATION_MAX))
+			return mini(POPULATION_MAX, cap)
+	return POPULATION_MAX
+
+
+## Award new_depth_reached XP when the player enters a new 10-tile depth band.
+func _check_depth_xp() -> void:
+	if world == null:
+		return
+	var pcell: Vector2i = world.cell_of(player.global_position)
+	var surf_y: int = world.surface.get(pcell.x, 0)
+	if pcell.y <= surf_y:
+		return
+	var band: int = (pcell.y - surf_y) / 10
+	if band > _depth_hwm:
+		_depth_hwm = band
+		award_xp("new_depth_reached")
+
+
+# ---------------------------------------------------------------------------
+# Progression save / load
+# ---------------------------------------------------------------------------
+
+func progression_state() -> Dictionary:
+	return {
+		"xp_totals": xp_totals.duplicate(),
+		"player_level": player_level,
+		"base_xp": base_xp,
+		"base_level": base_level,
+		"depth_hwm": _depth_hwm,
+	}
+
+
+## Restore progression from a saved state dict.
+## Missing keys default cleanly (level 1 Camp, zero XP).
+func apply_progression_state(data: Dictionary) -> void:
+	# Re-seed to zero for all known types first.
+	xp_totals = {}
+	if _progression_registry != null:
+		for t: Dictionary in _progression_registry.xp_types():
+			xp_totals[str(t.get("id", ""))] = 0
+	var raw: Dictionary = data.get("xp_totals", {})
+	for k in raw:
+		xp_totals[str(k)] = int(raw[k])
+	player_level = int(data.get("player_level", 1))
+	base_xp = int(data.get("base_xp", 0))
+	base_level = int(data.get("base_level", 1))
+	_depth_hwm = int(data.get("depth_hwm", 0))

@@ -30,6 +30,7 @@ func collect_state() -> Dictionary:
 		"time": game_root.time_state(),
 		"threats": game_root.serialize_threats(),
 		"bush_regrow": world.serialize_bush_regrow(),
+		"progression": game_root.progression_state(),
 	}
 
 
@@ -73,6 +74,7 @@ func apply_state(state: Dictionary) -> bool:
 	town_hall.from_dict(state.get("town_hall", {}))
 	game_root.apply_time_state(state.get("time", {}))
 	game_root.apply_threats(state.get("threats", []))
+	game_root.apply_progression_state(state.get("progression", {}))
 	return true
 
 
