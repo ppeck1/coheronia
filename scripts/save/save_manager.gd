@@ -71,10 +71,12 @@ func apply_state(state: Dictionary) -> bool:
 	player.inventory_changed.emit()
 	player.health_changed.emit(player.health)
 
+	# Fix 10: restore progression BEFORE town_hall.from_dict so _check_base_level
+	# sees the correct saved base_level when stockpile_changed fires during from_dict.
+	game_root.apply_progression_state(state.get("progression", {}))
 	town_hall.from_dict(state.get("town_hall", {}))
 	game_root.apply_time_state(state.get("time", {}))
 	game_root.apply_threats(state.get("threats", []))
-	game_root.apply_progression_state(state.get("progression", {}))
 	return true
 
 

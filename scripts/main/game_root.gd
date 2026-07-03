@@ -50,12 +50,15 @@ var _cave_spawn_timer := 0.0
 
 var _progression_registry = null    # ProgressionRegistryClass instance
 var _ancestry_registry = null       # AncestryRegistryClass instance
-var xp_totals: Dictionary = {}      # xp_type_id -> int (per-type totals)
+## xp_type_id -> float; use int() at every read point to avoid fractional-XP loss
+var xp_totals: Dictionary = {}
 var player_level := 1
+var _level_start_xp := 0           # cumulative XP at start of current level (set by _recalc_player_level)
 var base_xp := 0                    # informational; base_level check is authoritative
 var base_level := 1                 # ratchets up, never decreases; capped at BASE_LEVEL_MAX_MVP
 var _depth_hwm := 0                 # highest depth band reached (10 tiles per band)
 var _depth_check_timer := 0.0
+var _warned_requires_keys: Dictionary = {}  # tracks keys already warned about in _meets_base_level_requires
 
 
 func _ready() -> void:
@@ -63,9 +66,9 @@ func _ready() -> void:
 	_enemy_registry = EnemyRegistryClass.new()
 	_progression_registry = ProgressionRegistryClass.new()
 	_ancestry_registry = AncestryRegistryClass.new()
-	# Initialise XP totals to zero for every known type.
+	# Initialise XP totals to 0.0 (float) for every known type.
 	for t: Dictionary in _progression_registry.xp_types():
-		xp_totals[str(t.get("id", ""))] = 0
+		xp_totals[str(t.get("id", ""))] = 0.0
 	_wire_references()
 	_wire_signals()
 	player.apply_character(GameState.current_character)
@@ -82,9 +85,7 @@ func _ready() -> void:
 		save_manager.apply_player_position(saved_state)
 	hud.update_inventory()
 	hud.update_health(player.health)
-	hud.update_time(day_count, is_night)
-	hud.update_progression(player_level, _xp_toward_next(),
-		_progression_registry.xp_to_next(player_level), _base_level_display_name())
+	_refresh_hud_progression()
 	log_event("Welcome to Coheronia. Shelter and light the Town Hall.")
 	hud.set_save_hint(save_manager.has_save())
 	settlement.compute()
@@ -253,7 +254,14 @@ func force_storm() -> bool:
 
 func _on_nightfall() -> void:
 	is_night = true
-	var spawn_count := night_spawn_count()
+	var base_count := night_spawn_count()
+	# Fix 7: apply density_mult from the difficulty profile to the surface spawn count.
+	var scaling := {"density_mult": 1.0, "loot_mult": 1.0}
+	if _enemy_registry != null:
+		scaling = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
+	var spawn_count := 0
+	if base_count > 0:
+		spawn_count = clampi(int(round(float(base_count) * float(scaling.get("density_mult", 1.0)))), 1, 5)
 	if spawn_count > 0:
 		log_event("Night falls. Pressure rises (%d threat%s approaching)." % [
 			spawn_count, "" if spawn_count == 1 else "s"])
@@ -294,9 +302,12 @@ func threat_hp() -> int:
 func _on_dawn() -> void:
 	is_night = false
 	hud.update_time(day_count, false)
-	var survived := get_tree().get_nodes_in_group("threats").size()
-	for threat in get_tree().get_nodes_in_group("threats"):
-		threat.queue_free()
+	var all_threats := get_tree().get_nodes_in_group("threats")
+	var survived := all_threats.size()
+	for threat in all_threats:
+		# Fix 5: spare underground enemies — cave crawlers persist through dawn.
+		if threat.family != "underground":
+			threat.queue_free()
 	log_event("Dawn breaks. The pressure recedes." if survived > 0 else "Dawn breaks.")
 	award_xp("night_survived")
 	consume_daily_food()
@@ -351,6 +362,9 @@ func _spawn_surface_slime(index: int) -> void:
 	var def: Dictionary = {}
 	if _enemy_registry != null:
 		def = _enemy_registry.get_def("surface_slime")
+	# Fix 9: guard against empty def (mirrors _maybe_spawn_raider and _advance_cave_spawns).
+	if def.is_empty():
+		return
 	var side := -1 if index % 2 == 0 else 1
 	var hall_cell: Vector2i = world.hall_info["center_cell"]
 	var spawn_x: int = hall_cell.x + side * 22
@@ -358,46 +372,60 @@ func _spawn_surface_slime(index: int) -> void:
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
 
 
-## Spawn a raider_basic at nightfall after day 5 or when stockpile is large.
+## Spawn a raider_basic when conditions from the def's spawn_rule are met.
+## Fix 6: read thresholds and base_chance from the def's spawn_rule dict.
+## Fix 7: multiply base_chance by density_mult.
 func _maybe_spawn_raider() -> void:
 	if _enemy_registry == null:
 		return
 	if not config().rule("darkness_increases_enemies"):
 		return
-	var stockpile_big: bool = town_hall.total_stock() >= 10
-	if day_count < 5 and not stockpile_big:
-		return
-	if randf() > 0.30 * config().difficulty("enemy"):
-		return
 	var def: Dictionary = _enemy_registry.get_def("raider_basic")
 	if def.is_empty():
+		return
+	var spawn_rule: Dictionary = def.get("spawn_rule", {})
+	var day_thresh: int = int(spawn_rule.get("day_threshold", 5))
+	var stock_thresh: int = int(spawn_rule.get("stockpile_threshold", 25))
+	var base_chance: float = float(spawn_rule.get("base_chance", 0.3))
+	var stockpile_big: bool = town_hall.total_stock() >= stock_thresh
+	if day_count < day_thresh and not stockpile_big:
+		return
+	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
+	var effective_chance: float = base_chance * float(scaling.get("density_mult", 1.0))
+	if randf() > effective_chance * config().difficulty("enemy"):
 		return
 	var hall_cell: Vector2i = world.hall_info["center_cell"]
 	var side := 1 if randi() % 2 == 0 else -1
 	var spawn_x: int = hall_cell.x + side * 35
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("A raider approaches the settlement!")
+	log_event("WARNING: A raider approaches the settlement!")
 
 
 ## Advance the cave crawler periodic spawn timer; spawn underground when ready.
 func _advance_cave_spawns(delta: float) -> void:
 	if _enemy_registry == null:
 		return
+	# Fix 8a: peaceful worlds must have no cave crawlers.
+	if not config().rule("darkness_increases_enemies"):
+		return
 	_cave_spawn_timer += delta
 	if _cave_spawn_timer < CAVE_SPAWN_INTERVAL:
 		return
 	_cave_spawn_timer = 0.0
-	# Count live cave crawlers.
+	# Fix 8c: count live underground-family enemies (not just cave_crawler id).
 	var crawler_count := 0
 	for t in get_tree().get_nodes_in_group("threats"):
 		if is_instance_valid(t) and not t.is_queued_for_deletion():
-			if t.enemy_id == "cave_crawler":
+			if t.family == "underground":
 				crawler_count += 1
 	if crawler_count >= CAVE_CRAWLER_CAP:
 		return
 	# Only spawn if the player is underground (below the surface y).
 	var pcell: Vector2i = world.cell_of(player.global_position)
+	# Fix 8b: guard against missing map-edge columns (fallback 0 wrongly passes).
+	if not world.surface.has(pcell.x):
+		return
 	var surf_y: int = world.surface.get(pcell.x, 0)
 	if pcell.y <= surf_y:
 		return
@@ -557,12 +585,13 @@ func load_game() -> bool:
 		return false
 	hud.update_time(day_count, is_night, _live_threat_count())
 	hud.update_inventory()
-	hud.update_progression(player_level, _xp_toward_next(),
-		_progression_registry.xp_to_next(player_level), _base_level_display_name())
+	_refresh_hud_progression()
 	settlement.compute()
 	return true
 
 
+## Serialize live threats to a save-friendly array.
+## Fix 2: also saves max_hp so restores can preserve the damage bar correctly.
 func serialize_threats() -> Array:
 	var out: Array = []
 	for threat in get_tree().get_nodes_in_group("threats"):
@@ -571,11 +600,16 @@ func serialize_threats() -> Array:
 				"x": threat.global_position.x,
 				"y": threat.global_position.y,
 				"hp": threat.hp,
+				"max_hp": threat.max_hp,
 				"enemy_id": threat.enemy_id,
 			})
 	return out
 
 
+## Restore threats from a saved array.
+## Fix 1: calls _spawn_enemy_at so hall_dps and all other fields are wired correctly,
+## then overrides hp/max_hp from the save entry (set after add_child/_ready).
+## Fix 2: restores max_hp; falls back to maxi(3, hp) for old saves without the key.
 func apply_threats(data: Array) -> void:
 	for threat in get_tree().get_nodes_in_group("threats"):
 		threat.queue_free()
@@ -584,21 +618,11 @@ func apply_threats(data: Array) -> void:
 		var def: Dictionary = {}
 		if _enemy_registry != null:
 			def = _enemy_registry.get_def(eid)
-		var scaling := {"density_mult": 1.0, "loot_mult": 1.0}
-		if _enemy_registry != null:
-			scaling = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
-		var threat := SimpleThreatScene.instantiate()
-		threat.world = world
-		threat.town_hall = town_hall
-		threat.player = player
-		threat.position = Vector2(float(entry.get("x", 0)), float(entry.get("y", 0)))
+		var pos := Vector2(float(entry.get("x", 0)), float(entry.get("y", 0)))
+		var threat := _spawn_enemy_at(def, pos)
+		# Override hp/max_hp from save (after add_child/_ready ran max_hp = maxi(max_hp, hp)).
 		threat.hp = int(entry.get("hp", 3))
-		threat.enemy_id = eid
-		threat.family = str(def.get("family", "surface"))
-		threat.drops = def.get("drops", [])
-		threat.loot_mult = float(scaling.get("loot_mult", 1.0))
-		threat.died.connect(_on_threat_died)
-		threats.add_child(threat)
+		threat.max_hp = int(entry.get("max_hp", maxi(3, threat.hp)))
 
 
 func time_state() -> Dictionary:
@@ -649,8 +673,9 @@ func apply_ancestry_for_species(species_id: String) -> void:
 
 
 ## Award XP for event_id (defined in player_xp.json).
-## Adds the event's base_amount to the matching xp_type total and
-## also_awards.base_xp to the base XP pool, then recalculates player level.
+## Fix 11: accrues float XP (raw_amount * learning_speed_mult) without rounding
+## to avoid losing fractional gains on small base_amounts (e.g. human 1.05x).
+## Use int() at every read point.
 func award_xp(event_id: String) -> void:
 	if _progression_registry == null:
 		return
@@ -659,21 +684,26 @@ func award_xp(event_id: String) -> void:
 		return
 	var xp_type: String = str(ev.get("xp_type", ""))
 	var raw_amount: int = int(ev.get("base_amount", 0))
-	var amount: int = int(round(float(raw_amount) * player.learning_speed_mult))
 	var base_gain: int = int(ev.get("also_awards", {}).get("base_xp", 0))
 	if xp_type != "":
-		xp_totals[xp_type] = int(xp_totals.get(xp_type, 0)) + amount
+		xp_totals[xp_type] = float(xp_totals.get(xp_type, 0.0)) + float(raw_amount) * player.learning_speed_mult
 	base_xp += base_gain
 	_recalc_player_level()
-	hud.update_progression(player_level, _xp_toward_next(),
-		_progression_registry.xp_to_next(player_level), _base_level_display_name())
+	_refresh_hud_progression()
 
 
-## Recomputes player_level from cumulative XP across all types.
-func _recalc_player_level() -> void:
+## Fix 15: shared helper — sum of all XP type totals (integer read point).
+func _total_xp() -> int:
 	var total := 0
 	for t in xp_totals:
 		total += int(xp_totals[t])
+	return total
+
+
+## Recomputes player_level from cumulative XP across all types.
+## Fix 15: records _level_start_xp for O(1) _xp_toward_next.
+func _recalc_player_level() -> void:
+	var total := _total_xp()
 	var lv := 1
 	var cumulative := 0
 	while true:
@@ -685,63 +715,71 @@ func _recalc_player_level() -> void:
 		if lv > 999:
 			break
 	player_level = lv
+	_level_start_xp = cumulative
 
 
-## XP accumulated in the current level (toward xp_to_next).
+## XP accumulated in the current level (toward xp_to_next). O(1) after recalc.
 func _xp_toward_next() -> int:
 	if _progression_registry == null:
 		return 0
-	var total := 0
-	for t in xp_totals:
-		total += int(xp_totals[t])
-	var cumulative := 0
-	var lv := 1
-	while lv < player_level:
-		cumulative += _progression_registry.xp_to_next(lv)
-		lv += 1
-	return total - cumulative
+	return _total_xp() - _level_start_xp
+
+
+## Fix 15: push updated progression to the HUD — replaces four identical call sites.
+func _refresh_hud_progression() -> void:
+	hud.update_progression(player_level, _xp_toward_next(),
+		_progression_registry.xp_to_next(player_level), _base_level_display_name())
 
 
 ## Evaluate base level requirements from settlement state (ratchet, never decreases).
-## Population is intentionally excluded from the check here to avoid a
-## circular dependency: the population cap depends on base_level advancing,
-## but hamlet requires population >= 3 which can't be reached at camp cap=2.
-## Physical conditions (shelter, light, food reserve, stockpile) are the
-## authoritative gate; population will naturally grow once the cap is lifted.
+## Fix 3: only considers base_level + 1 per call (one tier per tick).
+##         Returns immediately when already at MVP cap.
 func _check_base_level() -> void:
 	if _progression_registry == null:
 		return
-	var new_level := base_level
+	# Fix 3: early-out at cap.
+	if base_level >= BASE_LEVEL_MAX_MVP:
+		return
+	var next_lv: int = base_level + 1
 	for bl: Dictionary in _progression_registry.base_levels_ordered():
 		var lv: int = int(bl.get("level", 0))
-		if lv <= base_level:
+		if lv != next_lv:
 			continue
-		if lv > BASE_LEVEL_MAX_MVP:
-			break
 		if _meets_base_level_requires(bl.get("requires", {})):
-			new_level = lv
-	if new_level != base_level:
-		base_level = new_level
-		var name_str: String = _base_level_display_name()
-		log_event("Settlement advanced to %s!" % name_str)
-		hud.update_progression(player_level, _xp_toward_next(),
-			_progression_registry.xp_to_next(player_level), name_str)
+			base_level = next_lv
+			var name_str: String = _base_level_display_name()
+			log_event("Settlement advanced to %s!" % name_str)
+			_refresh_hud_progression()
+		break
 
 
 ## Check whether physical world conditions in req are met.
-## Reads settlement.inputs for shelter_score and light_score;
-## reads stockpile directly for food_reserve and stockpile_value.
+## Fix 4: iterates the requires dict; any unrecognized key fails-closed and
+##         emits push_warning once per key (avoids silent bypass of future keys).
 func _meets_base_level_requires(req: Dictionary) -> bool:
 	var si: Dictionary = settlement.inputs
-	if req.has("shelter_score") and si.get("shelter_score", 0.0) < float(req["shelter_score"]):
-		return false
-	if req.has("light_score") and si.get("light_score", 0.0) < float(req["light_score"]):
-		return false
-	if req.has("food_reserve") and int(town_hall.stockpile.get("food", 0)) < int(req["food_reserve"]):
-		return false
-	if req.has("stockpile_value") and town_hall.total_stock() < int(req["stockpile_value"]):
-		return false
-	# population, defense_score and future keys are out-of-scope for MVP.
+	for key in req:
+		match key:
+			"shelter_score":
+				if si.get("shelter_score", 0.0) < float(req[key]):
+					return false
+			"light_score":
+				if si.get("light_score", 0.0) < float(req[key]):
+					return false
+			"food_reserve":
+				if int(town_hall.stockpile.get("food", 0)) < int(req[key]):
+					return false
+			"stockpile_value":
+				if town_hall.total_stock() < int(req[key]):
+					return false
+			"population":
+				if town_hall.population < int(req[key]):
+					return false
+			_:
+				if not _warned_requires_keys.has(key):
+					_warned_requires_keys[key] = true
+					push_warning("_meets_base_level_requires: unrecognized key '%s' — fail-closed" % key)
+				return false
 	return true
 
 
@@ -795,16 +833,17 @@ func progression_state() -> Dictionary:
 
 
 ## Restore progression from a saved state dict.
+## Fix 11: loads xp_totals as float to preserve fractional accumulation.
 ## Missing keys default cleanly (level 1 Camp, zero XP).
 func apply_progression_state(data: Dictionary) -> void:
-	# Re-seed to zero for all known types first.
+	# Re-seed to 0.0 (float) for all known types first.
 	xp_totals = {}
 	if _progression_registry != null:
 		for t: Dictionary in _progression_registry.xp_types():
-			xp_totals[str(t.get("id", ""))] = 0
+			xp_totals[str(t.get("id", ""))] = 0.0
 	var raw: Dictionary = data.get("xp_totals", {})
 	for k in raw:
-		xp_totals[str(k)] = int(raw[k])
+		xp_totals[str(k)] = float(raw[k])
 	player_level = int(data.get("player_level", 1))
 	base_xp = int(data.get("base_xp", 0))
 	base_level = int(data.get("base_level", 1))

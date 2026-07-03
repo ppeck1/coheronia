@@ -387,7 +387,8 @@ func _run() -> void:
 			t.queue_free()
 	await get_tree().process_frame
 
-	var enemy_reg = load("res://scripts/data/enemy_registry.gd").new()
+	# Fix 16: use root's shared registry instances instead of creating duplicates.
+	var enemy_reg = root._enemy_registry
 	_check("enemies_json_loads", enemy_reg.live_defs().size() == 3,
 		"%d live defs" % enemy_reg.live_defs().size())
 
@@ -429,10 +430,22 @@ func _run() -> void:
 	_check("save_load_enemy_id", raider_restored,
 		"raider_basic found after serialize/apply")
 
+	# Fix 17a: save/load round-trip of a raider_basic preserves hall_dps > 0 and max_hp.
+	var raider_hall_dps_ok := false
+	var raider_max_hp_ok := false
+	for t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(t) and not t.is_queued_for_deletion() \
+				and str(t.enemy_id) == "raider_basic":
+			raider_hall_dps_ok = t.hall_dps > 0.0
+			raider_max_hp_ok = t.max_hp > 0
+			break
+	_check("raider_save_load_hall_dps_and_max_hp", raider_hall_dps_ok and raider_max_hp_ok,
+		"hall_dps_ok=%s max_hp_ok=%s" % [raider_hall_dps_ok, raider_max_hp_ok])
+
 	# --- Progression MVP: XP, player level, base levels, population cap ---
 
-	# Both JSON files load via registry; event and level counts are correct.
-	var prog_reg = load("res://scripts/data/progression_registry.gd").new()
+	# Fix 16: use root's shared registry instance.
+	var prog_reg = root._progression_registry
 	_check("progression_jsons_load",
 		prog_reg.base_levels_ordered().size() == 6
 		and prog_reg.xp_event("block_mined").get("xp_type") == "labor",
@@ -504,7 +517,8 @@ func _run() -> void:
 	# --- Ancestry Phase B: registry loads + player_effects wired ---
 
 	# Registry loads all 12 ancestries; phase_b_ids returns exactly 5.
-	var ancestry_reg = load("res://scripts/data/ancestry_registry.gd").new()
+	# Fix 16: use root's shared registry instance.
+	var ancestry_reg = root._ancestry_registry
 	_check("ancestries_json_loads_via_registry", ancestry_reg.all_count() == 12,
 		"%d ancestries loaded" % ancestry_reg.all_count())
 	_check("ancestry_phase_b_ids_count", ancestry_reg.phase_b_ids().size() == 5,
@@ -541,6 +555,24 @@ func _run() -> void:
 	_check("human_learning_mult_xp", human_gain >= baseline_gain,
 		"human_gain=%d baseline_gain=%d" % [human_gain, baseline_gain])
 
+	# Fix 17d: 20 block_mined events — human (1.05x) must accumulate 21 labor XP
+	# where a baseline (no ancestry) accumulates exactly 20. Tests float storage.
+	player.apply_character(GameState.current_character)
+	var _xp_snap20: float = float(root.xp_totals.get("labor", 0.0))
+	for _i20 in range(20):
+		root.award_xp("block_mined")
+	var _baseline20: int = int(root.xp_totals.get("labor", 0.0)) - int(_xp_snap20)
+	root.xp_totals["labor"] = _xp_snap20
+	player.apply_character(GameState.current_character)
+	root.apply_ancestry_for_species("human")
+	var _xp_snap_h20: float = float(root.xp_totals.get("labor", 0.0))
+	for _ih20 in range(20):
+		root.award_xp("block_mined")
+	var _human20: int = int(root.xp_totals.get("labor", 0.0)) - int(_xp_snap_h20)
+	root.xp_totals["labor"] = _xp_snap20
+	_check("human_20x_block_mined_labor_xp", _baseline20 == 20 and _human20 >= 21,
+		"baseline=%d human=%d" % [_baseline20, _human20])
+
 	# Unknown/legacy species: all ancestry multipliers stay at their safe defaults.
 	player.apply_character(GameState.current_character)
 	root.apply_ancestry_for_species("unknown_legacy_species")
@@ -552,9 +584,54 @@ func _run() -> void:
 		"move=%.3f jump=%.3f mine=%.3f learn=%.3f" % [player.ancestry_move_mult,
 			player.ancestry_jump_mult, player.stone_ore_mine_mult, player.learning_speed_mult])
 
+	# Fix 17b: elf ancestry yields ancestry_jump_mult > 1.0 (via jump_bonus 0.15).
+	player.apply_character(GameState.current_character)
+	root.apply_ancestry_for_species("elf")
+	_check("elf_ancestry_jump_mult_gt_1", player.ancestry_jump_mult > 1.0,
+		"ancestry_jump_mult=%.3f" % player.ancestry_jump_mult)
+
+	# Fix 17c: goblin ancestry yields max_health < the no-ancestry baseline.
+	player.apply_character(GameState.current_character)
+	var _goblin_baseline_health: float = player.max_health
+	root.apply_ancestry_for_species("goblin")
+	_check("goblin_ancestry_max_health_lt_baseline", player.max_health < _goblin_baseline_health,
+		"goblin=%.0f baseline=%.0f" % [player.max_health, _goblin_baseline_health])
+
 	# Restore: apply the current character and its ancestry before the screenshot.
 	player.apply_character(GameState.current_character)
 	root.apply_ancestry_for_species(str(GameState.current_character.get("species", "")))
+
+	# Fix 17e: underground-family threat (cave_crawler) survives _on_dawn(),
+	# while a surface threat (surface_slime) is freed.
+	# Clear existing threats first.
+	for t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(t):
+			t.queue_free()
+	await get_tree().process_frame
+	var _ug_threat: Node = root.spawn_enemy_for_test("cave_crawler")
+	var _surf_threat: Node = root.spawn_enemy_for_test("surface_slime")
+	root._on_dawn()
+	await get_tree().process_frame
+	var _ug_alive: bool = is_instance_valid(_ug_threat) and not _ug_threat.is_queued_for_deletion()
+	var _surf_freed: bool = not is_instance_valid(_surf_threat) or _surf_threat.is_queued_for_deletion()
+	_check("underground_survives_dawn", _ug_alive and _surf_freed,
+		"cave_crawler_alive=%s surface_slime_freed=%s" % [_ug_alive, _surf_freed])
+	if is_instance_valid(_ug_threat) and not _ug_threat.is_queued_for_deletion():
+		_ug_threat.queue_free()
+	await get_tree().process_frame
+
+	# Fix 17f: with darkness_increases_enemies=false, _advance_cave_spawns spawns nothing.
+	var _rules_f: Dictionary = GameState.current_config.data["rules"]
+	_rules_f["darkness_increases_enemies"] = false
+	root._cave_spawn_timer = root.CAVE_SPAWN_INTERVAL + 1.0
+	root._advance_cave_spawns(0.0)
+	var _cave_count := 0
+	for t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(t) and not t.is_queued_for_deletion() and t.family == "underground":
+			_cave_count += 1
+	_check("cave_spawns_respect_peaceful_rule", _cave_count == 0,
+		"cave_count=%d" % _cave_count)
+	_rules_f["darkness_increases_enemies"] = true
 
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":

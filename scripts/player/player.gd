@@ -85,11 +85,17 @@ func apply_character(character: Dictionary) -> void:
 ##             learning_speed_mult, health_bonus.
 func apply_ancestry_effects(effects: Dictionary) -> void:
 	ancestry_move_mult = float(effects.get("move_speed_mult", 1.0))
-	ancestry_jump_mult = float(effects.get("jump_mult", 1.0))
+	# Fix 12: elf uses jump_bonus (additive fraction) instead of jump_mult.
+	if effects.has("jump_mult"):
+		ancestry_jump_mult = float(effects["jump_mult"])
+	else:
+		ancestry_jump_mult = 1.0 + float(effects.get("jump_bonus", 0.0))
 	stone_ore_mine_mult = float(effects.get("stone_ore_mining_mult", 1.0))
 	learning_speed_mult = float(effects.get("learning_speed_mult", 1.0))
 	ancestry_health_bonus = float(effects.get("health_bonus", 0.0))
 	max_health += ancestry_health_bonus
+	# Fix 12: goblin uses health_reduction (multiplier, default 1.0 = no change).
+	max_health = int(round(max_health * float(effects.get("health_reduction", 1.0))))
 	health = minf(health, max_health)
 
 

@@ -3,23 +3,16 @@ extends RefCounted
 ## definitions and Phase B id list. Mirrors the enemy_registry.gd pattern.
 ## Construct once in game_root._ready().
 
-const PHASE_B_IDS: Array = ["human", "dwarf", "elf", "goblin", "orc"]
+const JsonData := preload("res://scripts/data/json_data.gd")
 
 var _data: Dictionary = {}
 var _ancestries: Array = []
 
 
 func _init() -> void:
-	var file := FileAccess.open("res://data/ancestries.json", FileAccess.READ)
-	if file == null:
-		push_error("AncestryRegistry: cannot open res://data/ancestries.json")
-		return
-	var parsed = JSON.parse_string(file.get_as_text())
-	if not parsed is Dictionary:
-		push_error("AncestryRegistry: ancestries.json did not parse to a dictionary")
-		return
-	_data = parsed
-	_ancestries = _data.get("ancestries", [])
+	_data = JsonData.load_dict("res://data/ancestries.json")
+	if not _data.is_empty():
+		_ancestries = _data.get("ancestries", [])
 
 
 ## Returns the full ancestry dict for the given id, or {} if not found.
@@ -30,9 +23,13 @@ func get_ancestry(id: String) -> Dictionary:
 	return {}
 
 
-## Returns the list of Phase B ancestry ids that have wired player effects.
+## Fix 13: derive phase B ids from data instead of a hardcoded constant.
 func phase_b_ids() -> Array:
-	return PHASE_B_IDS
+	var ids: Array = []
+	for entry: Dictionary in _ancestries:
+		if entry.get("implementation_phase", "") == "B":
+			ids.append(str(entry.get("id", "")))
+	return ids
 
 
 ## Total number of ancestries defined in ancestries.json.

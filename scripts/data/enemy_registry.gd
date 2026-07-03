@@ -1,24 +1,22 @@
 extends RefCounted
 ## EnemyRegistry: parses data/enemies.json once and serves live enemy
 ## definitions and difficulty scaling. Loaded via preload in game_root.
-## Parses data/enemies.json once and serves live enemy definitions
-## and difficulty scaling. Construct once in game_root._ready().
+## Construct once in game_root._ready().
+
+const JsonData := preload("res://scripts/data/json_data.gd")
 
 var _data: Dictionary = {}
 var _live_defs: Array = []
+var _defs_by_id: Dictionary = {}  # Fix 14: enemy_id -> dict for O(1) lookup
 
 
 func _init() -> void:
-	var file := FileAccess.open("res://data/enemies.json", FileAccess.READ)
-	if file == null:
-		push_error("EnemyRegistry: cannot open res://data/enemies.json")
+	_data = JsonData.load_dict("res://data/enemies.json")
+	if _data.is_empty():
 		return
-	var parsed = JSON.parse_string(file.get_as_text())
-	if not parsed is Dictionary:
-		push_error("EnemyRegistry: enemies.json did not parse to a dictionary")
-		return
-	_data = parsed
 	for entry: Dictionary in _data.get("enemies", []):
+		var eid: String = str(entry.get("id", ""))
+		_defs_by_id[eid] = entry
 		if entry.get("status", "") == "live":
 			_live_defs.append(entry)
 
@@ -27,11 +25,9 @@ func live_defs() -> Array:
 	return _live_defs
 
 
+## Fix 14: O(1) lookup via pre-built dict instead of linear scan.
 func get_def(enemy_id: String) -> Dictionary:
-	for entry: Dictionary in _data.get("enemies", []):
-		if entry.get("id", "") == enemy_id:
-			return entry
-	return {}
+	return _defs_by_id.get(enemy_id, {})
 
 
 ## Maps the world-config enemy difficulty float to a named profile then

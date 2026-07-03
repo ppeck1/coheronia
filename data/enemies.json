@@ -15,7 +15,7 @@
       "drops": [
         {
           "item_id": "slime_gel",
-          "chance": 0.70
+          "chance": 0.7
         },
         {
           "item_id": "wet_fiber",
@@ -46,7 +46,7 @@
         },
         {
           "item_id": "thorn_quill",
-          "chance": 0.30
+          "chance": 0.3
         },
         {
           "item_id": "hide_scrap",
@@ -69,7 +69,7 @@
       "drops": [
         {
           "item_id": "wax",
-          "chance": 0.60
+          "chance": 0.6
         },
         {
           "item_id": "wings",
@@ -96,15 +96,15 @@
       "drops": [
         {
           "item_id": "clay",
-          "chance": 0.60
+          "chance": 0.6
         },
         {
           "item_id": "mud",
-          "chance": 0.30
+          "chance": 0.3
         },
         {
           "item_id": "reed_fiber",
-          "chance": 0.10
+          "chance": 0.1
         }
       ],
       "role": "Swamp dweller, provides construction and weaving materials"
@@ -123,7 +123,7 @@
       "drops": [
         {
           "item_id": "venison",
-          "chance": 0.70
+          "chance": 0.7
         },
         {
           "item_id": "hide",
@@ -154,7 +154,7 @@
         },
         {
           "item_id": "silk",
-          "chance": 0.30
+          "chance": 0.3
         },
         {
           "item_id": "eyes",
@@ -177,11 +177,11 @@
       "drops": [
         {
           "item_id": "ore_flecks",
-          "chance": 0.70
+          "chance": 0.7
         },
         {
           "item_id": "shell",
-          "chance": 0.30
+          "chance": 0.3
         }
       ],
       "role": "Ore pocket nuisance, provides metal residue"
@@ -223,7 +223,7 @@
       "drops": [
         {
           "item_id": "stone_plates",
-          "chance": 0.80
+          "chance": 0.8
         }
       ],
       "role": "Rare stone cavern dweller, provides construction material"
@@ -265,11 +265,11 @@
       "drops": [
         {
           "item_id": "teeth",
-          "chance": 0.50
+          "chance": 0.5
         },
         {
           "item_id": "hide",
-          "chance": 0.50
+          "chance": 0.5
         }
       ],
       "role": "Rare mine shaft threat, provides bone and leather materials"
@@ -292,10 +292,15 @@
         },
         {
           "item_id": "scrap_weapons",
-          "chance": 0.40
+          "chance": 0.4
         }
       ],
-      "role": "Settlement raid unit targeting player, Town Hall, or subjects"
+      "role": "Settlement raid unit targeting player, Town Hall, or subjects",
+      "spawn_rule": {
+        "day_threshold": 5,
+        "stockpile_threshold": 25,
+        "base_chance": 0.3
+      }
     },
     {
       "id": "raider_torchbearer",
@@ -311,11 +316,11 @@
       "drops": [
         {
           "item_id": "oil_rags",
-          "chance": 0.60
+          "chance": 0.6
         },
         {
           "item_id": "torch_heads",
-          "chance": 0.40
+          "chance": 0.4
         }
       ],
       "role": "Raider with fire attacks, supplies raid consumables"
@@ -334,7 +339,7 @@
       "drops": [
         {
           "item_id": "picks",
-          "chance": 0.50
+          "chance": 0.5
         },
         {
           "item_id": "fuse_cord",
@@ -357,7 +362,7 @@
       "drops": [
         {
           "item_id": "coins",
-          "chance": 0.50
+          "chance": 0.5
         }
       ],
       "role": "Moral choice encounter, potential recruitment opportunity"
@@ -376,7 +381,7 @@
       "drops": [
         {
           "item_id": "forged_seal",
-          "chance": 0.30
+          "chance": 0.3
         },
         {
           "item_id": "coins",
@@ -402,7 +407,7 @@
       "possible_drops": [
         {
           "item_id": "eggs",
-          "chance": 0.40
+          "chance": 0.4
         },
         {
           "item_id": "silk_bundle",
@@ -448,7 +453,7 @@
         },
         {
           "item_id": "coin_pouch",
-          "chance": 0.40
+          "chance": 0.4
         },
         {
           "item_id": "fine_blade",
@@ -483,11 +488,11 @@
       "possible_drops": [
         {
           "item_id": "meat",
-          "chance": 0.70
+          "chance": 0.7
         },
         {
           "item_id": "hide",
-          "chance": 0.40
+          "chance": 0.4
         }
       ],
       "mechanics": [
@@ -515,15 +520,15 @@
       "possible_drops": [
         {
           "item_id": "royal_ledger",
-          "chance": 0.70
+          "chance": 0.7
         },
         {
           "item_id": "authority_sigil",
-          "chance": 0.60
+          "chance": 0.6
         },
         {
           "item_id": "crownstone_core",
-          "chance": 0.40
+          "chance": 0.4
         }
       ],
       "mechanics": [
@@ -552,15 +557,15 @@
       "possible_drops": [
         {
           "item_id": "seismic_stone",
-          "chance": 0.70
+          "chance": 0.7
         },
         {
           "item_id": "tunneling_gland",
-          "chance": 0.50
+          "chance": 0.5
         },
         {
           "item_id": "geological_chart",
-          "chance": 0.30
+          "chance": 0.3
         }
       ],
       "mechanics": [
@@ -655,9 +660,18 @@
     }
   },
   "loot_philosophy": {
-    "common": [0.45, 1.0],
-    "uncommon": [0.15, 0.45],
-    "rare": [0.03, 0.12]
+    "common": [
+      0.45,
+      1.0
+    ],
+    "uncommon": [
+      0.15,
+      0.45
+    ],
+    "rare": [
+      0.03,
+      0.12
+    ]
   },
   "mvp_expansion_order": [
     "surface_slime",

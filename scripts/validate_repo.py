@@ -42,21 +42,7 @@ REQUIRED_DIRS = [
     "reference/g1v5",
     "_protocol/Project_Ops_Capsule",
 ]
-JSON_FILES = [
-    "data/blocks.json",
-    "data/recipes.json",
-    "data/settlement_rules.json",
-    "data/world_settings.json",
-    "data/character_data.json",
-    "data/enemies.json",
-    "data/ancestries.json",
-    "data/progression/player_xp.json",
-    "data/progression/base_levels.json",
-    "data/progression/research_domains.json",
-    "data/progression/perks.json",
-    ".project/project_manifest.json",
-    ".project/ops_capsule.json",
-]
+JSON_FILES = [rel for rel in REQUIRED_FILES if rel.endswith(".json")]
 
 def fail(msg: str) -> None:
     print(f"FAIL {msg}")
