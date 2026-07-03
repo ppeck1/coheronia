@@ -2,65 +2,55 @@
 
 ## Current State
 
-**v0.4 persistent shell implemented and closed out** (run `20260702_coheronia_v04_shell`; lineage: `20260702_coheronia_mvp_v01_oneshot` -> `20260702_coheronia_input_repair` -> `20260702_coheronia_v02_increment` -> `20260702_coheronia_v03_increment`; Godot 4.6.1 stable).
+**v0.5 enemies/progression/ancestries implemented and closed out** (run `20260703_coheronia_v05_increment`; lineage: `20260702_coheronia_mvp_v01_oneshot` -> `20260702_coheronia_input_repair` -> `20260702_coheronia_v02_increment` -> `20260702_coheronia_v03_increment` -> `20260702_coheronia_v04_shell`; Godot 4.6.1 stable).
 
-The project now launches through `res://scenes/shell/Shell.tscn`, not directly into `Main.tscn`. The shell owns long-lived profile state, characters, created worlds, per-world configuration, and per-world save state. Gameplay reads a `WorldConfig` through `GameState.current_config`.
+v0.5 brings the first slices of the three FUTURE design docs into live gameplay, built as five commits: data models, live enemies, progression, ancestry effects, and a multi-angle review/fix pass.
 
-## v0.4 Additions
+## v0.5 Additions
 
-- Persistent shell: title screen, continue, character select/create, world select/create, save-and-return with Esc.
-- Character model: name, species, appearance, traits, role/background, starting items, trait/role effects, future species fields.
-- World model: world name, size, seed, preset, difficulty profile, last played, last character, summary metadata.
-- World generation config: small/medium/large sizes, terrain amplitude/frequency, dirt depth, ore/tree/bush density, independent ore/tree/bush seed offsets.
-- Difficulty axes: enemy, ruler, survival, economy, social, subject impressionability.
-- Rule toggles: subjects require food, weather survival, lighting safety, darkness threat, enemy time scaling, plus reserved future toggles.
-- Persistence: `user://shell.json` plus `user://worlds/<id>.json`; save version is now `0.4`.
-- Gameplay wiring: storms, threats, daily food need, growth threshold, stockpile/scarcity/ruler pressure, generation, and character effects read from the active world/character config.
+- Data models (validated by `scripts/validate_repo.py`): `data/enemies.json` (16 enemies, 3 mini-bosses, 2 bosses, region density, difficulty scaling, loot bands), `data/ancestries.json` (12 ancestries, 6 dragonkin types, numeric biome affinities), `data/progression/` (player XP events, base levels 1-6, research domains, perk lanes).
+- Live enemies via `scripts/data/enemy_registry.gd`: surface_slime replaces the hardcoded night threat; cave_crawler spawns underground (30s check, family-capped at 2, spared by the dawn sweep, gated by `darkness_increases_enemies`); raider_basic spawns from `spawn_rule` in enemies.json (day 5+ or stockpile 25+, chance scaled by density_mult) and attacks the Town Hall. Deaths roll drops into the inventory scaled by loot_mult. The JSON difficulty table's density_mult now drives spawn counts.
+- Player XP via `scripts/data/progression_registry.gd`: nine events wired into existing hooks (mining, placing, deposits, storms, dawns, feeding, crafting, depth bands); six XP types accrue fractionally (float totals) into levels on a 100 * 1.35^n curve; HUD shows level, XP progress, and base name.
+- Base levels: Camp -> Hamlet -> Village ratchet (one tier per check, fail-closed on unknown requirement keys, capped at 3 for MVP) from live shelter/light/food/stockpile signals; the current level gates population growth via `effective_population_cap` (camp 4, hamlet 6, village 8).
+- Ancestries via `scripts/data/ancestry_registry.gd`: character creation offers the five Phase B ancestries (derived from `implementation_phase` in data). Live effects: dwarf 0.9x move / 0.85x jump / 1.2x stone-ore mining; orc +25 max health; elf 1.15x jump; goblin 0.8x max health; human 1.05x all XP. Unknown/legacy species get identity values; effects re-derive from data on load.
+- Shared `scripts/data/json_data.gd` loader used by all three registries; O(1) enemy lookup; cached level curve.
+- Save version `0.5` (accepts `0.4`): threats now persist enemy_id, hp, and max_hp and are restored through the real spawn path (hall_dps intact); progression persists xp_totals, player_level, base_xp, base_level, and depth high-water mark, with clean defaults for older saves.
 
 ## Earlier Signed State
 
-v0.3 remains intact under the shell: berry regrowth, dynamic population 1-8, storms mitigated by roof coverage, lanterns, mining progress, threat warning, and save hint.
-
-v0.2 remains intact: tier-2 pick/ore gate, food loop, light occlusion, threat persistence.
-
-v0.1 remains intact: playable C/L/R settlement loop with movement, mining, placement, Town Hall, HUD, day/night pressure, and save/load.
+v0.4 remains intact: persistent shell, characters, worlds, per-world configuration and saves. v0.3: regrowth, dynamic population, storms, lanterns. v0.2: tool tiers, food loop, occlusion, threat saves. v0.1: playable C/L/R settlement loop.
 
 ## Validation Status
 
 | Check | State | Evidence |
 |---|---|---|
-| Repo identity | PASS | root is `B:/dev/Coheronia/coheronia_fable_oneshot_repo`; project_id `coheronia-game` |
-| JSON/scaffold validator | PASS | `python scripts/validate_repo.py` now covers v0.4 shell/data files |
-| Public capsule doctor | PASS with expected pre-publish warnings | `usable_with_warnings`: dirty tree and no remote before commit/publish |
+| Repo identity | PASS | root is `coheronia_fable_oneshot_repo`; project_id `coheronia-game` |
+| JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers all v0.5 data schemas |
 | Godot import/startup | PASS | Godot 4.6.1 startup exits 0 in this environment |
-| Automated smoke | PASS 62/62 | waited Windows Godot process wrote `user://smoke_results.json` and refreshed `user://smoke_screenshot.png` at 2026-07-02T13:32:27 |
-| Manual operator play | PASS | operator reported menu navigation and game entry worked without issue |
+| Automated smoke | PASS 90/90 | waited Windows Godot process wrote `user://smoke_results.json` at 2026-07-03T10:52:24 |
+| Multi-angle code review | PASS | 7 finder angles over the v0.5 diff; 17 verified findings fixed in `22ef3bd` |
 
 ## Known Risks / Gotchas
 
-- The Windows Godot GUI binary available in this workspace does not reliably run smoke through a direct headless shell invocation. Use `Start-Process -Wait` and verify `user://smoke_results.json`.
+- The Windows Godot GUI binary does not reliably run smoke through a direct headless shell invocation. Use `Start-Process -Wait` and verify `user://smoke_results.json`.
 - `COHERONIA_SMOKE=1` should be run from the shell entrypoint so it exercises shell-to-main transition.
-- Pre-v0.4 standalone saves are intentionally not migrated.
-- Several simulation toggles persist but are future-facing and not consumed yet: sleep, sickness, morale, loyalty, rebellion, ruler pressure growth, scarcity growth.
-- Social difficulty is stored but does not yet drive a social simulation.
-- Existing world state is shared by all characters entering that world; character appearance/traits come from the entering character.
-- Project paths in old run ledgers are historical evidence. Public-facing docs have been updated to relative/generic commands.
-- `docs/FUTURE_ENEMY_DESIGN.md` is future implementation planning only. It is not live gameplay yet.
-- `docs/FUTURE_ANCESTRIES_AND_BIOMES.md` is future implementation planning only. It is not live gameplay yet.
-- `docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md` is future implementation planning only. It is not live gameplay yet.
+- Behavior change for 0.4 saves: population growth is now gated by base level. A loaded 0.4 settlement at population 4 will not grow until it reaches Hamlet (light 16, shelter 12, food 8) — intended progression design, but it is a new requirement 0.4 players never saw.
+- Saves written by v0.5 are (by design) rejected by pre-v0.5 builds; rolling back the code makes 0.5 saves unreadable.
+- `base_xp` accrues and persists but is informational; the base-level requires-check is authoritative.
+- Elf/goblin have only their wired numeric effects; their remaining data keys (hitbox, traps, carry, forest movement) await their systems.
+- Deep ancestries (phase C) require underground-safe spawn generation that does not exist yet.
+- Feel/tuning of raider pressure, XP pacing, and base-level thresholds is untested by human play.
 
 ## Next Action
 
-After publication, the next design increment should choose from:
+Operator playthrough of v0.5 (fight a raider night, level up, reach Hamlet, try a dwarf miner). Then pick the next increment from:
 
 - farming or plantable/regrowable food sources
-- tier-3 tools and a deeper layer
 - workbench/crafting menu
-- fuel-based light decay
-- settler roles or abstract assignment
-- threat variety
-- enemy-family integration from `docs/FUTURE_ENEMY_DESIGN.md`
-- ancestry/biome integration from `docs/FUTURE_ANCESTRIES_AND_BIOMES.md`
-- progression/base/research integration from `docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`
+- research bench MVP (craft/survival/military domains — data already validated)
+- perk spending UI for one lane
+- more enemies from the MVP expansion order (thornrat, ore_tick, raider_torchbearer)
+- underground-start generation for phase C deep ancestries
+- tier-3 tools and a deeper layer
 
-Recommended next product move: farming plus a compact crafting menu, then a small player XP/base XP data model. After that, implement surface slime / cave crawler / raider basic, ancestry data, and the first base-level unlocks.
+Recommended next product move: farming plus a compact crafting menu, then the research bench MVP consuming the existing `data/progression/research_domains.json`.

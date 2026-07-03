@@ -1,4 +1,4 @@
-# Coheronia - v0.4 Persistent Shell Prototype
+# Coheronia - v0.5 Enemies, Progression, and Ancestries
 
 Coheronia is a Godot 4 side-view survival settlement sandbox inspired by the pleasures of Terraria-style digging/building, survival crafting, and civilization sims. The player is not just trying to survive as one person: the long-term fantasy is to carve out a place in a hostile world, rule a small civilization, and watch that civilization's needs, fears, politics, infrastructure, and defenses push back through play.
 
@@ -6,7 +6,7 @@ Coheronia is a Godot 4 side-view survival settlement sandbox inspired by the ple
 
 Today, the player reshapes terrain directly while managing a settlement through three systemic pressures: **Coherence / Load / Resilience**.
 
-Current state: **v0.4 implemented and closed out** on Godot 4.6.1. The project now launches into a persistent outer shell for characters, worlds, saves, and simulation settings. Each world is a configured simulation container: terrain seed, world size, generation variation, difficulty axes, rule toggles, save state, and summary metadata live together in `user://worlds/<id>.json`.
+Current state: **v0.5 implemented and closed out** on Godot 4.6.1. The project launches into a persistent outer shell for characters, worlds, saves, and simulation settings. Each world is a configured simulation container: terrain seed, world size, generation variation, difficulty axes, rule toggles, save state, and summary metadata live together in `user://worlds/<id>.json`. On top of that, v0.5 brings the first slices of the three future design docs into live gameplay: data-driven enemies, player XP and base levels, and playable ancestries.
 
 ## Version Highlights
 
@@ -14,6 +14,7 @@ Current state: **v0.4 implemented and closed out** on Godot 4.6.1. The project n
 - v0.2: tool-tier progression, ore gating, food loop, berry bushes, light occlusion, and threat persistence.
 - v0.3: berry regrowth, dynamic population 1-8, storm hazard with roof mitigation, lanterns, and UX polish.
 - v0.4: persistent shell, character creation/selection, world creation/selection, world size, presets, six difficulty axes, simulation rule toggles, per-block-type seed variation, and per-world save files.
+- v0.5: data-driven enemies (surface slime, cave crawler, raider) with drops and difficulty-scaled density from `data/enemies.json`; player XP across six types with levels; base levels Camp -> Hamlet -> Village gating population growth; five playable ancestries with live player effects; full data models for all 16 enemies, 12 ancestries, research domains, and perk lanes.
 
 ## The Shell
 
@@ -26,7 +27,7 @@ On launch:
 3. Select or create a world.
 4. Enter the playable settlement scene.
 
-Character creation currently supports name, species, appearance, traits, and role/background. Species is intentionally future-facing: only human is available now, but the data model leaves room for species abilities, needs modifiers, social effects, lifespans, weaknesses, and faction reactions.
+Character creation currently supports name, ancestry (human, dwarf, elf, goblin, orc), appearance, traits, and role/background. Ancestry effects are data-driven from `data/ancestries.json`: dwarves move and jump a little lower but mine stone and ore 20% faster, orcs carry +25 max health, elves jump higher, goblins run at 80% health, and humans learn 5% faster (all XP). The remaining seven ancestries (deep variants, gnome, lizardfolk, dragonkin) exist in data and unlock in later phases.
 
 World creation supports:
 
@@ -76,7 +77,7 @@ From PowerShell:
 
 ## Play Loop
 
-Spawn near the Town Hall, mine dirt/wood/stone, gather food from berry bushes, place blocks and torches, shelter the hall, deposit resources, forge the tier-2 pick, mine ore, craft lanterns, feed the settlement, survive night threats, roof against storms, repair damage, and repeat. C/L/R bars are computed from real world state, not decorative values.
+Spawn near the Town Hall, mine dirt/wood/stone, gather food from berry bushes, place blocks and torches, shelter the hall, deposit resources, forge the tier-2 pick, mine ore, craft lanterns, feed the settlement, survive night slimes and the occasional raider, watch for cave crawlers underground, roof against storms, repair damage, and repeat. Everything you do earns XP (combat, labor, survival, civic, exploration, craft) toward player levels, and a sheltered, lit, fed settlement ratchets from Camp to Hamlet to Village, raising the population cap. C/L/R bars are computed from real world state, not decorative values.
 
 ## Design Direction
 
@@ -90,7 +91,7 @@ Future design references:
 - `docs/FUTURE_ANCESTRIES_AND_BIOMES.md`: planned ancestry, biome, spawn, player-effect, and settlement-effect matrices.
 - `docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`: planned player XP, base levels, research, laws, districts, factions, and world-scale progression.
 
-These are design-confirmed/planned material and are **not integrated as live gameplay yet**.
+As of v0.5 the first slices of all three documents are live: the three MVP enemies, player XP/base levels, and five Phase B ancestries. The full matrices (remaining enemies, bosses, deep ancestries, research, perks, laws, districts) are present as validated data models in `data/` but not yet live gameplay.
 
 ## Architecture
 
@@ -119,6 +120,9 @@ Data authorities:
 - `data/settlement_rules.json`: C/L/R formulas, clamps, tick rate
 - `data/world_settings.json`: sizes, defaults, presets, difficulty/rule/generation defaults
 - `data/character_data.json`: species, traits, roles, appearances
+- `data/enemies.json`: enemy defs, drops, spawn rules, density, difficulty scaling (loaded by `scripts/data/enemy_registry.gd`)
+- `data/ancestries.json`: 12 ancestries with player/settlement effects and biome affinities (loaded by `scripts/data/ancestry_registry.gd`)
+- `data/progression/*.json`: player XP events, base levels, research domains, perk lanes (loaded by `scripts/data/progression_registry.gd`)
 
 ## Validation
 
@@ -141,7 +145,7 @@ $env:COHERONIA_SMOKE = "1"
 Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-repo-root>") -Wait
 ```
 
-The smoke test exercises the real gameplay path and currently contains 62 checks covering shell persistence, world config, input bindings, movement, mining, tool tiers, food/regrowth, population, rule toggles, difficulty scaling, lanterns, C/L/R reactions, storm mitigation, threat persistence, save/load, world size, per-block seed variation, density controls, and character trait effects.
+The smoke test exercises the real gameplay path and currently contains 90 checks covering shell persistence, world config, input bindings, movement, mining, tool tiers, food/regrowth, population, rule toggles, difficulty scaling, lanterns, C/L/R reactions, storm mitigation, threat persistence, save/load, world size, per-block seed variation, density controls, character trait effects, data-driven enemy spawning and drops, XP awards and level curve, base-level advancement and population gating, and ancestry player effects.
 
 In addition to console `SMOKE` lines, it writes:
 
@@ -154,7 +158,9 @@ user://smoke_screenshot.png   # windowed runs only
 
 - Placeholder art: colored tiles and `_draw()` rectangles; no animation or audio.
 - Population is still abstract; settlers are not simulated as NPCs.
-- Two hazards exist: night slime and daytime storm. Slime movement is simple walk/hop, with no pathfinding.
+- Enemy movement is simple walk/hop with no pathfinding; raiders walk at the hall, crawlers ambush underground.
+- Base levels cap at Village (level 3) for now; Town, Keep, and City-State exist in data only.
+- Perk lanes and research domains are validated data, not yet spendable/researchable in play.
 - Pre-v0.4 standalone saves at `user://coheronia_save.json` are not migrated into the new shell world files.
 - Several rule toggles are reserved for future systems: sleep, sickness, morale, loyalty decay, rebellion, ruler pressure growth, and scarcity growth.
 - Social difficulty is stored but not yet consumed by a social simulation.

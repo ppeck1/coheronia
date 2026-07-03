@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against v0.4 closeout run `20260702_coheronia_v04_shell`.
+State: audited against v0.5 closeout run `20260703_coheronia_v05_increment`.
 
 ## Authority Surfaces
 
@@ -11,8 +11,13 @@ State: audited against v0.4 closeout run `20260702_coheronia_v04_shell`.
 | Settlement formulas | `data/settlement_rules.json` | `settlement_model.gd` via Godot `Expression` |
 | World settings | `data/world_settings.json` | `WorldConfig`, shell UI, world generation, gameplay systems |
 | Character data | `data/character_data.json` | shell UI, `player.apply_character`, role item grant |
+| Enemies | `data/enemies.json` | `enemy_registry.gd` -> `game_root` spawn paths, `simple_threat` drops |
+| Ancestries | `data/ancestries.json` | `ancestry_registry.gd` -> `player.apply_ancestry_effects`, shell create form |
+| Progression | `data/progression/*.json` | `progression_registry.gd` -> XP awards, base levels, HUD |
 | Shell profile | `user://shell.json` | `GameState` |
 | World files | `user://worlds/<id>.json` | `GameState`, `SaveManager`, shell world list |
+
+All three registries load through `scripts/data/json_data.gd` (`load_dict`, push_error + `{}` on failure).
 
 ## World Config Matrix
 
@@ -48,7 +53,7 @@ State: audited against v0.4 closeout run `20260702_coheronia_v04_shell`.
 | Character key | Authority | Consumed by | Effect |
 |---|---|---|---|
 | `name` | shell create form / `shell.json` | shell lists | display identity |
-| `species` | `character_data.json` | shell/create data | future-facing species slot; human only now |
+| `species` | `character_data.json` + `ancestries.json` | shell create form, `game_root.apply_ancestry_for_species` | live phase B ancestries: human, dwarf, elf, goblin, orc; effects re-derived from data at world entry |
 | `appearance` | `character_data.json` | `player.apply_character` | body/trim draw colors |
 | `traits` | `character_data.json` | `player.apply_character` | max health, mining speed, reach, food bonus, growth delta |
 | `role` | `character_data.json` | role grant and `player.apply_character` | starting items and role effects |
@@ -92,8 +97,44 @@ State: audited against v0.4 closeout run `20260702_coheronia_v04_shell`.
 | `storm_active` | bool | `game_root.gd` / save | current storm state |
 | `storm_time_left` | float | `game_root.gd` / save | countdown |
 | `_storm_rolled_today` | bool | `game_root.gd` / save | prevents repeated daily storm rolls |
-| `threats` | array | save state | saved/restored active threats |
+| `threats` | array | save state | saved/restored active threats: x, y, hp, max_hp, enemy_id; restored via `_spawn_enemy_at` |
 | `meta.summary` | dictionary | world file | day, population, coherence, damage for shell list |
+
+## v0.5 Enemy Variables
+
+| Variable | Type | Authority | Notes |
+|---|---|---|---|
+| `enemy_id` / `family` | string | `data/enemies.json` | live: surface_slime (surface), cave_crawler (underground), raider_basic (raider) |
+| `drops[].item_id` / `.chance` | array | `data/enemies.json` | rolled on death into player inventory |
+| `spawn_rule` (raider) | dictionary | `data/enemies.json` | day_threshold 5, stockpile_threshold 25, base_chance 0.3 |
+| `difficulty_scaling.density_mult` | float | `data/enemies.json` | multiplies night spawn count and raider chance |
+| `difficulty_scaling.loot_mult` | float | `data/enemies.json` | multiplies drop chances |
+| `loot_mult` / `drop_chance_override` | float | `simple_threat.gd` | per-instance; override is a test hook |
+| `hall_dps` | float | `game_root._spawn_enemy_at` | raider Town Hall damage; survives save/load |
+| `CAVE_SPAWN_INTERVAL` / cap | const | `game_root.gd` | 30s check, 2 active underground-family max |
+
+## v0.5 Progression Variables
+
+| Variable | Type | Authority | Notes |
+|---|---|---|---|
+| `xp_totals` | dictionary (float) | `game_root.gd` / save | per-type fractional accrual; int() at read points |
+| `player_level` | int | `game_root.gd` / save | 100 * 1.35^(n-1) curve from `player_xp.json` |
+| `base_level` | int | `game_root.gd` / save | ratchet 1-3 (MVP cap); one tier per check; fail-closed requires |
+| `base_xp` | int | `game_root.gd` / save | informational only |
+| `_depth_hwm` | int | `game_root.gd` / save | 10-tile depth bands for exploration XP |
+| `effective_population_cap()` | func | `game_root.gd` | base level's unlocks.population_cap clamped to POPULATION_MAX (camp 4, hamlet 6, village 8) |
+| `xp_events` | data | `data/progression/player_xp.json` | 9 events wired: enemy_defeated, block_mined, block_placed, resource_deposited, storm_survived, night_survived, subject_fed, tool_crafted, new_depth_reached |
+
+## v0.5 Ancestry Variables
+
+| Variable | Type | Authority | Notes |
+|---|---|---|---|
+| `ancestry_move_mult` / `ancestry_jump_mult` | float | `data/ancestries.json` -> `player.gd` | dwarf 0.9/0.85; elf jump 1.15 (from jump_bonus) |
+| `stone_ore_mine_mult` | float | same | dwarf 1.2 on stone/ore blocks |
+| `ancestry_health_bonus` | int | same | orc +25 |
+| `health_reduction` | float | same | goblin 0.8x max health (multiplicative, after bonus) |
+| `learning_speed_mult` | float | same | human 1.05x on all award_xp amounts |
+| `phase_b_ids()` | func | `ancestry_registry.gd` | derived from `implementation_phase == "B"` in data |
 
 ## C/L/R Inputs
 
@@ -111,6 +152,8 @@ State: audited against v0.4 closeout run `20260702_coheronia_v04_shell`.
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+The v0.5 smoke suite (90 checks) additionally verifies: enemies.json loads with 3 live defs; each live enemy spawns with its def id; drops enter the inventory; enemy save/load round-trips id/hp/max_hp/hall_dps; progression JSONs load; XP awards accrue (including human fractional bonus 21 vs 20 over 20 events); level curve; base level advances camp -> hamlet; population caps at 4/6/8 by level and growth is gated; underground threats survive dawn while surface threats are freed; peaceful rule blocks cave spawns; ancestry effects (dwarf mults, orc health, goblin reduction, elf jump) and unknown-species baseline.
 
 The v0.4 smoke suite verifies:
 
