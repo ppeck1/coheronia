@@ -12,6 +12,7 @@
     {
       "id": "human",
       "display_name": "Human",
+      "description": "Coheronia's founding settlers, known for their adaptability and talent for civic organisation.",
       "spawn_band": "surface",
       "preferred_biomes": ["plains", "forest", "riverlands", "hills"],
       "bones": {
@@ -61,6 +62,7 @@
     {
       "id": "dwarf",
       "display_name": "Dwarf",
+      "description": "Mountain-born craftspeople who shaped Coheronia's first stone halls and ore routes.",
       "spawn_band": "surface_mountain",
       "preferred_biomes": ["mountains", "foothills", "early_caves"],
       "bones": {
@@ -112,6 +114,7 @@
     {
       "id": "deep_dwarf",
       "display_name": "Deep Dwarf",
+      "description": "Fortress clans who delved deeper than any, trading surface sky for underground empire.",
       "spawn_band": "underground",
       "preferred_biomes": ["early_caves", "ore_caves", "deep_caverns"],
       "bones": {
@@ -162,6 +165,7 @@
     {
       "id": "elf",
       "display_name": "Elf",
+      "description": "Forest-keepers who guided early Coheronia's growth through harmony with the land.",
       "spawn_band": "surface",
       "preferred_biomes": ["forest", "ancient_forest", "riverlands"],
       "bones": {
@@ -214,6 +218,7 @@
     {
       "id": "deep_elf",
       "display_name": "Deep Elf",
+      "description": "Hidden city-builders of the crystal depths, secretive and precise in craft and movement.",
       "spawn_band": "underground",
       "preferred_biomes": ["crystal_caves", "fungal_caves", "deep_caverns"],
       "bones": {
@@ -266,6 +271,7 @@
     {
       "id": "orc",
       "display_name": "Orc",
+      "description": "Frontier-hardened warriors who drove Coheronia's expansion into rough and contested lands.",
       "spawn_band": "surface",
       "preferred_biomes": ["badlands", "plains", "mountains"],
       "bones": {
@@ -319,6 +325,7 @@
     {
       "id": "goblin",
       "display_name": "Goblin",
+      "description": "Resourceful scavengers who turned Coheronia's ruins into workshops and traps.",
       "spawn_band": "surface_shallow",
       "preferred_biomes": ["surface_ruins", "early_caves", "hills"],
       "bones": {
@@ -372,6 +379,7 @@
     {
       "id": "deep_goblin",
       "display_name": "Deep Goblin",
+      "description": "Tunnel gang engineers who improvise shelters and salvage pits deep underground.",
       "spawn_band": "underground",
       "preferred_biomes": ["surface_ruins", "early_caves", "ore_caves"],
       "bones": {
@@ -423,6 +431,7 @@
     {
       "id": "gnome",
       "display_name": "Gnome",
+      "description": "Hill tinkerers who seed Coheronia with workshops, clever machines, and small wonders.",
       "spawn_band": "surface",
       "preferred_biomes": ["hills", "riverlands", "plains"],
       "bones": {
@@ -475,6 +484,7 @@
     {
       "id": "deep_gnome",
       "display_name": "Deep Gnome",
+      "description": "Underground precision crafters who coax crystal and mechanism into intricate devices.",
       "spawn_band": "underground",
       "preferred_biomes": ["crystal_caves", "ore_caves", "early_caves"],
       "bones": {
@@ -527,6 +537,7 @@
     {
       "id": "lizardfolk",
       "display_name": "Lizardfolk",
+      "description": "Wetland survivors who anchor Coheronia's river settlements with endurance and clan-law.",
       "spawn_band": "surface",
       "preferred_biomes": ["swamp", "riverlands", "plains"],
       "bones": {
@@ -581,6 +592,7 @@
     {
       "id": "dragonkin",
       "display_name": "Dragonkin",
+      "description": "Elemental inheritors whose breath and presence reshape the land and its politics.",
       "spawn_band": "special",
       "preferred_biomes": [],
       "bones": {

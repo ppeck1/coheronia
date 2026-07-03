@@ -78,6 +78,12 @@ for section in ["sizes", "defaults", "presets"]:
 for size_id in ["small", "medium", "large"]:
     if size_id not in world_settings["sizes"]:
         fail(f"world_settings.json missing size: {size_id}")
+if "ui_help" not in world_settings:
+    fail("world_settings.json missing section: ui_help")
+axis_help = world_settings["ui_help"].get("axis_help", {})
+for axis in ["enemy", "ruler", "survival", "economy", "social", "impressionability"]:
+    if axis not in axis_help:
+        fail(f"world_settings.json ui_help.axis_help missing axis: {axis}")
 print("PASS world settings")
 
 character_data = json.loads((ROOT / "data/character_data.json").read_text(encoding="utf-8"))
@@ -112,7 +118,7 @@ expected_ancestries = {"human", "dwarf", "deep_dwarf", "elf", "deep_elf", "orc",
 if ancestry_ids != expected_ancestries:
     fail(f"ancestries.json id mismatch: {sorted(ancestry_ids ^ expected_ancestries)}")
 for a in ancestries_data["ancestries"]:
-    for field in ["id", "display_name", "spawn_band", "bones", "player_effects", "settlement_effects", "biome_affinity", "spawn", "implementation_phase"]:
+    for field in ["id", "display_name", "description", "spawn_band", "bones", "player_effects", "settlement_effects", "biome_affinity", "spawn", "implementation_phase"]:
         if field not in a:
             fail(f"ancestries.json ancestry {a.get('id', '?')} missing field: {field}")
     for biome, mark in a["biome_affinity"].items():

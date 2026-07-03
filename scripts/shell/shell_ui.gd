@@ -7,6 +7,7 @@ enum Screen { TITLE, CHAR_SELECT, CHAR_CREATE, WORLD_SELECT, WORLD_CREATE }
 
 const BG_COLOR := Color(0.08, 0.09, 0.12)
 const DIM_COLOR := Color(0.62, 0.65, 0.75)
+const AncestryDetailScript := preload("res://scripts/data/ancestry_detail.gd")
 
 const PRESET_ORDER := ["peaceful_builder", "folk_kingdom", "tyrants_burden",
 	"dark_frontier", "mythic_survival", "custom"]
@@ -53,6 +54,8 @@ var _selected_char_id: String = ""
 var _name_edit: LineEdit
 var _species_option: OptionButton
 var _species_ids: Array[String] = []
+var _species_detail: Label          # ancestry detail panel (Wave A)
+var _ancestry_helper              # lazily created AncestryDetailScript instance
 var _appearance_option: OptionButton
 var _appearance_ids: Array[String] = []
 var _appearance_swatch: ColorRect
@@ -67,6 +70,7 @@ var _syncing := false
 var _world_name_edit: LineEdit
 var _seed_edit: LineEdit
 var _preset_option: OptionButton
+var _preset_desc: Label             # preset description / deviation summary (Wave D)
 var _size_option: OptionButton
 var _difficulty_sliders: Dictionary = {}   # axis -> HSlider
 var _danger_slider: HSlider
@@ -239,7 +243,17 @@ func _show_char_create() -> void:
 	for species_def in species_list:
 		_species_ids.append(str(species_def.get("id", "")))
 		_species_option.add_item(str(species_def.get("display_name", "?")))
+	_species_option.item_selected.connect(_update_species_detail)
 	species_row.add_child(_species_option)
+
+	# Ancestry detail panel (Wave A)
+	_species_detail = Label.new()
+	_species_detail.add_theme_font_size_override("font_size", 12)
+	_species_detail.add_theme_color_override("font_color", DIM_COLOR)
+	_species_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_species_detail.custom_minimum_size = Vector2(0, 0)
+	form.add_child(_species_detail)
+	_update_species_detail(0)
 
 	var appearance_row := _form_row(form, "Appearance")
 	_appearance_option = OptionButton.new()
@@ -301,6 +315,23 @@ func _update_role_desc(index: int) -> void:
 	var role_list: Array = BlockRegistry.character_data.get("roles", [])
 	if index >= 0 and index < role_list.size():
 		_role_desc.text = str(role_list[index].get("description", ""))
+
+
+func _update_species_detail(index: int) -> void:
+	if _species_detail == null:
+		return
+	if index < 0 or index >= _species_ids.size():
+		_species_detail.text = ""
+		return
+	if _ancestry_helper == null:
+		_ancestry_helper = AncestryDetailScript.new()
+	var species_id: String = _species_ids[index]
+	var ancestry: Dictionary = _ancestry_helper.get_ancestry(species_id)
+	if ancestry.is_empty():
+		_species_detail.text = ""
+		return
+	var is_live: bool = str(ancestry.get("implementation_phase", "")) == "B"
+	_species_detail.text = AncestryDetailScript.build_panel_text(ancestry, is_live)
 
 
 func _max_traits() -> int:
@@ -447,13 +478,24 @@ func _show_world_create() -> void:
 	_preset_option.item_selected.connect(_on_preset_selected)
 	preset_row.add_child(_preset_option)
 
+	# Preset description / deviation summary (Wave D)
+	_preset_desc = Label.new()
+	_preset_desc.add_theme_font_size_override("font_size", 12)
+	_preset_desc.add_theme_color_override("font_color", DIM_COLOR)
+	_preset_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	form.add_child(_preset_desc)
+	_update_preset_desc()
+
 	var size_row := _form_row(form, "Size")
 	_size_option = OptionButton.new()
 	var sizes: Dictionary = WorldConfig.settings().get("sizes", {})
 	for entry in SIZE_ORDER:
 		var size_id: String = str(entry)
 		var size_def: Dictionary = sizes.get(size_id, {})
-		_size_option.add_item(str(size_def.get("display_name", size_id.capitalize())))
+		var w: int = int(size_def.get("width", 0))
+		var h: int = int(size_def.get("height", 0))
+		var dim_str: String = (" (%dx%d)" % [w, h]) if w > 0 and h > 0 else ""
+		_size_option.add_item(str(size_def.get("display_name", size_id.capitalize())) + dim_str)
 	_size_option.select(maxi(0, SIZE_ORDER.find(str(_config.get("size", "medium")))))
 	_size_option.item_selected.connect(func(index: int) -> void:
 		if _syncing:
@@ -472,6 +514,8 @@ func _show_world_create() -> void:
 
 	_gap(form, 4)
 	_label(form, "Difficulty", 16)
+	var _ui_help: Dictionary = WorldConfig.settings().get("ui_help", {})
+	var _axis_help: Dictionary = _ui_help.get("axis_help", {})
 	for entry in DIFFICULTY_AXES:
 		var axis: String = str(entry[0])
 		var axis_label: String = str(entry[1])
@@ -482,17 +526,20 @@ func _show_world_create() -> void:
 				if _syncing:
 					return
 				_config["difficulty"][axis] = value
-				_mark_custom())
+				_mark_custom(),
+			str(_axis_help.get(axis, "")))
 	_danger_slider = _slider_row(form, "Environment Danger", 0.0, 2.0, 0.05,
 		float(_config.get("environment_danger", 1.0)),
 		func(value: float) -> void:
 			if _syncing:
 				return
 			_config["environment_danger"] = value
-			_mark_custom())
+			_mark_custom(),
+		"Scales ambient hazard: cave-ins, wild animals, and passive threat pressure.")
 
 	_gap(form, 4)
 	_label(form, "World Generation", 16)
+	var _gen_help: Dictionary = _ui_help.get("gen_help", {})
 	for entry in GEN_ROWS:
 		var gen_key: String = str(entry[0])
 		var gen_label: String = str(entry[1])
@@ -504,7 +551,8 @@ func _show_world_create() -> void:
 				if _syncing:
 					return
 				_config["generation"][gen_key] = value
-				_mark_custom())
+				_mark_custom(),
+			str(_gen_help.get(gen_key, "")))
 
 	_gap(form, 4)
 	_label(form, "Rules", 16)
@@ -537,12 +585,28 @@ func _add_rule_check(parent: Control, rule_id: String, rule_label: String) -> vo
 	_rule_checks[rule_id] = check
 
 
+func _update_preset_desc() -> void:
+	if _preset_desc == null:
+		return
+	var preset_id: String = str(_config.get("preset", "custom"))
+	var ui_help: Dictionary = WorldConfig.settings().get("ui_help", {})
+	var preset_descs: Dictionary = ui_help.get("preset_descriptions", {})
+	var desc_entry: Dictionary = preset_descs.get(preset_id, {})
+	var desc: String = str(desc_entry.get("description", ""))
+	var devs: String = str(desc_entry.get("deviations", ""))
+	var text: String = desc
+	if devs != "":
+		text += "\n" + devs
+	_preset_desc.text = text
+
+
 func _on_preset_selected(index: int) -> void:
 	if _syncing:
 		return
 	var preset_id: String = str(PRESET_ORDER[clampi(index, 0, PRESET_ORDER.size() - 1)])
 	_config = WorldConfig.from_preset(preset_id)
 	_refresh_world_form()
+	_update_preset_desc()
 
 
 func _refresh_world_form() -> void:
@@ -570,6 +634,7 @@ func _mark_custom() -> void:
 	var custom_index: int = PRESET_ORDER.find("custom")
 	if _preset_option.selected != custom_index:
 		_preset_option.select(custom_index)
+	_update_preset_desc()
 
 
 func _create_and_enter_world() -> void:
@@ -630,7 +695,8 @@ func _form_row(parent: Control, label_text: String) -> HBoxContainer:
 
 
 func _slider_row(parent: Control, label_text: String, min_value: float,
-		max_value: float, step: float, initial: float, on_change: Callable) -> HSlider:
+		max_value: float, step: float, initial: float, on_change: Callable,
+		help: String = "") -> HSlider:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	parent.add_child(row)
@@ -650,6 +716,10 @@ func _slider_row(parent: Control, label_text: String, min_value: float,
 	slider.value_changed.connect(func(value: float) -> void:
 		value_label.text = _format_slider(value, step)
 		on_change.call(value))
+	if help != "":
+		var help_label := _label(parent, help, 11)
+		help_label.add_theme_color_override("font_color", DIM_COLOR)
+		help_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return slider
 
 

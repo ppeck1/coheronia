@@ -87,5 +87,49 @@
       "rules": {},
       "generation": {}
     }
+  },
+  "ui_help": {
+    "axis_help": {
+      "enemy": "Threat count, HP, and spawn pressure. High = more and tougher enemies.",
+      "ruler": "Population growth pressure and subject demands. High = more civil unrest.",
+      "survival": "Food demand, storm frequency, and weather hazard. High = constant pressure.",
+      "economy": "Stockpile decay rate and resource scarcity. High = tighter margins.",
+      "social": "Reserved for future social simulation systems.",
+      "impressionability": "Coherence threshold for population growth. High = settlers join only when thriving."
+    },
+    "gen_help": {
+      "terrain_amplitude": "Vertical height of hills and valleys. 0.25 = nearly flat, 2.0 = steep terrain.",
+      "terrain_frequency": "Horizontal scale of terrain features. Lower = broader, gentler hills.",
+      "ore_abundance": "Density of underground ore veins. 0.0 = no ore, 2.0 = rich deposits.",
+      "tree_density": "Number of surface trees. 0.0 = barren surface, 2.0 = dense woodland.",
+      "bush_density": "Number of berry bushes on the surface. Affects early food availability.",
+      "dirt_depth": "Tiles of dirt above the stone layer (2-8 tiles)."
+    },
+    "preset_descriptions": {
+      "peaceful_builder": {
+        "description": "A calm world for building and experimenting without pressure.",
+        "deviations": "No enemies (x0). Weather and darkness disabled. Ore, trees, and bushes at 150%. All pressures reduced."
+      },
+      "folk_kingdom": {
+        "description": "A balanced world. Standard challenge on all fronts.",
+        "deviations": "All axes at 1.0. Default resource generation. (Balanced challenge)"
+      },
+      "tyrants_burden": {
+        "description": "Moderate threats but extreme political pressure — governing is the real danger.",
+        "deviations": "Ruler x2.0, Social x1.75. Impressionability x0.4 (hard to grow population). Fewer enemies (x0.5)."
+      },
+      "dark_frontier": {
+        "description": "A hostile frontier — scarce resources and relentless enemies.",
+        "deviations": "Enemy x1.75, Economy x1.5, Environment x1.5. Ore/trees/bushes at 60-70% of default."
+      },
+      "mythic_survival": {
+        "description": "A brutal test of survival against the hardest odds in Coheronia.",
+        "deviations": "Enemy x2.0, Survival x2.0, Economy x1.75, Environment x2.0. Resources at 50-60%. Enemies scale over time."
+      },
+      "custom": {
+        "description": "Configure everything manually.",
+        "deviations": ""
+      }
+    }
   }
 }

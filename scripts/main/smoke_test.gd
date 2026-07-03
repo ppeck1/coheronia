@@ -633,6 +633,44 @@ func _run() -> void:
 		"cave_count=%d" % _cave_count)
 	_rules_f["darkness_increases_enemies"] = true
 
+	# --- Wave A: ancestry detail panel text (v0.6) ---
+	var _ancestry_detail_scr := preload("res://scripts/data/ancestry_detail.gd")
+
+	# (a) Dwarf detail text contains its mining bonus and its constraint.
+	var _detail_reg = root._ancestry_registry
+	var _dwarf_anc: Dictionary = _detail_reg.get_ancestry("dwarf")
+	var _dwarf_text: String = _ancestry_detail_scr.build_panel_text(_dwarf_anc, true)
+	_check("ancestry_detail_dwarf_mining_and_constraint",
+		"Mining" in _dwarf_text and "Slower movement" in _dwarf_text,
+		"panel(100)=%s" % _dwarf_text.left(100))
+
+	# (b) A non-live ancestry id produces a planned/reserved label.
+	var _dd_anc: Dictionary = _detail_reg.get_ancestry("deep_dwarf")
+	var _dd_text: String = _ancestry_detail_scr.build_panel_text(_dd_anc, false)
+	_check("ancestry_detail_nonlive_planned_label",
+		"planned" in _dd_text.to_lower() or "not playable" in _dd_text.to_lower(),
+		"dd_text=%s" % _dd_text.left(80))
+
+	# --- Wave D: world builder data sections (v0.6) ---
+
+	# (c) ui_help/axis_help covers all six difficulty axes.
+	var _ui_help_d: Dictionary = WorldConfig.settings().get("ui_help", {})
+	var _axis_help_d: Dictionary = _ui_help_d.get("axis_help", {})
+	var _all_axes := true
+	for _ax in ["enemy", "ruler", "survival", "economy", "social", "impressionability"]:
+		if not _axis_help_d.has(_ax):
+			_all_axes = false
+	_check("world_settings_axis_help_covers_all_axes", _all_axes,
+		"axis_help keys=%s" % str(_axis_help_d.keys()))
+
+	# (d) dark_frontier preset summary is non-empty and mentions at least one deviation.
+	var _df_descs: Dictionary = _ui_help_d.get("preset_descriptions", {})
+	var _df_entry: Dictionary = _df_descs.get("dark_frontier", {})
+	var _df_devs: String = str(_df_entry.get("deviations", ""))
+	_check("world_preset_summary_dark_frontier_nonempty",
+		_df_devs != "" and ("1.75" in _df_devs or "Enemy" in _df_devs or "x1." in _df_devs),
+		"dark_frontier deviations=%s" % _df_devs.left(80))
+
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":
 		# Frame the Town Hall and its torches so lighting/shadows are visible.
