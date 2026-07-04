@@ -26,6 +26,9 @@ var _town_info: Label
 var _forge_button: Button
 var _save_label: Label
 var _debug_label: Label
+# Wave C: openable full inventory panel.
+var _inv_panel: PanelContainer
+var _inv_content: Label
 
 
 func _ready() -> void:
@@ -33,6 +36,7 @@ func _ready() -> void:
 	_build_bottom_left()
 	_build_log()
 	_build_town_panel()
+	_build_inventory_panel()
 	_build_debug_overlay()
 
 
@@ -122,6 +126,60 @@ func _build_town_panel() -> void:
 	lantern.pressed.connect(func() -> void: lantern_requested.emit())
 	box.add_child(lantern)
 	_label(box, "Press E to close")
+
+
+## Wave C: openable inventory panel (I to toggle). Shows all carried stacks
+## and current tool tier. No drag-drop in v0.6; Wave F will extend tool display.
+func _build_inventory_panel() -> void:
+	_inv_panel = PanelContainer.new()
+	_inv_panel.anchor_left = 0.5
+	_inv_panel.anchor_right = 0.5
+	_inv_panel.anchor_top = 0.5
+	_inv_panel.anchor_bottom = 0.5
+	_inv_panel.offset_left = -160
+	_inv_panel.offset_top = -190
+	_inv_panel.custom_minimum_size = Vector2(320, 300)
+	_inv_panel.visible = false
+	add_child(_inv_panel)
+	var box := VBoxContainer.new()
+	_inv_panel.add_child(box)
+	var title := _label(box, "INVENTORY")
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_inv_content = _label(box, "")
+	_inv_content.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_label(box, "Press I to close")
+
+
+func toggle_inventory_panel() -> void:
+	_inv_panel.visible = not _inv_panel.visible
+	if _inv_panel.visible:
+		_refresh_inventory_panel()
+
+
+func inventory_panel_open() -> bool:
+	return _inv_panel.visible
+
+
+## Returns the current text of the inventory panel content label.
+## Used by smoke tests to verify content after an inventory change.
+func get_inventory_panel_text() -> String:
+	return _inv_content.text
+
+
+func _refresh_inventory_panel() -> void:
+	if player == null:
+		return
+	var lines: Array[String] = []
+	if player.inventory.counts.is_empty():
+		lines.append("  (empty)")
+	else:
+		for item_id in player.inventory.counts:
+			lines.append("  %s ×%d" % [
+				BlockRegistry.display_name(item_id),
+				player.inventory.counts[item_id]])
+	lines.append("")
+	lines.append("  Tool: pick tier %d" % player.tool_tier)
+	_inv_content.text = "\n".join(lines)
 
 
 func _build_debug_overlay() -> void:
@@ -215,6 +273,8 @@ func update_inventory() -> void:
 	parts.append("  Pick tier %d" % player.tool_tier)
 	_hotbar_label.text = "  ".join(parts)
 	_refresh_stock()
+	if _inv_panel != null and _inv_panel.visible:
+		_refresh_inventory_panel()
 
 
 func log_event(message: String) -> void:

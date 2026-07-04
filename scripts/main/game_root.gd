@@ -76,9 +76,12 @@ func _ready() -> void:
 	var saved_state: Dictionary = GameState.get_current_state()
 	if saved_state.is_empty():
 		world.setup(config().seed_value())
-		_grant_role_items()
 	else:
 		save_manager.apply_state(saved_state)
+	# Wave B: load character-owned carried state (with legacy migration when needed).
+	_load_character_carried_state(saved_state)
+	# Grant role starter items once per character (flag prevents duplication).
+	_grant_role_items()
 	_position_actors()
 	if not saved_state.is_empty():
 		# Saved player position overrides the default spawn.
@@ -100,11 +103,66 @@ func config() -> WorldConfig:
 
 
 func _grant_role_items() -> void:
+	# Wave B: grant once per character using the items_granted flag.
+	if bool(GameState.current_character.get("items_granted", false)):
+		return
+	var char_id: String = str(GameState.current_character.get("id", ""))
 	var role: Dictionary = BlockRegistry.role_def(str(GameState.current_character.get("role", "")))
 	var items: Dictionary = role.get("starting_items", {})
 	if not items.is_empty():
 		player.inventory.add_many(items)
 		player.inventory_changed.emit()
+	GameState.mark_items_granted(char_id)
+
+
+## Wave B: loads this character's carried state into the player.
+## If the character lacks a carried_inventory field (legacy character), attempts a
+## one-time migration from the world save's player dict; otherwise uses sane defaults.
+## Always calls inventory_changed so the HUD refreshes.
+func _load_character_carried_state(saved_state: Dictionary) -> void:
+	if GameState.current_character.is_empty():
+		player.inventory.from_dict({})
+		player.selected_slot = 0
+		player.tool_tier = 1
+		player.inventory_changed.emit()
+		return
+	if GameState.current_character.has("carried_inventory"):
+		# Character record is authoritative.
+		player.inventory.from_dict(
+			Dictionary(GameState.current_character.get("carried_inventory", {})))
+		player.selected_slot = clampi(
+			int(GameState.current_character.get("carried_slot", 0)),
+			0, player.hotbar.size() - 1)
+		player.tool_tier = int(GameState.current_character.get("carried_tool_tier", 1))
+	else:
+		# Legacy character (no carried_inventory key): migrate from world save once.
+		var legacy: Dictionary = save_manager.legacy_player_carried(saved_state)
+		if not legacy.is_empty():
+			player.inventory.from_dict(legacy.get("inventory", {}))
+			player.selected_slot = clampi(int(legacy.get("selected_slot", 0)),
+				0, player.hotbar.size() - 1)
+			player.tool_tier = int(legacy.get("tool_tier", 1))
+		else:
+			player.inventory.from_dict({})
+			player.selected_slot = 0
+			player.tool_tier = 1
+		# Persist the migrated or default state into the character record.
+		var char_id: String = str(GameState.current_character.get("id", ""))
+		GameState.save_character_carried(char_id,
+			player.inventory.to_dict(), player.selected_slot, player.tool_tier)
+	player.inventory_changed.emit()
+
+
+## Wave B: applies the current character's carried state to the player.
+## Used by load_game() — no migration needed because the character was already
+## written during the preceding save_game() call.
+func _apply_character_carried_state() -> void:
+	var char: Dictionary = GameState.current_character
+	player.inventory.from_dict(Dictionary(char.get("carried_inventory", {})))
+	player.selected_slot = clampi(
+		int(char.get("carried_slot", 0)), 0, player.hotbar.size() - 1)
+	player.tool_tier = int(char.get("carried_tool_tier", 1))
+	player.inventory_changed.emit()
 
 
 func summary() -> Dictionary:
@@ -184,10 +242,18 @@ func _unhandled_input(event: InputEvent) -> void:
 			log_event("Game loaded (F9).")
 		else:
 			log_event("No save to load.")
+	elif event.is_action_pressed("toggle_inventory"):
+		# Wave C: opening inventory closes the town panel; they do not overlap.
+		if hud.town_panel_open():
+			hud.toggle_town_panel()
+		hud.toggle_inventory_panel()
 	elif event.is_action_pressed("interact") or event.is_action_pressed("toggle_town"):
 		_try_interact()
 	elif event.is_action_pressed("ui_cancel"):
-		if hud.town_panel_open():
+		# Wave C: Esc closes inventory first, then town panel, then saves and exits.
+		if hud.inventory_panel_open():
+			hud.toggle_inventory_panel()
+		elif hud.town_panel_open():
 			hud.toggle_town_panel()
 		else:
 			save_manager.save_game()
@@ -583,6 +649,8 @@ func log_event(message: String) -> void:
 func load_game() -> bool:
 	if not save_manager.load_game():
 		return false
+	# Wave B: restore character-owned carried state after world state is applied.
+	_apply_character_carried_state()
 	hud.update_time(day_count, is_night, _live_threat_count())
 	hud.update_inventory()
 	_refresh_hud_progression()

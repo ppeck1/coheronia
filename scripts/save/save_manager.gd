@@ -13,6 +13,8 @@ var game_root: Node
 
 
 func collect_state() -> Dictionary:
+	# Wave B: player inventory/slot/tool_tier are now character-owned (in shell.json).
+	# World state owns position, health, terrain, hall, time, threats, progression.
 	return {
 		"save_version": SAVE_VERSION,
 		"character_id": str(GameState.current_character.get("id", "")),
@@ -22,9 +24,6 @@ func collect_state() -> Dictionary:
 			"x": player.global_position.x,
 			"y": player.global_position.y,
 			"health": player.health,
-			"tool_tier": player.tool_tier,
-			"selected_slot": player.selected_slot,
-			"inventory": player.inventory.to_dict(),
 		},
 		"town_hall": town_hall.to_dict(),
 		"time": game_root.time_state(),
@@ -35,7 +34,26 @@ func collect_state() -> Dictionary:
 
 
 func save_game() -> bool:
+	# Save character carried state (inventory/slot/tier) to shell.json alongside world.
+	var char_id: String = str(GameState.current_character.get("id", ""))
+	if char_id != "":
+		GameState.save_character_carried(char_id,
+			player.inventory.to_dict(), player.selected_slot, player.tool_tier)
 	return GameState.save_current_world_state(collect_state(), game_root.summary())
+
+
+## Returns legacy player inventory/slot/tier from an old-format world state dict.
+## Old saves stored these under state["player"]; new saves do not. Used for
+## one-time migration of characters that lack a carried_inventory field.
+func legacy_player_carried(state: Dictionary) -> Dictionary:
+	var p: Dictionary = state.get("player", {})
+	if not (p.has("inventory") or p.has("tool_tier") or p.has("selected_slot")):
+		return {}
+	return {
+		"inventory": p.get("inventory", {}),
+		"selected_slot": int(p.get("selected_slot", 0)),
+		"tool_tier": int(p.get("tool_tier", 1)),
+	}
 
 
 func has_save() -> bool:
@@ -65,11 +83,9 @@ func apply_state(state: Dictionary) -> bool:
 
 	var p: Dictionary = state.get("player", {})
 	player.health = float(p.get("health", 100.0))
-	player.tool_tier = int(p.get("tool_tier", 1))
-	player.selected_slot = clampi(int(p.get("selected_slot", 0)), 0, player.hotbar.size() - 1)
-	player.inventory.from_dict(p.get("inventory", {}))
-	player.inventory_changed.emit()
 	player.health_changed.emit(player.health)
+	# Wave B: inventory/slot/tool_tier are character-owned; caller loads them
+	# via game_root._load_character_carried_state / _apply_character_carried_state.
 
 	# Fix 10: restore progression BEFORE town_hall.from_dict so _check_base_level
 	# sees the correct saved base_level when stockpile_changed fires during from_dict.

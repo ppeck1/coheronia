@@ -23,6 +23,7 @@ func _run() -> void:
 	var player: CharacterBody2D = root.player
 	var hall: Node2D = root.town_hall
 	var settlement: Node = root.settlement
+	var hud: CanvasLayer = root.hud
 
 	# Deterministic terrain for the test run.
 	world.setup(12345)
@@ -41,8 +42,8 @@ func _run() -> void:
 	# InputMap, so verify keys/mouse are actually bound to the actions) ---
 	var unbound := ""
 	for action in ["move_left", "move_right", "jump", "mine", "place", "interact",
-			"toggle_town", "craft", "save_game", "load_game", "debug_overlay",
-			"hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5"]:
+			"toggle_town", "craft", "save_game", "load_game", "toggle_inventory",
+			"debug_overlay", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5"]:
 		var has_device_event := false
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventKey or ev is InputEventMouseButton:
@@ -670,6 +671,115 @@ func _run() -> void:
 	_check("world_preset_summary_dark_frontier_nonempty",
 		_df_devs != "" and ("1.75" in _df_devs or "Enemy" in _df_devs or "x1." in _df_devs),
 		"dark_frontier deviations=%s" % _df_devs.left(80))
+
+	# --- Wave B: character-owned inventory across worlds (v0.6) ---
+
+	# (a) Two characters keep distinct inventories written to/from shell.json.
+	var _b_char_a: Dictionary = GameState.create_character({"name": "B_CharA", "role": "homesteader"})
+	var _b_char_b: Dictionary = GameState.create_character({"name": "B_CharB", "role": "prospector"})
+	var _b_world_id: String = GameState.create_world(WorldConfig.from_preset("folk_kingdom"))
+	GameState.save_character_carried(str(_b_char_a["id"]), {"dirt": 5}, 0, 1)
+	GameState.save_character_carried(str(_b_char_b["id"]), {"stone": 7}, 1, 2)
+	GameState.load_shell()  # force fresh read from disk
+	var _ba_reload: Dictionary = GameState.get_character(str(_b_char_a["id"]))
+	var _bb_reload: Dictionary = GameState.get_character(str(_b_char_b["id"]))
+	_check("wave_b_char_a_distinct_inventory",
+		int(_ba_reload.get("carried_inventory", {}).get("dirt", 0)) == 5
+		and not _ba_reload.get("carried_inventory", {}).has("stone"),
+		"char_a inv=%s" % str(_ba_reload.get("carried_inventory", {})))
+	_check("wave_b_char_b_distinct_inventory",
+		int(_bb_reload.get("carried_inventory", {}).get("stone", 0)) == 7
+		and not _bb_reload.get("carried_inventory", {}).has("dirt"),
+		"char_b inv=%s" % str(_bb_reload.get("carried_inventory", {})))
+
+	# (b) Char A's inventory survives entering a second world (state is on the character).
+	var _b_world2_id: String = GameState.create_world(WorldConfig.from_preset("folk_kingdom"))
+	var _ba2: Dictionary = GameState.get_character(str(_b_char_a["id"]))
+	_check("wave_b_inventory_survives_second_world",
+		int(_ba2.get("carried_inventory", {}).get("dirt", 0)) == 5,
+		"char_a after second world=%s" % str(_ba2.get("carried_inventory", {})))
+	GameState.delete_world(_b_world2_id)
+
+	# (c) Role starter items granted once — items_granted flag prevents duplication.
+	# The current character already went through _grant_role_items() in _ready().
+	var _curr_cid: String = str(GameState.current_character.get("id", ""))
+	var _curr_ch: Dictionary = GameState.get_character(_curr_cid)
+	_check("wave_b_items_granted_after_ready",
+		bool(_curr_ch.get("items_granted", false)),
+		"items_granted=%s" % str(_curr_ch.get("items_granted", false)))
+	var _dirt_pre_regrant: int = player.inventory.count("dirt")
+	root._grant_role_items()   # second call — should be a no-op due to flag
+	_check("wave_b_no_duplicate_role_items",
+		player.inventory.count("dirt") == _dirt_pre_regrant,
+		"dirt before=%d after regrant=%d" % [_dirt_pre_regrant, player.inventory.count("dirt")])
+
+	# (d) Legacy character (no carried_inventory field) + old-format world save migrates cleanly.
+	var _leg_char: Dictionary = GameState.create_character({"name": "LegacyChar", "role": "homesteader"})
+	var _lcid: String = str(_leg_char["id"])
+	# Simulate legacy: strip Wave B fields from the in-memory array and persist.
+	for _li in range(GameState.characters.size()):
+		if str(GameState.characters[_li].get("id", "")) == _lcid:
+			GameState.characters[_li].erase("carried_inventory")
+			GameState.characters[_li].erase("carried_slot")
+			GameState.characters[_li].erase("carried_tool_tier")
+			GameState.characters[_li].erase("items_granted")
+			break
+	GameState.save_shell()
+	GameState.load_shell()
+	var _lc_check: Dictionary = GameState.get_character(_lcid)
+	_check("wave_b_legacy_char_no_carried_field",
+		not _lc_check.has("carried_inventory"),
+		"has_carried=%s" % str(_lc_check.has("carried_inventory")))
+	# Old-format state dict with player.inventory embedded (pre-Wave-B format).
+	var _old_state: Dictionary = {
+		"save_version": "0.5",
+		"world_seed": 12345,
+		"terrain_deltas": {},
+		"player": {
+			"x": 100.0, "y": 100.0, "health": 90.0,
+			"tool_tier": 2, "selected_slot": 3,
+			"inventory": {"dirt": 4, "stone": 6},
+		},
+		"town_hall": {}, "time": {}, "threats": [], "bush_regrow": {}, "progression": {},
+	}
+	var _legacy_carried: Dictionary = root.save_manager.legacy_player_carried(_old_state)
+	_check("wave_b_legacy_migration_extracts_inventory",
+		not _legacy_carried.is_empty()
+		and int(_legacy_carried.get("inventory", {}).get("dirt", 0)) == 4
+		and int(_legacy_carried.get("tool_tier", 1)) == 2,
+		"legacy_carried=%s" % str(_legacy_carried))
+
+	# Clean up Wave B test characters/world.
+	GameState.delete_character(str(_b_char_a["id"]))
+	GameState.delete_character(str(_b_char_b["id"]))
+	GameState.delete_character(_lcid)
+	GameState.delete_world(_b_world_id)
+
+	# --- Wave C: openable inventory panel (v0.6) ---
+
+	# (e) toggle_inventory action is bound to a device key.
+	var _inv_has_device := false
+	for _ev in InputMap.action_get_events("toggle_inventory"):
+		if _ev is InputEventKey or _ev is InputEventMouseButton:
+			_inv_has_device = true
+	_check("wave_c_toggle_inventory_bound", _inv_has_device,
+		"toggle_inventory has a device event")
+
+	# (f) Panel opens/closes and content reflects a known inventory count.
+	_check("wave_c_inv_panel_starts_closed", not hud.inventory_panel_open())
+	hud.toggle_inventory_panel()
+	_check("wave_c_inv_panel_opens", hud.inventory_panel_open())
+	hud.toggle_inventory_panel()
+	_check("wave_c_inv_panel_closes", not hud.inventory_panel_open())
+	# Inject a known inventory count, open panel, verify label text.
+	player.inventory.from_dict({"dirt": 13})
+	player.inventory_changed.emit()
+	hud.toggle_inventory_panel()
+	var _inv_text: String = hud.get_inventory_panel_text()
+	_check("wave_c_inv_panel_reflects_count",
+		"13" in _inv_text and "dirt" in _inv_text.to_lower(),
+		"inv_panel_text=%s" % _inv_text.left(80))
+	hud.toggle_inventory_panel()   # close before screenshot
 
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":

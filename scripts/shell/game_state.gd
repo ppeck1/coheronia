@@ -56,6 +56,11 @@ func create_character(char_data: Dictionary) -> Dictionary:
 		"traits": char_data.get("traits", []),
 		"role": str(char_data.get("role", "homesteader")),
 		"created_at": _now(),
+		# Wave B: carried state lives on the character, not the world save.
+		"items_granted": false,
+		"carried_inventory": {},
+		"carried_slot": 0,
+		"carried_tool_tier": 1,
 	}
 	characters.append(character)
 	save_shell()
@@ -75,6 +80,35 @@ func get_character(char_id: String) -> Dictionary:
 		if str(character.get("id", "")) == char_id:
 			return character
 	return {}
+
+
+## Persists the character's carried state (inventory, hotbar slot, tool tier)
+## into the characters array and shell.json. Also keeps current_character in sync.
+func save_character_carried(char_id: String, inv_dict: Dictionary,
+		slot: int, tool_tier: int) -> void:
+	for i in range(characters.size()):
+		if str(characters[i].get("id", "")) == char_id:
+			characters[i]["carried_inventory"] = inv_dict
+			characters[i]["carried_slot"] = slot
+			characters[i]["carried_tool_tier"] = tool_tier
+			if str(current_character.get("id", "")) == char_id:
+				current_character["carried_inventory"] = inv_dict
+				current_character["carried_slot"] = slot
+				current_character["carried_tool_tier"] = tool_tier
+			break
+	save_shell()
+
+
+## Marks that this character has received their role starter items.
+## Also keeps current_character in sync so re-entry guards work in the same session.
+func mark_items_granted(char_id: String) -> void:
+	for i in range(characters.size()):
+		if str(characters[i].get("id", "")) == char_id:
+			characters[i]["items_granted"] = true
+			if str(current_character.get("id", "")) == char_id:
+				current_character["items_granted"] = true
+			break
+	save_shell()
 
 
 # ---------- worlds ----------
