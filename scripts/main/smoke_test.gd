@@ -749,6 +749,28 @@ func _run() -> void:
 		and int(_legacy_carried.get("tool_tier", 1)) == 2,
 		"legacy_carried=%s" % str(_legacy_carried))
 
+	# (e) FQ-00: running the full character-carried-state load path for a legacy
+	# character (no carried_inventory field, items_granted false/absent) must
+	# mark items_granted so a subsequent _grant_role_items() call cannot stack
+	# the role's starting_items on top of the migrated old-world inventory.
+	var _fq00_prev_char: Dictionary = GameState.current_character
+	GameState.current_character = GameState.get_character(_lcid)
+	root._load_character_carried_state(_old_state)
+	var _fq00_after_migration: Dictionary = GameState.get_character(_lcid)
+	_check("fq00_legacy_migration_marks_items_granted",
+		bool(_fq00_after_migration.get("items_granted", false))
+		and int(player.inventory.count("dirt")) == 4,
+		"items_granted=%s dirt=%d" % [
+			str(_fq00_after_migration.get("items_granted", false)),
+			player.inventory.count("dirt")])
+	var _fq00_dirt_after_migration: int = player.inventory.count("dirt")
+	root._grant_role_items()   # homesteader would add dirt+10/wood+5 if this were not a no-op
+	_check("fq00_no_duplicate_role_items_after_legacy_migration",
+		player.inventory.count("dirt") == _fq00_dirt_after_migration,
+		"dirt before regrant=%d after=%d" % [
+			_fq00_dirt_after_migration, player.inventory.count("dirt")])
+	GameState.current_character = _fq00_prev_char
+
 	# Clean up Wave B test characters/world.
 	GameState.delete_character(str(_b_char_a["id"]))
 	GameState.delete_character(str(_b_char_b["id"]))

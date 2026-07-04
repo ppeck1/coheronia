@@ -147,7 +147,8 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 	else:
 		# Legacy character (no carried_inventory key): migrate from world save once.
 		var legacy: Dictionary = save_manager.legacy_player_carried(saved_state)
-		if not legacy.is_empty():
+		var migrated_from_world := not legacy.is_empty()
+		if migrated_from_world:
 			player.inventory.from_dict(legacy.get("inventory", {}))
 			player.selected_slot = clampi(int(legacy.get("selected_slot", 0)),
 				0, player.hotbar.size() - 1)
@@ -163,6 +164,14 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 		GameState.save_character_carried(char_id,
 			player.inventory.to_dict(), player.selected_slot,
 			{"pick": player.tool_tier, "axe": player.axe_tier})
+		# FQ-00: a legacy world already granted this character's starter items
+		# under the pre-v0.6 format, and that inventory just became authoritative
+		# above. Mark items_granted so _grant_role_items() does not add a second
+		# copy of the role's starting_items on top of the migrated inventory.
+		# A character with no legacy world data yet (migrated_from_world == false)
+		# is treated as brand new and still receives its starter grant normally.
+		if migrated_from_world:
+			GameState.mark_items_granted(char_id)
 	player.inventory_changed.emit()
 
 

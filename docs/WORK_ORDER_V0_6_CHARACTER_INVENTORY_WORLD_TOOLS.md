@@ -267,4 +267,3 @@ Recommended commit split:
 3. v0.6 Wave E/F: supported plants and first differentiated tools
 4. v0.6 closeout: docs, run ledger, validation evidence
 ```
-

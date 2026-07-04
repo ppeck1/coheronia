@@ -6,7 +6,7 @@
   "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
   "branch": "main",
   "start_commit": "6cfb30c",
-  "end_commit": "pending-closeout-commit-see-git-log",
+  "end_commit": "828aae4",
   "run_state": "SIGNABLE",
   "boh_packet_state": "queued",
   "scope": "Coheronia v0.6: ancestry/world-builder clarity, character-owned inventory, openable inventory panel, plant support rule, first differentiated tools.",
