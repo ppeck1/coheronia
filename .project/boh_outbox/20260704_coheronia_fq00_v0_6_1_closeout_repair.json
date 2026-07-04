@@ -1,0 +1,52 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260704_coheronia_fq00_v0_6_1_closeout_repair",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "828aae4",
+  "end_commit": "95be771",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-00 v0.6.1 closeout repair: legacy-migration duplication fix, smoke coverage, v0.6 packet metadata, EOF whitespace, interrupted-session file repair.",
+  "summary": "Legacy pre-v0.6 characters migrating an old world save's player inventory now have items_granted marked during migration, so a later _grant_role_items() is a no-op instead of stacking role starter items onto the migrated inventory; brand-new legacy characters with no old world data still receive their starter grant. Two smoke checks (fq00_legacy_migration_marks_items_granted, fq00_no_duplicate_role_items_after_legacy_migration) run the full load path plus a forced regrant; suite 122 -> 124, PASS. The v0.6 Atlas/BOH packets now record real closeout commit 828aae4 (was a placeholder) and the Atlas packet's profiles match the public repo manifest. The working tree also contained NUL-padded truncated tails in game_root.gd, smoke_test.gd, and both v0.6 packets from an interrupted prior session; tails were restored from 828aae4 with the FQ-00 additions preserved and a repo-wide NUL scan verified clean.",
+  "acceptance": [
+    "Old-format world inventory migrates once (dirt count matches old save exactly after migration)",
+    "Role starter items do not duplicate during migration (regrant no-op asserted)",
+    "git diff --check clean",
+    "validate_repo.py -> RESULT scaffold_valid",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 windowed Godot run -> smoke_results.json PASS 124/124 at 2026-07-04T11:58:43"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> RESULT scaffold_valid",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited windowed run -> 124/124 PASS including both fq00_* checks",
+    "git diff --check -> clean"
+  ],
+  "docs_updated": ["docs/HANDOFF.md", "docs/FABLE_TASK_QUEUE.md (added)", "docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md (EOF only)"],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "unchanged",
+  "decisions": [
+    "migrated_from_world gates the items_granted mark: only characters that actually adopted a legacy world inventory skip the starter grant; empty-legacy characters remain brand new",
+    "FQ-00 evidence ships as a second, evidence-only commit so its packets can record the repair commit's real hash instead of a placeholder — the placeholder pattern is what FQ-00 existed to fix",
+    "Interrupted-session truncation repair was folded into FQ-00 rather than left as untracked corruption"
+  ],
+  "risks": [
+    "Smoke still mutates the real user://shell.json; interrupted runs can leave test characters",
+    "FQ-00 smoke block leaves the migrated test inventory on the player until Wave C re-injects a known inventory; safe with current test order"
+  ],
+  "next_action": "FQ-01: player health, damage, healing, and death loop.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260704_coheronia_fq00_v0_6_1_closeout_repair.md",
+    "docs/HANDOFF.md",
+    "docs/FABLE_TASK_QUEUE.md"
+  ],
+  "ledger_path": ".project/runs/20260704_coheronia_fq00_v0_6_1_closeout_repair.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-04T12:10:00-04:00"
+}
