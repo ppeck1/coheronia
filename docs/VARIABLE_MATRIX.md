@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against v0.5 closeout run `20260703_coheronia_v05_increment`.
+State: audited against v0.6 closeout run `20260704_coheronia_v06_increment`.
 
 ## Authority Surfaces
 
@@ -14,10 +14,23 @@ State: audited against v0.5 closeout run `20260703_coheronia_v05_increment`.
 | Enemies | `data/enemies.json` | `enemy_registry.gd` -> `game_root` spawn paths, `simple_threat` drops |
 | Ancestries | `data/ancestries.json` | `ancestry_registry.gd` -> `player.apply_ancestry_effects`, shell create form |
 | Progression | `data/progression/*.json` | `progression_registry.gd` -> XP awards, base levels, HUD |
-| Shell profile | `user://shell.json` | `GameState` |
+| Shell profile + character-carried state | `user://shell.json` | `GameState`, `game_root` carried-state load/apply |
 | World files | `user://worlds/<id>.json` | `GameState`, `SaveManager`, shell world list |
+| Shell UI help text | `data/world_settings.json` `ui_help` | shell create screen (axis/gen/preset help) |
+| Ancestry detail text | `scripts/data/ancestry_detail.gd` `build_panel_text` | shell create form, smoke |
 
-All three registries load through `scripts/data/json_data.gd` (`load_dict`, push_error + `{}` on failure).
+All registries load through `scripts/data/json_data.gd` (`load_dict`, push_error + `{}` on failure).
+
+## v0.6 Ownership Boundary
+
+| State | Owner | Notes |
+|---|---|---|
+| Inventory counts, hotbar slot, tool tiers {pick, axe} | character (`user://shell.json`) | `carried_inventory`, `carried_slot`, `carried_tool_tiers`, legacy `carried_tool_tier` alias |
+| Role starter items | character | `items_granted` flag; granted once per character |
+| Terrain, hall stockpile, time, threats, storms, settlement | world file | unchanged |
+| Player position, health | world file | entering character inherits world position/health |
+| XP totals, player level, base level/XP | world file | explicit v0.6 decision; revisit for cross-world leveling |
+| Legacy migration | one-time | character without `carried_inventory` adopts world save's player keys once; legacy tool tier -> {pick: N, axe: 0} |
 
 ## World Config Matrix
 
@@ -65,7 +78,10 @@ All three registries load through `scripts/data/json_data.gd` (`load_dict`, push
 | `tile_size` | int | `data/blocks.json` | 16 px |
 | `block_id` | string | `data/blocks.json` | dirt, grass, wood, stone, ore, berry_bush, torch, lantern, town_hall_core, air |
 | `hardness` | float | `data/blocks.json` | mining time input |
-| `required_tool_tier` | int | `data/blocks.json` | ore requires tier 2 |
+| `required_tool_tier` | int | `data/blocks.json` | ore requires tier 2 (pick tier) |
+| `preferred_tool` | string | `data/blocks.json` | axe: wood, berry_bush; pick: stone, ore; axe-preferred mine 1.4x faster with an axe |
+| `requires_support` | bool | `data/blocks.json` | berry_bush; enforced on mine, load sweep, and regrowth |
+| `axe_tier` | int | `player.gd` / character-carried | 0 = no axe; `craft_axe` recipe (4 wood + 2 stone, town_hall) sets 1 |
 | `drops` | dictionary | `data/blocks.json` | inventory additions on break |
 | `is_placeable` | bool | `data/blocks.json` | placement gate |
 | `is_solid` | bool | `data/blocks.json` | collision, shelter, roof, defense |
@@ -81,9 +97,9 @@ All three registries load through `scripts/data/json_data.gd` (`load_dict`, push
 | `bush_regrow` | dictionary | `world.gd` / save | harvested bush timers |
 | `player_position` | Vector2 | save state | restored after world rebuild |
 | `player_health` | float | `player.gd` / save | HUD and threat damage |
-| `inventory_counts` | dictionary | `inventory.gd` / save | stackable resource counts |
-| `selected_hotbar_slot` | int | `player.gd` / save | slots 1-5 |
-| `tool_tier` | int | `player.gd` / save | tier 2 unlocks ore and speed |
+| `inventory_counts` | dictionary | `inventory.gd` / character-carried | stackable resource counts; travels between worlds |
+| `selected_hotbar_slot` | int | `player.gd` / character-carried | slots 1-5 |
+| `tool_tier` | int | `player.gd` / character-carried | pick tier alias; tier 2 unlocks ore and speed |
 | `effective_mine_speed` | func | `player.gd` | tool tier and trait multiplier |
 | `reach_bonus` | float | character effects | extends mining/placement reach |
 | `bush_bonus_food` | int | character effects | extra food from berry bushes |
@@ -152,6 +168,8 @@ All three registries load through `scripts/data/json_data.gd` (`load_dict`, push
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+The v0.6 smoke suite (122 checks) additionally verifies: ancestry detail text (dwarf effects + constraint, planned label for non-live); world_settings ui_help coverage of all six axes and preset deviations; character inventory isolation (two characters, one world; second world; no starter-item duplication; legacy migration); toggle_inventory binding and panel open/close/content; berry-bush support cleanup on mine/load/regrowth; axe crafting, axe-vs-pick speed differentiation (wood 33 -> 24 frames, stone unchanged), and {pick, axe} save round-trips with legacy tool-tier migration.
 
 The v0.5 smoke suite (90 checks) additionally verifies: enemies.json loads with 3 live defs; each live enemy spawns with its def id; drops enter the inventory; enemy save/load round-trips id/hp/max_hp/hall_dps; progression JSONs load; XP awards accrue (including human fractional bonus 21 vs 20 over 20 events); level curve; base level advances camp -> hamlet; population caps at 4/6/8 by level and growth is gated; underground threats survive dawn while surface threats are freed; peaceful rule blocks cave spawns; ancestry effects (dwarf mults, orc health, goblin reduction, elf jump) and unknown-species baseline.
 

@@ -1,4 +1,4 @@
-# Coheronia - v0.5 Enemies, Progression, and Ancestries
+# Coheronia - v0.6 Character, Inventory, World Builder, Plants, Tools
 
 Coheronia is a Godot 4 side-view survival settlement sandbox inspired by the pleasures of Terraria-style digging/building, survival crafting, and civilization sims. The player is not just trying to survive as one person: the long-term fantasy is to carve out a place in a hostile world, rule a small civilization, and watch that civilization's needs, fears, politics, infrastructure, and defenses push back through play.
 
@@ -6,7 +6,7 @@ Coheronia is a Godot 4 side-view survival settlement sandbox inspired by the ple
 
 Today, the player reshapes terrain directly while managing a settlement through three systemic pressures: **Coherence / Load / Resilience**.
 
-Current state: **v0.5 implemented and closed out** on Godot 4.6.1. The project launches into a persistent outer shell for characters, worlds, saves, and simulation settings. Each world is a configured simulation container: terrain seed, world size, generation variation, difficulty axes, rule toggles, save state, and summary metadata live together in `user://worlds/<id>.json`. On top of that, v0.5 brings the first slices of the three future design docs into live gameplay: data-driven enemies, player XP and base levels, and playable ancestries.
+Current state: **v0.6 implemented and closed out** on Godot 4.6.1. The project launches into a persistent outer shell for characters, worlds, saves, and simulation settings. Each world is a configured simulation container: terrain seed, world size, generation variation, difficulty axes, rule toggles, save state, and summary metadata live together in `user://worlds/<id>.json`. v0.5 brought the first slices of the three future design docs into live gameplay (data-driven enemies, player XP and base levels, playable ancestries); v0.6 makes characters real owners of their backpacks and tools, adds an openable inventory, explains ancestries and world settings in the shell, roots plants to the ground, and forges the first differentiated tool.
 
 ## Version Highlights
 
@@ -15,6 +15,7 @@ Current state: **v0.5 implemented and closed out** on Godot 4.6.1. The project l
 - v0.3: berry regrowth, dynamic population 1-8, storm hazard with roof mitigation, lanterns, and UX polish.
 - v0.4: persistent shell, character creation/selection, world creation/selection, world size, presets, six difficulty axes, simulation rule toggles, per-block-type seed variation, and per-world save files.
 - v0.5: data-driven enemies (surface slime, cave crawler, raider) with drops and difficulty-scaled density from `data/enemies.json`; player XP across six types with levels; base levels Camp -> Hamlet -> Village gating population growth; five playable ancestries with live player effects; full data models for all 16 enemies, 12 ancestries, research domains, and perk lanes.
+- v0.6: character-owned inventory/hotbar/tools that travel between worlds (world saves keep terrain, hall, threats, and progression); openable inventory panel (I); ancestry detail panel and world-builder help text sourced from data; berry bushes require support and no longer float; a forgeable axe that speeds wood and plant harvesting while the pick keeps stone/ore.
 
 ## The Shell
 
@@ -27,7 +28,9 @@ On launch:
 3. Select or create a world.
 4. Enter the playable settlement scene.
 
-Character creation currently supports name, ancestry (human, dwarf, elf, goblin, orc), appearance, traits, and role/background. Ancestry effects are data-driven from `data/ancestries.json`: dwarves move and jump a little lower but mine stone and ore 20% faster, orcs carry +25 max health, elves jump higher, goblins run at 80% health, and humans learn 5% faster (all XP). The remaining seven ancestries (deep variants, gnome, lizardfolk, dragonkin) exist in data and unlock in later phases.
+Character creation currently supports name, ancestry (human, dwarf, elf, goblin, orc), appearance, traits, and role/background. Selecting an ancestry shows a compact data-driven detail panel: description, live effects, tradeoffs, spawn band, and biome affinities. Ancestry effects come from `data/ancestries.json`: dwarves move and jump a little lower but mine stone and ore 20% faster, orcs carry +25 max health, elves jump higher, goblins run at 80% health, and humans learn 5% faster (all XP). The remaining seven ancestries (deep variants, gnome, lizardfolk, dragonkin) exist in data, are labeled as planned, and unlock in later phases.
+
+Characters own their carried state: inventory, hotbar selection, and tools live on the character record in `user://shell.json` and travel between worlds. Two characters entering the same world each keep their own backpack, and role starter items are granted once per character. The world creation screen explains each preset (description plus deviations), size dimensions, difficulty axis, and generation slider with short data-sourced help lines.
 
 World creation supports:
 
@@ -69,6 +72,7 @@ From PowerShell:
 | Place selected block | Right mouse |
 | Select hotbar slot | 1-5 |
 | Interact with Town Hall | E or T |
+| Open/close inventory | I |
 | Craft torch | C |
 | Save | F5 |
 | Load | F9 |
@@ -77,7 +81,7 @@ From PowerShell:
 
 ## Play Loop
 
-Spawn near the Town Hall, mine dirt/wood/stone, gather food from berry bushes, place blocks and torches, shelter the hall, deposit resources, forge the tier-2 pick, mine ore, craft lanterns, feed the settlement, survive night slimes and the occasional raider, watch for cave crawlers underground, roof against storms, repair damage, and repeat. Everything you do earns XP (combat, labor, survival, civic, exploration, craft) toward player levels, and a sheltered, lit, fed settlement ratchets from Camp to Hamlet to Village, raising the population cap. C/L/R bars are computed from real world state, not decorative values.
+Spawn near the Town Hall, mine dirt/wood/stone, gather food from berry bushes (rooted to their soil now — mine the support and the bush harvests itself), place blocks and torches, shelter the hall, deposit resources, forge the tier-2 pick and an axe for faster woodcutting, mine ore, craft lanterns, check the backpack with I, feed the settlement, survive night slimes and the occasional raider, watch for cave crawlers underground, roof against storms, repair damage, and repeat. Everything you do earns XP (combat, labor, survival, civic, exploration, craft) toward player levels, and a sheltered, lit, fed settlement ratchets from Camp to Hamlet to Village, raising the population cap. C/L/R bars are computed from real world state, not decorative values.
 
 ## Design Direction
 
@@ -145,7 +149,7 @@ $env:COHERONIA_SMOKE = "1"
 Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-repo-root>") -Wait
 ```
 
-The smoke test exercises the real gameplay path and currently contains 90 checks covering shell persistence, world config, input bindings, movement, mining, tool tiers, food/regrowth, population, rule toggles, difficulty scaling, lanterns, C/L/R reactions, storm mitigation, threat persistence, save/load, world size, per-block seed variation, density controls, character trait effects, data-driven enemy spawning and drops, XP awards and level curve, base-level advancement and population gating, and ancestry player effects.
+The smoke test exercises the real gameplay path and currently contains 122 checks covering shell persistence, world config, input bindings, movement, mining, tool tiers, food/regrowth, population, rule toggles, difficulty scaling, lanterns, C/L/R reactions, storm mitigation, threat persistence, save/load, world size, per-block seed variation, density controls, character trait effects, data-driven enemy spawning and drops, XP awards and level curve, base-level advancement and population gating, ancestry player effects, ancestry detail and world-builder help data, character-owned inventory isolation and migration, the openable inventory panel, berry-bush support cleanup, and axe/pick tool differentiation with save round-trips.
 
 In addition to console `SMOKE` lines, it writes:
 
@@ -164,7 +168,8 @@ user://smoke_screenshot.png   # windowed runs only
 - Pre-v0.4 standalone saves at `user://coheronia_save.json` are not migrated into the new shell world files.
 - Several rule toggles are reserved for future systems: sleep, sickness, morale, loyalty decay, rebellion, ruler pressure growth, and scarcity growth.
 - Social difficulty is stored but not yet consumed by a social simulation.
-- A character entering a world last played by another character inherits that world's player state; traits and appearance come from the entering character.
+- Player position, health, and XP/progression remain world-owned; carried inventory, hotbar selection, and tools are character-owned as of v0.6.
+- The inventory panel is read-only (no drag/drop or slot reassignment yet).
 - Terrain is finite, up to 360 x 100 tiles, with one surface biome.
 
 ## Protocol
