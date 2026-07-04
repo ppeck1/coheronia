@@ -53,11 +53,15 @@ func _tick_bush_regrowth(delta: float) -> void:
 		if bush_regrow[cell] > 0.0:
 			continue
 		if block_at(cell) == "air":
-			cells[cell] = "berry_bush"
-			deltas[cell] = "berry_bush"
-			_set_tile(cell, "berry_bush")
-			block_changed.emit(cell, "berry_bush")
-			bush_regrow.erase(cell)
+			# Wave E: only regrow if a solid support block is present below.
+			if not _is_supported(cell):
+				bush_regrow[cell] = BUSH_RETRY_SECONDS
+			else:
+				cells[cell] = "berry_bush"
+				deltas[cell] = "berry_bush"
+				_set_tile(cell, "berry_bush")
+				block_changed.emit(cell, "berry_bush")
+				bush_regrow.erase(cell)
 		else:
 			# Cell is occupied (player built there); try again later.
 			bush_regrow[cell] = BUSH_RETRY_SECONDS
@@ -85,6 +89,15 @@ func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionar
 			cells.erase(cell)
 		else:
 			cells[cell] = block_id
+	# Wave E: sweep for requires_support blocks that lost their support via deltas.
+	# No drops during load-time cleanup; just convert to scheduled regrowth.
+	for sweep_cell in cells.keys():
+		var sbid: String = cells[sweep_cell]
+		if BlockRegistry.requires_support(sbid) and not _is_supported(sweep_cell):
+			cells.erase(sweep_cell)
+			deltas[sweep_cell] = "air"
+			if not bush_regrow.has(sweep_cell):
+				bush_regrow[sweep_cell] = BUSH_REGROW_SECONDS
 	_redraw_all()
 
 
@@ -121,7 +134,14 @@ func mine_time(cell: Vector2i, base_mine_speed: float) -> float:
 	return BlockRegistry.hardness(block_at(cell)) / maxf(base_mine_speed, 0.01)
 
 
+## Returns true if the cell directly below has a solid block.
+func _is_supported(cell: Vector2i) -> bool:
+	return is_solid_at(cell + Vector2i(0, 1))
+
+
 ## Removes the block and returns its drops. Caller adds drops to inventory.
+## Wave E: if the block directly above requires solid support, it is also broken,
+## its drops are merged in, and its regrowth is scheduled.
 func break_block(cell: Vector2i) -> Dictionary:
 	var block_id := block_at(cell)
 	if block_id == "air":
@@ -133,6 +153,18 @@ func break_block(cell: Vector2i) -> Dictionary:
 	if block_id == "berry_bush":
 		bush_regrow[cell] = BUSH_REGROW_SECONDS
 	block_changed.emit(cell, "air")
+	# Wave E: check the cell directly above; if it requires support it's now floating.
+	var above := Vector2i(cell.x, cell.y - 1)
+	var above_id := block_at(above)
+	if above_id != "air" and BlockRegistry.requires_support(above_id):
+		var above_drops := BlockRegistry.drops(above_id)
+		cells.erase(above)
+		deltas[above] = "air"
+		_set_tile(above, "air")
+		bush_regrow[above] = BUSH_REGROW_SECONDS
+		block_changed.emit(above, "air")
+		for item_id in above_drops:
+			block_drops[item_id] = int(block_drops.get(item_id, 0)) + int(above_drops[item_id])
 	return block_drops
 
 

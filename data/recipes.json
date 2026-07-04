@@ -58,6 +58,16 @@
         "tool_tier_2_pick": 1
       },
       "station": "town_hall"
+    },
+    {
+      "recipe_id": "craft_axe",
+      "display_name": "Axe",
+      "inputs": {
+        "wood": 4,
+        "stone": 2
+      },
+      "outputs": {},
+      "station": "town_hall"
     }
   ]
 }

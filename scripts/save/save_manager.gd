@@ -38,7 +38,8 @@ func save_game() -> bool:
 	var char_id: String = str(GameState.current_character.get("id", ""))
 	if char_id != "":
 		GameState.save_character_carried(char_id,
-			player.inventory.to_dict(), player.selected_slot, player.tool_tier)
+			player.inventory.to_dict(), player.selected_slot,
+			{"pick": player.tool_tier, "axe": player.axe_tier})
 	return GameState.save_current_world_state(collect_state(), game_root.summary())
 
 

@@ -115,15 +115,18 @@ func _grant_role_items() -> void:
 	GameState.mark_items_granted(char_id)
 
 
-## Wave B: loads this character's carried state into the player.
+## Wave B/F: loads this character's carried state into the player.
 ## If the character lacks a carried_inventory field (legacy character), attempts a
 ## one-time migration from the world save's player dict; otherwise uses sane defaults.
+## Wave F: reads carried_tool_tiers dict {pick, axe}; old chars with only
+## carried_tool_tier migrate to {pick: N, axe: 0} (the axe must be crafted).
 ## Always calls inventory_changed so the HUD refreshes.
 func _load_character_carried_state(saved_state: Dictionary) -> void:
 	if GameState.current_character.is_empty():
 		player.inventory.from_dict({})
 		player.selected_slot = 0
 		player.tool_tier = 1
+		player.axe_tier = 0
 		player.inventory_changed.emit()
 		return
 	if GameState.current_character.has("carried_inventory"):
@@ -133,7 +136,14 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 		player.selected_slot = clampi(
 			int(GameState.current_character.get("carried_slot", 0)),
 			0, player.hotbar.size() - 1)
-		player.tool_tier = int(GameState.current_character.get("carried_tool_tier", 1))
+		# Wave F: prefer the new tool_tiers dict; fall back to legacy field.
+		if GameState.current_character.has("carried_tool_tiers"):
+			var tiers := Dictionary(GameState.current_character.get("carried_tool_tiers", {}))
+			player.tool_tier = int(tiers.get("pick", 1))
+			player.axe_tier = int(tiers.get("axe", 0))
+		else:
+			player.tool_tier = int(GameState.current_character.get("carried_tool_tier", 1))
+			player.axe_tier = 0  # legacy migration: the axe must still be crafted
 	else:
 		# Legacy character (no carried_inventory key): migrate from world save once.
 		var legacy: Dictionary = save_manager.legacy_player_carried(saved_state)
@@ -142,26 +152,36 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 			player.selected_slot = clampi(int(legacy.get("selected_slot", 0)),
 				0, player.hotbar.size() - 1)
 			player.tool_tier = int(legacy.get("tool_tier", 1))
+			player.axe_tier = 0  # legacy migration: the axe must still be crafted
 		else:
 			player.inventory.from_dict({})
 			player.selected_slot = 0
 			player.tool_tier = 1
+			player.axe_tier = 0
 		# Persist the migrated or default state into the character record.
 		var char_id: String = str(GameState.current_character.get("id", ""))
 		GameState.save_character_carried(char_id,
-			player.inventory.to_dict(), player.selected_slot, player.tool_tier)
+			player.inventory.to_dict(), player.selected_slot,
+			{"pick": player.tool_tier, "axe": player.axe_tier})
 	player.inventory_changed.emit()
 
 
-## Wave B: applies the current character's carried state to the player.
+## Wave B/F: applies the current character's carried state to the player.
 ## Used by load_game() — no migration needed because the character was already
-## written during the preceding save_game() call.
+## written during the preceding save_game() call. Handles both new (tool_tiers
+## dict) and legacy (carried_tool_tier only) formats defensively.
 func _apply_character_carried_state() -> void:
 	var char: Dictionary = GameState.current_character
 	player.inventory.from_dict(Dictionary(char.get("carried_inventory", {})))
 	player.selected_slot = clampi(
 		int(char.get("carried_slot", 0)), 0, player.hotbar.size() - 1)
-	player.tool_tier = int(char.get("carried_tool_tier", 1))
+	if char.has("carried_tool_tiers"):
+		var tiers := Dictionary(char.get("carried_tool_tiers", {}))
+		player.tool_tier = int(tiers.get("pick", 1))
+		player.axe_tier = int(tiers.get("axe", 0))
+	else:
+		player.tool_tier = int(char.get("carried_tool_tier", 1))
+		player.axe_tier = 0  # legacy migration: the axe must still be crafted
 	player.inventory_changed.emit()
 
 
@@ -204,6 +224,7 @@ func _wire_signals() -> void:
 	hud.deposit_requested.connect(_on_deposit_requested)
 	hud.repair_requested.connect(_on_repair_requested)
 	hud.forge_requested.connect(_on_forge_requested)
+	hud.forge_axe_requested.connect(_on_forge_axe_requested)
 	hud.lantern_requested.connect(_on_lantern_requested)
 
 
@@ -614,6 +635,15 @@ func _on_forge_requested() -> void:
 		award_xp("tool_crafted")
 	else:
 		log_event("Cannot forge pick (already forged, or stockpile lacks 3 wood + 5 stone).")
+	hud.refresh_town_panel()
+
+
+func _on_forge_axe_requested() -> void:
+	if town_hall.forge_axe(player):
+		log_event("Crafted an axe (tier 1). Wood and plants harvest faster.")
+		award_xp("tool_crafted")
+	else:
+		log_event("Cannot craft axe (already crafted, or stockpile lacks 4 wood + 2 stone).")
 	hud.refresh_town_panel()
 
 

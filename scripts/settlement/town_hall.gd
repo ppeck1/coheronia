@@ -10,6 +10,7 @@ const DEPOSITABLE := ["dirt", "stone", "wood", "ore", "food"]
 const REPAIR_COST := {"stone": 2}
 const REPAIR_AMOUNT := 25.0
 const FORGE_RECIPE_ID := "basic_pick_upgrade"
+const AXE_RECIPE_ID := "craft_axe"
 
 var stockpile: Dictionary = {}
 var damage := 0.0            # 0 (intact) .. 100 (ruined)
@@ -85,6 +86,28 @@ func forge_pick(player: CharacterBody2D) -> bool:
 	if not craft_from_stockpile(FORGE_RECIPE_ID, player):
 		return false
 	player.tool_tier = 2
+	return true
+
+
+## Wave F: crafts an axe (tier 1) from stockpile. Spends wood:4 + stone:2.
+## Returns true if the axe was crafted. Player must not already have an axe.
+func forge_axe(player: CharacterBody2D) -> bool:
+	if player.axe_tier >= 1:
+		return false
+	var recipe: Dictionary = BlockRegistry.get_recipe(AXE_RECIPE_ID)
+	if recipe.is_empty():
+		return false
+	var inputs: Dictionary = recipe.get("inputs", {})
+	for item_id in inputs:
+		if int(stockpile.get(item_id, 0)) < int(inputs[item_id]):
+			return false
+	for item_id in inputs:
+		stockpile[item_id] = int(stockpile[item_id]) - int(inputs[item_id])
+		if int(stockpile[item_id]) <= 0:
+			stockpile.erase(item_id)
+	player.axe_tier = 1
+	player.inventory_changed.emit()
+	stockpile_changed.emit()
 	return true
 
 

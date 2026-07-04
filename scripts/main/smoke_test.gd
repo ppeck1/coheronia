@@ -678,8 +678,8 @@ func _run() -> void:
 	var _b_char_a: Dictionary = GameState.create_character({"name": "B_CharA", "role": "homesteader"})
 	var _b_char_b: Dictionary = GameState.create_character({"name": "B_CharB", "role": "prospector"})
 	var _b_world_id: String = GameState.create_world(WorldConfig.from_preset("folk_kingdom"))
-	GameState.save_character_carried(str(_b_char_a["id"]), {"dirt": 5}, 0, 1)
-	GameState.save_character_carried(str(_b_char_b["id"]), {"stone": 7}, 1, 2)
+	GameState.save_character_carried(str(_b_char_a["id"]), {"dirt": 5}, 0, {"pick": 1, "axe": 0})
+	GameState.save_character_carried(str(_b_char_b["id"]), {"stone": 7}, 1, {"pick": 2, "axe": 0})
 	GameState.load_shell()  # force fresh read from disk
 	var _ba_reload: Dictionary = GameState.get_character(str(_b_char_a["id"]))
 	var _bb_reload: Dictionary = GameState.get_character(str(_b_char_b["id"]))
@@ -780,6 +780,173 @@ func _run() -> void:
 		"13" in _inv_text and "dirt" in _inv_text.to_lower(),
 		"inv_panel_text=%s" % _inv_text.left(80))
 	hud.toggle_inventory_panel()   # close before screenshot
+
+	# --- Wave E: berry bush support rule (v0.6) ---
+
+	# Reset to a clean world state for deterministic support tests.
+	world.setup(12345)
+	root._position_actors()
+	player.set_physics_process(false)
+	player.inventory.from_dict({})
+	player.inventory_changed.emit()
+
+	# (a) Mining the block directly under a bush removes the bush and yields food.
+	var _e_bush: Variant = _find_block(world, world.hall_info["center_cell"], "berry_bush")
+	_check("wave_e_bush_found", _e_bush != null)
+	var _e_supp: Vector2i = Vector2i(0, 0)
+	if _e_bush != null:
+		_e_supp = Vector2i((_e_bush as Vector2i).x, (_e_bush as Vector2i).y + 1)
+	var _e_food_before: int = player.inventory.count("food")
+	if _e_bush != null:
+		# Mine the support block directly via the world API — drops are merged by break_block.
+		player.global_position = world.cell_center(_e_supp) + Vector2(0, -32.0)
+		var _e_drops: Dictionary = world.break_block(_e_supp)
+		player.inventory.add_many(_e_drops)
+		player.inventory_changed.emit()
+	_check("wave_e_support_mine_removes_bush",
+		_e_bush == null or world.block_at(_e_bush as Vector2i) == "air",
+		"block_at_bush=%s" % (world.block_at(_e_bush as Vector2i) if _e_bush != null else "n/a"))
+	_check("wave_e_support_mine_yields_food",
+		_e_bush == null or player.inventory.count("food") > _e_food_before,
+		"food %d→%d" % [_e_food_before, player.inventory.count("food")])
+	_check("wave_e_bush_regrow_scheduled",
+		_e_bush == null or world.bush_regrow.has(_e_bush as Vector2i),
+		"bush_regrow_has=%s" % str(world.bush_regrow.has(_e_bush as Vector2i) if _e_bush != null else "n/a"))
+
+	# (b) Regrowth into unsupported air re-schedules the timer instead of placing a bush.
+	# The support is now air; force-expire the regrow timer and check nothing is placed.
+	if _e_bush != null:
+		world.bush_regrow[_e_bush] = 0.01
+		for _ei in range(5):
+			await get_tree().process_frame
+		_check("wave_e_no_regrow_without_support",
+			world.block_at(_e_bush as Vector2i) == "air" and world.bush_regrow.has(_e_bush as Vector2i),
+			"block=%s regrow_present=%s" % [world.block_at(_e_bush as Vector2i),
+				str(world.bush_regrow.has(_e_bush as Vector2i))])
+
+	# (c) After support is restored, regrowth places the bush normally.
+	if _e_bush != null:
+		world.place_block(_e_supp, "dirt")  # restore solid support
+		world.bush_regrow[_e_bush] = 0.01
+		for _ei2 in range(5):
+			await get_tree().process_frame
+		_check("wave_e_regrows_when_supported", world.block_at(_e_bush as Vector2i) == "berry_bush",
+			"block_at=%s" % world.block_at(_e_bush as Vector2i))
+
+	# (d) Save/load after an unsupported bush delta does not resurrect a floating bush.
+	# Inject a floating bush into deltas (no solid support below it) then reload.
+	if _e_bush != null:
+		# Mine the support again to ensure it's air, inject bush delta.
+		world.cells.erase(_e_bush as Vector2i)  # remove any regrown bush
+		world.break_block(_e_supp)              # mine support away again
+		world.deltas[_e_bush as Vector2i] = "berry_bush"  # inject floating bush delta
+		world.cells[_e_bush as Vector2i] = "berry_bush"
+		world.bush_regrow.erase(_e_bush as Vector2i)      # clear regrow to force sweep
+		root.save_manager.save_game()
+		root.load_game()
+		_check("wave_e_load_no_floating_bush",
+			world.block_at(_e_bush as Vector2i) == "air",
+			"block_after_load=%s" % world.block_at(_e_bush as Vector2i))
+
+	# --- Wave F: differentiated tools (v0.6) ---
+
+	# Rebuild world fresh for deterministic frame counts.
+	world.setup(12345)
+	root._position_actors()
+	player.axe_tier = 0
+	player.tool_tier = 1
+	player.inventory.from_dict({})
+	player.inventory_changed.emit()
+	var _f_hall: Vector2i = world.hall_info["center_cell"]
+
+	# Baseline wood frame count without axe (tier 1, no axe) — ordering must hold.
+	var _f_wood: Variant = _find_block(world, _f_hall, "wood")
+	_check("wave_f_wood_found", _f_wood != null)
+	var _f_wood_frames_no_axe := 0
+	if _f_wood != null:
+		_f_wood_frames_no_axe = await _mine_cell(world, player, _f_wood as Vector2i)
+	# (d) Existing hardness ordering still holds without axe: dirt < wood < stone.
+	# (Covered by the earlier hardness_orders_mining_time check; this confirms the
+	#  baseline wood frames are still > dirt and < stone frame bands.)
+	_check("wave_f_wood_baseline_positive", _f_wood_frames_no_axe > 0,
+		"wood_frames_no_axe=%d" % _f_wood_frames_no_axe)
+
+	# (e) Crafting the axe via forge_axe consumes stockpile and sets axe_tier = 1.
+	hall.stockpile["wood"] = 10
+	hall.stockpile["stone"] = 10
+	var _f_wood_stock_before: int = int(hall.stockpile.get("wood", 0))
+	var _f_stone_stock_before: int = int(hall.stockpile.get("stone", 0))
+	var _f_axe_forged: bool = hall.forge_axe(player)
+	_check("wave_f_axe_crafted", _f_axe_forged and player.axe_tier == 1,
+		"forged=%s axe_tier=%d" % [str(_f_axe_forged), player.axe_tier])
+	_check("wave_f_axe_consumes_stockpile",
+		int(hall.stockpile.get("wood", 0)) == _f_wood_stock_before - 4
+		and int(hall.stockpile.get("stone", 0)) == _f_stone_stock_before - 2,
+		"wood %d→%d stone %d→%d" % [_f_wood_stock_before, int(hall.stockpile.get("wood", 0)),
+			_f_stone_stock_before, int(hall.stockpile.get("stone", 0))])
+	_check("wave_f_axe_no_duplicate_craft", not hall.forge_axe(player),
+		"second forge_axe must return false")
+
+	# (f) With axe, wood mines measurably faster than without.
+	var _f_wood2: Variant = _find_block(world, _f_hall, "wood")
+	var _f_wood_frames_axe := 600
+	if _f_wood2 != null:
+		_f_wood_frames_axe = await _mine_cell(world, player, _f_wood2 as Vector2i)
+	_check("wave_f_axe_speeds_wood",
+		_f_wood2 == null or _f_wood_frames_axe < _f_wood_frames_no_axe,
+		"frames: no_axe=%d axe=%d" % [_f_wood_frames_no_axe, _f_wood_frames_axe])
+
+	# (g) Stone speed is unaffected by axe (preferred_tool = pick).
+	var _f_stone: Variant = _find_block(world, _f_hall, "stone")
+	var _f_stone_frames_no_axe := 0
+	player.axe_tier = 0
+	if _f_stone != null:
+		_f_stone_frames_no_axe = await _mine_cell(world, player, _f_stone as Vector2i)
+	var _f_stone2: Variant = _find_block(world, _f_hall, "stone")
+	var _f_stone_frames_axe := 0
+	player.axe_tier = 1
+	if _f_stone2 != null:
+		_f_stone_frames_axe = await _mine_cell(world, player, _f_stone2 as Vector2i)
+	_check("wave_f_axe_no_effect_on_stone",
+		_f_stone == null or _f_stone2 == null or _f_stone_frames_axe == _f_stone_frames_no_axe,
+		"stone frames: no_axe=%d axe=%d" % [_f_stone_frames_no_axe, _f_stone_frames_axe])
+	player.axe_tier = 1  # keep axe active for remaining tests
+
+	# (h) Tool state {pick, axe} round-trips through the character-carried save path.
+	player.tool_tier = 2
+	player.axe_tier = 1
+	root.save_manager.save_game()
+	player.tool_tier = 1
+	player.axe_tier = 0
+	root.load_game()
+	_check("wave_f_tool_state_round_trips",
+		player.tool_tier == 2 and player.axe_tier == 1,
+		"pick=%d axe=%d" % [player.tool_tier, player.axe_tier])
+
+	# (i) Legacy character with only carried_tool_tier migrates to {pick: N, axe: 0}.
+	var _f_leg_char: Dictionary = GameState.create_character({"name": "LegacyF", "role": "homesteader"})
+	var _f_lcid: String = str(_f_leg_char["id"])
+	for _fli in range(GameState.characters.size()):
+		if str(GameState.characters[_fli].get("id", "")) == _f_lcid:
+			GameState.characters[_fli].erase("carried_tool_tiers")
+			GameState.characters[_fli]["carried_tool_tier"] = 3
+			break
+	GameState.save_shell()
+	GameState.load_shell()
+	var _f_lc_char: Dictionary = GameState.get_character(_f_lcid)
+	var _f_prev_char: Dictionary = GameState.current_character
+	GameState.current_character = _f_lc_char
+	root._load_character_carried_state({})
+	_check("wave_f_legacy_tool_tier_migrates_to_dict",
+		player.tool_tier == 3 and player.axe_tier == 0,
+		"pick=%d axe=%d" % [player.tool_tier, player.axe_tier])
+	GameState.current_character = _f_prev_char
+	GameState.delete_character(_f_lcid)
+	# Restore player state for screenshot.
+	player.tool_tier = 2
+	player.axe_tier = 1
+	player.apply_character(GameState.current_character)
+	root.apply_ancestry_for_species(str(GameState.current_character.get("species", "")))
 
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":

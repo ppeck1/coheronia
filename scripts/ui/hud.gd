@@ -6,6 +6,7 @@ extends CanvasLayer
 signal deposit_requested
 signal repair_requested
 signal forge_requested
+signal forge_axe_requested
 signal lantern_requested
 
 var player: CharacterBody2D
@@ -24,6 +25,7 @@ var _log_lines: Array[String] = []
 var _town_panel: PanelContainer
 var _town_info: Label
 var _forge_button: Button
+var _forge_axe_button: Button
 var _save_label: Label
 var _debug_label: Label
 # Wave C: openable full inventory panel.
@@ -121,6 +123,10 @@ func _build_town_panel() -> void:
 	_forge_button.text = "Forge pick upgrade (3 wood + 5 stone)"
 	_forge_button.pressed.connect(func() -> void: forge_requested.emit())
 	box.add_child(_forge_button)
+	_forge_axe_button = Button.new()
+	_forge_axe_button.text = "Craft axe (4 wood + 2 stone)"
+	_forge_axe_button.pressed.connect(func() -> void: forge_axe_requested.emit())
+	box.add_child(_forge_axe_button)
 	var lantern := Button.new()
 	lantern.text = "Craft lantern (2 ore + 1 wood)"
 	lantern.pressed.connect(func() -> void: lantern_requested.emit())
@@ -178,7 +184,8 @@ func _refresh_inventory_panel() -> void:
 				BlockRegistry.display_name(item_id),
 				player.inventory.counts[item_id]])
 	lines.append("")
-	lines.append("  Tool: pick tier %d" % player.tool_tier)
+	var _axe_inv_str := ("tier %d" % player.axe_tier) if player.axe_tier > 0 else "(none)"
+	lines.append("  Pick tier %d · Axe %s" % [player.tool_tier, _axe_inv_str])
 	_inv_content.text = "\n".join(lines)
 
 
@@ -270,7 +277,8 @@ func update_inventory() -> void:
 		var extra: int = player.inventory.count(extra_id)
 		if extra > 0:
 			parts.append("  %s ×%d" % [BlockRegistry.display_name(extra_id).capitalize(), extra])
-	parts.append("  Pick tier %d" % player.tool_tier)
+	var _axe_hb_str := ("tier %d" % player.axe_tier) if player.axe_tier > 0 else "none"
+	parts.append("  Pick tier %d · Axe %s" % [player.tool_tier, _axe_hb_str])
 	_hotbar_label.text = "  ".join(parts)
 	_refresh_stock()
 	if _inv_panel != null and _inv_panel.visible:
@@ -309,6 +317,10 @@ func refresh_town_panel() -> void:
 		var forged: bool = player.tool_tier >= 2
 		_forge_button.disabled = forged
 		_forge_button.text = "Pick forged (tier 2)" if forged else "Forge pick upgrade (3 wood + 5 stone)"
+		if _forge_axe_button != null:
+			var axe_forged: bool = player.axe_tier >= 1
+			_forge_axe_button.disabled = axe_forged
+			_forge_axe_button.text = "Axe crafted (tier 1)" if axe_forged else "Craft axe (4 wood + 2 stone)"
 
 
 func _refresh_stock() -> void:

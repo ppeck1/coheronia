@@ -109,3 +109,13 @@ func get_recipe(recipe_id: String) -> Dictionary:
 		if recipe.get("recipe_id", "") == recipe_id:
 			return recipe
 	return {}
+
+
+## Wave F: returns the preferred tool kind for this block ("pick", "axe", or "").
+func preferred_tool(block_id: String) -> String:
+	return str(get_block(block_id).get("preferred_tool", ""))
+
+
+## Wave E: returns true if the block requires a solid block directly below to stay.
+func requires_support(block_id: String) -> bool:
+	return bool(get_block(block_id).get("requires_support", false))

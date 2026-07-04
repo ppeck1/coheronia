@@ -71,6 +71,24 @@ for required in ["dirt", "stone", "wood", "ore", "berry_bush", "torch", "lantern
         fail(f"blocks.json missing required block: {required}")
 print("PASS required block ids")
 
+# Wave E: berry_bush must have requires_support = true.
+if not blocks.get("berry_bush", {}).get("requires_support", False):
+    fail("blocks.json: berry_bush missing requires_support: true")
+print("PASS berry_bush requires_support")
+
+# Wave F: preferred_tool values must be "pick" or "axe" when present; check key blocks.
+VALID_PREFERRED_TOOLS = {"pick", "axe"}
+for block_id, block_def in blocks.items():
+    pt = block_def.get("preferred_tool", None)
+    if pt is not None and pt not in VALID_PREFERRED_TOOLS:
+        fail(f"blocks.json: {block_id} preferred_tool '{pt}' not in {VALID_PREFERRED_TOOLS}")
+for expected_block, expected_tool in [("wood", "axe"), ("berry_bush", "axe"),
+                                       ("stone", "pick"), ("ore", "pick")]:
+    actual = blocks.get(expected_block, {}).get("preferred_tool", None)
+    if actual != expected_tool:
+        fail(f"blocks.json: {expected_block} expected preferred_tool '{expected_tool}', got '{actual}'")
+print("PASS block preferred_tool fields")
+
 world_settings = json.loads((ROOT / "data/world_settings.json").read_text(encoding="utf-8"))
 for section in ["sizes", "defaults", "presets"]:
     if section not in world_settings:
@@ -157,5 +175,18 @@ perks = json.loads((ROOT / "data/progression/perks.json").read_text(encoding="ut
 if len(perks["perk_lanes"]) != 7:
     fail("perks.json must define 7 perk lanes")
 print("PASS research and perks data")
+
+# Wave F: craft_axe recipe must exist in recipes.json with town_hall station.
+recipes_data = json.loads((ROOT / "data/recipes.json").read_text(encoding="utf-8"))
+recipe_ids = {r["recipe_id"] for r in recipes_data.get("recipes", [])}
+if "craft_axe" not in recipe_ids:
+    fail("recipes.json missing required recipe: craft_axe")
+axe_recipe = next(r for r in recipes_data["recipes"] if r["recipe_id"] == "craft_axe")
+if axe_recipe.get("station") != "town_hall":
+    fail(f"recipes.json: craft_axe station must be 'town_hall', got '{axe_recipe.get('station')}'")
+axe_inputs = axe_recipe.get("inputs", {})
+if axe_inputs.get("wood", 0) < 1 or axe_inputs.get("stone", 0) < 1:
+    fail(f"recipes.json: craft_axe inputs must include wood and stone, got {axe_inputs}")
+print("PASS craft_axe recipe")
 
 print("RESULT scaffold_valid")

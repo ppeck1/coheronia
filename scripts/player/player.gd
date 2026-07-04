@@ -17,7 +17,8 @@ const REACH_TILES := 5.0
 var world: Node2D
 var health := 100.0
 var max_health := 100.0
-var tool_tier := 1
+var tool_tier := 1    # pick tier; kept as primary alias for the pick.
+var axe_tier := 0     # 0 = no axe; 1+ = axe tier. Wave F.
 var base_mine_speed := 1.0
 var inventory := InventoryData.new()
 
@@ -146,9 +147,9 @@ func process_mining(cell: Vector2i, delta: float) -> bool:
 	if cell != mine_target:
 		mine_target = cell
 		mine_progress = 0.0
-		var _mine_speed := effective_mine_speed()
+		var _bid: String = world.block_at(cell)
+		var _mine_speed := _effective_mine_speed_for(_bid)
 		if stone_ore_mine_mult != 1.0:
-			var _bid: String = world.block_at(cell)
 			if _bid == "stone" or _bid == "ore":
 				_mine_speed *= stone_ore_mine_mult
 		mine_required = world.mine_time(cell, _mine_speed)
@@ -184,6 +185,16 @@ func try_place(cell: Vector2i, block_id: String) -> bool:
 ## Better picks mine faster: +50% speed per tier above 1; traits multiply.
 func effective_mine_speed() -> float:
 	return base_mine_speed * trait_mine_mult * (1.0 + 0.5 * float(tool_tier - 1))
+
+
+## Wave F: returns effective mine speed for a specific block, applying the axe
+## bonus (+40%) for axe-preferred blocks when an axe is carried.
+## Stone/ore and other pick-preferred blocks are unaffected by axe_tier.
+func _effective_mine_speed_for(block_id: String) -> float:
+	var speed := effective_mine_speed()
+	if axe_tier > 0 and BlockRegistry.preferred_tool(block_id) == "axe":
+		speed *= 1.4
+	return speed
 
 
 func craft(recipe_id: String) -> bool:
