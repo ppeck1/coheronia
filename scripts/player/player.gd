@@ -3,7 +3,7 @@ extends CharacterBody2D
 ## placement from the hotbar, torch crafting, health.
 
 signal inventory_changed
-signal health_changed(health: float)
+signal health_changed(health: float, max_health: float)
 signal mined(block_id: String, drops: Dictionary)
 signal crafted(recipe_id: String)
 signal placed(block_id: String)
@@ -13,6 +13,17 @@ const SPEED := 140.0
 const JUMP_VELOCITY := -300.0
 const GRAVITY := 820.0
 const REACH_TILES := 5.0
+
+## FQ-01 defaults; overridden by data/character_data.json player_defaults
+## (see _load_player_defaults). Kept as fallback if keys are missing.
+const DEFAULT_BASE_MAX_HEALTH := 100.0
+const DEFAULT_HURT_COOLDOWN_SEC := 0.8
+const DEFAULT_FOOD_HEAL_AMOUNT := 25.0
+const DEFAULT_EAT_COOLDOWN_SEC := 0.5
+const DEFAULT_PASSIVE_REGEN_PER_SEC := 1.0
+const DEFAULT_SAFE_RADIUS_PX := 160.0
+const DEFAULT_COLLAPSE_LOSS_FRACTION := 0.25
+const DEFAULT_LOW_HEALTH_FRACTION := 0.25
 
 var world: Node2D
 var health := 100.0
@@ -44,6 +55,41 @@ var mine_progress := 0.0
 var mine_required := 0.0
 
 var _hurt_cooldown := 0.0
+var _hurt_flash_timer := 0.0
+
+# FQ-01: data-driven tuning, read from character_data.json player_defaults
+# (falls back to the DEFAULT_* consts above when keys are missing).
+var _base_max_health := DEFAULT_BASE_MAX_HEALTH
+var _hurt_cooldown_sec := DEFAULT_HURT_COOLDOWN_SEC
+var _food_heal_amount := DEFAULT_FOOD_HEAL_AMOUNT
+var _eat_cooldown_sec := DEFAULT_EAT_COOLDOWN_SEC
+var _passive_regen_per_sec := DEFAULT_PASSIVE_REGEN_PER_SEC
+var _safe_radius_px := DEFAULT_SAFE_RADIUS_PX
+var _collapse_loss_fraction := DEFAULT_COLLAPSE_LOSS_FRACTION
+var _low_health_fraction := DEFAULT_LOW_HEALTH_FRACTION
+
+var _eat_cooldown := 0.0
+var _regen_active := false     # tracks whether the "feel safe" message already fired
+var _low_health_active := false  # tracks whether the "badly hurt" message already fired
+
+
+func _ready() -> void:
+	_load_player_defaults()
+
+
+## Reads data/character_data.json's player_defaults section (same registry
+## pattern as BlockRegistry.character_data) so tuning stays data-driven.
+## Missing keys keep the DEFAULT_* fallback values.
+func _load_player_defaults() -> void:
+	var defaults: Dictionary = BlockRegistry.character_data.get("player_defaults", {})
+	_base_max_health = float(defaults.get("base_max_health", DEFAULT_BASE_MAX_HEALTH))
+	_hurt_cooldown_sec = float(defaults.get("hurt_cooldown_sec", DEFAULT_HURT_COOLDOWN_SEC))
+	_food_heal_amount = float(defaults.get("food_heal_amount", DEFAULT_FOOD_HEAL_AMOUNT))
+	_eat_cooldown_sec = float(defaults.get("eat_cooldown_sec", DEFAULT_EAT_COOLDOWN_SEC))
+	_passive_regen_per_sec = float(defaults.get("passive_regen_per_sec", DEFAULT_PASSIVE_REGEN_PER_SEC))
+	_safe_radius_px = float(defaults.get("safe_radius_px", DEFAULT_SAFE_RADIUS_PX))
+	_collapse_loss_fraction = float(defaults.get("collapse_loss_fraction", DEFAULT_COLLAPSE_LOSS_FRACTION))
+	_low_health_fraction = float(defaults.get("low_health_fraction", DEFAULT_LOW_HEALTH_FRACTION))
 
 
 func selected_item() -> String:
@@ -70,7 +116,7 @@ func apply_character(character: Dictionary) -> void:
 			effects[key] = float(effects.get(key, 0.0)) + float(role["effects"][key])
 		else:
 			effects[key] = role["effects"][key]
-	max_health = 100.0 + float(effects.get("max_health_bonus", 0.0))
+	max_health = _base_max_health + float(effects.get("max_health_bonus", 0.0))
 	health = minf(health, max_health)
 	trait_mine_mult = float(effects.get("mine_speed_mult", 1.0))
 	reach_bonus = float(effects.get("reach_bonus", 0.0))
@@ -96,7 +142,11 @@ func apply_ancestry_effects(effects: Dictionary) -> void:
 	ancestry_health_bonus = float(effects.get("health_bonus", 0.0))
 	max_health += ancestry_health_bonus
 	# Fix 12: goblin uses health_reduction (multiplier, default 1.0 = no change).
-	max_health = int(round(max_health * float(effects.get("health_reduction", 1.0))))
+	# FQ-01 review: only round when a reduction actually applies, so ancestries
+	# without one keep fractional max_health from data-driven bonuses intact.
+	var _health_reduction := float(effects.get("health_reduction", 1.0))
+	if _health_reduction != 1.0:
+		max_health = roundf(max_health * _health_reduction)
 	health = minf(health, max_health)
 
 
@@ -109,6 +159,15 @@ func _physics_process(delta: float) -> void:
 	velocity.x = direction * SPEED * ancestry_move_mult
 	move_and_slide()
 	_hurt_cooldown = maxf(0.0, _hurt_cooldown - delta)
+	_eat_cooldown = maxf(0.0, _eat_cooldown - delta)
+	if _hurt_flash_timer > 0.0:
+		_hurt_flash_timer = maxf(0.0, _hurt_flash_timer - delta)
+		if _hurt_flash_timer == 0.0:
+			modulate = Color(1, 1, 1)
+
+	if Input.is_action_just_pressed("eat_food"):
+		_try_eat_food()
+	_update_passive_regen(delta)
 
 	if world == null:
 		return
@@ -119,6 +178,55 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("craft"):
 		craft("craft_torch")
 	queue_redraw()
+
+
+## Healing A (active): eat one food from the inventory to heal, gated by an
+## eat cooldown. No-op (and no food consumed) at full health or empty cooldown
+## not yet expired.
+func _try_eat_food() -> void:
+	if _eat_cooldown > 0.0:
+		return
+	if health >= max_health:
+		return
+	if inventory.count("food") <= 0:
+		return
+	inventory.remove("food")
+	_eat_cooldown = _eat_cooldown_sec
+	health = minf(max_health, health + _food_heal_amount)
+	inventory_changed.emit()
+	health_changed.emit(health, max_health)
+	_check_low_health()
+	player_event.emit("You eat some food and recover.")
+
+
+## Healing B (passive): regenerate slowly while near the Town Hall and clear
+## of nearby threats. Emits health_changed only when the rounded health value
+## changes, and logs the "feel safe" message only on the first tick of a
+## regen streak (reset once health reaches max or the player leaves safety).
+func _update_passive_regen(delta: float) -> void:
+	if world == null or world.hall_info.is_empty():
+		_regen_active = false
+		return
+	if health >= max_health:
+		_regen_active = false
+		return
+	var hall_center: Vector2 = world.cell_center(world.hall_info["center_cell"])
+	if global_position.distance_to(hall_center) > _safe_radius_px:
+		_regen_active = false
+		return
+	for threat in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(threat) and not threat.is_queued_for_deletion():
+			if threat.global_position.distance_to(global_position) < 200.0:
+				_regen_active = false
+				return
+	var before := int(round(health))
+	health = minf(max_health, health + _passive_regen_per_sec * delta)
+	if int(round(health)) != before:
+		health_changed.emit(health, max_health)
+		_check_low_health()
+	if not _regen_active:
+		_regen_active = true
+		player_event.emit("You feel safe near the Town Hall and begin to recover.")
 
 
 func _handle_hotbar() -> void:
@@ -215,20 +323,70 @@ func craft(recipe_id: String) -> bool:
 func take_damage(amount: float) -> void:
 	if _hurt_cooldown > 0.0:
 		return
-	_hurt_cooldown = 0.8
+	_hurt_cooldown = _hurt_cooldown_sec
 	health = maxf(0.0, health - amount)
-	health_changed.emit(health)
+	_hurt_flash_timer = 0.2
+	modulate = Color(1.0, 0.35, 0.35)
+	health_changed.emit(health, max_health)
+	_check_low_health()
 	if health <= 0.0:
-		respawn()
+		var _lost := _apply_collapse_loss()
+		respawn(_lost)
 
 
-func respawn() -> void:
+## FQ-01 collapse consequence: lose a fraction of each carried stack (floor,
+## per stack) before respawning. Runs before health is restored so the loss
+## is deterministic and independent of the respawn heal.
+## Returns true when at least one stack actually shrank.
+func _apply_collapse_loss() -> bool:
+	if _collapse_loss_fraction <= 0.0:
+		return false
+	var changed := false
+	for item_id in inventory.counts.keys():
+		var current: int = inventory.count(item_id)
+		var loss: int = int(floor(float(current) * _collapse_loss_fraction))
+		if loss > 0:
+			inventory.remove(item_id, loss)
+			changed = true
+	if changed:
+		inventory_changed.emit()
+	return changed
+
+
+func respawn(supplies_lost: bool = false) -> void:
 	health = max_health
-	health_changed.emit(health)
+	health_changed.emit(health, max_health)
+	_check_low_health()
 	if world != null and not world.hall_info.is_empty():
 		global_position = world.cell_center(world.hall_info["center_cell"]) + Vector2(-48, -24)
 		velocity = Vector2.ZERO
-	player_event.emit("You collapsed and awoke near the Town Hall.")
+	_regen_active = false
+	var _msg := "You collapsed and awoke near the Town Hall."
+	if supplies_lost:
+		_msg += " Some of your supplies were lost."
+	player_event.emit(_msg)
+
+
+## Low-health state transition: logs "You are badly hurt." once per crossing
+## below low_health_fraction of max_health; resets when healed back above it.
+func _check_low_health() -> void:
+	if max_health <= 0.0:
+		return
+	var ratio := health / max_health
+	if ratio < _low_health_fraction:
+		if not _low_health_active:
+			_low_health_active = true
+			player_event.emit("You are badly hurt.")
+	else:
+		_low_health_active = false
+
+
+## Returns true when health is below low_health_fraction of max_health.
+## Used by the HUD to tint the health bar/label.
+func is_low_health() -> bool:
+	if max_health <= 0.0:
+		return false
+	return (health / max_health) < _low_health_fraction
 
 
 func mine_progress_ratio() -> float:

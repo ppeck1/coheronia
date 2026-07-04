@@ -42,7 +42,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 (v0.6.1 closeout repair: legacy-migration duplication fix, smoke 124/124, packet metadata) is complete; FQ-01 (player health/damage/healing/death loop) is next.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 (v0.6.1 closeout repair) and FQ-01 (player health loop: health bar with current/max, eat food on H, safe passive regen near the hall, collapse loses a floor-fraction of each stack and respawns at the hall, data-driven player_defaults and enemy contact_damage/speed, smoke 134/134) are complete; FQ-02 (background trees and pass-through flora) is next.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 
@@ -52,4 +52,6 @@ Operator playthrough of v0.6 (make two characters, swap between worlds, forge th
 - workbench/crafting menu consolidating hand/hall recipes
 - more enemies from the MVP expansion order (thornrat, ore_tick, raider_torchbearer)
 - axe tier 2 + tool durability, or character-owned XP migration
-- underground-start generation for
+- underground-start generation for phase C deep ancestries
+
+Recommended next product move: farming (plantable crops using `requires_support`) plus a compact crafting menu, then the research bench MVP.

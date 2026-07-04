@@ -35,6 +35,13 @@ var loot_mult: float = 1.0
 ## Test hook: if >= 0.0 this value overrides every drop's rolled chance.
 var drop_chance_override: float = -1.0
 
+## FQ-01: data-driven contact damage/speed, set by the spawner from the enemy
+## def's "contact_damage"/"speed" fields (fallback to the PLAYER_DAMAGE/SPEED
+## consts above when the def omits them). contact_damage is pre-scaled by
+## config().difficulty("enemy") at spawn time, mirroring hall_dps.
+var contact_damage := PLAYER_DAMAGE
+var move_speed := SPEED
+
 
 func _ready() -> void:
 	add_to_group("threats")
@@ -53,12 +60,12 @@ func _physics_process(delta: float) -> void:
 			velocity.x = 0.0
 			town_hall.take_damage(hall_dps * delta)
 		else:
-			velocity.x = signf(dx) * SPEED
+			velocity.x = signf(dx) * move_speed
 	if is_on_wall() and is_on_floor() and not at_hall:
 		velocity.y = JUMP_VELOCITY
 	move_and_slide()
 	if player != null and global_position.distance_to(player.global_position) < 18.0:
-		player.take_damage(PLAYER_DAMAGE)
+		player.take_damage(contact_damage)
 	queue_redraw()
 
 

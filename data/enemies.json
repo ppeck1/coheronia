@@ -6,6 +6,9 @@
       "display_name": "Surface Slime",
       "family": "surface",
       "status": "live",
+      "contact_damage": 8,
+      "speed": 38,
+      "hp": 3,
       "location": "Grass, ponds",
       "density": {
         "count_min": 1,
@@ -141,6 +144,9 @@
       "display_name": "Cave Crawler",
       "family": "underground",
       "status": "live",
+      "contact_damage": 8,
+      "speed": 38,
+      "hp": 3,
       "location": "Early caves",
       "density": {
         "count_min": 2,
@@ -279,6 +285,9 @@
       "display_name": "Raider Basic",
       "family": "raider",
       "status": "live",
+      "contact_damage": 8,
+      "speed": 38,
+      "hp": 3,
       "location": "Raider camps and raid waves",
       "density": {
         "count_min": 1,

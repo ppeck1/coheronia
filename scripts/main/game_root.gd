@@ -87,7 +87,7 @@ func _ready() -> void:
 		# Saved player position overrides the default spawn.
 		save_manager.apply_player_position(saved_state)
 	hud.update_inventory()
-	hud.update_health(player.health)
+	hud.update_health(player.health, player.max_health)
 	_refresh_hud_progression()
 	log_event("Welcome to Coheronia. Shelter and light the Town Hall.")
 	hud.set_save_hint(save_manager.has_save())
@@ -556,6 +556,12 @@ func _spawn_enemy_at(def: Dictionary, pos: Vector2) -> Node:
 	threat.loot_mult = float(scaling.get("loot_mult", 1.0))
 	threat.hp = threat_hp()
 	threat.hall_dps = 4.0 * config().difficulty("enemy")
+	# FQ-01: data-driven contact damage/speed from the def, falling back to
+	# the simple_threat.gd consts when the def omits them. contact_damage
+	# scales with enemy difficulty like hall_dps.
+	threat.contact_damage = float(def.get("contact_damage", threat.PLAYER_DAMAGE)) \
+		* config().difficulty("enemy")
+	threat.move_speed = float(def.get("speed", threat.SPEED))
 	threat.died.connect(_on_threat_died)
 	threats.add_child(threat)
 	return threat

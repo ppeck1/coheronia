@@ -84,7 +84,7 @@ func apply_state(state: Dictionary) -> bool:
 
 	var p: Dictionary = state.get("player", {})
 	player.health = float(p.get("health", 100.0))
-	player.health_changed.emit(player.health)
+	player.health_changed.emit(player.health, player.max_health)
 	# Wave B: inventory/slot/tool_tier are character-owned; caller loads them
 	# via game_root._load_character_carried_state / _apply_character_carried_state.
 

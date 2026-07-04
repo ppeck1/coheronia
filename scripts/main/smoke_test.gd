@@ -43,7 +43,8 @@ func _run() -> void:
 	var unbound := ""
 	for action in ["move_left", "move_right", "jump", "mine", "place", "interact",
 			"toggle_town", "craft", "save_game", "load_game", "toggle_inventory",
-			"debug_overlay", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5"]:
+			"debug_overlay", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5",
+			"eat_food"]:
 		var has_device_event := false
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventKey or ev is InputEventMouseButton:
@@ -969,6 +970,163 @@ func _run() -> void:
 	player.axe_tier = 1
 	player.apply_character(GameState.current_character)
 	root.apply_ancestry_for_species(str(GameState.current_character.get("species", "")))
+
+	# --- FQ-01: player health, damage, healing, and death loop ---
+
+	player.set_physics_process(false)
+	# Array box: GDScript lambdas capture locals by value, so a mutable
+	# single-element Array is used to observe player_event messages by reference.
+	var _fq01_last_msg_box: Array = [""]
+	var _fq01_msg_conn := func(msg: String) -> void: _fq01_last_msg_box[0] = msg
+	player.player_event.connect(_fq01_msg_conn)
+
+	# (a) i-frames: two take_damage calls back-to-back only apply the first.
+	player.health = player.max_health
+	player._hurt_cooldown = 0.0
+	player.take_damage(10.0)
+	var _fq01_health_after_first: float = player.health
+	player.take_damage(10.0)
+	_check("fq01_iframes_block_same_window_damage",
+		absf(player.health - _fq01_health_after_first) < 0.001,
+		"health after first=%.1f after second=%.1f" % [_fq01_health_after_first, player.health])
+
+	# (b) forcing the cooldown to 0 lets the next hit land.
+	player._hurt_cooldown = 0.0
+	var _fq01_health_before_second: float = player.health
+	player.take_damage(10.0)
+	_check("fq01_second_hit_after_cooldown",
+		player.health < _fq01_health_before_second - 0.001,
+		"health %.1f -> %.1f" % [_fq01_health_before_second, player.health])
+
+	# (c) eating food heals (clamped) and consumes exactly one food.
+	player.health = player.max_health
+	player._hurt_cooldown = 0.0
+	player.inventory.from_dict({"food": 3})
+	player.inventory_changed.emit()
+	player.take_damage(30.0)
+	var _fq01_health_before_eat: float = player.health
+	player._eat_cooldown = 0.0
+	player._try_eat_food()
+	_check("fq01_eat_food_heals_and_consumes",
+		player.health > _fq01_health_before_eat
+		and absf(player.health - minf(player.max_health, _fq01_health_before_eat + 25.0)) < 1.0
+		and player.inventory.count("food") == 2,
+		"health %.1f -> %.1f, food=%d" % [_fq01_health_before_eat, player.health, player.inventory.count("food")])
+
+	# (d) eating at full health is a no-op — no food consumed, health unchanged.
+	player.health = player.max_health
+	player._eat_cooldown = 0.0
+	var _fq01_food_before_noop: int = player.inventory.count("food")
+	player._try_eat_food()
+	_check("fq01_eat_at_full_health_noop",
+		absf(player.health - player.max_health) < 0.001
+		and player.inventory.count("food") == _fq01_food_before_noop,
+		"health=%.1f food=%d (before=%d)" % [player.health, player.inventory.count("food"), _fq01_food_before_noop])
+	player.inventory.from_dict({})
+	player.inventory_changed.emit()
+
+	# (e) passive regen only triggers near the hall and clear of threats.
+	for _fq01_t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_fq01_t):
+			_fq01_t.queue_free()
+	await get_tree().process_frame
+	var _fq01_hall_center: Vector2 = world.cell_center(world.hall_info["center_cell"])
+	player.health = player.max_health - 20.0
+	player.global_position = _fq01_hall_center + Vector2(10, -10)
+	var _fq01_health_near_before: float = player.health
+	for _fq01_i in range(65):
+		player._update_passive_regen(1.0 / 60.0)
+	_check("fq01_passive_regen_near_hall", player.health > _fq01_health_near_before,
+		"health %.2f -> %.2f near hall" % [_fq01_health_near_before, player.health])
+
+	player.health = player.max_health - 20.0
+	player.global_position = _fq01_hall_center + Vector2(player._safe_radius_px + 400.0, -10)
+	var _fq01_health_far_before: float = player.health
+	for _fq01_i2 in range(65):
+		player._update_passive_regen(1.0 / 60.0)
+	_check("fq01_no_regen_far_from_hall",
+		absf(player.health - _fq01_health_far_before) < 0.001,
+		"health %.2f -> %.2f far from hall" % [_fq01_health_far_before, player.health])
+
+	# (f) collapse: taking lethal damage loses a floor(fraction) of each stack,
+	# then respawns at the hall at full health.
+	player.global_position = _fq01_hall_center + Vector2(500, -300)
+	player.health = player.max_health
+	player._hurt_cooldown = 0.0
+	player.inventory.from_dict({"dirt": 8, "stone": 5})
+	player.inventory_changed.emit()
+	_fq01_last_msg_box[0] = ""
+	player.take_damage(9999.0)
+	_check("fq01_collapse_respawns_at_hall_with_loss",
+		player.global_position.distance_to(_fq01_hall_center + Vector2(-48, -24)) < 1.0
+		and absf(player.health - player.max_health) < 0.001
+		and player.inventory.count("dirt") == 6
+		and player.inventory.count("stone") == 4
+		and "collapsed" in str(_fq01_last_msg_box[0]),
+		"pos=%s health=%.1f dirt=%d stone=%d msg=%s" % [
+			str(player.global_position), player.health,
+			player.inventory.count("dirt"), player.inventory.count("stone"), str(_fq01_last_msg_box[0])])
+	player.inventory.from_dict({})
+	player.inventory_changed.emit()
+
+	# (f2) lootless collapse: with nothing carried, the respawn message must not
+	# claim supplies were lost (FQ-01 review fix).
+	player.global_position = _fq01_hall_center + Vector2(500, -300)
+	player.health = player.max_health
+	player._hurt_cooldown = 0.0
+	_fq01_last_msg_box[0] = ""
+	player.take_damage(9999.0)
+	_check("fq01_lootless_collapse_message_honest",
+		"collapsed" in str(_fq01_last_msg_box[0])
+		and not ("supplies" in str(_fq01_last_msg_box[0])),
+		"msg=%s" % str(_fq01_last_msg_box[0]))
+
+	# (g) health save/load round-trip: max_health still reflects ancestry/traits.
+	player.apply_character(GameState.current_character)
+	root.apply_ancestry_for_species(str(GameState.current_character.get("species", "")))
+	var _fq01_max_health_before: float = player.max_health
+	player.health = maxf(1.0, player.max_health - 33.0)
+	player._hurt_cooldown = 0.0
+	var _fq01_saved_health: float = player.health
+	root.save_manager.save_game()
+	player.health = player.max_health
+	root.load_game()
+	_check("fq01_health_save_load_roundtrip",
+		absf(player.health - _fq01_saved_health) < 0.001
+		and absf(player.max_health - _fq01_max_health_before) < 0.001,
+		"health restored=%.1f (expected %.1f), max_health=%.1f (expected %.1f)" % [
+			player.health, _fq01_saved_health, player.max_health, _fq01_max_health_before])
+
+	# (h) enemy contact damage is data-driven: runtime contact_damage equals
+	# the JSON value scaled by GameState.current_config.difficulty("enemy").
+	for _fq01_t2 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_fq01_t2):
+			_fq01_t2.queue_free()
+	await get_tree().process_frame
+	var _fq01_slime_def: Dictionary = root._enemy_registry.get_def("surface_slime")
+	var _fq01_slime: Node = root.spawn_enemy_for_test("surface_slime")
+	var _fq01_expected_dmg: float = float(_fq01_slime_def.get("contact_damage", 8)) \
+		* GameState.current_config.difficulty("enemy")
+	_check("fq01_enemy_contact_damage_from_data",
+		_fq01_slime != null and absf(_fq01_slime.contact_damage - _fq01_expected_dmg) < 0.001,
+		"contact_damage=%.2f expected=%.2f" % [
+			_fq01_slime.contact_damage if _fq01_slime != null else -1.0, _fq01_expected_dmg])
+	if _fq01_slime != null and is_instance_valid(_fq01_slime):
+		_fq01_slime.queue_free()
+	await get_tree().process_frame
+
+	# Restore global state so later sections (screenshot) see a sane player.
+	player.player_event.disconnect(_fq01_msg_conn)
+	player.health = player.max_health
+	player._hurt_cooldown = 0.0
+	player._eat_cooldown = 0.0
+	player.modulate = Color(1, 1, 1)
+	player.inventory.from_dict({})
+	player.inventory_changed.emit()
+	player.apply_character(GameState.current_character)
+	root.apply_ancestry_for_species(str(GameState.current_character.get("species", "")))
+	player.tool_tier = 2
+	player.axe_tier = 1
 
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":

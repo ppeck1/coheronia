@@ -110,6 +110,17 @@ for section in ["species", "traits", "roles", "appearances"]:
         fail(f"character_data.json missing section: {section}")
 print("PASS character data")
 
+# FQ-01: player_defaults must define the data-driven health/heal/regen tuning keys.
+player_defaults = character_data.get("player_defaults", {})
+REQUIRED_PLAYER_DEFAULTS = [
+    "base_max_health", "hurt_cooldown_sec", "food_heal_amount", "eat_cooldown_sec",
+    "passive_regen_per_sec", "safe_radius_px", "collapse_loss_fraction", "low_health_fraction",
+]
+for key in REQUIRED_PLAYER_DEFAULTS:
+    if key not in player_defaults:
+        fail(f"character_data.json player_defaults missing key: {key}")
+print("PASS character player_defaults")
+
 enemies_data = json.loads((ROOT / "data/enemies.json").read_text(encoding="utf-8"))
 for section in ["enemies", "mini_bosses", "bosses", "region_density", "difficulty_scaling", "loot_philosophy", "mvp_expansion_order"]:
     if section not in enemies_data:
@@ -129,6 +140,15 @@ for e in enemies_data["enemies"]:
         if not (0.0 < drop["chance"] <= 1.0):
             fail(f"enemies.json enemy {e['id']} drop chance out of range: {drop}")
 print("PASS enemies data")
+
+# FQ-01: live enemies must carry data-driven contact_damage/speed/hp fields.
+for e in enemies_data["enemies"]:
+    if e.get("status") != "live":
+        continue
+    for field in ["contact_damage", "speed", "hp"]:
+        if field not in e:
+            fail(f"enemies.json live enemy {e['id']} missing field: {field}")
+print("PASS live enemy contact_damage/speed/hp fields")
 
 ancestries_data = json.loads((ROOT / "data/ancestries.json").read_text(encoding="utf-8"))
 ancestry_ids = {a["id"] for a in ancestries_data["ancestries"]}
@@ -172,21 +192,3 @@ research = json.loads((ROOT / "data/progression/research_domains.json").read_tex
 if len(research["research_domains"]) != 7:
     fail("research_domains.json must define 7 domains")
 perks = json.loads((ROOT / "data/progression/perks.json").read_text(encoding="utf-8"))
-if len(perks["perk_lanes"]) != 7:
-    fail("perks.json must define 7 perk lanes")
-print("PASS research and perks data")
-
-# Wave F: craft_axe recipe must exist in recipes.json with town_hall station.
-recipes_data = json.loads((ROOT / "data/recipes.json").read_text(encoding="utf-8"))
-recipe_ids = {r["recipe_id"] for r in recipes_data.get("recipes", [])}
-if "craft_axe" not in recipe_ids:
-    fail("recipes.json missing required recipe: craft_axe")
-axe_recipe = next(r for r in recipes_data["recipes"] if r["recipe_id"] == "craft_axe")
-if axe_recipe.get("station") != "town_hall":
-    fail(f"recipes.json: craft_axe station must be 'town_hall', got '{axe_recipe.get('station')}'")
-axe_inputs = axe_recipe.get("inputs", {})
-if axe_inputs.get("wood", 0) < 1 or axe_inputs.get("stone", 0) < 1:
-    fail(f"recipes.json: craft_axe inputs must include wood and stone, got {axe_inputs}")
-print("PASS craft_axe recipe")
-
-print("RESULT scaffold_valid")

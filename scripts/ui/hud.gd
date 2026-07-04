@@ -9,10 +9,17 @@ signal forge_requested
 signal forge_axe_requested
 signal lantern_requested
 
+## Low-health fraction mirrors player._low_health_fraction (data-driven
+## default 0.25); the HUD does not read player state directly so it keeps a
+## small local const matching the documented default for the tint threshold.
+const LOW_HEALTH_TINT_FRACTION := 0.25
+
 var player: CharacterBody2D
 var town_hall: Node2D
 
 var _health_label: Label
+var _health_bar: ProgressBar
+var _low_health_active := false
 var _bars: Dictionary = {}       # "coherence"/"load"/"resilience" -> ProgressBar
 var _status_label: Label
 var _time_label: Label
@@ -55,7 +62,9 @@ func _build_top_left() -> void:
 	box.position = Vector2(12, 10)
 	box.custom_minimum_size = Vector2(240, 0)
 	add_child(box)
-	_health_label = _label(box, "Health: 100")
+	_health_bar = _bar(box, "Health", Color(0.82, 0.22, 0.22))
+	_health_bar.value = 100.0
+	_health_label = _label(box, "100 / 100")
 	_bars["coherence"] = _bar(box, "Coherence", Color(0.35, 0.75, 0.40))
 	_bars["load"] = _bar(box, "Load", Color(0.85, 0.45, 0.30))
 	_bars["resilience"] = _bar(box, "Resilience", Color(0.35, 0.55, 0.85))
@@ -245,8 +254,17 @@ func update_settlement(coherence: float, load_value: float, resilience: float,
 		refresh_town_panel()
 
 
-func update_health(health: float) -> void:
-	_health_label.text = "Health: %d" % int(round(health))
+func update_health(health: float, max_health: float) -> void:
+	_health_bar.max_value = maxf(1.0, max_health)
+	_health_bar.value = health
+	_health_label.text = "%d / %d" % [int(round(health)), int(round(max_health))]
+	var low: bool = max_health > 0.0 and (health / max_health) < LOW_HEALTH_TINT_FRACTION
+	if low != _low_health_active:
+		_low_health_active = low
+	var tint: Color = Color(0.95, 0.25, 0.15) if low else Color(0.82, 0.22, 0.22)
+	_health_bar.modulate = tint
+	_health_label.add_theme_color_override(
+		"font_color", Color(1.0, 0.35, 0.3) if low else Color(0.9, 0.9, 0.9))
 
 
 func update_progression(player_level: int, xp_current: int, xp_next: int, base_name: String) -> void:

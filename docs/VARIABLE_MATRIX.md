@@ -71,6 +71,25 @@ All registries load through `scripts/data/json_data.gd` (`load_dict`, push_error
 | `traits` | `character_data.json` | `player.apply_character` | max health, mining speed, reach, food bonus, growth delta |
 | `role` | `character_data.json` | role grant and `player.apply_character` | starting items and role effects |
 
+## FQ-01 Player Defaults (Health, Healing, Collapse)
+
+| Variable | File / Field | Default | Effect |
+|---|---|---|---|
+| `base_max_health` | `data/character_data.json` `player_defaults.base_max_health` | 100 | base max health before trait/role/ancestry bonuses (`player._base_max_health`) |
+| `hurt_cooldown_sec` | `data/character_data.json` `player_defaults.hurt_cooldown_sec` | 0.8 | i-frame window after `take_damage`; blocks re-damage until it expires |
+| `food_heal_amount` | `data/character_data.json` `player_defaults.food_heal_amount` | 25 | health restored per food eaten (clamped to max_health) |
+| `eat_cooldown_sec` | `data/character_data.json` `player_defaults.eat_cooldown_sec` | 0.5 | minimum time between `eat_food` actions |
+| `passive_regen_per_sec` | `data/character_data.json` `player_defaults.passive_regen_per_sec` | 1.0 | health/sec regenerated near the Town Hall when safe |
+| `safe_radius_px` | `data/character_data.json` `player_defaults.safe_radius_px` | 160 | distance from hall center within which passive regen can trigger |
+| `collapse_loss_fraction` | `data/character_data.json` `player_defaults.collapse_loss_fraction` | 0.25 | fraction (floored per stack) of carried inventory lost on collapse (health reaching 0) |
+| `low_health_fraction` | `data/character_data.json` `player_defaults.low_health_fraction` | 0.25 | health/max_health ratio below which the HUD tints red and logs "You are badly hurt." once per crossing |
+
+All eight keys are read once via `player._load_player_defaults()` from `BlockRegistry.character_data["player_defaults"]` (same JSON-load pattern as traits/roles/appearances); missing keys fall back to the `DEFAULT_*` consts in `player.gd`.
+
+### Health, Healing, And Collapse
+
+Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_food` input action — key H — consumes 1 food from the inventory for an instant `food_heal_amount` heal, no-op at full health or during its own cooldown) and **safe passive regen** (near the Town Hall center within `safe_radius_px` and clear of any "threats" group node within 200px, health trickles back at `passive_regen_per_sec`; logs "You feel safe near the Town Hall and begin to recover." once per regen streak). Damage still gates through the existing `hurt_cooldown_sec` i-frame window and flashes the player sprite red for ~0.2s. Reaching 0 health triggers a **collapse**: each carried inventory stack loses `floor(count * collapse_loss_fraction)` (deterministic, per stack) before the player respawns at the Town Hall at full health, with the log message "You collapsed and awoke near the Town Hall. Some of your supplies were lost." Crossing below `low_health_fraction` of max_health logs "You are badly hurt." once per crossing and tints the HUD health bar/label; it resets when health rises back above the threshold.
+
 ## Core Gameplay Variables
 
 | Variable | Type | Authority | Notes |
@@ -97,6 +116,7 @@ All registries load through `scripts/data/json_data.gd` (`load_dict`, push_error
 | `bush_regrow` | dictionary | `world.gd` / save | harvested bush timers |
 | `player_position` | Vector2 | save state | restored after world rebuild |
 | `player_health` | float | `player.gd` / save | HUD and threat damage |
+| `player.max_health` | float | `player.gd` | `player_defaults.base_max_health` + trait/role/ancestry bonuses; recomputed by `apply_character`/`apply_ancestry_effects`, not persisted directly (derived at world entry) |
 | `inventory_counts` | dictionary | `inventory.gd` / character-carried | stackable resource counts; travels between worlds |
 | `selected_hotbar_slot` | int | `player.gd` / character-carried | slots 1-5 |
 | `tool_tier` | int | `player.gd` / character-carried | pick tier alias; tier 2 unlocks ore and speed |
@@ -128,6 +148,9 @@ All registries load through `scripts/data/json_data.gd` (`load_dict`, push_error
 | `loot_mult` / `drop_chance_override` | float | `simple_threat.gd` | per-instance; override is a test hook |
 | `hall_dps` | float | `game_root._spawn_enemy_at` | raider Town Hall damage; survives save/load |
 | `CAVE_SPAWN_INTERVAL` / cap | const | `game_root.gd` | 30s check, 2 active underground-family max |
+| `contact_damage` | float | `data/enemies.json` (live enemies) -> `simple_threat.contact_damage` | player damage on contact; scaled by `difficulty("enemy")` at spawn (mirrors `hall_dps`); falls back to `PLAYER_DAMAGE` const if the def omits it |
+| `speed` | float | `data/enemies.json` (live enemies) -> `simple_threat.move_speed` | horizontal chase speed; falls back to `SPEED` const if the def omits it |
+| `hp` | int | `data/enemies.json` (live enemies) | data-completeness/validator field; runtime hp is still set from `game_root.threat_hp()` (difficulty + day scaling), not read from this field |
 
 ## v0.5 Progression Variables
 
@@ -168,6 +191,8 @@ All registries load through `scripts/data/json_data.gd` (`load_dict`, push_error
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-01 adds 8 checks (`fq01_*`) covering: i-frame damage gating and the post-cooldown hit; eat-food healing (consumes 1 food, clamps to max_health) and its full-health no-op; passive regen near vs. far from the Town Hall; collapse inventory loss (floored per stack) plus respawn-at-hall-at-full-health; health save/load round-trip with max_health preserved; and enemy contact damage read from `data/enemies.json` scaled by `difficulty("enemy")`.
 
 The v0.6 smoke suite (122 checks) additionally verifies: ancestry detail text (dwarf effects + constraint, planned label for non-live); world_settings ui_help coverage of all six axes and preset deviations; character inventory isolation (two characters, one world; second world; no starter-item duplication; legacy migration); toggle_inventory binding and panel open/close/content; berry-bush support cleanup on mine/load/regrowth; axe crafting, axe-vs-pick speed differentiation (wood 33 -> 24 frames, stone unchanged), and {pick, axe} save round-trips with legacy tool-tier migration.
 
