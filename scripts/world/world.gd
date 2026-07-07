@@ -16,9 +16,15 @@ var deltas: Dictionary = {}         # Vector2i -> block_id ("air" = mined out)
 var surface: Dictionary = {}        # int x -> int y of surface
 var hall_info: Dictionary = {}
 var bush_regrow: Dictionary = {}    # Vector2i -> float seconds until regrowth
+## FQ-02: Vector2i -> flora id (bg_trunk/bg_canopy). Decorative pass-through
+## visuals drawn behind actors; regenerated from seed+config, never saved,
+## never in cells, and never solid.
+var background_cells: Dictionary = {}
 
 var _tilemap: TileMapLayer
+var _bg_tilemap: TileMapLayer       # FQ-02 background flora layer (no collision)
 var _source_ids: Dictionary = {}    # block_id -> tileset source id
+var _bg_source_ids: Dictionary = {} # flora_id -> background tileset source id
 var _lights: Dictionary = {}        # Vector2i -> PointLight2D
 var _light_texture: GradientTexture2D
 
@@ -34,9 +40,23 @@ const BLOCK_COLORS := {
 	"town_hall_core": Color(0.42, 0.30, 0.55),
 }
 
+const BACKGROUND_COLORS := {
+	"bg_trunk": Color(0.42, 0.31, 0.18),
+	"bg_canopy": Color(0.16, 0.34, 0.16),
+}
+## Dim, cool tint so background flora visually reads as behind the world.
+const BACKGROUND_TINT := Color(0.62, 0.66, 0.72)
+
 
 func _ready() -> void:
 	_light_texture = _make_light_texture()
+	# FQ-02: background flora layer added first so it draws behind the blocks
+	# layer (and every actor added after the World node in the main scene).
+	_bg_tilemap = TileMapLayer.new()
+	_bg_tilemap.name = "BackgroundFlora"
+	_bg_tilemap.tile_set = _build_background_tileset()
+	_bg_tilemap.modulate = BACKGROUND_TINT
+	add_child(_bg_tilemap)
 	_tilemap = TileMapLayer.new()
 	_tilemap.name = "Blocks"
 	_tilemap.tile_set = _build_tileset()
@@ -80,9 +100,14 @@ func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionar
 	var gen := WorldGen.generate(world_seed, config)
 	cells = gen["cells"]
 	surface = gen["surface"]
+	background_cells = gen.get("background", {})
 	width = int(gen["width"])
 	height = int(gen["height"])
 	hall_info = WorldGen.stamp_town_hall(cells, surface, width / 2)
+	# FQ-02: keep the stamped hall clearing visually clean of background flora.
+	for bg_cell in background_cells.keys():
+		if absi(bg_cell.x - width / 2) <= 6:
+			background_cells.erase(bg_cell)
 	for cell in deltas:
 		var block_id: String = deltas[cell]
 		if block_id == "air":
@@ -115,6 +140,11 @@ func cell_center(cell: Vector2i) -> Vector2:
 
 func block_at(cell: Vector2i) -> String:
 	return cells.get(cell, "air")
+
+
+## FQ-02: background flora id at a cell ("" when none). Visual layer only.
+func background_at(cell: Vector2i) -> String:
+	return background_cells.get(cell, "")
 
 
 func is_solid_at(cell: Vector2i) -> bool:
@@ -203,6 +233,11 @@ func _redraw_all() -> void:
 	_tilemap.clear()
 	for cell in cells:
 		_set_tile(cell, cells[cell])
+	_bg_tilemap.clear()
+	for cell in background_cells:
+		var flora_id: String = background_cells[cell]
+		if _bg_source_ids.has(flora_id):
+			_bg_tilemap.set_cell(cell, _bg_source_ids[flora_id], Vector2i.ZERO)
 
 
 func _set_tile(cell: Vector2i, block_id: String) -> void:
@@ -266,6 +301,40 @@ func _build_tileset() -> TileSet:
 			else:
 				tile_data.set_occluder(0, occluder)
 	return ts
+
+
+## FQ-02 background flora tileset: textures only — no physics and no occlusion
+## layers, so background trees can never collide with actors or block light.
+func _build_background_tileset() -> TileSet:
+	var ts := TileSet.new()
+	var t := tile_size()
+	ts.tile_size = Vector2i(t, t)
+	for flora_id in BACKGROUND_COLORS:
+		var src := TileSetAtlasSource.new()
+		src.texture = _make_background_texture(flora_id, t)
+		src.texture_region_size = Vector2i(t, t)
+		src.create_tile(Vector2i.ZERO)
+		_bg_source_ids[flora_id] = ts.add_source(src)
+	return ts
+
+
+func _make_background_texture(flora_id: String, t: int) -> ImageTexture:
+	var color: Color = BACKGROUND_COLORS.get(flora_id, Color.MAGENTA)
+	var img := Image.create(t, t, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	if flora_id == "bg_trunk":
+		# Narrow bar so background trunks read slimmer than solid wood blocks.
+		for y in range(t):
+			for x in range(t / 2 - 2, t / 2 + 2):
+				img.set_pixel(x, y, color)
+	else:
+		# Leafy blob: full square with the four corners clipped.
+		for y in range(t):
+			for x in range(t):
+				var corner := mini(x, t - 1 - x) + mini(y, t - 1 - y)
+				if corner > 2:
+					img.set_pixel(x, y, color)
+	return ImageTexture.create_from_image(img)
 
 
 func _make_block_texture(block_id: String, t: int) -> ImageTexture:

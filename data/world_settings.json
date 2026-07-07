@@ -39,6 +39,7 @@
       "dirt_depth": 4,
       "ore_abundance": 1.0,
       "tree_density": 1.0,
+      "tree_foreground_ratio": 0.4,
       "bush_density": 1.0,
       "ore_seed_offset": 1337,
       "tree_seed_offset": 0,
@@ -101,7 +102,8 @@
       "terrain_amplitude": "Vertical height of hills and valleys. 0.25 = nearly flat, 2.0 = steep terrain.",
       "terrain_frequency": "Horizontal scale of terrain features. Lower = broader, gentler hills.",
       "ore_abundance": "Density of underground ore veins. 0.0 = no ore, 2.0 = rich deposits.",
-      "tree_density": "Number of surface trees. 0.0 = barren surface, 2.0 = dense woodland.",
+      "tree_density": "Number of surface trees, split between solid wood and walk-past background trees. 0.0 = barren surface, 2.0 = dense woodland.",
+      "tree_foreground_ratio": "Fraction of trees that are solid, mineable wood columns. Background trees can always be walked past.",
       "bush_density": "Number of berry bushes on the surface. Affects early food availability.",
       "dirt_depth": "Tiles of dirt above the stone layer (2-8 tiles)."
     },

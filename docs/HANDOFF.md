@@ -2,9 +2,15 @@
 
 ## Current State
 
-**v0.6 character/inventory/world-builder/plants/tools implemented and closed out** (run `20260704_coheronia_v06_increment`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment`; Godot 4.6.1 stable).
+**FQ-02 (background trees and pass-through flora) implemented and closed out** (run `20260706_coheronia_fq02_background_trees`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01; Godot 4.6.1 stable).
 
-v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout.
+v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 (closeout repair), FQ-01 (player health loop), and FQ-02 (background trees) followed from `docs/FABLE_TASK_QUEUE.md`.
+
+## FQ-02 Additions
+
+- **Foreground/background tree split**: each tree site from the tree seed channel now becomes either a solid, mineable foreground `wood` column (unchanged 3-5 tall) or a pass-through background tree (4-7 trunk + small canopy) the player simply walks past. New config key `generation.tree_foreground_ratio` (0-1, default 0.4, world-builder slider "Solid Tree Ratio"); a foreground tree is forced after 2 consecutive background trees so wood supply stays meaningful.
+- **Background visual layer**: `world.gd` renders `background_cells` (`bg_trunk`/`bg_canopy`, produced by `WorldGen.generate`) on a new `BackgroundFlora` TileMapLayer added before the `Blocks` layer, modulated with a dim cool tint. Its tileset has no physics and no occlusion layers, so background flora can never collide, block light, or shelter. Background cells are pure visuals: never in `cells`, never mineable/placeable/saved (deterministic from seed+config), never overwrite terrain/wood/bushes, and are cleared across the Town Hall footprint columns.
+- **Preserved contracts**: mining frames (dirt 21 / wood 33 / stone 66; wood with axe 24), wood drops, axe preference, bush support/regrowth (bushes also skip background-occupied cells), save/load, player health loop — all unchanged and re-verified by smoke.
 
 ## v0.6 Additions
 
@@ -28,7 +34,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 122/122 | waited Windows Godot process wrote `user://smoke_results.json` (62 baseline -> 94 A/D -> 106 B/C -> 122 E/F) |
+| Automated smoke | PASS 142/142 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02) |
 
 ## Known Risks / Gotchas
 
@@ -39,10 +45,12 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - The inventory panel is read-only; hotbar contents remain the fixed block set.
 - Axe tiers stop at 1; only the pick has a tier-2 upgrade path.
 - Raider pressure, XP pacing, and base-level thresholds remain untested by human play.
+- FQ-02 changes the tree layout of regenerated terrain: worlds saved before FQ-02 will regenerate with some former solid trees now background flora. Terrain deltas still apply cleanly (they overlay regenerated cells), but a pre-FQ-02 "air" delta where a tree used to stand may sit oddly next to new background flora. Cosmetic only; no data loss.
+- Background trees are intentionally not harvestable in this pass (no minimal hook was needed); revisit if a "clear background flora" action is ever wanted.
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 (v0.6.1 closeout repair) and FQ-01 (player health loop: health bar with current/max, eat food on H, safe passive regen near the hall, collapse loses a floor-fraction of each stack and respawns at the hall, data-driven player_defaults and enemy contact_damage/speed, smoke 134/134) are complete; FQ-02 (background trees and pass-through flora) is next.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 (v0.6.1 closeout repair), FQ-01 (player health loop, smoke 134/134), and FQ-02 (background trees and pass-through flora: foreground/background tree split, `tree_foreground_ratio`, `BackgroundFlora` layer, smoke 142/142) are complete; FQ-03 (equipment data model and character-owned gear slots) is next.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

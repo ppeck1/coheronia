@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against v0.6 closeout run `20260704_coheronia_v06_increment`.
+State: audited against FQ-02 run `20260706_coheronia_fq02_background_trees`.
 
 ## Authority Surfaces
 
@@ -43,7 +43,8 @@ All registries load through `scripts/data/json_data.gd` (`load_dict`, push_error
 | `generation.dirt_depth` | `WorldGen.generate` | dirt layer depth before stone/ore |
 | `generation.ore_abundance` | `WorldGen.generate` | ore threshold; 0 disables ore |
 | `generation.ore_seed_offset` | `WorldGen.generate` | independent ore layout channel |
-| `generation.tree_density` | `WorldGen.generate` | tree/wood frequency; 0 disables trees |
+| `generation.tree_density` | `WorldGen.generate` | tree site frequency (foreground wood + background flora); 0 disables both |
+| `generation.tree_foreground_ratio` | `WorldGen.generate` | FQ-02: fraction of tree sites that are solid, mineable wood columns (0-1, default 0.4); the rest become pass-through background trees; a foreground tree is forced after 2 consecutive background trees when the ratio is > 0 |
 | `generation.tree_seed_offset` | `WorldGen.generate` | independent tree channel |
 | `generation.bush_density` | `WorldGen.generate` | berry bush frequency; 0 disables bushes |
 | `generation.bush_seed_offset` | `WorldGen.generate` | independent bush channel |
@@ -112,6 +113,7 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 | `terrain_deltas` | dictionary | world file state | edits over regenerated terrain |
 | `world.width/height` | int | `WorldConfig.size_dims` | replaces old constants |
 | `surface` | dictionary | `WorldGen.generate` | top solid y per x |
+| `background_cells` | dictionary | `WorldGen.generate` -> `world.background_cells` | FQ-02: Vector2i -> `bg_trunk`/`bg_canopy` pass-through flora; rendered on the `BackgroundFlora` TileMapLayer (no physics/occlusion layers, `BACKGROUND_TINT` modulate) behind blocks and actors; regenerated from seed+config, never saved, never in `cells`, never solid/mineable/placeable; cleared across the hall footprint columns |
 | `hall_info` | dictionary | `WorldGen.stamp_town_hall` | center cell, ground y, protected core cells |
 | `bush_regrow` | dictionary | `world.gd` / save | harvested bush timers |
 | `player_position` | Vector2 | save state | restored after world rebuild |
@@ -191,6 +193,8 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-02 adds 8 checks (`fq02_*`, suite total 142) covering: background flora generates on default config alongside foreground wood; no background cell overlaps `cells` or falls outside world bounds; the `BackgroundFlora` layer sits before the `Blocks` layer and its tileset has zero physics and occlusion layers; `tree_foreground_ratio` 0.0 produces only background trees and 1.0 only foreground wood; `tree_density` 0.0 clears background flora too; and a live traversal check where the player walks past a background trunk on flat terrain using only `move_right` (no jump, no mining).
 
 FQ-01 adds 8 checks (`fq01_*`) covering: i-frame damage gating and the post-cooldown hit; eat-food healing (consumes 1 food, clamps to max_health) and its full-health no-op; passive regen near vs. far from the Town Hall; collapse inventory loss (floored per stack) plus respawn-at-hall-at-full-health; health save/load round-trip with max_health preserved; and enemy contact damage read from `data/enemies.json` scaled by `difficulty("enemy")`.
 

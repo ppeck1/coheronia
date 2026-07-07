@@ -25,6 +25,7 @@ const GEN_ROWS := [
 	["terrain_frequency", "Terrain Frequency", 0.25, 2.0, 0.05],
 	["ore_abundance", "Ore Abundance", 0.0, 2.0, 0.05],
 	["tree_density", "Tree Density", 0.0, 2.0, 0.05],
+	["tree_foreground_ratio", "Solid Tree Ratio", 0.0, 1.0, 0.05],
 	["bush_density", "Bush Density", 0.0, 2.0, 0.05],
 	["dirt_depth", "Dirt Depth", 2.0, 8.0, 1.0],
 ]

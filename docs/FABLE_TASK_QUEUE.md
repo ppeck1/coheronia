@@ -23,9 +23,9 @@ and outbox packets.
 
 | ID | Priority | State | Work Item | Why It Comes Here |
 |---|---|---|---|---|
-| FQ-00 | P0 | Ready | v0.6.1 closeout repair | Clears known review issues before new work stacks on top. |
-| FQ-01 | P0 | Ready | Player health, damage, healing, and death loop | Combat, armor, enemies, magic, and UI all depend on clear survivability rules. |
-| FQ-02 | P0 | Ready | Background trees and pass-through flora | Fixes a high-friction traversal issue and sets up a true foreground/background world model. |
+| FQ-00 | P0 | Done | v0.6.1 closeout repair | Clears known review issues before new work stacks on top. |
+| FQ-01 | P0 | Done | Player health, damage, healing, and death loop | Combat, armor, enemies, magic, and UI all depend on clear survivability rules. |
+| FQ-02 | P0 | Done | Background trees and pass-through flora | Fixes a high-friction traversal issue and sets up a true foreground/background world model. |
 | FQ-03 | P0 | Ready | Equipment data model and character-owned gear slots | Sword, tools, armor, rings, amulet, and accessory need one shared foundation before balancing. |
 | FQ-04 | P1 | Ready after FQ-03 | First combat gear slice: sword, armor mitigation, toolbelt display | Turns equipment into visible gameplay without building every item tier at once. |
 | FQ-05 | P1 | Ready after FQ-01 | Mana or Attunement system MVP | Establishes how magic users work before adding spells or ancestry-specific magic. |

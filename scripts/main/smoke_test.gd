@@ -371,6 +371,87 @@ func _run() -> void:
 	world.setup(777)
 	_check("density_settings", _count_blocks(world, "wood") == 0
 		and _count_blocks(world, "berry_bush") == 0)
+
+	# --- FQ-02: background trees and pass-through flora ---
+	_check("fq02_density_zero_clears_background", world.background_cells.size() == 0,
+		"background=%d" % world.background_cells.size())
+	GameState.current_config = WorldConfig.new({})
+	world.setup(777)
+	var _fq02_bg_default: int = world.background_cells.size()
+	var _fq02_fg_default: int = _count_blocks(world, "wood")
+	_check("fq02_background_trees_generated",
+		_fq02_bg_default > 0 and _fq02_fg_default > 0,
+		"background=%d foreground_wood=%d" % [_fq02_bg_default, _fq02_fg_default])
+	var _fq02_overlap := 0
+	var _fq02_oob := 0
+	for _fq02_cell: Vector2i in world.background_cells:
+		if world.cells.has(_fq02_cell):
+			_fq02_overlap += 1
+		if _fq02_cell.y < 0 or _fq02_cell.x < 0 or _fq02_cell.x >= world.width:
+			_fq02_oob += 1
+	_check("fq02_background_in_bounds_no_overlap",
+		_fq02_overlap == 0 and _fq02_oob == 0,
+		"overlap=%d out_of_bounds=%d of %d" % [_fq02_overlap, _fq02_oob, _fq02_bg_default])
+	_check("fq02_background_layer_behind_blocks",
+		world._bg_tilemap.get_index() < world._tilemap.get_index()
+		and world._bg_tilemap.tile_set.get_physics_layers_count() == 0
+		and world._bg_tilemap.tile_set.get_occlusion_layers_count() == 0,
+		"bg_index=%d blocks_index=%d bg_physics_layers=%d" % [
+			world._bg_tilemap.get_index(), world._tilemap.get_index(),
+			world._bg_tilemap.tile_set.get_physics_layers_count()])
+	GameState.current_config = WorldConfig.new(
+		{"generation": {"tree_density": 2.0, "tree_foreground_ratio": 0.0}})
+	world.setup(777)
+	_check("fq02_ratio_zero_all_background", _count_blocks(world, "wood") == 0
+		and world.background_cells.size() > 0,
+		"wood=%d background=%d" % [_count_blocks(world, "wood"), world.background_cells.size()])
+	GameState.current_config = WorldConfig.new(
+		{"generation": {"tree_density": 2.0, "tree_foreground_ratio": 1.0}})
+	world.setup(777)
+	_check("fq02_ratio_one_all_foreground", world.background_cells.size() == 0
+		and _count_blocks(world, "wood") > 0,
+		"wood=%d background=%d" % [_count_blocks(world, "wood"), world.background_cells.size()])
+
+	# Walk-through: on flat terrain the player walks past a background tree
+	# without jumping or mining. Threats are cleared so nothing shoves the
+	# player during the walk; load_game below restores the saved set.
+	for _fq02_t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_fq02_t):
+			_fq02_t.queue_free()
+	await get_tree().process_frame
+	GameState.current_config = WorldConfig.new({"generation": {
+		"terrain_amplitude": 0.0, "tree_density": 2.0,
+		"tree_foreground_ratio": 0.0, "bush_density": 0.0}})
+	world.setup(777)
+	root._position_actors()
+	var _fq02_hall_x: int = (world.hall_info["center_cell"] as Vector2i).x
+	var _fq02_trunk: Variant = null
+	for _fq02_bg: Vector2i in world.background_cells:
+		if world.background_cells[_fq02_bg] == "bg_trunk" \
+				and _fq02_bg.y == int(world.surface[_fq02_bg.x]) - 1 \
+				and _fq02_bg.x > _fq02_hall_x + 10 and _fq02_bg.x < world.width - 8:
+			_fq02_trunk = _fq02_bg
+			break
+	_check("fq02_walkable_trunk_found", _fq02_trunk != null,
+		"background=%d" % world.background_cells.size())
+	if _fq02_trunk != null:
+		var _fq02_trunk_cell: Vector2i = _fq02_trunk
+		player.global_position = world.cell_center(
+			Vector2i(_fq02_trunk_cell.x - 4, _fq02_trunk_cell.y)) + Vector2(0, -4)
+		player.velocity = Vector2.ZERO
+		for _fq02_i in range(20):
+			await get_tree().physics_frame  # settle onto the floor
+		Input.action_press("move_right")
+		for _fq02_j in range(75):
+			await get_tree().physics_frame
+		Input.action_release("move_right")
+		var _fq02_target_x: float = world.cell_center(
+			Vector2i(_fq02_trunk_cell.x + 3, _fq02_trunk_cell.y)).x
+		_check("fq02_player_walks_past_background_tree",
+			player.global_position.x >= _fq02_target_x,
+			"x=%.1f target=%.1f trunk_x=%d" % [
+				player.global_position.x, _fq02_target_x, _fq02_trunk_cell.x])
+
 	GameState.current_config = original_config
 	_check("world_restored_after_config_tests", root.load_game())
 
