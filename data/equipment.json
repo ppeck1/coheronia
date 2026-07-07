@@ -38,6 +38,30 @@
       "slot_type": "ring",
       "description": "A simple ring. It does nothing, yet.",
       "effects": {}
+    },
+    "sword_crude": {
+      "display_name": "Crude Sword",
+      "slot_type": "weapon",
+      "description": "Town Hall forged. Strikes far harder than bare hands.",
+      "effects": { "attack_damage": 3 }
+    },
+    "helmet_crude": {
+      "display_name": "Crude Helm",
+      "slot_type": "helmet",
+      "description": "A stiff wooden cap. Softens blows a little.",
+      "effects": { "armor": 1 }
+    },
+    "torso_crude": {
+      "display_name": "Crude Cuirass",
+      "slot_type": "torso",
+      "description": "Bound wood and stone plates over the chest.",
+      "effects": { "armor": 2 }
+    },
+    "feet_crude": {
+      "display_name": "Crude Boots",
+      "slot_type": "feet",
+      "description": "Reinforced footwraps. Every bit helps.",
+      "effects": { "armor": 1 }
     }
   }
 }

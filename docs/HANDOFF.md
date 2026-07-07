@@ -2,9 +2,16 @@
 
 ## Current State
 
-**FQ-03 (equipment data model and character-owned gear slots) implemented and closed out** (run `20260707_coheronia_fq03_equipment_model`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01 -> FQ-02; Godot 4.6.1 stable).
+**FQ-04 (first combat gear slice: sword and armor) implemented and closed out** (run `20260707_coheronia_fq04_combat_gear_slice`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01 -> FQ-02 -> FQ-03; Godot 4.6.1 stable).
 
-v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 (closeout repair), FQ-01 (player health loop), FQ-02 (background trees), and FQ-03 (equipment model) followed from `docs/FABLE_TASK_QUEUE.md`.
+v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 (closeout repair), FQ-01 (player health loop), FQ-02 (background trees), FQ-03 (equipment model), and FQ-04 (combat gear) followed from `docs/FABLE_TASK_QUEUE.md`.
+
+## FQ-04 Additions
+
+- **Crude sword**: `sword_crude` (weapon slot, `attack_damage: 3`) forged at the Town Hall via the new `craft_sword` recipe (2 wood + 3 stone). `player.attack_damage()` returns the equipped weapon's damage (1 bare-handed) and feeds `_try_hit_threat` -> `threat.take_hit`, so a fresh slime (3 hp) dies to one sword strike instead of three punches.
+- **Crude armor set**: `helmet_crude`/`torso_crude`/`feet_crude` (armor 1/2/1) forged in one craft via `craft_armor_set` (6 wood + 4 stone). `player.armor_total()` sums the `armor` effect over all equipped items; `take_damage` applies flat mitigation with a minimum 1-health chip per landed hit so armor can never grant immunity. Enemy contact damage, i-frames, collapse, and ancestry health modifiers are untouched.
+- **Forge flow**: `town_hall.forge_sword`/`forge_armor` follow the forge_axe pattern (stockpile inputs via a shared `_consume_recipe_inputs` helper, occupancy guards on the weapon/torso slots, equip via `player.equip_item`); two new town-panel buttons with crafted-state refresh; XP via `tool_crafted`.
+- **Visible state**: the toolbelt line shows "Weapon <name> · Armor N"; the inventory panel's EQUIPMENT section gained an "Attack N · Armor N" summary. Rings, amulet, and accessory remain inert slot-ready data.
 
 ## FQ-03 Additions
 
@@ -41,7 +48,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 149/149 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03) |
+| Automated smoke | PASS 157/157 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04) |
 
 ## Known Risks / Gotchas
 
@@ -54,12 +61,13 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - Raider pressure, XP pacing, and base-level thresholds remain untested by human play.
 - FQ-02 changes the tree layout of regenerated terrain: worlds saved before FQ-02 will regenerate with some former solid trees now background flora. Terrain deltas still apply cleanly (they overlay regenerated cells), but a pre-FQ-02 "air" delta where a tree used to stand may sit oddly next to new background flora. Cosmetic only; no data loss.
 - Background trees are intentionally not harvestable in this pass (no minimal hook was needed); revisit if a "clear background flora" action is ever wanted.
-- FQ-03 equipment is a foundation: the 10 non-tool slots hold data but have no gameplay effects yet (FQ-04 wires sword/armor); there is no equip/unequip UI interaction — the panel is read-only and `player.equip_item` is the API. Items are not acquirable in play yet (ring_band exists only for the round-trip smoke).
+- Equipment UI remains read-only (`player.equip_item` is the API; no drag/drop). Rings, amulet, and accessory still have no live effects; ring_band exists only for the round-trip smoke.
+- FQ-04 armor is flat mitigation with a 1-health minimum chip; there is no unequip flow for forged gear in play (forge guards prevent duplicates). Combat feel (sword damage 3, armor total 4 vs slime 8) is untested by human play; all numbers are data-tunable in `data/equipment.json`.
 - A hypothetical pick tier above 2 has no matching equipment item; the gear shape would record the highest defined pick (`pick_forged`) while the live tier is preserved in `carried_tool_tiers`. No real character can exceed tier 2 today (forge caps at 2).
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 (v0.6.1 closeout repair), FQ-01 (player health loop, smoke 134/134), FQ-02 (background trees and pass-through flora, smoke 142/142), and FQ-03 (equipment data model: data/equipment.json, 12 character-owned gear slots, tool-tier derivation, read-only panel section, smoke 149/149) are complete; FQ-04 (first combat gear slice: sword, armor mitigation, toolbelt display) is next.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 (v0.6.1 closeout repair), FQ-01 (player health loop, smoke 134/134), FQ-02 (background trees, smoke 142/142), FQ-03 (equipment data model, smoke 149/149), and FQ-04 (combat gear slice: crude sword, armor mitigation with minimum chip, forge buttons, visible weapon/armor state, smoke 157/157) are complete; FQ-05 (Mana or Attunement system MVP) is next.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

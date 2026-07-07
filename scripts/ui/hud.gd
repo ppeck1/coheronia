@@ -7,6 +7,8 @@ signal deposit_requested
 signal repair_requested
 signal forge_requested
 signal forge_axe_requested
+signal forge_sword_requested
+signal forge_armor_requested
 signal lantern_requested
 
 ## Low-health fraction mirrors player._low_health_fraction (data-driven
@@ -33,6 +35,8 @@ var _town_panel: PanelContainer
 var _town_info: Label
 var _forge_button: Button
 var _forge_axe_button: Button
+var _forge_sword_button: Button
+var _forge_armor_button: Button
 var _save_label: Label
 var _debug_label: Label
 # Wave C: openable full inventory panel.
@@ -136,6 +140,14 @@ func _build_town_panel() -> void:
 	_forge_axe_button.text = "Craft axe (4 wood + 2 stone)"
 	_forge_axe_button.pressed.connect(func() -> void: forge_axe_requested.emit())
 	box.add_child(_forge_axe_button)
+	_forge_sword_button = Button.new()
+	_forge_sword_button.text = "Forge crude sword (2 wood + 3 stone)"
+	_forge_sword_button.pressed.connect(func() -> void: forge_sword_requested.emit())
+	box.add_child(_forge_sword_button)
+	_forge_armor_button = Button.new()
+	_forge_armor_button.text = "Forge crude armor set (6 wood + 4 stone)"
+	_forge_armor_button.pressed.connect(func() -> void: forge_armor_requested.emit())
+	box.add_child(_forge_armor_button)
 	var lantern := Button.new()
 	lantern.text = "Craft lantern (2 ore + 1 wood)"
 	lantern.pressed.connect(func() -> void: lantern_requested.emit())
@@ -199,6 +211,8 @@ func _refresh_inventory_panel() -> void:
 	# the pickaxe/axe rows always mirror the live tool tiers.
 	lines.append("")
 	lines.append("  — EQUIPMENT —")
+	# FQ-04: combat summary derived from the equipped gear.
+	lines.append("  Attack %d · Armor %d" % [player.attack_damage(), int(player.armor_total())])
 	var equipped: Dictionary = player.equipped_dict()
 	for slot in BlockRegistry.equipment_slots():
 		var slot_id := str(slot.get("id", ""))
@@ -308,7 +322,12 @@ func update_inventory() -> void:
 		if extra > 0:
 			parts.append("  %s ×%d" % [BlockRegistry.display_name(extra_id).capitalize(), extra])
 	var _axe_hb_str := ("tier %d" % player.axe_tier) if player.axe_tier > 0 else "none"
-	parts.append("  Pick tier %d · Axe %s" % [player.tool_tier, _axe_hb_str])
+	# FQ-04: weapon/armor state in the toolbelt line.
+	var _weapon_id := str(player.equipped_dict().get("weapon", ""))
+	var _weapon_str := BlockRegistry.equipment_item_display_name(_weapon_id) \
+		if _weapon_id != "" else "none"
+	parts.append("  Pick tier %d · Axe %s · Weapon %s · Armor %d" % [
+		player.tool_tier, _axe_hb_str, _weapon_str, int(player.armor_total())])
 	_hotbar_label.text = "  ".join(parts)
 	_refresh_stock()
 	if _inv_panel != null and _inv_panel.visible:
@@ -351,6 +370,17 @@ func refresh_town_panel() -> void:
 			var axe_forged: bool = player.axe_tier >= 1
 			_forge_axe_button.disabled = axe_forged
 			_forge_axe_button.text = "Axe crafted (tier 1)" if axe_forged else "Craft axe (4 wood + 2 stone)"
+		# FQ-04: sword/armor buttons reflect the equipped gear state.
+		if _forge_sword_button != null:
+			var armed: bool = str(player.equipped_dict().get("weapon", "")) != ""
+			_forge_sword_button.disabled = armed
+			_forge_sword_button.text = "Sword forged" if armed \
+				else "Forge crude sword (2 wood + 3 stone)"
+		if _forge_armor_button != null:
+			var armored: bool = str(player.equipped_dict().get("torso", "")) != ""
+			_forge_armor_button.disabled = armored
+			_forge_armor_button.text = "Armor forged" if armored \
+				else "Forge crude armor set (6 wood + 4 stone)"
 
 
 func _refresh_stock() -> void:

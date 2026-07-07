@@ -1173,6 +1173,113 @@ func _run() -> void:
 	player.tool_tier = 2
 	player.axe_tier = 1
 
+	# --- FQ-04: first combat gear slice — sword and armor ---
+
+	# (a) bare-handed baseline: no weapon, no armor.
+	_check("fq04_unarmed_baseline",
+		player.attack_damage() == 1 and player.armor_total() == 0.0
+		and str(player.equipped_dict().get("weapon", "")) == "",
+		"attack=%d armor=%.0f" % [player.attack_damage(), player.armor_total()])
+
+	# (b) forging the sword equips it, consumes stockpile, and cannot repeat.
+	hall.stockpile["wood"] = 20
+	hall.stockpile["stone"] = 20
+	var _fq04_wood_before: int = int(hall.stockpile.get("wood", 0))
+	var _fq04_stone_before: int = int(hall.stockpile.get("stone", 0))
+	var _fq04_sword_ok: bool = hall.forge_sword(player)
+	_check("fq04_forge_sword_equips",
+		_fq04_sword_ok and str(player.equipped_dict().get("weapon", "")) == "sword_crude"
+		and player.attack_damage() == 3
+		and int(hall.stockpile.get("wood", 0)) == _fq04_wood_before - 2
+		and int(hall.stockpile.get("stone", 0)) == _fq04_stone_before - 3
+		and not hall.forge_sword(player),
+		"attack=%d wood %d→%d stone %d→%d" % [player.attack_damage(),
+			_fq04_wood_before, int(hall.stockpile.get("wood", 0)),
+			_fq04_stone_before, int(hall.stockpile.get("stone", 0))])
+
+	# (c) the sword kills a 3 hp slime in one real hit-path strike.
+	for _fq04_t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_fq04_t):
+			_fq04_t.queue_free()
+	await get_tree().process_frame
+	var _fq04_slime: Node = root.spawn_enemy_for_test("surface_slime")
+	_fq04_slime.hp = 3
+	_fq04_slime.max_hp = 3
+	player.global_position = _fq04_slime.global_position
+	var _fq04_hit: bool = player._try_hit_threat(_fq04_slime.global_position)
+	await get_tree().process_frame
+	var _fq04_dead: bool = not is_instance_valid(_fq04_slime) \
+		or _fq04_slime.is_queued_for_deletion()
+	_check("fq04_sword_damages_enemy", _fq04_hit and _fq04_dead,
+		"hit=%s dead_after_one_sword_strike=%s" % [str(_fq04_hit), str(_fq04_dead)])
+
+	# (d) forging the armor set equips helmet/torso/feet and cannot repeat.
+	var _fq04_armor_ok: bool = hall.forge_armor(player)
+	var _fq04_after_armor: Dictionary = player.equipped_dict()
+	_check("fq04_forge_armor_equips_set",
+		_fq04_armor_ok
+		and str(_fq04_after_armor.get("helmet", "")) == "helmet_crude"
+		and str(_fq04_after_armor.get("torso", "")) == "torso_crude"
+		and str(_fq04_after_armor.get("feet", "")) == "feet_crude"
+		and player.armor_total() == 4.0
+		and not hall.forge_armor(player),
+		"armor=%.0f set=%s|%s|%s" % [player.armor_total(),
+			str(_fq04_after_armor.get("helmet")), str(_fq04_after_armor.get("torso")),
+			str(_fq04_after_armor.get("feet"))])
+
+	# (e) armor reduces incoming damage by exactly the data-defined sum.
+	player.health = player.max_health
+	player._hurt_cooldown = 0.0
+	var _fq04_expected_loss: float = 10.0 - player.armor_total()
+	player.take_damage(10.0)
+	_check("fq04_armor_reduces_damage",
+		absf((player.max_health - player.health) - _fq04_expected_loss) < 0.001,
+		"lost %.1f expected %.1f (armor %.0f)" % [player.max_health - player.health,
+			_fq04_expected_loss, player.armor_total()])
+
+	# (f) armor can never fully block: a landed hit chips at least 1 health.
+	player.health = player.max_health
+	player._hurt_cooldown = 0.0
+	player.take_damage(2.0)
+	_check("fq04_armor_minimum_chip_damage",
+		absf((player.max_health - player.health) - 1.0) < 0.001,
+		"lost %.1f from a 2.0 hit under %.0f armor" % [
+			player.max_health - player.health, player.armor_total()])
+
+	# (g) combat gear round-trips through character save/load and leaves
+	# ancestry/trait max_health untouched.
+	var _fq04_max_health_before: float = player.max_health
+	root.save_manager.save_game()
+	player.apply_equipment({})
+	var _fq04_armor_wiped: float = player.armor_total()
+	root.load_game()
+	_check("fq04_gear_round_trips_ancestry_intact",
+		_fq04_armor_wiped == 0.0
+		and str(player.equipped_dict().get("weapon", "")) == "sword_crude"
+		and player.armor_total() == 4.0
+		and absf(player.max_health - _fq04_max_health_before) < 0.001,
+		"armor wiped=%.0f restored=%.0f max_health=%.1f (expected %.1f)" % [
+			_fq04_armor_wiped, player.armor_total(),
+			player.max_health, _fq04_max_health_before])
+
+	# (h) the equipment UI shows weapon/armor state.
+	hud.toggle_inventory_panel()
+	var _fq04_panel: String = hud.get_inventory_panel_text()
+	hud.toggle_inventory_panel()
+	_check("fq04_ui_shows_weapon_and_armor",
+		"Attack 3" in _fq04_panel and "Armor 4" in _fq04_panel
+		and "Weapon: Crude Sword" in _fq04_panel
+		and "Torso: Crude Cuirass" in _fq04_panel,
+		"panel_head=%s" % _fq04_panel.left(60))
+
+	# Clear combat gear so the FQ-01 exact-damage checks below see the same
+	# unarmored player they were written against.
+	player.equip_item("weapon", "")
+	player.equip_item("helmet", "")
+	player.equip_item("torso", "")
+	player.equip_item("feet", "")
+	player.health = player.max_health
+
 	# --- FQ-01: player health, damage, healing, and death loop ---
 
 	player.set_physics_process(false)

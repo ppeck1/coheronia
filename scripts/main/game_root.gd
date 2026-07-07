@@ -253,6 +253,8 @@ func _wire_signals() -> void:
 	hud.repair_requested.connect(_on_repair_requested)
 	hud.forge_requested.connect(_on_forge_requested)
 	hud.forge_axe_requested.connect(_on_forge_axe_requested)
+	hud.forge_sword_requested.connect(_on_forge_sword_requested)
+	hud.forge_armor_requested.connect(_on_forge_armor_requested)
 	hud.lantern_requested.connect(_on_lantern_requested)
 
 
@@ -678,6 +680,24 @@ func _on_forge_axe_requested() -> void:
 		award_xp("tool_crafted")
 	else:
 		log_event("Cannot craft axe (already crafted, or stockpile lacks 4 wood + 2 stone).")
+	hud.refresh_town_panel()
+
+
+func _on_forge_sword_requested() -> void:
+	if town_hall.forge_sword(player):
+		log_event("Forged a crude sword. Your strikes hit much harder.")
+		award_xp("tool_crafted")
+	else:
+		log_event("Cannot forge sword (already armed, or stockpile lacks 2 wood + 3 stone).")
+	hud.refresh_town_panel()
+
+
+func _on_forge_armor_requested() -> void:
+	if town_hall.forge_armor(player):
+		log_event("Forged a crude armor set. Incoming blows are softened.")
+		award_xp("tool_crafted")
+	else:
+		log_event("Cannot forge armor (already armored, or stockpile lacks 6 wood + 4 stone).")
 	hud.refresh_town_panel()
 
 

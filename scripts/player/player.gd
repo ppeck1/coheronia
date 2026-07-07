@@ -339,6 +339,28 @@ func equip_item(slot_id: String, item_id: String) -> bool:
 	return true
 
 
+## FQ-04: melee damage per hit — the equipped weapon's attack_damage effect,
+## or 1 when fighting bare-handed. Data-driven from equipment.json.
+func attack_damage() -> int:
+	var weapon_id := str(equipped_dict().get("weapon", ""))
+	if weapon_id == "":
+		return 1
+	return maxi(1, int(BlockRegistry.equipment_item(weapon_id).get("effects", {}).get("attack_damage", 1)))
+
+
+## FQ-04: flat incoming-damage reduction summed from every equipped item's
+## "armor" effect (helmet/torso/feet carry it today; the sum stays data-driven
+## so rings or amulets can add armor later without code changes).
+func armor_total() -> float:
+	var total := 0.0
+	var equipped: Dictionary = equipped_dict()
+	for slot_id in equipped:
+		var item_id: String = str(equipped[slot_id])
+		if item_id != "":
+			total += float(BlockRegistry.equipment_item(item_id).get("effects", {}).get("armor", 0.0))
+	return total
+
+
 ## Better picks mine faster: +50% speed per tier above 1; traits multiply.
 func effective_mine_speed() -> float:
 	return base_mine_speed * trait_mine_mult * (1.0 + 0.5 * float(tool_tier - 1))
@@ -370,10 +392,17 @@ func craft(recipe_id: String) -> bool:
 
 
 func take_damage(amount: float) -> void:
+	# FQ-04 review: non-positive amounts stay a no-op (pre-armor contract);
+	# the minimum-chip rule below only applies to real landed hits.
+	if amount <= 0.0:
+		return
 	if _hurt_cooldown > 0.0:
 		return
 	_hurt_cooldown = _hurt_cooldown_sec
-	health = maxf(0.0, health - amount)
+	# FQ-04: flat armor mitigation from equipped gear. A landed hit always
+	# chips at least 1 health so armor can never grant outright immunity.
+	var mitigated := maxf(1.0, amount - armor_total())
+	health = maxf(0.0, health - mitigated)
 	_hurt_flash_timer = 0.2
 	modulate = Color(1.0, 0.35, 0.35)
 	health_changed.emit(health, max_health)
@@ -467,7 +496,8 @@ func _try_hit_threat(at: Vector2) -> bool:
 		return false
 	for threat in get_tree().get_nodes_in_group("threats"):
 		if threat.global_position.distance_to(at) < 14.0:
-			threat.take_hit(1)
+			# FQ-04: hits carry the equipped weapon's damage (1 bare-handed).
+			threat.take_hit(attack_damage())
 			return true
 	return false
 

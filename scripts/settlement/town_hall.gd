@@ -11,6 +11,8 @@ const REPAIR_COST := {"stone": 2}
 const REPAIR_AMOUNT := 25.0
 const FORGE_RECIPE_ID := "basic_pick_upgrade"
 const AXE_RECIPE_ID := "craft_axe"
+const SWORD_RECIPE_ID := "craft_sword"
+const ARMOR_RECIPE_ID := "craft_armor_set"
 
 var stockpile: Dictionary = {}
 var damage := 0.0            # 0 (intact) .. 100 (ruined)
@@ -107,6 +109,60 @@ func forge_axe(player: CharacterBody2D) -> bool:
 			stockpile.erase(item_id)
 	player.axe_tier = 1
 	player.inventory_changed.emit()
+	stockpile_changed.emit()
+	return true
+
+
+## FQ-04: checks and consumes a recipe's inputs from the stockpile.
+## Returns true when everything was available and has been deducted.
+func _consume_recipe_inputs(recipe_id: String) -> bool:
+	var recipe: Dictionary = BlockRegistry.get_recipe(recipe_id)
+	if recipe.is_empty():
+		return false
+	var inputs: Dictionary = recipe.get("inputs", {})
+	for item_id in inputs:
+		if int(stockpile.get(item_id, 0)) < int(inputs[item_id]):
+			return false
+	for item_id in inputs:
+		stockpile[item_id] = int(stockpile[item_id]) - int(inputs[item_id])
+		if int(stockpile[item_id]) <= 0:
+			stockpile.erase(item_id)
+	return true
+
+
+## FQ-04: forges a crude sword into the weapon gear slot. Spends the
+## craft_sword recipe inputs. Player must not already carry a weapon.
+## The item/slot fit is verified before inputs are consumed so a data
+## regression (renamed item, failed equipment.json load) cannot eat the
+## stockpile without equipping anything.
+func forge_sword(player: CharacterBody2D) -> bool:
+	if str(player.equipped_dict().get("weapon", "")) != "":
+		return false
+	if not BlockRegistry.item_fits_slot("sword_crude", "weapon"):
+		return false
+	if not _consume_recipe_inputs(SWORD_RECIPE_ID):
+		return false
+	player.equip_item("weapon", "sword_crude")
+	stockpile_changed.emit()
+	return true
+
+
+## FQ-04: forges the crude armor set (helmet + torso + feet) into the gear
+## slots in one craft. Spends the craft_armor_set recipe inputs. Player must
+## not already wear a torso piece (the set anchor). All three pieces are
+## fit-checked before inputs are consumed, so a partial equip with a spent
+## stockpile is impossible.
+func forge_armor(player: CharacterBody2D) -> bool:
+	if str(player.equipped_dict().get("torso", "")) != "":
+		return false
+	for piece in [["helmet", "helmet_crude"], ["torso", "torso_crude"], ["feet", "feet_crude"]]:
+		if not BlockRegistry.item_fits_slot(piece[1], piece[0]):
+			return false
+	if not _consume_recipe_inputs(ARMOR_RECIPE_ID):
+		return false
+	player.equip_item("helmet", "helmet_crude")
+	player.equip_item("torso", "torso_crude")
+	player.equip_item("feet", "feet_crude")
 	stockpile_changed.emit()
 	return true
 

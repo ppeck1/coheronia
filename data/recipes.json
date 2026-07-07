@@ -68,6 +68,26 @@
       },
       "outputs": {},
       "station": "town_hall"
+    },
+    {
+      "recipe_id": "craft_sword",
+      "display_name": "Crude Sword",
+      "inputs": {
+        "wood": 2,
+        "stone": 3
+      },
+      "outputs": {},
+      "station": "town_hall"
+    },
+    {
+      "recipe_id": "craft_armor_set",
+      "display_name": "Crude Armor Set",
+      "inputs": {
+        "wood": 6,
+        "stone": 4
+      },
+      "outputs": {},
+      "station": "town_hall"
     }
   ]
 }

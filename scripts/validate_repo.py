@@ -137,7 +137,9 @@ for s in equipment_data["slots"]:
     slot_accepts.add(s["accepts"])
 items = equipment_data.get("items") or {}
 # ring_band is required because smoke's equip round-trip references it by id.
-for required_item in ["pick_basic", "pick_forged", "axe_crude", "ring_band"]:
+# FQ-04: sword and the three crude armor pieces are forged/equipped by id.
+for required_item in ["pick_basic", "pick_forged", "axe_crude", "ring_band",
+                      "sword_crude", "helmet_crude", "torso_crude", "feet_crude"]:
     if required_item not in items:
         fail(f"equipment.json missing required item: {required_item}")
 for item_id, item in items.items():
@@ -150,6 +152,19 @@ if int(items["pick_basic"]["effects"].get("pick_tier", 0)) != 1 \
         or int(items["pick_forged"]["effects"].get("pick_tier", 0)) != 2 \
         or int(items["axe_crude"]["effects"].get("axe_tier", 0)) != 1:
     fail("equipment.json tool item tiers must be pick_basic=1, pick_forged=2, axe_crude=1")
+# FQ-04: combat effects must be meaningful — a sword that hits no harder than
+# fists (attack_damage <= 1) or armor pieces with no armor value are data bugs.
+if int(items["sword_crude"]["effects"].get("attack_damage", 0)) <= 1:
+    fail("equipment.json sword_crude attack_damage must be > 1")
+for armor_item in ["helmet_crude", "torso_crude", "feet_crude"]:
+    if int(items[armor_item]["effects"].get("armor", 0)) < 1:
+        fail(f"equipment.json {armor_item} armor must be >= 1")
+# FQ-04: the forge recipes referenced by town_hall.gd must exist.
+recipes_data = json.loads((ROOT / "data/recipes.json").read_text(encoding="utf-8"))
+recipe_ids = {r.get("recipe_id") for r in (recipes_data.get("recipes") or [])}
+for required_recipe in ["craft_sword", "craft_armor_set"]:
+    if required_recipe not in recipe_ids:
+        fail(f"recipes.json missing required recipe: {required_recipe}")
 print("PASS equipment data")
 
 enemies_data = json.loads((ROOT / "data/enemies.json").read_text(encoding="utf-8"))

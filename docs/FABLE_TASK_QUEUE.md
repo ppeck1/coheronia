@@ -27,7 +27,7 @@ and outbox packets.
 | FQ-01 | P0 | Done | Player health, damage, healing, and death loop | Combat, armor, enemies, magic, and UI all depend on clear survivability rules. |
 | FQ-02 | P0 | Done | Background trees and pass-through flora | Fixes a high-friction traversal issue and sets up a true foreground/background world model. |
 | FQ-03 | P0 | Done | Equipment data model and character-owned gear slots | Sword, tools, armor, rings, amulet, and accessory need one shared foundation before balancing. |
-| FQ-04 | P1 | Ready after FQ-03 | First combat gear slice: sword, armor mitigation, toolbelt display | Turns equipment into visible gameplay without building every item tier at once. |
+| FQ-04 | P1 | Done | First combat gear slice: sword, armor mitigation, toolbelt display | Turns equipment into visible gameplay without building every item tier at once. |
 | FQ-05 | P1 | Ready after FQ-01 | Mana or Attunement system MVP | Establishes how magic users work before adding spells or ancestry-specific magic. |
 | FQ-06 | P1 | Ready after FQ-05 | Visual player skill tree navigator | Player XP needs visible choices; start with navigation and one live lane. |
 | FQ-07 | P1 | Ready | Visual asset pipeline with color fallback | Lets art improve incrementally while preserving current simple-color rendering. |

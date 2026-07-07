@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-03 run `20260707_coheronia_fq03_equipment_model`.
+State: audited against FQ-04 run `20260707_coheronia_fq04_combat_gear_slice`.
 
 ## Authority Surfaces
 
@@ -105,7 +105,10 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 | `requires_support` | bool | `data/blocks.json` | berry_bush; enforced on mine, load sweep, and regrowth |
 | `axe_tier` | int | `player.gd` / character-carried | 0 = no axe; `craft_axe` recipe (4 wood + 2 stone, town_hall) sets 1 |
 | `equipment` (slots) | data | `data/equipment.json` | FQ-03: 12 slots (weapon, axe, pickaxe, helmet, torso, feet, ring_1-4, amulet, accessory) with `accepts` slot_type; validator-enforced |
-| `equipment` (items) | data | `data/equipment.json` | item defs {display_name, slot_type, description, effects}; live: pick_basic (pick_tier 1), pick_forged (pick_tier 2), axe_crude (axe_tier 1); inert: ring_band |
+| `equipment` (items) | data | `data/equipment.json` | item defs {display_name, slot_type, description, effects}; live: pick_basic (pick_tier 1), pick_forged (pick_tier 2), axe_crude (axe_tier 1), sword_crude (attack_damage 3), helmet_crude/torso_crude/feet_crude (armor 1/2/1); inert: ring_band |
+| `attack_damage` | int effect | `data/equipment.json` -> `player.attack_damage()` | FQ-04: melee damage per hit from the equipped weapon; 1 bare-handed; consumed by `_try_hit_threat` -> `threat.take_hit` |
+| `armor` | int effect | `data/equipment.json` -> `player.armor_total()` | FQ-04: flat incoming-damage reduction summed over ALL equipped items (helmet/torso/feet today); applied in `take_damage` with a minimum 1-health chip per landed hit |
+| `craft_sword` / `craft_armor_set` | recipes | `data/recipes.json` | FQ-04: town_hall station, empty outputs; consumed by `town_hall.forge_sword`/`forge_armor` which equip gear via `player.equip_item` (guards: weapon/torso slot must be empty) |
 | `player.equipment` | dictionary | `player.gd` / character-carried | slot_id -> item_id for the 10 non-tool slots; `equipped_dict()` merges in pickaxe/axe derived from live tiers; `equip_item(slot, item)` validates fit via `BlockRegistry.item_fits_slot`; tool slots cannot be cleared (tiers come from forging) |
 | `drops` | dictionary | `data/blocks.json` | inventory additions on break |
 | `is_placeable` | bool | `data/blocks.json` | placement gate |
@@ -198,6 +201,17 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-04 adds 8 checks (`fq04_*`, suite total 157) covering: bare-handed baseline
+(attack 1, armor 0); forging the sword equips it, consumes 2 wood + 3 stone,
+and cannot repeat; one real hit-path strike kills a 3 hp slime; forging the
+armor set equips helmet/torso/feet (armor total 4) and cannot repeat; a
+10-damage hit loses exactly 10 - armor_total(); a 2-damage hit under 4 armor
+still chips exactly 1 (no immunity); combat gear round-trips through character
+save/load with ancestry/trait max_health untouched; and the equipment UI shows
+"Attack 3 · Armor 4" plus the equipped weapon/torso names. `validate_repo.py`
+additionally requires the four combat items with meaningful effects and the
+two forge recipes.
 
 FQ-03 adds 7 checks (`fq03_*`, suite total 149) covering: equipment.json loads
 with the 12 expected slots in order; a new character record carries default
