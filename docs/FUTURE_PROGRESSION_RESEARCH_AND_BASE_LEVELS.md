@@ -220,6 +220,25 @@ These are not the obvious tools/workstations/blocks/ores/vendors/subjects list. 
 | Outposts | Lets large worlds support multiple regions without abandoning the home base |
 | Maps/scouting | Makes region growth legible |
 
+## Attunement Extension Points (live since FQ-05)
+
+Attunement is the player magic resource, implemented as an MVP in FQ-05: a
+current/max pool with constant slow regen, tuned in `data/character_data.json`
+`player_defaults` (`base_max_attunement`, `attunement_regen_per_sec`,
+`attunement_pulse_cost`, `attunement_pulse_cooldown_sec`,
+`attunement_pulse_duration_sec`), displayed as a HUD bar, spent by the first
+active use (`attune_pulse` on R — a harmless light pulse), and world-saved
+next to health.
+
+Extension points for future magic-user lanes:
+
+| Hook | Where | How it works today |
+|---|---|---|
+| Ancestry | `data/ancestries.json` `player_effects.attunement_bonus` (additive max) and `player_effects.attunement_regen_mult` (regen multiplier) | Read by `player.apply_ancestry_effects`; every live ancestry omits them, so non-magic characters are unchanged. Give a Phase C/D magic ancestry these keys and it works with zero code. |
+| Equipment | any `data/equipment.json` item `effects.attunement_bonus` | Summed over all equipped gear by `player.attunement_bonus_from_gear()` (`amulet_focus` is the first carrier). |
+| Perks (FQ-06+) | add the perk lane's modifier inside `player.max_attunement()` | The max is a computed function (base + ancestry + gear), so a perk term slots in at one code point without staleness. |
+| Spells | new active uses should follow `_try_attune_pulse()` — cost check, spend, cooldown, `attunement_changed` emit | Arcane / Natural Research (see Research Domain Matrix) is the intended unlock path for rituals/wards. |
+
 ## Suggested Implementation Phases
 
 | Phase | Goal | Notes |

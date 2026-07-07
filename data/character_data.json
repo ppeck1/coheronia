@@ -9,7 +9,12 @@
     "passive_regen_per_sec": 1.0,
     "safe_radius_px": 160,
     "collapse_loss_fraction": 0.25,
-    "low_health_fraction": 0.25
+    "low_health_fraction": 0.25,
+    "base_max_attunement": 50,
+    "attunement_regen_per_sec": 2.0,
+    "attunement_pulse_cost": 15,
+    "attunement_pulse_cooldown_sec": 1.0,
+    "attunement_pulse_duration_sec": 4.0
   },
   "species": [
     {

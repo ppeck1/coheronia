@@ -62,6 +62,12 @@
       "slot_type": "feet",
       "description": "Reinforced footwraps. Every bit helps.",
       "effects": { "armor": 1 }
+    },
+    "amulet_focus": {
+      "display_name": "Focus Amulet",
+      "slot_type": "amulet",
+      "description": "A crystal pendant that deepens attunement.",
+      "effects": { "attunement_bonus": 10 }
     }
   }
 }

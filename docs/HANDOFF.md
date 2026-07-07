@@ -2,9 +2,16 @@
 
 ## Current State
 
-**FQ-04 (first combat gear slice: sword and armor) implemented and closed out** (run `20260707_coheronia_fq04_combat_gear_slice`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01 -> FQ-02 -> FQ-03; Godot 4.6.1 stable).
+**FQ-05 (Attunement system MVP) implemented and closed out** (run `20260707_coheronia_fq05_attunement_mvp`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01 -> FQ-02 -> FQ-03 -> FQ-04; Godot 4.6.1 stable).
 
-v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 (closeout repair), FQ-01 (player health loop), FQ-02 (background trees), FQ-03 (equipment model), and FQ-04 (combat gear) followed from `docs/FABLE_TASK_QUEUE.md`.
+v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 (closeout repair), FQ-01 (player health loop), FQ-02 (background trees), FQ-03 (equipment model), FQ-04 (combat gear), and FQ-05 (attunement) followed from `docs/FABLE_TASK_QUEUE.md`.
+
+## FQ-05 Additions
+
+- **Attunement resource**: current pool world-saved next to health (pre-FQ-05 saves default to full); `player.max_attunement()` is computed live as base (`player_defaults.base_max_attunement` 50) + ancestry `attunement_bonus` + gear `attunement_bonus` sum, so modifiers can never go stale. Constant slow regen everywhere (`attunement_regen_per_sec` 2.0, scaled by ancestry `attunement_regen_mult`). New HUD bar directly under health.
+- **First active use**: `attune_pulse` (R) releases a harmless light pulse — spends `attunement_pulse_cost` (15), gated by its own cooldown (1s), a lazy PointLight2D on the player fades over 4s. Insufficient attunement logs a message and spends nothing.
+- **Data hooks**: ancestry `player_effects.attunement_bonus`/`attunement_regen_mult` (read by `apply_ancestry_effects`; no live ancestry sets them, so non-magic characters play exactly as before), equipment `effects.attunement_bonus` (summed like armor; `amulet_focus` is the first carrier, not yet acquirable in play), and a documented perk join point inside `max_attunement()`. Extension points written up in `docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`.
+- All five tuning keys live in `player_defaults` and are validator-required.
 
 ## FQ-04 Additions
 
@@ -48,7 +55,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 157/157 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04) |
+| Automated smoke | PASS 163/163 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05) |
 
 ## Known Risks / Gotchas
 
@@ -63,11 +70,12 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - Background trees are intentionally not harvestable in this pass (no minimal hook was needed); revisit if a "clear background flora" action is ever wanted.
 - Equipment UI remains read-only (`player.equip_item` is the API; no drag/drop). Rings, amulet, and accessory still have no live effects; ring_band exists only for the round-trip smoke.
 - FQ-04 armor is flat mitigation with a 1-health minimum chip; there is no unequip flow for forged gear in play (forge guards prevent duplicates). Combat feel (sword damage 3, armor total 4 vs slime 8) is untested by human play; all numbers are data-tunable in `data/equipment.json`.
+- FQ-05 attunement has exactly one use (the light pulse); no live ancestry or acquirable gear modifies it yet — the hooks are data-ready and smoke-proven but dormant. The pulse light is cosmetic (does not affect `light_score`, night spawns, or occlusion safety math).
 - A hypothetical pick tier above 2 has no matching equipment item; the gear shape would record the highest defined pick (`pick_forged`) while the live tier is preserved in `carried_tool_tiers`. No real character can exceed tier 2 today (forge caps at 2).
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 (v0.6.1 closeout repair), FQ-01 (player health loop, smoke 134/134), FQ-02 (background trees, smoke 142/142), FQ-03 (equipment data model, smoke 149/149), and FQ-04 (combat gear slice: crude sword, armor mitigation with minimum chip, forge buttons, visible weapon/armor state, smoke 157/157) are complete; FQ-05 (Mana or Attunement system MVP) is next.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-05 are complete (FQ-05: attunement resource with HUD bar, R-key light pulse, ancestry/gear/perk hooks, world-saved current value, smoke 163/163); FQ-06 (visual player skill tree navigator) is next — it should join the perk term into `player.max_attunement()` when perk effects land.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

@@ -21,6 +21,8 @@ var town_hall: Node2D
 
 var _health_label: Label
 var _health_bar: ProgressBar
+var _attunement_label: Label
+var _attunement_bar: ProgressBar
 var _low_health_active := false
 var _bars: Dictionary = {}       # "coherence"/"load"/"resilience" -> ProgressBar
 var _status_label: Label
@@ -69,6 +71,10 @@ func _build_top_left() -> void:
 	_health_bar = _bar(box, "Health", Color(0.82, 0.22, 0.22))
 	_health_bar.value = 100.0
 	_health_label = _label(box, "100 / 100")
+	# FQ-05: attunement (magic resource) sits directly under health.
+	_attunement_bar = _bar(box, "Attunement", Color(0.45, 0.50, 0.95))
+	_attunement_bar.value = 100.0
+	_attunement_label = _label(box, "50 / 50")
 	_bars["coherence"] = _bar(box, "Coherence", Color(0.35, 0.75, 0.40))
 	_bars["load"] = _bar(box, "Load", Color(0.85, 0.45, 0.30))
 	_bars["resilience"] = _bar(box, "Resilience", Color(0.35, 0.55, 0.85))
@@ -291,6 +297,13 @@ func update_health(health: float, max_health: float) -> void:
 	_health_bar.modulate = tint
 	_health_label.add_theme_color_override(
 		"font_color", Color(1.0, 0.35, 0.3) if low else Color(0.9, 0.9, 0.9))
+
+
+## FQ-05: attunement display, mirroring update_health without the low tint.
+func update_attunement(attunement: float, max_attunement: float) -> void:
+	_attunement_bar.max_value = maxf(1.0, max_attunement)
+	_attunement_bar.value = attunement
+	_attunement_label.text = "%d / %d" % [int(round(attunement)), int(round(max_attunement))]
 
 
 func update_progression(player_level: int, xp_current: int, xp_next: int, base_name: String) -> void:

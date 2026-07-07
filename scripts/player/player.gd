@@ -4,6 +4,7 @@ extends CharacterBody2D
 
 signal inventory_changed
 signal health_changed(health: float, max_health: float)
+signal attunement_changed(attunement: float, max_attunement: float)
 signal mined(block_id: String, drops: Dictionary)
 signal crafted(recipe_id: String)
 signal placed(block_id: String)
@@ -24,6 +25,13 @@ const DEFAULT_PASSIVE_REGEN_PER_SEC := 1.0
 const DEFAULT_SAFE_RADIUS_PX := 160.0
 const DEFAULT_COLLAPSE_LOSS_FRACTION := 0.25
 const DEFAULT_LOW_HEALTH_FRACTION := 0.25
+
+## FQ-05 attunement defaults; overridden by player_defaults like the above.
+const DEFAULT_BASE_MAX_ATTUNEMENT := 50.0
+const DEFAULT_ATTUNEMENT_REGEN_PER_SEC := 2.0
+const DEFAULT_ATTUNEMENT_PULSE_COST := 15.0
+const DEFAULT_ATTUNEMENT_PULSE_COOLDOWN_SEC := 1.0
+const DEFAULT_ATTUNEMENT_PULSE_DURATION_SEC := 4.0
 
 var world: Node2D
 var health := 100.0
@@ -55,6 +63,15 @@ var ancestry_jump_mult := 1.0
 var stone_ore_mine_mult := 1.0
 var ancestry_health_bonus := 0.0
 var learning_speed_mult := 1.0
+# FQ-05 ancestry hooks: additive max-attunement bonus and regen multiplier.
+# Every live ancestry defaults to 0.0 / 1.0, so non-magic characters play
+# exactly as before; future magic-user lanes set these via player_effects.
+var ancestry_attunement_bonus := 0.0
+var attunement_regen_mult := 1.0
+
+## FQ-05: the magic resource. Current value is world-saved next to health;
+## the maximum is computed live (base + ancestry + gear) via max_attunement().
+var attunement := DEFAULT_BASE_MAX_ATTUNEMENT
 
 var mine_target := Vector2i(-99999, -99999)
 var mine_progress := 0.0
@@ -73,6 +90,15 @@ var _passive_regen_per_sec := DEFAULT_PASSIVE_REGEN_PER_SEC
 var _safe_radius_px := DEFAULT_SAFE_RADIUS_PX
 var _collapse_loss_fraction := DEFAULT_COLLAPSE_LOSS_FRACTION
 var _low_health_fraction := DEFAULT_LOW_HEALTH_FRACTION
+var _base_max_attunement := DEFAULT_BASE_MAX_ATTUNEMENT
+var _attunement_regen_per_sec := DEFAULT_ATTUNEMENT_REGEN_PER_SEC
+var _attunement_pulse_cost := DEFAULT_ATTUNEMENT_PULSE_COST
+var _attunement_pulse_cooldown_sec := DEFAULT_ATTUNEMENT_PULSE_COOLDOWN_SEC
+var _attunement_pulse_duration_sec := DEFAULT_ATTUNEMENT_PULSE_DURATION_SEC
+
+var _pulse_cooldown := 0.0
+var _pulse_time_left := 0.0
+var _pulse_light: PointLight2D
 
 var _eat_cooldown := 0.0
 var _regen_active := false     # tracks whether the "feel safe" message already fired
@@ -96,6 +122,13 @@ func _load_player_defaults() -> void:
 	_safe_radius_px = float(defaults.get("safe_radius_px", DEFAULT_SAFE_RADIUS_PX))
 	_collapse_loss_fraction = float(defaults.get("collapse_loss_fraction", DEFAULT_COLLAPSE_LOSS_FRACTION))
 	_low_health_fraction = float(defaults.get("low_health_fraction", DEFAULT_LOW_HEALTH_FRACTION))
+	# FQ-05: attunement tuning.
+	_base_max_attunement = float(defaults.get("base_max_attunement", DEFAULT_BASE_MAX_ATTUNEMENT))
+	_attunement_regen_per_sec = float(defaults.get("attunement_regen_per_sec", DEFAULT_ATTUNEMENT_REGEN_PER_SEC))
+	_attunement_pulse_cost = float(defaults.get("attunement_pulse_cost", DEFAULT_ATTUNEMENT_PULSE_COST))
+	_attunement_pulse_cooldown_sec = float(defaults.get("attunement_pulse_cooldown_sec", DEFAULT_ATTUNEMENT_PULSE_COOLDOWN_SEC))
+	_attunement_pulse_duration_sec = float(defaults.get("attunement_pulse_duration_sec", DEFAULT_ATTUNEMENT_PULSE_DURATION_SEC))
+	attunement = _base_max_attunement
 
 
 func selected_item() -> String:
@@ -112,6 +145,8 @@ func apply_character(character: Dictionary) -> void:
 	stone_ore_mine_mult = 1.0
 	ancestry_health_bonus = 0.0
 	learning_speed_mult = 1.0
+	ancestry_attunement_bonus = 0.0
+	attunement_regen_mult = 1.0
 	var appearance: Dictionary = BlockRegistry.appearance_def(str(character.get("appearance", "tan")))
 	body_color = Color.from_string("#" + str(appearance.get("body", "ebd48c")), body_color)
 	trim_color = Color.from_string("#" + str(appearance.get("trim", "59402e")), trim_color)
@@ -128,6 +163,7 @@ func apply_character(character: Dictionary) -> void:
 	reach_bonus = float(effects.get("reach_bonus", 0.0))
 	bush_bonus_food = int(effects.get("bush_bonus_food", 0))
 	growth_threshold_delta = float(effects.get("growth_threshold_delta", 0.0))
+	_clamp_attunement()
 	queue_redraw()
 
 
@@ -154,6 +190,10 @@ func apply_ancestry_effects(effects: Dictionary) -> void:
 	if _health_reduction != 1.0:
 		max_health = roundf(max_health * _health_reduction)
 	health = minf(health, max_health)
+	# FQ-05: attunement hooks — additive max bonus and regen multiplier.
+	ancestry_attunement_bonus = float(effects.get("attunement_bonus", 0.0))
+	attunement_regen_mult = float(effects.get("attunement_regen_mult", 1.0))
+	_clamp_attunement()
 
 
 func _physics_process(delta: float) -> void:
@@ -173,7 +213,11 @@ func _physics_process(delta: float) -> void:
 
 	if Input.is_action_just_pressed("eat_food"):
 		_try_eat_food()
+	if Input.is_action_just_pressed("attune_pulse"):
+		_try_attune_pulse()
 	_update_passive_regen(delta)
+	_update_attunement_regen(delta)
+	_tick_pulse(delta)
 
 	if world == null:
 		return
@@ -301,6 +345,7 @@ func try_place(cell: Vector2i, block_id: String) -> bool:
 ## remain the live authority and are merged back in by equipped_dict().
 func apply_equipment(raw: Dictionary) -> void:
 	equipment = BlockRegistry.normalize_equipment(raw)
+	_clamp_attunement()
 
 
 ## FQ-03: the full 12-slot gear picture used by the HUD and save path. The
@@ -335,8 +380,105 @@ func equip_item(slot_id: String, item_id: String) -> bool:
 			axe_tier = int(effects.get("axe_tier", 0))
 		_:
 			equipment[slot_id] = item_id
+	# FQ-05: gear can change max attunement; keep the current value legal.
+	_clamp_attunement()
 	inventory_changed.emit()
 	return true
+
+
+# ---------------------------------------------------------------------------
+# FQ-05: Attunement — the player magic resource
+# ---------------------------------------------------------------------------
+
+## Max attunement is computed live so ancestry, equipment, and (future) perk
+## modifiers can never go stale: base (player_defaults) + ancestry additive
+## bonus + the attunement_bonus effect summed over equipped gear. Perk lanes
+## should add their modifier here when FQ-06 wires them.
+func max_attunement() -> float:
+	return maxf(1.0, _base_max_attunement + ancestry_attunement_bonus \
+		+ attunement_bonus_from_gear())
+
+
+## Sum of the "attunement_bonus" effect over all equipped items (data-driven,
+## same pattern as armor_total).
+func attunement_bonus_from_gear() -> float:
+	var total := 0.0
+	var equipped: Dictionary = equipped_dict()
+	for slot_id in equipped:
+		var item_id: String = str(equipped[slot_id])
+		if item_id != "":
+			total += float(BlockRegistry.equipment_item(item_id).get("effects", {}).get("attunement_bonus", 0.0))
+	return total
+
+
+## Clamps current attunement to the (possibly shrunk) maximum and tells the HUD.
+func _clamp_attunement() -> void:
+	var cap := max_attunement()
+	attunement = clampf(attunement, 0.0, cap)
+	attunement_changed.emit(attunement, cap)
+
+
+## Attunement recovers slowly everywhere — it is a personal resource, not a
+## safety-gated one like passive health regen. Ancestry regen multiplier applies.
+func _update_attunement_regen(delta: float) -> void:
+	if attunement >= max_attunement():
+		return
+	var before := int(round(attunement))
+	attunement = minf(max_attunement(), attunement + _attunement_regen_per_sec * attunement_regen_mult * delta)
+	if int(round(attunement)) != before:
+		attunement_changed.emit(attunement, max_attunement())
+
+
+## FQ-05 first active use: a harmless light pulse around the player. Spends
+## attunement, gated by its own cooldown; the light fades over the pulse
+## duration. Returns true when the pulse fired.
+func _try_attune_pulse() -> bool:
+	if _pulse_cooldown > 0.0:
+		return false
+	if attunement < _attunement_pulse_cost:
+		player_event.emit("You reach for attunement, but it slips away. (Not enough attunement.)")
+		return false
+	attunement -= _attunement_pulse_cost
+	_pulse_cooldown = _attunement_pulse_cooldown_sec
+	_pulse_time_left = _attunement_pulse_duration_sec
+	if _pulse_light == null:
+		_pulse_light = PointLight2D.new()
+		_pulse_light.name = "AttunePulse"
+		_pulse_light.texture = _make_pulse_texture()
+		_pulse_light.texture_scale = 1.4
+		_pulse_light.color = Color(0.65, 0.75, 1.0)
+		add_child(_pulse_light)
+	_pulse_light.enabled = true
+	_pulse_light.energy = 1.5
+	attunement_changed.emit(attunement, max_attunement())
+	player_event.emit("You release a soft pulse of light.")
+	return true
+
+
+## Fades the active pulse light out over its duration.
+func _tick_pulse(delta: float) -> void:
+	_pulse_cooldown = maxf(0.0, _pulse_cooldown - delta)
+	if _pulse_time_left <= 0.0 or _pulse_light == null:
+		return
+	_pulse_time_left = maxf(0.0, _pulse_time_left - delta)
+	if _pulse_time_left <= 0.0:
+		_pulse_light.enabled = false
+	else:
+		_pulse_light.energy = 1.5 * (_pulse_time_left / maxf(0.01, _attunement_pulse_duration_sec))
+
+
+func _make_pulse_texture() -> GradientTexture2D:
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1, 1, 1, 1))
+	grad.set_color(1, Color(1, 1, 1, 0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	tex.width = 128
+	tex.height = 128
+	return tex
 
 
 ## FQ-04: melee damage per hit — the equipped weapon's attack_damage effect,

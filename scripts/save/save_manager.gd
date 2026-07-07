@@ -24,6 +24,7 @@ func collect_state() -> Dictionary:
 			"x": player.global_position.x,
 			"y": player.global_position.y,
 			"health": player.health,
+			"attunement": player.attunement,
 		},
 		"town_hall": town_hall.to_dict(),
 		"time": game_root.time_state(),
@@ -88,6 +89,13 @@ func apply_state(state: Dictionary) -> bool:
 	var p: Dictionary = state.get("player", {})
 	player.health = float(p.get("health", 100.0))
 	player.health_changed.emit(player.health, player.max_health)
+	# FQ-05: pre-attunement saves lack the key; default to a full reserve.
+	# Review fix: only lower-bound here — the character's gear is not applied
+	# yet, so clamping against max_attunement() now would use a stale cap and
+	# destroy surplus from gear bonuses. The final clamp happens when the
+	# carried-state loader applies equipment (_clamp_attunement).
+	player.attunement = maxf(0.0, float(p.get("attunement", player.max_attunement())))
+	player.attunement_changed.emit(player.attunement, player.max_attunement())
 	# Wave B: inventory/slot/tool_tier are character-owned; caller loads them
 	# via game_root._load_character_carried_state / _apply_character_carried_state.
 

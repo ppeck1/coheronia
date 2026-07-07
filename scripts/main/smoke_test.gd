@@ -44,7 +44,7 @@ func _run() -> void:
 	for action in ["move_left", "move_right", "jump", "mine", "place", "interact",
 			"toggle_town", "craft", "save_game", "load_game", "toggle_inventory",
 			"debug_overlay", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5",
-			"eat_food"]:
+			"eat_food", "attune_pulse"]:
 		var has_device_event := false
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventKey or ev is InputEventMouseButton:
@@ -1279,6 +1279,81 @@ func _run() -> void:
 	player.equip_item("torso", "")
 	player.equip_item("feet", "")
 	player.health = player.max_health
+
+	# --- FQ-05: attunement resource, hooks, pulse, save/load ---
+
+	# (a) data-driven defaults: base max 50, current within bounds.
+	_check("fq05_attunement_defaults",
+		absf(player.max_attunement() - 50.0) < 0.001
+		and player.attunement > 0.0 and player.attunement <= player.max_attunement(),
+		"attunement=%.1f max=%.1f" % [player.attunement, player.max_attunement()])
+
+	# (b) the light pulse spends attunement, lights up, and respects its cooldown.
+	player.attunement = player.max_attunement()
+	player._pulse_cooldown = 0.0
+	var _fq05_max: float = player.max_attunement()
+	var _fq05_fired: bool = player._try_attune_pulse()
+	var _fq05_after_pulse: float = player.attunement
+	var _fq05_light_on: bool = player._pulse_light != null \
+		and player._pulse_light.enabled and player._pulse_light.energy > 0.0
+	var _fq05_second: bool = player._try_attune_pulse()   # cooldown active
+	_check("fq05_pulse_spends_and_cools",
+		_fq05_fired and absf(_fq05_after_pulse - (_fq05_max - 15.0)) < 0.001
+		and _fq05_light_on and not _fq05_second
+		and absf(player.attunement - _fq05_after_pulse) < 0.001,
+		"fired=%s attunement %.1f→%.1f light=%s second_blocked=%s" % [str(_fq05_fired),
+			_fq05_max, _fq05_after_pulse, str(_fq05_light_on), str(not _fq05_second)])
+
+	# (c) insufficient attunement blocks the pulse without spending.
+	player.attunement = 5.0
+	player._pulse_cooldown = 0.0
+	var _fq05_blocked: bool = not player._try_attune_pulse()
+	_check("fq05_pulse_blocked_when_insufficient",
+		_fq05_blocked and absf(player.attunement - 5.0) < 0.001,
+		"blocked=%s attunement=%.1f" % [str(_fq05_blocked), player.attunement])
+
+	# (d) attunement regenerates over time (no safety gate).
+	player.attunement = 10.0
+	for _fq05_i in range(65):
+		player._update_attunement_regen(1.0 / 60.0)
+	_check("fq05_attunement_regenerates", player.attunement > 10.0,
+		"attunement 10.0→%.2f after ~1s" % player.attunement)
+
+	# (e) ancestry and equipment hooks raise the maximum; removing them clamps.
+	player.apply_ancestry_effects({"attunement_bonus": 20.0, "attunement_regen_mult": 2.0})
+	var _fq05_anc_max: float = player.max_attunement()
+	var _fq05_regen_mult: float = player.attunement_regen_mult
+	var _fq05_amulet_ok: bool = player.equip_item("amulet", "amulet_focus")
+	var _fq05_gear_max: float = player.max_attunement()
+	# Restore: reset ancestry to the real character and remove the amulet.
+	player.apply_character(GameState.current_character)
+	root.apply_ancestry_for_species(str(GameState.current_character.get("species", "")))
+	player.equip_item("amulet", "")
+	_check("fq05_ancestry_and_gear_hooks",
+		absf(_fq05_anc_max - 70.0) < 0.001 and absf(_fq05_regen_mult - 2.0) < 0.001
+		and _fq05_amulet_ok and absf(_fq05_gear_max - 80.0) < 0.001
+		and absf(player.max_attunement() - 50.0) < 0.001
+		and player.attunement <= player.max_attunement(),
+		"ancestry_max=%.1f gear_max=%.1f restored_max=%.1f regen_mult=%.1f" % [
+			_fq05_anc_max, _fq05_gear_max, player.max_attunement(), _fq05_regen_mult])
+
+	# (f) current attunement rides the world save next to health — including
+	# a surplus above the base max from gear (review fix: the load path must
+	# not clamp against the pre-gear cap and destroy the surplus).
+	player.equip_item("amulet", "amulet_focus")   # max 60
+	player.attunement = 55.0
+	root.save_manager.save_game()
+	player.equip_item("amulet", "")               # max back to 50; clamps to 50
+	player.attunement = 10.0
+	root.load_game()                              # re-equips the amulet from the record
+	_check("fq05_attunement_saves_and_loads",
+		absf(player.attunement - 55.0) < 0.01
+		and absf(player.max_attunement() - 60.0) < 0.001,
+		"attunement after load=%.2f (expected 55.0) max=%.1f" % [
+			player.attunement, player.max_attunement()])
+	player.equip_item("amulet", "")
+	player.attunement = player.max_attunement()
+	root.save_manager.save_game()   # persist the amulet removal for later sections
 
 	# --- FQ-01: player health, damage, healing, and death loop ---
 

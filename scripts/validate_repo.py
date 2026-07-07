@@ -116,6 +116,9 @@ player_defaults = character_data.get("player_defaults", {})
 REQUIRED_PLAYER_DEFAULTS = [
     "base_max_health", "hurt_cooldown_sec", "food_heal_amount", "eat_cooldown_sec",
     "passive_regen_per_sec", "safe_radius_px", "collapse_loss_fraction", "low_health_fraction",
+    # FQ-05: attunement resource tuning.
+    "base_max_attunement", "attunement_regen_per_sec", "attunement_pulse_cost",
+    "attunement_pulse_cooldown_sec", "attunement_pulse_duration_sec",
 ]
 for key in REQUIRED_PLAYER_DEFAULTS:
     if key not in player_defaults:
@@ -138,8 +141,10 @@ for s in equipment_data["slots"]:
 items = equipment_data.get("items") or {}
 # ring_band is required because smoke's equip round-trip references it by id.
 # FQ-04: sword and the three crude armor pieces are forged/equipped by id.
+# FQ-05: amulet_focus carries the attunement_bonus gear hook used by smoke.
 for required_item in ["pick_basic", "pick_forged", "axe_crude", "ring_band",
-                      "sword_crude", "helmet_crude", "torso_crude", "feet_crude"]:
+                      "sword_crude", "helmet_crude", "torso_crude", "feet_crude",
+                      "amulet_focus"]:
     if required_item not in items:
         fail(f"equipment.json missing required item: {required_item}")
 for item_id, item in items.items():

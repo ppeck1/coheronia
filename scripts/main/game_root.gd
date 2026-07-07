@@ -88,6 +88,7 @@ func _ready() -> void:
 		save_manager.apply_player_position(saved_state)
 	hud.update_inventory()
 	hud.update_health(player.health, player.max_health)
+	hud.update_attunement(player.attunement, player.max_attunement())
 	_refresh_hud_progression()
 	log_event("Welcome to Coheronia. Shelter and light the Town Hall.")
 	hud.set_save_hint(save_manager.has_save())
@@ -238,6 +239,7 @@ func _wire_references() -> void:
 func _wire_signals() -> void:
 	player.inventory_changed.connect(hud.update_inventory)
 	player.health_changed.connect(hud.update_health)
+	player.attunement_changed.connect(hud.update_attunement)
 	player.mined.connect(_on_player_mined)
 	player.crafted.connect(_on_player_crafted)
 	player.placed.connect(_on_player_placed)

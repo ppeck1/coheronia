@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-04 run `20260707_coheronia_fq04_combat_gear_slice`.
+State: audited against FQ-05 run `20260707_coheronia_fq05_attunement_mvp`.
 
 ## Authority Surfaces
 
@@ -88,6 +88,21 @@ All registries load through `scripts/data/json_data.gd` (`load_dict`, push_error
 | `low_health_fraction` | `data/character_data.json` `player_defaults.low_health_fraction` | 0.25 | health/max_health ratio below which the HUD tints red and logs "You are badly hurt." once per crossing |
 
 All eight keys are read once via `player._load_player_defaults()` from `BlockRegistry.character_data["player_defaults"]` (same JSON-load pattern as traits/roles/appearances); missing keys fall back to the `DEFAULT_*` consts in `player.gd`.
+
+## FQ-05 Attunement (Player Magic Resource)
+
+| Variable | File / Field | Default | Effect |
+|---|---|---|---|
+| `base_max_attunement` | `player_defaults.base_max_attunement` | 50 | base of the computed `player.max_attunement()` |
+| `attunement_regen_per_sec` | `player_defaults.attunement_regen_per_sec` | 2.0 | constant regen everywhere (no safety gate), scaled by ancestry `attunement_regen_mult` |
+| `attunement_pulse_cost` | `player_defaults.attunement_pulse_cost` | 15 | attunement spent per light pulse (`attune_pulse` action, R) |
+| `attunement_pulse_cooldown_sec` | `player_defaults.attunement_pulse_cooldown_sec` | 1.0 | pulse re-cast gate |
+| `attunement_pulse_duration_sec` | `player_defaults.attunement_pulse_duration_sec` | 4.0 | pulse light fade time |
+| `player.attunement` | `player.gd` / world save (`player.attunement`) | full | current pool; world-saved next to health; pre-FQ-05 saves default to full |
+| `player.max_attunement()` | `player.gd` (computed) | 50 | base + ancestry `attunement_bonus` + gear `attunement_bonus` sum; perks join here at FQ-06 |
+| `attunement_bonus` / `attunement_regen_mult` | `data/ancestries.json` `player_effects` (hooks; no live ancestry sets them yet) + `data/equipment.json` item effects (`amulet_focus` = +10) | 0 / 1.0 | ancestry additive max + regen multiplier; gear additive max |
+
+Extension points documented in `docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md` ("Attunement Extension Points"). A non-magic character never spends or needs attunement; nothing existing is gated by it.
 
 ### Health, Healing, And Collapse
 
@@ -201,6 +216,16 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-05 adds 6 checks (`fq05_*`, suite total 163) covering: data-driven defaults
+(max 50); the pulse spends exactly its cost, lights up, and respects its
+cooldown; insufficient attunement blocks the pulse without spending; attunement
+regenerates over time; ancestry (`attunement_bonus` 20 -> max 70,
+`attunement_regen_mult` 2.0) and gear (`amulet_focus` -> max 80) hooks raise
+the maximum and removal clamps back to 50; and the current value rides the
+world save (21.0 round-trips). The `attune_pulse` binding joined the
+input_actions_bound list; `validate_repo.py` requires the five attunement
+player_defaults keys and the amulet_focus item.
 
 FQ-04 adds 8 checks (`fq04_*`, suite total 157) covering: bare-handed baseline
 (attack 1, armor 0); forging the sword equips it, consumes 2 wood + 3 stone,
