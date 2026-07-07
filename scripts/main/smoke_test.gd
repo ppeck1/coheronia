@@ -1052,6 +1052,127 @@ func _run() -> void:
 	player.apply_character(GameState.current_character)
 	root.apply_ancestry_for_species(str(GameState.current_character.get("species", "")))
 
+	# --- FQ-03: equipment data model and character-owned gear slots ---
+
+	# (a) equipment.json loads with the 12 expected slots, in order.
+	var _fq03_expected: Array = ["weapon", "axe", "pickaxe", "helmet", "torso",
+		"feet", "ring_1", "ring_2", "ring_3", "ring_4", "amulet", "accessory"]
+	var _fq03_slot_ids: Array = []
+	for _fq03_slot in BlockRegistry.equipment_slots():
+		_fq03_slot_ids.append(str(_fq03_slot.get("id", "")))
+	_check("fq03_equipment_json_loads", _fq03_slot_ids == _fq03_expected,
+		"slots=%s" % str(_fq03_slot_ids))
+
+	# (b) a new character record carries default gear: basic pick, rest empty.
+	var _fq03_char: Dictionary = GameState.create_character(
+		{"name": "GearSmoke", "role": "homesteader"})
+	var _fq03_equip: Dictionary = Dictionary(_fq03_char.get("equipment", {}))
+	var _fq03_empty_count := 0
+	for _fq03_sid in _fq03_equip:
+		if str(_fq03_equip[_fq03_sid]) == "":
+			_fq03_empty_count += 1
+	_check("fq03_new_character_default_gear",
+		_fq03_equip.size() == 12 and str(_fq03_equip.get("pickaxe", "")) == "pick_basic"
+		and _fq03_empty_count == 11,
+		"equipment=%s" % str(_fq03_equip))
+	GameState.delete_character(str(_fq03_char["id"]))
+
+	# (c) equipped tool slots mirror the live tool tiers both ways.
+	player.tool_tier = 2
+	player.axe_tier = 1
+	var _fq03_geared: Dictionary = player.equipped_dict()
+	player.tool_tier = 1
+	player.axe_tier = 0
+	var _fq03_bare: Dictionary = player.equipped_dict()
+	_check("fq03_tool_slots_mirror_tiers",
+		str(_fq03_geared.get("pickaxe", "")) == "pick_forged"
+		and str(_fq03_geared.get("axe", "")) == "axe_crude"
+		and str(_fq03_bare.get("pickaxe", "")) == "pick_basic"
+		and str(_fq03_bare.get("axe", "")) == "",
+		"tier2/1=%s|%s tier1/0=%s|%s" % [str(_fq03_geared.get("pickaxe")),
+			str(_fq03_geared.get("axe")), str(_fq03_bare.get("pickaxe")),
+			str(_fq03_bare.get("axe"))])
+	player.tool_tier = 2
+	player.axe_tier = 1
+
+	# (d) slot/item fit is enforced; tool slots cannot be cleared (no silent
+	# tier reset); equipping never touches the backpack.
+	var _fq03_inv_total: int = player.inventory.total()
+	_check("fq03_equip_rejects_mismatch",
+		not player.equip_item("helmet", "ring_band")
+		and not player.equip_item("no_such_slot", "ring_band")
+		and not player.equip_item("pickaxe", "")
+		and player.tool_tier == 2
+		and player.equip_item("ring_2", "ring_band")
+		and player.inventory.total() == _fq03_inv_total,
+		"ring_2=%s pick=%d inv_total %d→%d" % [str(player.equipment.get("ring_2", "")),
+			player.tool_tier, _fq03_inv_total, player.inventory.total()])
+
+	# (e) an equipped item round-trips through the character save/load path;
+	# empty slots stay valid alongside it.
+	root.save_manager.save_game()
+	player.apply_equipment({})   # wipe live gear; load must restore it
+	var _fq03_wiped: Dictionary = player.equipped_dict()
+	root.load_game()
+	var _fq03_restored: Dictionary = player.equipped_dict()
+	_check("fq03_equipped_item_round_trips",
+		str(_fq03_wiped.get("ring_2", "")) == ""
+		and str(_fq03_restored.get("ring_2", "")) == "ring_band"
+		and str(_fq03_restored.get("amulet", "")) == ""
+		and str(_fq03_restored.get("pickaxe", "")) == "pick_forged",
+		"wiped_ring=%s restored_ring=%s pickaxe=%s" % [str(_fq03_wiped.get("ring_2")),
+			str(_fq03_restored.get("ring_2")), str(_fq03_restored.get("pickaxe"))])
+
+	# (f) inventory panel shows every gear slot; empty slots are visible.
+	hud.toggle_inventory_panel()
+	var _fq03_panel: String = hud.get_inventory_panel_text()
+	hud.toggle_inventory_panel()
+	_check("fq03_panel_shows_gear_slots",
+		"EQUIPMENT" in _fq03_panel and "Pickaxe: Forged Pick" in _fq03_panel
+		and "Ring 2: Plain Band" in _fq03_panel
+		and "Ring 4: (empty)" in _fq03_panel and "Amulet: (empty)" in _fq03_panel,
+		"panel_tail=%s" % _fq03_panel.right(180))
+
+	# (g) a pre-FQ-03 character (no equipment key) migrates: tool tiers and
+	# inventory preserved, gear derived from the tiers.
+	var _fq03_leg: Dictionary = GameState.create_character(
+		{"name": "GearLegacy", "role": "homesteader"})
+	var _fq03_lid: String = str(_fq03_leg["id"])
+	for _fq03_i in range(GameState.characters.size()):
+		if str(GameState.characters[_fq03_i].get("id", "")) == _fq03_lid:
+			GameState.characters[_fq03_i].erase("equipment")
+			GameState.characters[_fq03_i]["carried_inventory"] = {"dirt": 3}
+			GameState.characters[_fq03_i]["carried_tool_tiers"] = {"pick": 2, "axe": 1}
+			GameState.characters[_fq03_i]["items_granted"] = true
+			break
+	GameState.save_shell()
+	GameState.load_shell()
+	var _fq03_prev_char: Dictionary = GameState.current_character
+	GameState.current_character = GameState.get_character(_fq03_lid)
+	root._load_character_carried_state({})
+	var _fq03_mig_equip: Dictionary = player.equipped_dict()
+	# Review fix: the migration must persist the equipment key onto the record
+	# immediately, not just derive it in memory.
+	var _fq03_lc_record: Dictionary = GameState.get_character(_fq03_lid)
+	var _fq03_rec_equip: Dictionary = Dictionary(_fq03_lc_record.get("equipment", {}))
+	_check("fq03_legacy_character_migrates",
+		player.tool_tier == 2 and player.axe_tier == 1
+		and player.inventory.count("dirt") == 3
+		and str(_fq03_mig_equip.get("pickaxe", "")) == "pick_forged"
+		and str(_fq03_mig_equip.get("axe", "")) == "axe_crude"
+		and _fq03_lc_record.has("equipment")
+		and str(_fq03_rec_equip.get("pickaxe", "")) == "pick_forged",
+		"pick=%d axe=%d dirt=%d gear=%s|%s record_gear=%s" % [player.tool_tier,
+			player.axe_tier, player.inventory.count("dirt"),
+			str(_fq03_mig_equip.get("pickaxe")), str(_fq03_mig_equip.get("axe")),
+			str(_fq03_rec_equip.get("pickaxe"))])
+	GameState.current_character = _fq03_prev_char
+	GameState.delete_character(_fq03_lid)
+	# Restore the real character's carried state for the FQ-01 section below.
+	root._apply_character_carried_state()
+	player.tool_tier = 2
+	player.axe_tier = 1
+
 	# --- FQ-01: player health, damage, healing, and death loop ---
 
 	player.set_physics_process(false)

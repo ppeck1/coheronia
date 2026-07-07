@@ -2,9 +2,16 @@
 
 ## Current State
 
-**FQ-02 (background trees and pass-through flora) implemented and closed out** (run `20260706_coheronia_fq02_background_trees`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01; Godot 4.6.1 stable).
+**FQ-03 (equipment data model and character-owned gear slots) implemented and closed out** (run `20260707_coheronia_fq03_equipment_model`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01 -> FQ-02; Godot 4.6.1 stable).
 
-v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 (closeout repair), FQ-01 (player health loop), and FQ-02 (background trees) followed from `docs/FABLE_TASK_QUEUE.md`.
+v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 (closeout repair), FQ-01 (player health loop), FQ-02 (background trees), and FQ-03 (equipment model) followed from `docs/FABLE_TASK_QUEUE.md`.
+
+## FQ-03 Additions
+
+- **Equipment data surface**: new `data/equipment.json` defines 12 gear slots (weapon, axe, pickaxe, helmet, torso, feet, ring_1-4, amulet, accessory — each with `accepts` slot_type) and item defs with `slot_type` + `effects`: `pick_basic` (pick_tier 1), `pick_forged` (pick_tier 2), `axe_crude` (axe_tier 1), and the inert `ring_band`. Loaded by the `BlockRegistry` autoload with helper functions (slots, items, `item_fits_slot`, `normalize_equipment`, `pick_item_for_tier`/`axe_item_for_tier`). Validator enforces the slot list, required items, and slot_type coherence.
+- **Authority model**: `player.tool_tier`/`axe_tier` remain the live mining authority — mining, `forge_pick`/`forge_axe`, and all prior smoke checks are untouched. Equipment is the persistence/display shape: `player.equipped_dict()` derives the pickaxe/axe slots from the live tiers (so display and saves can never drift from behavior); the 10 other slots live in `player.equipment` and are slot-ready data for FQ-04. `player.equip_item(slot, item)` validates slot/item fit; tool slots route to the tiers.
+- **Character-owned persistence**: character records gain an `equipment` dict (new characters: `pick_basic` + 11 empty). `save_character_carried` gained an optional 5th equipment param (`{}` = leave stored gear untouched, keeping legacy 4-arg callers safe); `save_manager.save_game` passes `player.equipped_dict()`. Both carried-state load paths apply the dict; pre-FQ-03 characters keep tiers/inventory and gain gear on migration/first save. Backpack inventory stays fully separate from equipped gear.
+- **Minimal UI**: the inventory panel (I) gained a read-only EQUIPMENT section listing all 12 slots with item names or `(empty)`.
 
 ## FQ-02 Additions
 
@@ -34,7 +41,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 142/142 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02) |
+| Automated smoke | PASS 149/149 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03) |
 
 ## Known Risks / Gotchas
 
@@ -47,10 +54,12 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - Raider pressure, XP pacing, and base-level thresholds remain untested by human play.
 - FQ-02 changes the tree layout of regenerated terrain: worlds saved before FQ-02 will regenerate with some former solid trees now background flora. Terrain deltas still apply cleanly (they overlay regenerated cells), but a pre-FQ-02 "air" delta where a tree used to stand may sit oddly next to new background flora. Cosmetic only; no data loss.
 - Background trees are intentionally not harvestable in this pass (no minimal hook was needed); revisit if a "clear background flora" action is ever wanted.
+- FQ-03 equipment is a foundation: the 10 non-tool slots hold data but have no gameplay effects yet (FQ-04 wires sword/armor); there is no equip/unequip UI interaction — the panel is read-only and `player.equip_item` is the API. Items are not acquirable in play yet (ring_band exists only for the round-trip smoke).
+- A hypothetical pick tier above 2 has no matching equipment item; the gear shape would record the highest defined pick (`pick_forged`) while the live tier is preserved in `carried_tool_tiers`. No real character can exceed tier 2 today (forge caps at 2).
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 (v0.6.1 closeout repair), FQ-01 (player health loop, smoke 134/134), and FQ-02 (background trees and pass-through flora: foreground/background tree split, `tree_foreground_ratio`, `BackgroundFlora` layer, smoke 142/142) are complete; FQ-03 (equipment data model and character-owned gear slots) is next.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 (v0.6.1 closeout repair), FQ-01 (player health loop, smoke 134/134), FQ-02 (background trees and pass-through flora, smoke 142/142), and FQ-03 (equipment data model: data/equipment.json, 12 character-owned gear slots, tool-tier derivation, read-only panel section, smoke 149/149) are complete; FQ-04 (first combat gear slice: sword, armor mitigation, toolbelt display) is next.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

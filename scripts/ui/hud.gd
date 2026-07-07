@@ -195,6 +195,18 @@ func _refresh_inventory_panel() -> void:
 	lines.append("")
 	var _axe_inv_str := ("tier %d" % player.axe_tier) if player.axe_tier > 0 else "(none)"
 	lines.append("  Pick tier %d · Axe %s" % [player.tool_tier, _axe_inv_str])
+	# FQ-03: read-only gear slots. Empty slots are valid and shown as (empty);
+	# the pickaxe/axe rows always mirror the live tool tiers.
+	lines.append("")
+	lines.append("  — EQUIPMENT —")
+	var equipped: Dictionary = player.equipped_dict()
+	for slot in BlockRegistry.equipment_slots():
+		var slot_id := str(slot.get("id", ""))
+		var item_id := str(equipped.get(slot_id, ""))
+		var item_name := "(empty)"
+		if item_id != "":
+			item_name = BlockRegistry.equipment_item_display_name(item_id)
+		lines.append("  %s: %s" % [str(slot.get("display_name", slot_id)), item_name])
 	_inv_content.text = "\n".join(lines)
 
 

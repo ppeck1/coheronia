@@ -1,0 +1,43 @@
+{
+  "schema_version": "0.1",
+  "slots": [
+    { "id": "weapon", "display_name": "Weapon", "accepts": "weapon" },
+    { "id": "axe", "display_name": "Axe", "accepts": "axe" },
+    { "id": "pickaxe", "display_name": "Pickaxe", "accepts": "pickaxe" },
+    { "id": "helmet", "display_name": "Helmet", "accepts": "helmet" },
+    { "id": "torso", "display_name": "Torso", "accepts": "torso" },
+    { "id": "feet", "display_name": "Feet", "accepts": "feet" },
+    { "id": "ring_1", "display_name": "Ring 1", "accepts": "ring" },
+    { "id": "ring_2", "display_name": "Ring 2", "accepts": "ring" },
+    { "id": "ring_3", "display_name": "Ring 3", "accepts": "ring" },
+    { "id": "ring_4", "display_name": "Ring 4", "accepts": "ring" },
+    { "id": "amulet", "display_name": "Amulet", "accepts": "amulet" },
+    { "id": "accessory", "display_name": "Accessory", "accepts": "accessory" }
+  ],
+  "items": {
+    "pick_basic": {
+      "display_name": "Basic Pick",
+      "slot_type": "pickaxe",
+      "description": "The starter pick every settler carries.",
+      "effects": { "pick_tier": 1 }
+    },
+    "pick_forged": {
+      "display_name": "Forged Pick",
+      "slot_type": "pickaxe",
+      "description": "Town Hall forged. Unlocks ore and mines faster.",
+      "effects": { "pick_tier": 2 }
+    },
+    "axe_crude": {
+      "display_name": "Crude Axe",
+      "slot_type": "axe",
+      "description": "Town Hall crafted. Chops wood and plants faster.",
+      "effects": { "axe_tier": 1 }
+    },
+    "ring_band": {
+      "display_name": "Plain Band",
+      "slot_type": "ring",
+      "description": "A simple ring. It does nothing, yet.",
+      "effects": {}
+    }
+  }
+}

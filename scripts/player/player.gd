@@ -32,6 +32,12 @@ var tool_tier := 1    # pick tier; kept as primary alias for the pick.
 var axe_tier := 0     # 0 = no axe; 1+ = axe tier. Wave F.
 var base_mine_speed := 1.0
 var inventory := InventoryData.new()
+## FQ-03: slot_id -> equipment item_id ("" = empty). Character-owned, kept
+## separate from the backpack inventory. The pickaxe/axe slots are derived
+## from the live tool_tier/axe_tier at read time (see equipped_dict), so the
+## mining code path is unchanged; the other slots are slot-ready data that
+## FQ-04 will make live.
+var equipment: Dictionary = {}
 
 # Character-driven modifiers (see data/character_data.json).
 var body_color := Color(0.92, 0.83, 0.55)
@@ -287,6 +293,49 @@ func try_place(cell: Vector2i, block_id: String) -> bool:
 	inventory.remove(block_id)
 	inventory_changed.emit()
 	placed.emit(block_id)
+	return true
+
+
+## FQ-03: stores a normalized character equipment dict (every slot present,
+## invalid entries emptied). Tool slots are ignored here — tool_tier/axe_tier
+## remain the live authority and are merged back in by equipped_dict().
+func apply_equipment(raw: Dictionary) -> void:
+	equipment = BlockRegistry.normalize_equipment(raw)
+
+
+## FQ-03: the full 12-slot gear picture used by the HUD and save path. The
+## pickaxe/axe slots always reflect the live tool tiers so display and
+## persistence can never drift from mining behavior.
+func equipped_dict() -> Dictionary:
+	var out: Dictionary = BlockRegistry.normalize_equipment(equipment)
+	out["pickaxe"] = BlockRegistry.pick_item_for_tier(tool_tier)
+	out["axe"] = BlockRegistry.axe_item_for_tier(axe_tier)
+	return out
+
+
+## FQ-03: equips item_id into slot_id ("" clears the slot). Tool slots route
+## to the live tool tiers via the item's effects and cannot be cleared —
+## picks/axes are gained through forging, and silently resetting a tier via
+## an unequip would be a footgun. Returns false for unknown slots, slot/item
+## mismatches, or clearing a tool slot.
+func equip_item(slot_id: String, item_id: String) -> bool:
+	if BlockRegistry.equipment_slot(slot_id).is_empty():
+		return false
+	if not BlockRegistry.item_fits_slot(item_id, slot_id):
+		return false
+	var effects: Dictionary = BlockRegistry.equipment_item(item_id).get("effects", {})
+	match slot_id:
+		"pickaxe":
+			if item_id == "":
+				return false
+			tool_tier = int(effects.get("pick_tier", 1))
+		"axe":
+			if item_id == "":
+				return false
+			axe_tier = int(effects.get("axe_tier", 0))
+		_:
+			equipment[slot_id] = item_id
+	inventory_changed.emit()
 	return true
 
 

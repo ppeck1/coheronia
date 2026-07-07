@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-02 run `20260706_coheronia_fq02_background_trees`.
+State: audited against FQ-03 run `20260707_coheronia_fq03_equipment_model`.
 
 ## Authority Surfaces
 
@@ -11,6 +11,7 @@ State: audited against FQ-02 run `20260706_coheronia_fq02_background_trees`.
 | Settlement formulas | `data/settlement_rules.json` | `settlement_model.gd` via Godot `Expression` |
 | World settings | `data/world_settings.json` | `WorldConfig`, shell UI, world generation, gameplay systems |
 | Character data | `data/character_data.json` | shell UI, `player.apply_character`, role item grant |
+| Equipment (FQ-03) | `data/equipment.json` | `BlockRegistry` equipment helpers -> `player` gear API, `hud` panel, `game_root` carried-state load, `save_manager` |
 | Enemies | `data/enemies.json` | `enemy_registry.gd` -> `game_root` spawn paths, `simple_threat` drops |
 | Ancestries | `data/ancestries.json` | `ancestry_registry.gd` -> `player.apply_ancestry_effects`, shell create form |
 | Progression | `data/progression/*.json` | `progression_registry.gd` -> XP awards, base levels, HUD |
@@ -26,6 +27,7 @@ All registries load through `scripts/data/json_data.gd` (`load_dict`, push_error
 | State | Owner | Notes |
 |---|---|---|
 | Inventory counts, hotbar slot, tool tiers {pick, axe} | character (`user://shell.json`) | `carried_inventory`, `carried_slot`, `carried_tool_tiers`, legacy `carried_tool_tier` alias |
+| Gear slots (FQ-03) | character (`user://shell.json`) | `equipment` dict (12 slot_id -> item_id, "" = empty); pickaxe/axe slots are derived from the live tool tiers at save time; the other 10 slots are slot-ready data for FQ-04; pre-FQ-03 characters gain the dict on first save/migration |
 | Role starter items | character | `items_granted` flag; granted once per character |
 | Terrain, hall stockpile, time, threats, storms, settlement | world file | unchanged |
 | Player position, health | world file | entering character inherits world position/health |
@@ -102,6 +104,9 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 | `preferred_tool` | string | `data/blocks.json` | axe: wood, berry_bush; pick: stone, ore; axe-preferred mine 1.4x faster with an axe |
 | `requires_support` | bool | `data/blocks.json` | berry_bush; enforced on mine, load sweep, and regrowth |
 | `axe_tier` | int | `player.gd` / character-carried | 0 = no axe; `craft_axe` recipe (4 wood + 2 stone, town_hall) sets 1 |
+| `equipment` (slots) | data | `data/equipment.json` | FQ-03: 12 slots (weapon, axe, pickaxe, helmet, torso, feet, ring_1-4, amulet, accessory) with `accepts` slot_type; validator-enforced |
+| `equipment` (items) | data | `data/equipment.json` | item defs {display_name, slot_type, description, effects}; live: pick_basic (pick_tier 1), pick_forged (pick_tier 2), axe_crude (axe_tier 1); inert: ring_band |
+| `player.equipment` | dictionary | `player.gd` / character-carried | slot_id -> item_id for the 10 non-tool slots; `equipped_dict()` merges in pickaxe/axe derived from live tiers; `equip_item(slot, item)` validates fit via `BlockRegistry.item_fits_slot`; tool slots cannot be cleared (tiers come from forging) |
 | `drops` | dictionary | `data/blocks.json` | inventory additions on break |
 | `is_placeable` | bool | `data/blocks.json` | placement gate |
 | `is_solid` | bool | `data/blocks.json` | collision, shelter, roof, defense |
@@ -193,6 +198,17 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-03 adds 7 checks (`fq03_*`, suite total 149) covering: equipment.json loads
+with the 12 expected slots in order; a new character record carries default
+gear (pick_basic + 11 empty slots); equipped tool slots mirror the live tool
+tiers both ways; slot/item mismatches are rejected and equipping never touches
+the backpack; an equipped inert item (ring_band) round-trips through character
+save/load while empty slots stay valid; the inventory panel shows every gear
+slot with (empty) placeholders; and a pre-FQ-03 character (no equipment key)
+migrates with tool tiers and inventory preserved and gear derived from tiers.
+`validate_repo.py` additionally enforces the equipment.json schema (slot list,
+required items, slot_type coherence, tool item tiers).
 
 FQ-02 adds 8 checks (`fq02_*`, suite total 142) covering: background flora generates on default config alongside foreground wood; no background cell overlaps `cells` or falls outside world bounds; the `BackgroundFlora` layer sits before the `Blocks` layer and its tileset has zero physics and occlusion layers; `tree_foreground_ratio` 0.0 produces only background trees and 1.0 only foreground wood; `tree_density` 0.0 clears background flora too; and a live traversal check where the player walks past a background trunk on flat terrain using only `move_right` (no jump, no mining).
 

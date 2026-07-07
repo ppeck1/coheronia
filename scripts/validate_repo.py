@@ -20,6 +20,7 @@ REQUIRED_FILES = [
     "data/settlement_rules.json",
     "data/world_settings.json",
     "data/character_data.json",
+    "data/equipment.json",
     "data/enemies.json",
     "data/ancestries.json",
     "data/progression/player_xp.json",
@@ -120,6 +121,36 @@ for key in REQUIRED_PLAYER_DEFAULTS:
     if key not in player_defaults:
         fail(f"character_data.json player_defaults missing key: {key}")
 print("PASS character player_defaults")
+
+# FQ-03: equipment surface — exactly the 12 gear slots, coherent item defs.
+equipment_data = json.loads((ROOT / "data/equipment.json").read_text(encoding="utf-8"))
+EXPECTED_SLOTS = ["weapon", "axe", "pickaxe", "helmet", "torso", "feet",
+                  "ring_1", "ring_2", "ring_3", "ring_4", "amulet", "accessory"]
+slot_ids = [s.get("id") for s in (equipment_data.get("slots") or [])]
+if slot_ids != EXPECTED_SLOTS:
+    fail(f"equipment.json slots mismatch: {slot_ids}")
+slot_accepts = set()
+for s in equipment_data["slots"]:
+    for field in ["id", "display_name", "accepts"]:
+        if field not in s:
+            fail(f"equipment.json slot {s.get('id', '?')} missing field: {field}")
+    slot_accepts.add(s["accepts"])
+items = equipment_data.get("items") or {}
+# ring_band is required because smoke's equip round-trip references it by id.
+for required_item in ["pick_basic", "pick_forged", "axe_crude", "ring_band"]:
+    if required_item not in items:
+        fail(f"equipment.json missing required item: {required_item}")
+for item_id, item in items.items():
+    for field in ["display_name", "slot_type", "effects"]:
+        if field not in item:
+            fail(f"equipment.json item {item_id} missing field: {field}")
+    if item["slot_type"] not in slot_accepts:
+        fail(f"equipment.json item {item_id} slot_type '{item['slot_type']}' matches no slot")
+if int(items["pick_basic"]["effects"].get("pick_tier", 0)) != 1 \
+        or int(items["pick_forged"]["effects"].get("pick_tier", 0)) != 2 \
+        or int(items["axe_crude"]["effects"].get("axe_tier", 0)) != 1:
+    fail("equipment.json tool item tiers must be pick_basic=1, pick_forged=2, axe_crude=1")
+print("PASS equipment data")
 
 enemies_data = json.loads((ROOT / "data/enemies.json").read_text(encoding="utf-8"))
 for section in ["enemies", "mini_bosses", "bosses", "region_density", "difficulty_scaling", "loot_philosophy", "mvp_expansion_order"]:

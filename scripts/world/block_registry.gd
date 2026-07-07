@@ -7,6 +7,7 @@ var recipes: Array = []
 var settlement_rules: Dictionary = {}
 var world_settings: Dictionary = {}
 var character_data: Dictionary = {}
+var equipment: Dictionary = {}      # FQ-03: data/equipment.json (slots + items)
 
 
 func _ready() -> void:
@@ -21,6 +22,7 @@ func _load_all() -> void:
 	settlement_rules = _load_json("res://data/settlement_rules.json")
 	world_settings = _load_json("res://data/world_settings.json")
 	character_data = _load_json("res://data/character_data.json")
+	equipment = _load_json("res://data/equipment.json")
 	if blocks.is_empty():
 		push_error("BlockRegistry: no blocks loaded from data/blocks.json")
 
@@ -119,3 +121,77 @@ func preferred_tool(block_id: String) -> String:
 ## Wave E: returns true if the block requires a solid block directly below to stay.
 func requires_support(block_id: String) -> bool:
 	return bool(get_block(block_id).get("requires_support", false))
+
+
+# ---------------------------------------------------------------------------
+# FQ-03: equipment (data/equipment.json) — gear slots and equipment items
+# ---------------------------------------------------------------------------
+
+## Ordered gear slot definitions [{id, display_name, accepts}, ...].
+func equipment_slots() -> Array:
+	return equipment.get("slots", [])
+
+
+func equipment_slot(slot_id: String) -> Dictionary:
+	for slot in equipment_slots():
+		if str(slot.get("id", "")) == slot_id:
+			return slot
+	return {}
+
+
+func equipment_item(item_id: String) -> Dictionary:
+	return equipment.get("items", {}).get(item_id, {})
+
+
+func equipment_item_display_name(item_id: String) -> String:
+	return str(equipment_item(item_id).get("display_name", item_id))
+
+
+## True when item_id can sit in slot_id ("" always fits: an empty slot is valid).
+func item_fits_slot(item_id: String, slot_id: String) -> bool:
+	if item_id == "":
+		return true
+	var slot := equipment_slot(slot_id)
+	if slot.is_empty():
+		return false
+	var item := equipment_item(item_id)
+	if item.is_empty():
+		return false
+	return str(item.get("slot_type", "")) == str(slot.get("accepts", ""))
+
+
+## Returns a full 12-slot equipment dict from a possibly partial/invalid raw
+## dict: every known slot id is present; unknown slots are dropped; items that
+## do not exist or do not fit their slot become "" (empty is always valid).
+func normalize_equipment(raw: Dictionary) -> Dictionary:
+	var out := {}
+	for slot in equipment_slots():
+		var sid := str(slot.get("id", ""))
+		var iid := str(raw.get(sid, ""))
+		out[sid] = iid if item_fits_slot(iid, sid) else ""
+	return out
+
+
+## Best pickaxe item for a numeric pick tier (highest pick_tier <= tier).
+## Tier data lives on the items, so new picks slot in without code changes.
+func pick_item_for_tier(tier: int) -> String:
+	return _tool_item_for_tier("pickaxe", "pick_tier", tier)
+
+
+## Axe item for a numeric axe tier ("" when tier 0 — no axe crafted yet).
+func axe_item_for_tier(tier: int) -> String:
+	return _tool_item_for_tier("axe", "axe_tier", tier)
+
+
+func _tool_item_for_tier(slot_type: String, effect_key: String, tier: int) -> String:
+	var best_id := ""
+	var best_tier := 0
+	for item_id in equipment.get("items", {}):
+		var item: Dictionary = equipment["items"][item_id]
+		if str(item.get("slot_type", "")) != slot_type:
+			continue
+		var item_tier := int(item.get("effects", {}).get(effect_key, 0))
+		if item_tier <= tier and item_tier > best_tier:
+			best_tier = item_tier
+			best_id = item_id
+	return best_id

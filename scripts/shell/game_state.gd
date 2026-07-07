@@ -63,10 +63,22 @@ func create_character(char_data: Dictionary) -> Dictionary:
 		# Wave F: tool_tiers dict {pick, axe}; carried_tool_tier kept for legacy readers.
 		"carried_tool_tiers": {"pick": 1, "axe": 0},
 		"carried_tool_tier": 1,
+		# FQ-03: gear slots (slot_id -> item_id, "" = empty). Every character
+		# starts with the basic pick equipped; everything else is empty.
+		"equipment": default_equipment(),
 	}
 	characters.append(character)
 	save_shell()
 	return character
+
+
+## FQ-03: a fresh equipment dict — all slots empty except the starter pickaxe.
+func default_equipment() -> Dictionary:
+	var out := {}
+	for slot in BlockRegistry.equipment_slots():
+		out[str(slot.get("id", ""))] = ""
+	out["pickaxe"] = "pick_basic"
+	return out
 
 
 func delete_character(char_id: String) -> void:
@@ -88,19 +100,25 @@ func get_character(char_id: String) -> Dictionary:
 ## into the characters array and shell.json. Also keeps current_character in sync.
 ## Wave F: tool_tiers is a dict {"pick": int, "axe": int}; carried_tool_tier is
 ## kept as a legacy-compat alias for pick tier.
+## FQ-03: equipment is the full gear dict (slot_id -> item_id); pass {} to
+## leave the character's stored equipment untouched (legacy 4-arg callers).
 func save_character_carried(char_id: String, inv_dict: Dictionary,
-		slot: int, tool_tiers: Dictionary) -> void:
+		slot: int, tool_tiers: Dictionary, equipment: Dictionary = {}) -> void:
 	for i in range(characters.size()):
 		if str(characters[i].get("id", "")) == char_id:
 			characters[i]["carried_inventory"] = inv_dict
 			characters[i]["carried_slot"] = slot
 			characters[i]["carried_tool_tiers"] = tool_tiers
 			characters[i]["carried_tool_tier"] = int(tool_tiers.get("pick", 1))
+			if not equipment.is_empty():
+				characters[i]["equipment"] = equipment
 			if str(current_character.get("id", "")) == char_id:
 				current_character["carried_inventory"] = inv_dict
 				current_character["carried_slot"] = slot
 				current_character["carried_tool_tiers"] = tool_tiers
 				current_character["carried_tool_tier"] = int(tool_tiers.get("pick", 1))
+				if not equipment.is_empty():
+					current_character["equipment"] = equipment
 			break
 	save_shell()
 

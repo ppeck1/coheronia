@@ -34,12 +34,15 @@ func collect_state() -> Dictionary:
 
 
 func save_game() -> bool:
-	# Save character carried state (inventory/slot/tier) to shell.json alongside world.
+	# Save character carried state (inventory/slot/tier/gear) to shell.json
+	# alongside the world. FQ-03: equipped_dict() is the full 12-slot gear
+	# picture with the tool slots derived from the live tiers.
 	var char_id: String = str(GameState.current_character.get("id", ""))
 	if char_id != "":
 		GameState.save_character_carried(char_id,
 			player.inventory.to_dict(), player.selected_slot,
-			{"pick": player.tool_tier, "axe": player.axe_tier})
+			{"pick": player.tool_tier, "axe": player.axe_tier},
+			player.equipped_dict())
 	return GameState.save_current_world_state(collect_state(), game_root.summary())
 
 

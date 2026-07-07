@@ -127,8 +127,13 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 		player.selected_slot = 0
 		player.tool_tier = 1
 		player.axe_tier = 0
+		player.apply_equipment({})
 		player.inventory_changed.emit()
 		return
+	# FQ-03: gear slots ride on the character record; a pre-FQ-03 character
+	# without the key gets empty inert slots here and the full dict (tool
+	# slots derived from tiers) persisted on the next save.
+	player.apply_equipment(Dictionary(GameState.current_character.get("equipment", {})))
 	if GameState.current_character.has("carried_inventory"):
 		# Character record is authoritative.
 		player.inventory.from_dict(
@@ -144,6 +149,15 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 		else:
 			player.tool_tier = int(GameState.current_character.get("carried_tool_tier", 1))
 			player.axe_tier = 0  # legacy migration: the axe must still be crafted
+		# FQ-03 review fix: a pre-FQ-03 record (no equipment key) gets its
+		# derived gear persisted immediately, mirroring the legacy branch,
+		# instead of depending on the player reaching an explicit save.
+		if not GameState.current_character.has("equipment"):
+			GameState.save_character_carried(
+				str(GameState.current_character.get("id", "")),
+				player.inventory.to_dict(), player.selected_slot,
+				{"pick": player.tool_tier, "axe": player.axe_tier},
+				player.equipped_dict())
 	else:
 		# Legacy character (no carried_inventory key): migrate from world save once.
 		var legacy: Dictionary = save_manager.legacy_player_carried(saved_state)
@@ -160,10 +174,13 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 			player.tool_tier = 1
 			player.axe_tier = 0
 		# Persist the migrated or default state into the character record.
+		# FQ-03: include the derived gear dict so the legacy character gains
+		# its equipment shape (starter/forged pick, crafted axe) immediately.
 		var char_id: String = str(GameState.current_character.get("id", ""))
 		GameState.save_character_carried(char_id,
 			player.inventory.to_dict(), player.selected_slot,
-			{"pick": player.tool_tier, "axe": player.axe_tier})
+			{"pick": player.tool_tier, "axe": player.axe_tier},
+			player.equipped_dict())
 		# FQ-00: a legacy world already granted this character's starter items
 		# under the pre-v0.6 format, and that inventory just became authoritative
 		# above. Mark items_granted so _grant_role_items() does not add a second
@@ -184,6 +201,8 @@ func _apply_character_carried_state() -> void:
 	player.inventory.from_dict(Dictionary(char.get("carried_inventory", {})))
 	player.selected_slot = clampi(
 		int(char.get("carried_slot", 0)), 0, player.hotbar.size() - 1)
+	# FQ-03: restore gear slots (tool slots re-derive from the tiers below).
+	player.apply_equipment(Dictionary(char.get("equipment", {})))
 	if char.has("carried_tool_tiers"):
 		var tiers := Dictionary(char.get("carried_tool_tiers", {}))
 		player.tool_tier = int(tiers.get("pick", 1))
