@@ -1,0 +1,59 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260706_coheronia_fq02_background_trees",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "28dfd3a",
+  "end_commit": "434c7ae",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-02: background trees and pass-through flora — the player walks past most trees instead of jumping over or chopping through every one.",
+  "summary": "Tree generation on the existing tree seed channel now splits each accepted site into a solid foreground wood column (3-5 tall, unchanged mining/drops/axe behavior) or a pass-through background tree (4-7 bg_trunk column + 3-wide bg_canopy). WorldGen.generate returns a separate background dictionary; world.gd renders it on a new BackgroundFlora TileMapLayer added before the Blocks layer, modulated with a dim cool tint, whose tileset has zero physics and zero occlusion layers — background flora can never collide, block light, or count as shelter. New config key generation.tree_foreground_ratio (0-1, default 0.4) with a 'Solid Tree Ratio' world-builder slider and gen_help text; a foreground tree is forced after 2 consecutive background trees so wood stays harvestable. Background cells are deterministic from seed+config: never serialized, never in cells/deltas, never mineable or placeable, y>=0 bounds-guarded, cleared across the Town Hall footprint columns; bush generation skips background-occupied cells. blocks.json unchanged (bg ids are not blocks). Smoke grew 134 -> 142 with a live traversal test walking the player past a background trunk on flat terrain using only move_right.",
+  "acceptance": [
+    "Surface generation creates pass-through background trees (70 background cells + 30 foreground wood on default config, seed 777)",
+    "Player movement is not blocked by background trees (live walk-past check x=2231.0 past target 2168.0; background tileset has zero physics layers)",
+    "Foreground wood still exists, mines, drops wood, and keeps axe behavior (wood 33 frames, 24 with axe — unchanged v0.6 baselines)",
+    "Berry bush support/regrowth unbroken (all wave_e_* checks green; bushes never spawn on background cells)",
+    "tree_density and tree_foreground_ratio affect the generated surfaces (density 0 clears both layers; ratio 0 -> all background, ratio 1 -> all foreground)",
+    "Smoke covers the foreground/background distinction: 8 fq02_* checks, 142/142 PASS on windowed Godot 4.6.1 at 2026-07-07T10:34; validator PASS; capsule doctor healthy; git diff --check clean",
+    "No unrelated feature work: diff limited to world_gen/world/smoke/world_settings + one shell slider row + docs"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> all checks PASS (Windows-side)",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited windowed run -> 142/142 PASS incl. eight fq02_* checks; fresh results file verified by LastWriteTime",
+    "git diff --check -> exit 0"
+  ],
+  "docs_updated": ["docs/VARIABLE_MATRIX.md", "docs/HANDOFF.md", "docs/FABLE_TASK_QUEUE.md"],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Background trees are pure visuals owned by world_gen/world, not entries in blocks.json or cells — mining, placement, collision, save/load, and settlement scoring are untouched by construction",
+    "Background flora is regenerated from seed+config and never serialized; no save schema change",
+    "Harvesting background trees deliberately not built (queue scope said not to overbuild); revisit only if a clear-flora action is wanted",
+    "tree_foreground_ratio defaults to 0.4 with a forced foreground tree after 2 consecutive background trees, keeping wood supply meaningful at any ratio > 0",
+    "Review findings fixed pre-commit: y>=0 bounds guard on background stamping; vacuous is_solid_at smoke sub-check replaced by an in-bounds + no-overlap assertion",
+    "Review finding rejected with rationale: bush regrowth need not consult background_cells because regrowth only targets former bush cells, which generation guarantees are never background cells",
+    "Orchestration: Explore recon agent -> orchestrator implementation -> Windows-side verification -> sonnet review agent -> orchestrator fixes -> full re-verification (first review agent launch died on a session-token limit and was relaunched after reset)"
+  ],
+  "risks": [
+    "Pre-FQ-02 world saves regenerate with some former solid trees now background flora; deltas still apply cleanly — cosmetic only, no data loss",
+    "Background art is placeholder-grade like all current visuals; FQ-07 visual asset pipeline is the upgrade path",
+    "Default ratio 0.4 feel untested by human play; tunable per world in the builder"
+  ],
+  "next_action": "FQ-03: equipment data model and character-owned gear slots.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260706_coheronia_fq02_background_trees.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/HANDOFF.md",
+    "docs/FABLE_TASK_QUEUE.md"
+  ],
+  "ledger_path": ".project/runs/20260706_coheronia_fq02_background_trees.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-07T10:45:00-04:00"
+}
