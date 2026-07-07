@@ -57,6 +57,9 @@ var _level_start_xp := 0           # cumulative XP at start of current level (se
 var base_xp := 0                    # informational; base_level check is authoritative
 var base_level := 1                 # ratchets up, never decreases; capped at BASE_LEVEL_MAX_MVP
 var _depth_hwm := 0                 # highest depth band reached (10 tiles per band)
+## FQ-06: purchased perk ids (Array[String]); world-owned like XP/levels.
+## Points: one per player level above 1; spent points derive from perk costs.
+var purchased_perks: Array = []
 var _depth_check_timer := 0.0
 var _warned_requires_keys: Dictionary = {}  # tracks keys already warned about in _meets_base_level_requires
 
@@ -234,6 +237,8 @@ func _wire_references() -> void:
 	save_manager.game_root = self
 	hud.player = player
 	hud.town_hall = town_hall
+	# FQ-06: the skill tree panel reads perk state through this game_root.
+	hud.setup_skill_panel(self)
 
 
 func _wire_signals() -> void:
@@ -296,15 +301,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			log_event("No save to load.")
 	elif event.is_action_pressed("toggle_inventory"):
-		# Wave C: opening inventory closes the town panel; they do not overlap.
+		# Wave C: opening inventory closes the other panels; they do not overlap.
 		if hud.town_panel_open():
 			hud.toggle_town_panel()
+		if hud.skill_panel_open():
+			hud.toggle_skill_panel()
 		hud.toggle_inventory_panel()
+	elif event.is_action_pressed("toggle_skills"):
+		# FQ-06: the skill tree is mutually exclusive with the other panels.
+		if hud.town_panel_open():
+			hud.toggle_town_panel()
+		if hud.inventory_panel_open():
+			hud.toggle_inventory_panel()
+		hud.toggle_skill_panel()
 	elif event.is_action_pressed("interact") or event.is_action_pressed("toggle_town"):
 		_try_interact()
 	elif event.is_action_pressed("ui_cancel"):
-		# Wave C: Esc closes inventory first, then town panel, then saves and exits.
-		if hud.inventory_panel_open():
+		# Esc closes skills, then inventory, then town panel, then saves and exits.
+		if hud.skill_panel_open():
+			hud.toggle_skill_panel()
+		elif hud.inventory_panel_open():
 			hud.toggle_inventory_panel()
 		elif hud.town_panel_open():
 			hud.toggle_town_panel()
@@ -973,6 +989,96 @@ func _check_depth_xp() -> void:
 
 
 # ---------------------------------------------------------------------------
+# FQ-06: perk points, states, and purchases
+# ---------------------------------------------------------------------------
+
+func perk_points_total() -> int:
+	return maxi(0, player_level - 1)
+
+
+func perk_points_spent() -> int:
+	if _progression_registry == null:
+		return 0
+	var spent := 0
+	for pid in purchased_perks:
+		spent += int(_progression_registry.get_perk(str(pid)).get("cost", 1))
+	return spent
+
+
+func perk_points_available() -> int:
+	# Floored so a hand-edited save with overspent perks displays 0, not a
+	# negative count (purchases stay blocked either way).
+	return maxi(0, perk_points_total() - perk_points_spent())
+
+
+## "purchased" | "available" (all prerequisites purchased) | "locked".
+## Affordability is a separate purchase-time gate, not a display state.
+func perk_state(perk_id: String) -> String:
+	if perk_id in purchased_perks:
+		return "purchased"
+	var perk: Dictionary = _progression_registry.get_perk(perk_id) \
+		if _progression_registry != null else {}
+	if perk.is_empty():
+		return "locked"
+	for prereq in perk.get("prerequisites", []):
+		if not (str(prereq) in purchased_perks):
+			return "locked"
+	return "available"
+
+
+## Buys a perk with real level-derived points. Returns false when unknown,
+## already purchased, prerequisite-locked, or unaffordable.
+func try_purchase_perk(perk_id: String) -> bool:
+	if _progression_registry == null:
+		return false
+	var perk: Dictionary = _progression_registry.get_perk(perk_id)
+	if perk.is_empty():
+		return false
+	if perk_state(perk_id) != "available":
+		return false
+	if int(perk.get("cost", 1)) > perk_points_available():
+		return false
+	purchased_perks.append(perk_id)
+	_apply_purchased_perk_effects()
+	log_event("Perk learned: %s." % str(perk.get("display_name", perk_id)))
+	return true
+
+
+## Recomputes the combined live perk effects and pushes them to the player.
+## mining_speed multiplies; attunement_bonus adds (the FQ-05 join point).
+## Planning-stage effect keys stay inert until their systems ship.
+func _apply_purchased_perk_effects() -> void:
+	var combined := {"mining_speed": 1.0, "attunement_bonus": 0.0}
+	if _progression_registry != null:
+		for pid in purchased_perks:
+			var perk: Dictionary = _progression_registry.get_perk(str(pid))
+			var value := float(perk.get("effect_value", 0.0))
+			match str(perk.get("effect_key", "")):
+				"mining_speed":
+					combined["mining_speed"] = float(combined["mining_speed"]) * value
+				"attunement_bonus":
+					combined["attunement_bonus"] = float(combined["attunement_bonus"]) + value
+				_:
+					pass
+	player.apply_perk_effects(combined)
+
+
+## Skill tree panel accessors (the panel holds a game_root reference).
+func perk_lanes() -> Array:
+	return _progression_registry.perk_lanes() if _progression_registry != null else []
+
+
+func get_perk(perk_id: String) -> Dictionary:
+	return _progression_registry.get_perk(perk_id) if _progression_registry != null else {}
+
+
+func _on_perk_purchase_requested(perk_id: String) -> void:
+	if not try_purchase_perk(perk_id):
+		log_event("Cannot learn that perk (locked, owned, or not enough points).")
+	hud.refresh_skill_panel()
+
+
+# ---------------------------------------------------------------------------
 # Progression save / load
 # ---------------------------------------------------------------------------
 
@@ -983,6 +1089,7 @@ func progression_state() -> Dictionary:
 		"base_xp": base_xp,
 		"base_level": base_level,
 		"depth_hwm": _depth_hwm,
+		"purchased_perks": purchased_perks.duplicate(),
 	}
 
 
@@ -1002,3 +1109,13 @@ func apply_progression_state(data: Dictionary) -> void:
 	base_xp = int(data.get("base_xp", 0))
 	base_level = int(data.get("base_level", 1))
 	_depth_hwm = int(data.get("depth_hwm", 0))
+	# FQ-06: restore purchased perks, dropping ids that no longer exist in
+	# data (a renamed/removed perk quietly refunds its points). A null
+	# registry (impossible in the normal boot order) leaves the previous
+	# list untouched rather than silently wiping purchases.
+	if _progression_registry != null:
+		purchased_perks = []
+		for pid in data.get("purchased_perks", []):
+			if not _progression_registry.get_perk(str(pid)).is_empty():
+				purchased_perks.append(str(pid))
+		_apply_purchased_perk_effects()

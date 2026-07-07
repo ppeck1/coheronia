@@ -44,7 +44,7 @@ func _run() -> void:
 	for action in ["move_left", "move_right", "jump", "mine", "place", "interact",
 			"toggle_town", "craft", "save_game", "load_game", "toggle_inventory",
 			"debug_overlay", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5",
-			"eat_food", "attune_pulse"]:
+			"eat_food", "attune_pulse", "toggle_skills"]:
 		var has_device_event := false
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventKey or ev is InputEventMouseButton:
@@ -1354,6 +1354,90 @@ func _run() -> void:
 	player.equip_item("amulet", "")
 	player.attunement = player.max_attunement()
 	root.save_manager.save_game()   # persist the amulet removal for later sections
+
+	# --- FQ-06: visual skill tree — perk points, states, purchase, persistence ---
+
+	# (a) perk data loads through the registry: 7 lanes, miner nodes indexed.
+	var _fq06_reg = root._progression_registry
+	_check("fq06_perks_json_loads",
+		_fq06_reg.perk_lanes().size() == 7
+		and str(_fq06_reg.get_perk("stone_recovery").get("lane", "")) == "miner"
+		and _fq06_reg.get_perk("stone_recovery").get("prerequisites", [null]).is_empty()
+		and "stone_recovery" in _fq06_reg.get_perk("deep_sense").get("prerequisites", []),
+		"lanes=%d stone_recovery_lane=%s" % [_fq06_reg.perk_lanes().size(),
+			str(_fq06_reg.get_perk("stone_recovery").get("lane", "?"))])
+
+	# (b) states at level 1 with nothing purchased: root available, child locked.
+	var _fq06_saved_level: int = root.player_level
+	var _fq06_saved_perks: Array = root.purchased_perks.duplicate()
+	root.purchased_perks = []
+	root._apply_purchased_perk_effects()
+	root.player_level = 1
+	_check("fq06_states_and_zero_points",
+		root.perk_points_total() == 0
+		and root.perk_state("stone_recovery") == "available"
+		and root.perk_state("deep_sense") == "locked"
+		and not root.try_purchase_perk("stone_recovery"),
+		"points=%d root=%s child=%s" % [root.perk_points_total(),
+			root.perk_state("stone_recovery"), root.perk_state("deep_sense")])
+
+	# (c) a real level grants points; purchase applies the live mining effect.
+	root.player_level = 3   # 2 points
+	var _fq06_speed_before: float = player.effective_mine_speed()
+	var _fq06_bought: bool = root.try_purchase_perk("stone_recovery")
+	_check("fq06_purchase_applies_effect",
+		_fq06_bought
+		and root.perk_state("stone_recovery") == "purchased"
+		and root.perk_points_available() == 1
+		and absf(player.perk_mine_speed_mult - 1.15) < 0.001
+		and absf(player.effective_mine_speed() - _fq06_speed_before * 1.15) < 0.001,
+		"bought=%s points_left=%d mult=%.2f speed %.2f→%.2f" % [str(_fq06_bought),
+			root.perk_points_available(), player.perk_mine_speed_mult,
+			_fq06_speed_before, player.effective_mine_speed()])
+
+	# (d) prerequisites unlock; cost still gates (tunnel_safety costs 2 > 1 left).
+	_check("fq06_prereqs_and_cost_gate",
+		root.perk_state("deep_sense") == "available"
+		and root.perk_state("tunnel_safety") == "available"
+		and not root.try_purchase_perk("tunnel_safety")
+		and not root.try_purchase_perk("stone_recovery"),
+		"deep_sense=%s tunnel_safety=%s (2-cost blocked at 1 point)" % [
+			root.perk_state("deep_sense"), root.perk_state("tunnel_safety")])
+
+	# (e) purchased perks persist through the world save round-trip.
+	root.save_manager.save_game()
+	root.purchased_perks = []
+	root._apply_purchased_perk_effects()
+	root.player_level = 1
+	root.load_game()
+	_check("fq06_perks_persist",
+		"stone_recovery" in root.purchased_perks
+		and absf(player.perk_mine_speed_mult - 1.15) < 0.001
+		and root.player_level == 3,
+		"purchased=%s mult=%.2f level=%d" % [str(root.purchased_perks),
+			player.perk_mine_speed_mult, root.player_level])
+
+	# (f) the panel opens, a node can be selected/inspected, states render.
+	hud.toggle_skill_panel()
+	var _fq06_open: bool = hud.skill_panel_open()
+	hud.skill_panel().select_node("stone_recovery")
+	var _fq06_info: String = hud.skill_panel().info_text()
+	hud.skill_panel().select_node("deep_sense")
+	var _fq06_info2: String = hud.skill_panel().info_text()
+	hud.toggle_skill_panel()
+	_check("fq06_panel_opens_and_inspects",
+		_fq06_open and not hud.skill_panel_open()
+		and "Stone Recovery" in _fq06_info and "PURCHASED" in _fq06_info
+		and "15%" in _fq06_info
+		and "Deep Sense" in _fq06_info2 and "AVAILABLE" in _fq06_info2
+		and "Stone Recovery" in _fq06_info2,
+		"info=%s" % _fq06_info.left(90))
+
+	# Restore progression so later sections see the pre-FQ-06 world.
+	root.purchased_perks = _fq06_saved_perks.duplicate()
+	root._apply_purchased_perk_effects()
+	root.player_level = _fq06_saved_level
+	root.save_manager.save_game()
 
 	# --- FQ-01: player health, damage, healing, and death loop ---
 

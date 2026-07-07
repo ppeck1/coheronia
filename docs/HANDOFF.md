@@ -2,9 +2,15 @@
 
 ## Current State
 
-**FQ-05 (Attunement system MVP) implemented and closed out** (run `20260707_coheronia_fq05_attunement_mvp`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01 -> FQ-02 -> FQ-03 -> FQ-04; Godot 4.6.1 stable).
+**FQ-06 (visual player skill tree navigator) implemented and closed out** (run `20260707_coheronia_fq06_skill_tree_navigator`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01 -> FQ-02 -> FQ-03 -> FQ-04 -> FQ-05; Godot 4.6.1 stable).
 
-v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 (closeout repair), FQ-01 (player health loop), FQ-02 (background trees), FQ-03 (equipment model), FQ-04 (combat gear), and FQ-05 (attunement) followed from `docs/FABLE_TASK_QUEUE.md`.
+v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 (closeout repair), FQ-01 (player health loop), FQ-02 (background trees), FQ-03 (equipment model), FQ-04 (combat gear), FQ-05 (attunement), and FQ-06 (skill tree) followed from `docs/FABLE_TASK_QUEUE.md`.
+
+## FQ-06 Additions
+
+- **Perk node schema**: every node in `data/progression/perks.json` (7 lanes x 3) gained description, cost, grid position, and same-lane prerequisites (validator-enforced, unique ids). The **Miner lane is live**: `stone_recovery` (root, `mining_speed` x1.15 -> `effective_mine_speed`), with `deep_sense` and `tunnel_safety` as prerequisite-gated branches whose planning effect keys stay inert until ore-sensing/cave-hazard systems ship.
+- **Perk economy**: one point per player level above 1 (`perk_points_total = player_level - 1`); spent points derive from purchased costs. `purchased_perks` is world-owned progression state (like XP/levels); unknown ids are dropped on load. `game_root.try_purchase_perk` gates on state ("purchased"/"available"/"locked" via prerequisites) and affordability, then recomputes combined effects onto the player — `mining_speed` multiplies, `attunement_bonus` adds into `max_attunement()` (the FQ-05 join point is now live code, awaiting a node that carries it).
+- **Skill tree panel** (`scripts/ui/skill_tree_panel.gd`, K / `toggle_skills`): scrollable node canvas laid out from data positions, state-colored buttons with [OWNED]/[LOCKED] markers, an inspector (title, state, cost, effect, prerequisites, description), a learn button backed by real points, and the planned lanes listed. Mutually exclusive with the inventory/town panels; Esc closes it first in the chain.
 
 ## FQ-05 Additions
 
@@ -55,7 +61,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 163/163 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05) |
+| Automated smoke | PASS 169/169 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06) |
 
 ## Known Risks / Gotchas
 
@@ -71,11 +77,12 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - Equipment UI remains read-only (`player.equip_item` is the API; no drag/drop). Rings, amulet, and accessory still have no live effects; ring_band exists only for the round-trip smoke.
 - FQ-04 armor is flat mitigation with a 1-health minimum chip; there is no unequip flow for forged gear in play (forge guards prevent duplicates). Combat feel (sword damage 3, armor total 4 vs slime 8) is untested by human play; all numbers are data-tunable in `data/equipment.json`.
 - FQ-05 attunement has exactly one use (the light pulse); no live ancestry or acquirable gear modifies it yet — the hooks are data-ready and smoke-proven but dormant. The pulse light is cosmetic (does not affect `light_score`, night spawns, or occlusion safety math).
+- FQ-06: only the Miner lane's `mining_speed` effect is live; `detect_ore_range`, `cave_safety`, and all non-miner lane effect keys are inert data awaiting their systems. There is no perk refund/respec. Perk points come only from player levels; XP pacing (100 x 1.35^n) means points arrive slowly — untested by human play.
 - A hypothetical pick tier above 2 has no matching equipment item; the gear shape would record the highest defined pick (`pick_forged`) while the live tier is preserved in `carried_tool_tiers`. No real character can exceed tier 2 today (forge caps at 2).
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-05 are complete (FQ-05: attunement resource with HUD bar, R-key light pulse, ancestry/gear/perk hooks, world-saved current value, smoke 163/163); FQ-06 (visual player skill tree navigator) is next — it should join the perk term into `player.max_attunement()` when perk effects land.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-06 are complete (FQ-06: data-complete perk node schema, level-derived perk points, live Miner lane, K-key skill tree panel with locked/available/purchased states, world-saved purchases, smoke 169/169); FQ-07 (visual asset pipeline with color fallback) is next.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

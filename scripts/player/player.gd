@@ -73,6 +73,11 @@ var attunement_regen_mult := 1.0
 ## the maximum is computed live (base + ancestry + gear) via max_attunement().
 var attunement := DEFAULT_BASE_MAX_ATTUNEMENT
 
+# FQ-06 perk effects (world-owned progression; recomputed from purchased
+# perks by game_root._apply_purchased_perk_effects — never set directly).
+var perk_mine_speed_mult := 1.0
+var perk_attunement_bonus := 0.0
+
 var mine_target := Vector2i(-99999, -99999)
 var mine_progress := 0.0
 var mine_required := 0.0
@@ -396,7 +401,7 @@ func equip_item(slot_id: String, item_id: String) -> bool:
 ## should add their modifier here when FQ-06 wires them.
 func max_attunement() -> float:
 	return maxf(1.0, _base_max_attunement + ancestry_attunement_bonus \
-		+ attunement_bonus_from_gear())
+		+ attunement_bonus_from_gear() + perk_attunement_bonus)
 
 
 ## Sum of the "attunement_bonus" effect over all equipped items (data-driven,
@@ -503,9 +508,20 @@ func armor_total() -> float:
 	return total
 
 
-## Better picks mine faster: +50% speed per tier above 1; traits multiply.
+## FQ-06: applies the combined live perk effects (computed by game_root from
+## purchased perks). Keys: mining_speed (multiplier), attunement_bonus
+## (additive max attunement — the FQ-05 join point, now live).
+func apply_perk_effects(effects: Dictionary) -> void:
+	perk_mine_speed_mult = float(effects.get("mining_speed", 1.0))
+	perk_attunement_bonus = float(effects.get("attunement_bonus", 0.0))
+	_clamp_attunement()
+
+
+## Better picks mine faster: +50% speed per tier above 1; traits and
+## purchased Miner perks multiply.
 func effective_mine_speed() -> float:
-	return base_mine_speed * trait_mine_mult * (1.0 + 0.5 * float(tool_tier - 1))
+	return base_mine_speed * trait_mine_mult * perk_mine_speed_mult \
+		* (1.0 + 0.5 * float(tool_tier - 1))
 
 
 ## Wave F: returns effective mine speed for a specific block, applying the axe

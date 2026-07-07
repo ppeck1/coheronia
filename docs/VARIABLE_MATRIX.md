@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-05 run `20260707_coheronia_fq05_attunement_mvp`.
+State: audited against FQ-06 run `20260707_coheronia_fq06_skill_tree_navigator`.
 
 ## Authority Surfaces
 
@@ -177,6 +177,19 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 | `speed` | float | `data/enemies.json` (live enemies) -> `simple_threat.move_speed` | horizontal chase speed; falls back to `SPEED` const if the def omits it |
 | `hp` | int | `data/enemies.json` (live enemies) | data-completeness/validator field; runtime hp is still set from `game_root.threat_hp()` (difficulty + day scaling), not read from this field |
 
+## FQ-06 Perk Variables
+
+| Variable | Type | Authority | Notes |
+|---|---|---|---|
+| perk node schema | data | `data/progression/perks.json` | 7 lanes x 3 nodes; each node: id, display_name (title), description, effect_key, effect_value, cost, position [x,y], prerequisites (same-lane ids), xp_type_gate; validator-enforced |
+| `purchased_perks` | Array[String] | `game_root.gd` / world save (`progression.purchased_perks`) | world-owned like XP/levels; unknown ids dropped on load (silent refund) |
+| perk points | derived | `game_root.perk_points_total/spent/available` | one point per player level above 1; spent = sum of purchased costs |
+| `perk_state(id)` | func | `game_root.gd` | "purchased" / "available" (prereqs owned) / "locked"; affordability gates only purchase |
+| `player.perk_mine_speed_mult` | float | `game_root._apply_purchased_perk_effects` -> `player.apply_perk_effects` | live effect_key `mining_speed` (Miner lane); multiplies `effective_mine_speed` |
+| `player.perk_attunement_bonus` | float | same | live effect_key `attunement_bonus`; the FQ-05 join point inside `max_attunement()` (no node carries it yet) |
+| planning effect keys | data-only | `data/progression/perks.json` | detect_ore_range, cave_safety, and all non-miner lane keys stay inert until their systems ship |
+| skill tree panel | UI | `scripts/ui/skill_tree_panel.gd` (K, `toggle_skills`) | scrollable node canvas from data positions; locked/available/purchased colors + [OWNED]/[LOCKED] markers; inspector + learn button; joins the Esc close chain ahead of inventory |
+
 ## v0.5 Progression Variables
 
 | Variable | Type | Authority | Notes |
@@ -216,6 +229,18 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-06 adds 6 checks (`fq06_*`, suite total 169) covering: perk data loads with
+7 lanes and correct miner prerequisites; at level 1 with nothing purchased the
+root node is available, its child locked, points 0, and purchase refused; at
+level 3 (2 points) purchasing stone_recovery succeeds, leaves 1 point, and
+multiplies effective_mine_speed by exactly 1.15; prerequisites unlock children
+while the 2-cost node stays unaffordable and re-purchase is refused; purchased
+perks + level persist through the world save round-trip with the effect
+re-applied; and the panel opens, selects/inspects nodes (PURCHASED/AVAILABLE
+states, prerequisite names, description), and closes. The `toggle_skills`
+binding joined input_actions_bound; `validate_repo.py` enforces the perk node
+schema (fields, unique ids, cost >= 1, [x,y] positions, same-lane prereqs).
 
 FQ-05 adds 6 checks (`fq05_*`, suite total 163) covering: data-driven defaults
 (max 50); the pulse spends exactly its cost, lights up, and respects its

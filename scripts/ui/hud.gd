@@ -44,6 +44,9 @@ var _debug_label: Label
 # Wave C: openable full inventory panel.
 var _inv_panel: PanelContainer
 var _inv_content: Label
+# FQ-06: skill tree panel (K); preloaded script, no class_name (cache-safe).
+const SkillTreePanelScript := preload("res://scripts/ui/skill_tree_panel.gd")
+var _skill_panel: PanelContainer
 
 
 func _ready() -> void:
@@ -52,6 +55,8 @@ func _ready() -> void:
 	_build_log()
 	_build_town_panel()
 	_build_inventory_panel()
+	_skill_panel = SkillTreePanelScript.new()
+	add_child(_skill_panel)
 	_build_debug_overlay()
 
 
@@ -191,6 +196,30 @@ func toggle_inventory_panel() -> void:
 
 func inventory_panel_open() -> bool:
 	return _inv_panel.visible
+
+
+## FQ-06: skill tree panel plumbing (game_root wires itself in at boot).
+func setup_skill_panel(root: Node) -> void:
+	_skill_panel.setup(root)
+	_skill_panel.purchase_requested.connect(root._on_perk_purchase_requested)
+
+
+func toggle_skill_panel() -> void:
+	_skill_panel.visible = not _skill_panel.visible
+	if _skill_panel.visible:
+		_skill_panel.refresh()
+
+
+func skill_panel_open() -> bool:
+	return _skill_panel.visible
+
+
+func refresh_skill_panel() -> void:
+	_skill_panel.refresh()
+
+
+func skill_panel() -> PanelContainer:
+	return _skill_panel
 
 
 ## Returns the current text of the inventory panel content label.

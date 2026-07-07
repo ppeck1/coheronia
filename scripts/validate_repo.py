@@ -243,3 +243,38 @@ research = json.loads((ROOT / "data/progression/research_domains.json").read_tex
 if len(research["research_domains"]) != 7:
     fail("research_domains.json must define 7 domains")
 perks = json.loads((ROOT / "data/progression/perks.json").read_text(encoding="utf-8"))
+# FQ-06: perk lanes are a real gameplay surface now — validate the node schema.
+perk_lanes = perks.get("perk_lanes") or []
+if len(perk_lanes) != 7:
+    fail(f"perks.json must define 7 perk lanes, found {len(perk_lanes)}")
+PERK_FIELDS = ["id", "display_name", "description", "effect_key", "effect_value",
+               "cost", "position", "prerequisites", "xp_type_gate"]
+seen_perk_ids = set()
+for lane in perk_lanes:
+    for field in ["id", "display_name", "theme", "perks"]:
+        if field not in lane:
+            fail(f"perks.json lane {lane.get('id', '?')} missing field: {field}")
+    if not isinstance(lane["perks"], list):
+        fail(f"perks.json lane {lane.get('id', '?')} perks must be a list")
+    lane_perk_ids = {p.get("id") for p in lane["perks"]}
+    for perk in lane["perks"]:
+        for field in PERK_FIELDS:
+            if field not in perk:
+                fail(f"perks.json perk {perk.get('id', '?')} missing field: {field}")
+        if perk["id"] in seen_perk_ids:
+            fail(f"perks.json duplicate perk id: {perk['id']}")
+        seen_perk_ids.add(perk["id"])
+        try:
+            perk_cost = int(perk["cost"])
+        except (ValueError, TypeError):
+            fail(f"perks.json perk {perk['id']} cost is not an integer: {perk['cost']!r}")
+        if perk_cost < 1:
+            fail(f"perks.json perk {perk['id']} cost must be >= 1")
+        if not (isinstance(perk["position"], list) and len(perk["position"]) == 2):
+            fail(f"perks.json perk {perk['id']} position must be [x, y]")
+        for prereq in perk["prerequisites"]:
+            if prereq not in lane_perk_ids:
+                fail(f"perks.json perk {perk['id']} prerequisite '{prereq}' not in its lane")
+if "stone_recovery" not in seen_perk_ids:
+    fail("perks.json missing the live miner perk: stone_recovery")
+print("PASS perks data")

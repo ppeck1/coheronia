@@ -89,19 +89,21 @@ func apply_state(state: Dictionary) -> bool:
 	var p: Dictionary = state.get("player", {})
 	player.health = float(p.get("health", 100.0))
 	player.health_changed.emit(player.health, player.max_health)
-	# FQ-05: pre-attunement saves lack the key; default to a full reserve.
-	# Review fix: only lower-bound here — the character's gear is not applied
-	# yet, so clamping against max_attunement() now would use a stale cap and
-	# destroy surplus from gear bonuses. The final clamp happens when the
-	# carried-state loader applies equipment (_clamp_attunement).
-	player.attunement = maxf(0.0, float(p.get("attunement", player.max_attunement())))
-	player.attunement_changed.emit(player.attunement, player.max_attunement())
 	# Wave B: inventory/slot/tool_tier are character-owned; caller loads them
 	# via game_root._load_character_carried_state / _apply_character_carried_state.
 
 	# Fix 10: restore progression BEFORE town_hall.from_dict so _check_base_level
 	# sees the correct saved base_level when stockpile_changed fires during from_dict.
 	game_root.apply_progression_state(state.get("progression", {}))
+
+	# FQ-05: pre-attunement saves lack the key; default to a full reserve.
+	# Review fixes (FQ-05 + FQ-06): restore attunement AFTER progression —
+	# apply_progression_state re-applies perk effects whose clamp would
+	# otherwise destroy the saved value — and only lower-bound here, because
+	# the character's gear is not applied yet either. The final clamp happens
+	# when the carried-state loader applies equipment (_clamp_attunement).
+	player.attunement = maxf(0.0, float(p.get("attunement", player.max_attunement())))
+	player.attunement_changed.emit(player.attunement, player.max_attunement())
 	town_hall.from_dict(state.get("town_hall", {}))
 	game_root.apply_time_state(state.get("time", {}))
 	game_root.apply_threats(state.get("threats", []))

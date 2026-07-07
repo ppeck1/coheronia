@@ -236,7 +236,7 @@ Extension points for future magic-user lanes:
 |---|---|---|
 | Ancestry | `data/ancestries.json` `player_effects.attunement_bonus` (additive max) and `player_effects.attunement_regen_mult` (regen multiplier) | Read by `player.apply_ancestry_effects`; every live ancestry omits them, so non-magic characters are unchanged. Give a Phase C/D magic ancestry these keys and it works with zero code. |
 | Equipment | any `data/equipment.json` item `effects.attunement_bonus` | Summed over all equipped gear by `player.attunement_bonus_from_gear()` (`amulet_focus` is the first carrier). |
-| Perks (FQ-06+) | add the perk lane's modifier inside `player.max_attunement()` | The max is a computed function (base + ancestry + gear), so a perk term slots in at one code point without staleness. |
+| Perks (live since FQ-06) | any perk with `effect_key: "attunement_bonus"` in `data/progression/perks.json` | Purchased perks flow through `game_root._apply_purchased_perk_effects` into `player.perk_attunement_bonus`, which `max_attunement()` adds. The join point is live code; no node carries the key yet — adding one is data-only. |
 | Spells | new active uses should follow `_try_attune_pulse()` — cost check, spend, cooldown, `attunement_changed` emit | Arcane / Natural Research (see Research Domain Matrix) is the intended unlock path for rituals/wards. |
 
 ## Suggested Implementation Phases

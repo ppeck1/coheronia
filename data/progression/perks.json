@@ -1,30 +1,44 @@
 {
-  "schema_version": "0.5",
+  "schema_version": "0.6",
+  "point_rule": "One perk point per player level above 1 (points_total = player_level - 1). Purchased perks and their spent points live in the world save's progression state.",
   "perk_lanes": [
     {
       "id": "miner",
       "display_name": "Miner",
       "theme": "Deep extraction, ore sensing, tunnel safety",
+      "status": "live",
       "perks": [
-        {
-          "id": "deep_sense",
-          "display_name": "Deep Sense",
-          "effect_key": "detect_ore_range",
-          "effect_value": 1.2,
-          "xp_type_gate": "labor"
-        },
         {
           "id": "stone_recovery",
           "display_name": "Stone Recovery",
+          "description": "Years of swings pay off. All mining is 15% faster.",
           "effect_key": "mining_speed",
           "effect_value": 1.15,
+          "cost": 1,
+          "position": [0, 1],
+          "prerequisites": [],
+          "xp_type_gate": "labor"
+        },
+        {
+          "id": "deep_sense",
+          "display_name": "Deep Sense",
+          "description": "You feel ore veins through the rock. (Detection range groundwork; live when ore sensing ships.)",
+          "effect_key": "detect_ore_range",
+          "effect_value": 1.2,
+          "cost": 1,
+          "position": [1, 0],
+          "prerequisites": ["stone_recovery"],
           "xp_type_gate": "labor"
         },
         {
           "id": "tunnel_safety",
           "display_name": "Tunnel Safety",
+          "description": "Braced ceilings and careful steps. (Cave hazard groundwork; live when cave hazards ship.)",
           "effect_key": "cave_safety",
           "effect_value": 1.2,
+          "cost": 2,
+          "position": [1, 2],
+          "prerequisites": ["stone_recovery"],
           "xp_type_gate": "labor"
         }
       ]
@@ -33,26 +47,39 @@
       "id": "builder",
       "display_name": "Builder",
       "theme": "Physical construction, placement reach, structural bonuses",
+      "status": "planned",
       "perks": [
         {
           "id": "reach_extension",
           "display_name": "Reach Extension",
+          "description": "Place blocks farther away.",
           "effect_key": "placement_reach",
           "effect_value": 1.15,
+          "cost": 1,
+          "position": [0, 1],
+          "prerequisites": [],
           "xp_type_gate": "labor"
         },
         {
           "id": "quick_placement",
           "display_name": "Quick Placement",
+          "description": "Blocks snap into place faster.",
           "effect_key": "placement_speed",
           "effect_value": 1.2,
+          "cost": 1,
+          "position": [1, 0],
+          "prerequisites": ["reach_extension"],
           "xp_type_gate": "labor"
         },
         {
           "id": "structural_bonus",
           "display_name": "Structural Bonus",
+          "description": "Your structures hold together better.",
           "effect_key": "block_durability",
           "effect_value": 1.15,
+          "cost": 2,
+          "position": [1, 2],
+          "prerequisites": ["reach_extension"],
           "xp_type_gate": "labor"
         }
       ]
@@ -61,26 +88,39 @@
       "id": "warden",
       "display_name": "Warden",
       "theme": "Defense and combat, threat control, guard command",
+      "status": "planned",
       "perks": [
         {
           "id": "health_boost",
           "display_name": "Health Boost",
+          "description": "Tougher in every fight.",
           "effect_key": "max_health",
           "effect_value": 1.2,
+          "cost": 1,
+          "position": [0, 1],
+          "prerequisites": [],
           "xp_type_gate": "combat"
         },
         {
           "id": "threat_mastery",
           "display_name": "Threat Mastery",
+          "description": "Strike threats harder.",
           "effect_key": "threat_damage",
           "effect_value": 1.25,
+          "cost": 1,
+          "position": [1, 0],
+          "prerequisites": ["health_boost"],
           "xp_type_gate": "combat"
         },
         {
           "id": "guard_command",
           "display_name": "Guard Command",
+          "description": "Guards fight better under your command.",
           "effect_key": "guard_effectiveness",
           "effect_value": 1.15,
+          "cost": 2,
+          "position": [1, 2],
+          "prerequisites": ["health_boost"],
           "xp_type_gate": "combat"
         }
       ]
@@ -89,26 +129,39 @@
       "id": "forager",
       "display_name": "Forager",
       "theme": "Food and ecology, yield, farming, rare plant sensing",
+      "status": "planned",
       "perks": [
         {
           "id": "plant_yield",
           "display_name": "Plant Yield",
+          "description": "Harvest more from every plant.",
           "effect_key": "gathering_yield",
           "effect_value": 1.2,
+          "cost": 1,
+          "position": [0, 1],
+          "prerequisites": [],
           "xp_type_gate": "survival"
         },
         {
           "id": "farm_start",
           "display_name": "Farm Start",
+          "description": "Crops establish faster.",
           "effect_key": "farming_speed",
           "effect_value": 1.15,
+          "cost": 1,
+          "position": [1, 0],
+          "prerequisites": ["plant_yield"],
           "xp_type_gate": "survival"
         },
         {
           "id": "rare_sensing",
           "display_name": "Rare Sensing",
+          "description": "Rare plants stand out to your eye.",
           "effect_key": "rare_plant_detection",
           "effect_value": 1.2,
+          "cost": 2,
+          "position": [1, 2],
+          "prerequisites": ["plant_yield"],
           "xp_type_gate": "survival"
         }
       ]
@@ -117,26 +170,39 @@
       "id": "ruler",
       "display_name": "Ruler",
       "theme": "Governance, morale, legitimacy, base growth",
+      "status": "planned",
       "perks": [
         {
           "id": "morale_aura",
           "display_name": "Morale Aura",
+          "description": "Subjects near you keep their spirits up.",
           "effect_key": "subject_morale",
           "effect_value": 1.15,
+          "cost": 1,
+          "position": [0, 1],
+          "prerequisites": [],
           "xp_type_gate": "civic"
         },
         {
           "id": "rebellion_resistance",
           "display_name": "Rebellion Resistance",
+          "description": "Unrest builds more slowly.",
           "effect_key": "rebellion_pressure",
           "effect_value": 1.2,
+          "cost": 1,
+          "position": [1, 0],
+          "prerequisites": ["morale_aura"],
           "xp_type_gate": "civic"
         },
         {
           "id": "base_xp_boost",
           "display_name": "Base XP Boost",
+          "description": "The settlement grows from your example.",
           "effect_key": "base_xp_gain",
           "effect_value": 1.15,
+          "cost": 2,
+          "position": [1, 2],
+          "prerequisites": ["morale_aura"],
           "xp_type_gate": "civic"
         }
       ]
@@ -145,26 +211,39 @@
       "id": "explorer",
       "display_name": "Explorer",
       "theme": "Movement and discovery, fall resistance, biome reveal",
+      "status": "planned",
       "perks": [
         {
           "id": "fall_resistance",
           "display_name": "Fall Resistance",
+          "description": "Land hard without breaking stride.",
           "effect_key": "fall_damage_reduction",
           "effect_value": 1.2,
+          "cost": 1,
+          "position": [0, 1],
+          "prerequisites": [],
           "xp_type_gate": "exploration"
         },
         {
           "id": "biome_reveal",
           "display_name": "Biome Reveal",
+          "description": "New regions map themselves faster.",
           "effect_key": "map_discovery_speed",
           "effect_value": 1.15,
+          "cost": 1,
+          "position": [1, 0],
+          "prerequisites": ["fall_resistance"],
           "xp_type_gate": "exploration"
         },
         {
           "id": "cave_navigation",
           "display_name": "Cave Navigation",
+          "description": "Move through caves with practiced ease.",
           "effect_key": "cave_speedboost",
           "effect_value": 1.2,
+          "cost": 2,
+          "position": [1, 2],
+          "prerequisites": ["fall_resistance"],
           "xp_type_gate": "exploration"
         }
       ]
@@ -173,26 +252,39 @@
       "id": "artisan",
       "display_name": "Artisan",
       "theme": "Crafting quality, durability, station efficiency",
+      "status": "planned",
       "perks": [
         {
           "id": "durability_craft",
           "display_name": "Durability Craft",
+          "description": "Tools you craft last longer.",
           "effect_key": "tool_durability",
           "effect_value": 1.2,
+          "cost": 1,
+          "position": [0, 1],
+          "prerequisites": [],
           "xp_type_gate": "craft"
         },
         {
           "id": "station_output",
           "display_name": "Station Output",
+          "description": "Stations yield more under your hand.",
           "effect_key": "station_yield",
           "effect_value": 1.15,
+          "cost": 1,
+          "position": [1, 0],
+          "prerequisites": ["durability_craft"],
           "xp_type_gate": "craft"
         },
         {
           "id": "rare_recipe_chance",
           "display_name": "Rare Recipe Chance",
+          "description": "Sometimes inspiration strikes.",
           "effect_key": "rare_recipe_discovery",
           "effect_value": 1.2,
+          "cost": 2,
+          "position": [1, 2],
+          "prerequisites": ["durability_craft"],
           "xp_type_gate": "craft"
         }
       ]
