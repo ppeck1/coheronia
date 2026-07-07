@@ -1,0 +1,58 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260707_coheronia_fq04_combat_gear_slice",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "733123d",
+  "end_commit": "4802c06",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-04: first combat gear slice — make sword and armor matter in live gameplay on top of the FQ-03 equipment foundation.",
+  "summary": "Sword: sword_crude (weapon slot, effects.attack_damage 3) forged via the new craft_sword recipe (2 wood + 3 stone, town_hall). player.attack_damage() returns the equipped weapon's damage or 1 bare-handed and _try_hit_threat passes it to threat.take_hit — the existing mine-click combat path, now weapon-aware; a fresh 3 hp slime dies to one strike. Armor: helmet_crude/torso_crude/feet_crude (armor 1/2/1) forged as a set via craft_armor_set (6 wood + 4 stone, torso slot as the anchor guard). player.armor_total() sums the armor effect over ALL equipped items so future rings/amulets can add armor via data; take_damage applies flat mitigation with a minimum 1-health chip per landed hit (armor never grants immunity) and keeps non-positive amounts a no-op. Forge functions share a _consume_recipe_inputs helper and fit-check every piece before consuming stockpile, so a data regression cannot eat inputs without equipping (review fix). UI: two town-panel forge buttons with crafted-state refresh, toolbelt 'Weapon X · Armor N', and an 'Attack N · Armor N' summary in the equipment panel. I-frames, collapse, passive regen, ancestry health modifiers, enemy contact-damage scaling, and the FQ-03 persistence path are all unchanged; rings/amulet/accessory remain inert per queue scope.",
+  "acceptance": [
+    "Sword can damage an enemy: one real hit-path strike kills a 3 hp slime (fq04_sword_damages_enemy); unarmed baseline attack 1, sword attack 3",
+    "Armor reduces incoming damage by a visible, data-defined amount: a 10-damage hit loses exactly 10 - armor_total() = 6 (fq04_armor_reduces_damage); minimum chip keeps a 2-damage hit at exactly 1 loss under 4 armor",
+    "Equipment effects save/load and do not break ancestry health modifiers: gear wiped then restored by load_game with max_health identical (fq04_gear_round_trips_ancestry_intact)",
+    "Forging consumes stockpile, cannot repeat, and equips through player.equip_item (fq04_forge_sword_equips, fq04_forge_armor_equips_set)",
+    "Weapon/armor state visible: toolbelt line and equipment panel show Attack 3 / Armor 4 and item names (fq04_ui_shows_weapon_and_armor)",
+    "Smoke 157/157 (was 149) on windowed Godot 4.6.1; validator PASS incl. combat items/recipes; capsule doctor healthy; git diff --check clean",
+    "No unrelated feature work: no swing arc, no drag/drop, rings/amulet/accessory inert"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> PASS incl. FQ-04 combat item/recipe checks",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited windowed run -> 157/157 PASS incl. eight fq04_* checks; fresh results file verified by LastWriteTime",
+    "git diff --check -> exit 0"
+  ],
+  "docs_updated": ["docs/VARIABLE_MATRIX.md", "docs/HANDOFF.md", "docs/FABLE_TASK_QUEUE.md"],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Melee reuses the existing mine-click hit path (_try_hit_threat) made weapon-aware, rather than adding a separate attack action — FQ-08/FQ-13 build combat depth later",
+    "Armor is flat mitigation summed over all equipped items with a minimum 1-health chip, keeping the math legible and data-driven; percent mitigation deferred",
+    "The armor set forges as one craft (torso as anchor guard) to keep the town panel small; per-piece crafting can arrive with the FQ-09 visual panels",
+    "Forge functions fit-check gear before consuming inputs (review fix) so partial equips with spent stockpile are impossible",
+    "take_damage keeps non-positive amounts a no-op (review fix), preserving the pre-FQ-04 caller contract",
+    "Orchestration: Explore recon -> orchestrator implementation (157/157 first run) -> sonnet review (no must-fix; 2 should-fix + 2 nits applied, 2 nits accepted) -> full re-verification green"
+  ],
+  "risks": [
+    "Combat feel (sword 3, armor 4 vs slime contact 8) untested by human play; all numbers data-tunable",
+    "No unequip flow for forged gear in play; equip/unequip UI interaction is future work",
+    "update_inventory performs three equipped_dict() normalize passes per refresh — negligible at 12 slots, cache if item counts grow"
+  ],
+  "next_action": "FQ-05: Mana or Attunement system MVP.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260707_coheronia_fq04_combat_gear_slice.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/HANDOFF.md",
+    "docs/FABLE_TASK_QUEUE.md"
+  ],
+  "ledger_path": ".project/runs/20260707_coheronia_fq04_combat_gear_slice.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-07T12:35:00-04:00"
+}
