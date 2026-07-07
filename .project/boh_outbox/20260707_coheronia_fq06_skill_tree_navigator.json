@@ -1,0 +1,60 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260707_coheronia_fq06_skill_tree_navigator",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "d030953",
+  "end_commit": "ff3a0ea",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-06: visual player skill tree navigator — player XP becomes visible choices, starting with navigation and one live lane (Miner).",
+  "summary": "Data: perks.json schema 0.6 — all 21 nodes across 7 lanes carry id, title, description, effect_key/effect_value, cost, grid position, same-lane prerequisites, xp_type_gate; validator enforces fields, unique ids, cost >= 1, [x,y] positions, same-lane prereqs, and the live stone_recovery node. Economy: perk_points_total = player_level - 1 (documented point_rule in data); spent derives from purchased costs; purchased_perks rides the world save's progression state (unknown ids dropped = silent refund on data renames; null-registry path leaves purchases untouched). States: game_root.perk_state returns purchased/available/locked from ownership and prerequisites; affordability gates only the purchase. Effects: _apply_purchased_perk_effects recomputes a combined dict — mining_speed multiplies into effective_mine_speed (live: stone_recovery x1.15), attunement_bonus adds inside max_attunement() (the FQ-05 join point is now live code; adding a magic perk is data-only); planning keys stay inert. UI: scripts/ui/skill_tree_panel.gd (preloaded, no class_name — plain runs never rebuild the editor's class cache, a gotcha this run hit and fixed), scrollable node canvas from data positions, state-colored buttons with OWNED/LOCKED markers, inspector (title/state/cost/effect/prereq names/description), learn button, planned-lanes listing; K toggles (toggle_skills), mutually exclusive with inventory/town, first in the Esc chain. Load-order fix: attunement restores after progression in apply_state so the perk re-apply clamp cannot destroy saved surplus (the 169-suite's FQ-05 check caught the regression at 168/169 before review).",
+  "acceptance": [
+    "Player can open the skill tree (K; open/close verified; Esc closes it first in the chain)",
+    "A node can be selected and inspected (inspector shows title, state, cost, effect x value, prerequisite display names, description — fq06_panel_opens_and_inspects)",
+    "One perk purchases from real player-level points: level 3 -> 2 points -> stone_recovery bought, 1 point left, effective_mine_speed x1.15 exactly (fq06_purchase_applies_effect)",
+    "Locked/available/purchased states render and gate: root available at level 1, child locked until the root is owned, 2-cost node blocked at 1 point, re-purchase refused",
+    "State persists: purchases, level, and the live effect survive the world-save round-trip (fq06_perks_persist)",
+    "Only one lane implemented per queue scope; the other six are data-complete and listed as planned",
+    "Smoke 169/169 (was 163) on windowed Godot 4.6.1; validator PASS incl. perk schema; capsule doctor healthy; git diff --check clean"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> PASS incl. FQ-06 perk node schema checks",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited windowed run -> 169/169 PASS incl. six fq06_* checks and toggle_skills in input_actions_bound; results-file freshness verified by LastWriteTime",
+    "git diff --check -> exit 0"
+  ],
+  "docs_updated": ["docs/VARIABLE_MATRIX.md", "docs/HANDOFF.md", "docs/FABLE_TASK_QUEUE.md", "docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md"],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Perk points come only from player levels (1 per level above 1), keeping the economy legible and world-owned; no respec/refund yet",
+    "Miner is the live lane with stone_recovery restructured as the root; deep_sense/tunnel_safety keep their planning effect keys as prerequisite-gated branches",
+    "The combined-effect recompute supports attunement_bonus, turning the FQ-05 documented perk join point into live code without any node carrying it yet",
+    "The panel script is preloaded without class_name: plain (non-editor) runs never regenerate Godot's global class cache — this run's first smoke silently executed a stale build until the freshness check exposed it; recorded as a standing repo convention",
+    "Attunement restores after progression in apply_state (regression fix): apply_progression_state re-applies perk effects whose clamp must see the final maximum",
+    "Review fixes pre-commit: validator cost parsing routed through fail(), panel position-array guard, floored available points, no purchase wipe on a null registry",
+    "Orchestration: Explore recon -> orchestrator implementation -> Windows verification (two real defects caught by the loop itself) -> sonnet review (no must-fix; 2 should-fix + 2 nits applied, 1 nit accepted) -> full re-verification green"
+  ],
+  "risks": [
+    "Only mining_speed is live; 20 nodes are data-complete but inert until their systems ship",
+    "Point pacing on the 100 x 1.35^n XP curve is untested by human play",
+    "The panel has no pan/zoom or drawn prerequisite edges; FQ-09's visual pass is the upgrade point"
+  ],
+  "next_action": "FQ-07: visual asset pipeline with color fallback.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260707_coheronia_fq06_skill_tree_navigator.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/HANDOFF.md",
+    "docs/FABLE_TASK_QUEUE.md",
+    "docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md"
+  ],
+  "ledger_path": ".project/runs/20260707_coheronia_fq06_skill_tree_navigator.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-07T14:05:00-04:00"
+}
