@@ -338,6 +338,17 @@ func _make_background_texture(flora_id: String, t: int) -> ImageTexture:
 
 
 func _make_block_texture(block_id: String, t: int) -> ImageTexture:
+	# FQ-07: image-first — a PNG at art/generated/blocks/<id>.png (or an
+	# explicit visual_assets.json entry) wins; otherwise the generated
+	# color/shape below is the fallback. Mismatched sizes are resized so a
+	# stray art dimension can never corrupt the tileset.
+	var art := BlockRegistry.visual_texture("blocks", block_id) as ImageTexture
+	if art != null:
+		var art_img: Image = art.get_image()
+		if art_img.get_width() != t or art_img.get_height() != t:
+			art_img.resize(t, t, Image.INTERPOLATE_NEAREST)
+			return ImageTexture.create_from_image(art_img)
+		return art
 	var color: Color = BLOCK_COLORS.get(block_id, Color.MAGENTA)
 	var img := Image.create(t, t, false, Image.FORMAT_RGBA8)
 	if block_id == "berry_bush":

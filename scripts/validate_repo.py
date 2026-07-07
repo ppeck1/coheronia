@@ -21,6 +21,8 @@ REQUIRED_FILES = [
     "data/world_settings.json",
     "data/character_data.json",
     "data/equipment.json",
+    "data/visual_assets.json",
+    "art/source_templates/ASSET_TEMPLATE.md",
     "data/enemies.json",
     "data/ancestries.json",
     "data/progression/player_xp.json",
@@ -31,6 +33,10 @@ REQUIRED_FILES = [
     ".project/ops_capsule.json",
 ]
 REQUIRED_DIRS = [
+    "art/generated/blocks",
+    "art/generated/items",
+    "art/generated/enemies",
+    "art/generated/ui",
     ".project/runs",
     ".project/atlas_outbox/imported",
     ".project/atlas_outbox/rejected",
@@ -171,6 +177,38 @@ for required_recipe in ["craft_sword", "craft_armor_set"]:
     if required_recipe not in recipe_ids:
         fail(f"recipes.json missing required recipe: {required_recipe}")
 print("PASS equipment data")
+
+# FQ-07: visual asset surface — explicit references must exist (a broken
+# mapping is a data bug); convention-path gaps are informational only, art
+# arrives one asset at a time and missing images always fall back safely.
+visual_assets = json.loads((ROOT / "data/visual_assets.json").read_text(encoding="utf-8"))
+va_categories = visual_assets.get("categories")
+if not isinstance(va_categories, dict):
+    fail("visual_assets.json missing categories dict")
+for va_cat in ["blocks", "items", "enemies", "ui"]:
+    if va_cat not in va_categories:
+        fail(f"visual_assets.json categories missing: {va_cat}")
+asset_root = str(visual_assets.get("asset_root", "art/generated"))
+for va_cat, entries in va_categories.items():
+    if entries is not None and not isinstance(entries, dict):
+        fail(f"visual_assets.json categories.{va_cat} must be a dict")
+    for va_id, rel_path in (entries or {}).items():
+        if not (ROOT / str(rel_path)).is_file():
+            fail(f"visual_assets.json {va_cat}/{va_id} maps to missing file: {rel_path}")
+print("PASS visual assets data")
+_va_missing = 0
+for va_cat, va_ids in [
+    ("blocks", [b for b in blocks if b != "air"]),
+    ("items", ["dirt", "wood", "stone", "torch", "lantern", "ore", "food"]),
+    ("enemies", ["surface_slime", "cave_crawler", "raider_basic"]),
+]:
+    for va_id in va_ids:
+        if va_id in (va_categories.get(va_cat) or {}):
+            continue
+        if not (ROOT / asset_root / va_cat / f"{va_id}.png").is_file():
+            print(f"INFO optional asset not present (fallback active): {asset_root}/{va_cat}/{va_id}.png")
+            _va_missing += 1
+print(f"INFO {_va_missing} optional visual assets pending; color/shape fallbacks cover them")
 
 enemies_data = json.loads((ROOT / "data/enemies.json").read_text(encoding="utf-8"))
 for section in ["enemies", "mini_bosses", "bosses", "region_density", "difficulty_scaling", "loot_philosophy", "mvp_expansion_order"]:

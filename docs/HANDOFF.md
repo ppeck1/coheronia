@@ -2,9 +2,16 @@
 
 ## Current State
 
-**FQ-06 (visual player skill tree navigator) implemented and closed out** (run `20260707_coheronia_fq06_skill_tree_navigator`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01 -> FQ-02 -> FQ-03 -> FQ-04 -> FQ-05; Godot 4.6.1 stable).
+**FQ-07 (visual asset pipeline with color fallback) implemented and closed out** (run `20260707_coheronia_fq07_visual_asset_pipeline`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01 -> FQ-02 -> FQ-03 -> FQ-04 -> FQ-05 -> FQ-06; Godot 4.6.1 stable).
 
-v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 (closeout repair), FQ-01 (player health loop), FQ-02 (background trees), FQ-03 (equipment model), FQ-04 (combat gear), FQ-05 (attunement), and FQ-06 (skill tree) followed from `docs/FABLE_TASK_QUEUE.md`.
+v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 through FQ-07 followed from `docs/FABLE_TASK_QUEUE.md`.
+
+## FQ-07 Additions
+
+- **Image-first rendering with safe fallback**: `BlockRegistry.visual_texture(category, id)` resolves `data/visual_assets.json` explicit entries or the `art/generated/<category>/<id>.png` convention, loading via `Image.load_from_file` (no editor import pass — plain runs pick up new art immediately, matching how this repo is always run). Misses are cached as null and every render site keeps its existing generated look: `world._make_block_texture` (blocks, with nearest-neighbor resize to tile size), `simple_threat._draw` (enemies, hurt tint preserved via modulate), and a new 5-slot hotbar icon strip (items; icons hidden without art, so the text hotbar stays the fallback).
+- **Asset workflow docs**: `art/source_templates/ASSET_TEMPLATE.md` — naming rules (data ids, lowercase snake_case), target sizes (16px blocks/items/enemies, 32px ui), prompt skeletons for local Ollama/image-model iteration (which stays entirely outside the game and validation), and a review checklist for one-by-one art passes.
+- **Validator policy**: broken explicit `visual_assets.json` references fail; convention-path gaps print INFO lines and never fail — art arrives incrementally.
+- The repo ships zero art: everything renders from fallbacks today, and the smoke proves both directions (image wins when present, fallback returns when removed) with self-cleaning temp files.
 
 ## FQ-06 Additions
 
@@ -61,7 +68,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 169/169 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06) |
+| Automated smoke | PASS 173/173 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07) |
 
 ## Known Risks / Gotchas
 
@@ -78,11 +85,12 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - FQ-04 armor is flat mitigation with a 1-health minimum chip; there is no unequip flow for forged gear in play (forge guards prevent duplicates). Combat feel (sword damage 3, armor total 4 vs slime 8) is untested by human play; all numbers are data-tunable in `data/equipment.json`.
 - FQ-05 attunement has exactly one use (the light pulse); no live ancestry or acquirable gear modifies it yet — the hooks are data-ready and smoke-proven but dormant. The pulse light is cosmetic (does not affect `light_score`, night spawns, or occlusion safety math).
 - FQ-06: only the Miner lane's `mining_speed` effect is live; `detect_ore_range`, `cave_safety`, and all non-miner lane effect keys are inert data awaiting their systems. There is no perk refund/respec. Perk points come only from player levels; XP pacing (100 x 1.35^n) means points arrive slowly — untested by human play.
+- FQ-07: art loads bypass the Godot import system (`Image.load_from_file`) by design for plain non-editor runs — an exported build would need an import-aware path (out of scope; this repo never exports). The block tileset reads art at `world.setup`/tileset-build time; dropping in new art requires re-entering the world (no hot-reload). Player/hall visuals are still drawn shapes (not yet image-capable; extend when their art lands).
 - A hypothetical pick tier above 2 has no matching equipment item; the gear shape would record the highest defined pick (`pick_forged`) while the live tier is preserved in `carried_tool_tiers`. No real character can exceed tier 2 today (forge caps at 2).
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-06 are complete (FQ-06: data-complete perk node schema, level-derived perk points, live Miner lane, K-key skill tree panel with locked/available/purchased states, world-saved purchases, smoke 169/169); FQ-07 (visual asset pipeline with color fallback) is next.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-07 are complete (FQ-07: image-first rendering with color fallback across blocks/enemies/hotbar items, `data/visual_assets.json` + `art/generated/` convention, asset template docs for local image-model iteration, INFO-only validator policy for pending art, smoke 173/173); FQ-08 (block and enemy damage visuals) and FQ-09 (visual inventory/toolbelt/village panels) are now unblocked — FQ-08 is next by queue order.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

@@ -1439,6 +1439,74 @@ func _run() -> void:
 	root.player_level = _fq06_saved_level
 	root.save_manager.save_game()
 
+	# --- FQ-07: visual asset pipeline with color fallback ---
+
+	# Temp art uses smoke_tmp_* names (gitignored, never real asset names)
+	# wired to real ids through the explicit-override path in
+	# visual_assets.json, which this section therefore also exercises.
+	# Clean any leftover from a previously killed run, then cold-cache.
+	for _fq07_leftover in ["res://art/generated/blocks/smoke_tmp_dirt.png",
+			"res://art/generated/items/smoke_tmp_wood.png"]:
+		if FileAccess.file_exists(_fq07_leftover):
+			DirAccess.remove_absolute(_fq07_leftover)
+	BlockRegistry.clear_visual_cache()
+
+	# (a) visual_assets.json loads with the four categories.
+	var _fq07_cats: Dictionary = BlockRegistry.visual_assets.get("categories", {})
+	_check("fq07_visual_assets_loads",
+		_fq07_cats.has("blocks") and _fq07_cats.has("items")
+		and _fq07_cats.has("enemies") and _fq07_cats.has("ui"),
+		"categories=%s" % str(_fq07_cats.keys()))
+
+	# (b) missing images never crash: lookups return null and the generated
+	# color/shape textures still render; hotbar icons stay hidden.
+	var _fq07_fallback_tex: ImageTexture = world._make_block_texture("dirt", 16)
+	_check("fq07_missing_assets_fall_back",
+		BlockRegistry.visual_texture("blocks", "dirt") == null
+		and BlockRegistry.visual_texture("enemies", "surface_slime") == null
+		and _fq07_fallback_tex != null
+		and not hud.hotbar_icon_visible(0),
+		"fallback_tex_ok=%s" % str(_fq07_fallback_tex != null))
+
+	# (c) a block image wins over the generated texture when present (via an
+	# explicit visual_assets override), and the fallback returns on removal.
+	var _fq07_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	_fq07_img.fill(Color(1.0, 0.0, 1.0))
+	_fq07_img.save_png("res://art/generated/blocks/smoke_tmp_dirt.png")
+	BlockRegistry.visual_assets["categories"]["blocks"]["dirt"] = \
+		"art/generated/blocks/smoke_tmp_dirt.png"
+	BlockRegistry.clear_visual_cache()
+	var _fq07_art_pixel: Color = world._make_block_texture("dirt", 16) \
+		.get_image().get_pixel(4, 4)
+	DirAccess.remove_absolute("res://art/generated/blocks/smoke_tmp_dirt.png")
+	BlockRegistry.visual_assets["categories"]["blocks"].erase("dirt")
+	BlockRegistry.clear_visual_cache()
+	var _fq07_clean_pixel: Color = world._make_block_texture("dirt", 16) \
+		.get_image().get_pixel(4, 4)
+	_check("fq07_block_renders_from_image",
+		_fq07_art_pixel.is_equal_approx(Color(1.0, 0.0, 1.0))
+		and not _fq07_clean_pixel.is_equal_approx(Color(1.0, 0.0, 1.0)),
+		"with_art=%s after_cleanup=%s" % [str(_fq07_art_pixel), str(_fq07_clean_pixel)])
+
+	# (d) an item image lights up its hotbar icon; removal hides it again.
+	var _fq07_item_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	_fq07_item_img.fill(Color(0.0, 1.0, 1.0))
+	_fq07_item_img.save_png("res://art/generated/items/smoke_tmp_wood.png")
+	BlockRegistry.visual_assets["categories"]["items"]["wood"] = \
+		"art/generated/items/smoke_tmp_wood.png"
+	BlockRegistry.clear_visual_cache()
+	hud.update_inventory()
+	var _fq07_icon_on: bool = hud.hotbar_icon_visible(1)    # slot 1 = wood
+	var _fq07_icon_dirt: bool = hud.hotbar_icon_visible(0)  # dirt has no art
+	DirAccess.remove_absolute("res://art/generated/items/smoke_tmp_wood.png")
+	BlockRegistry.visual_assets["categories"]["items"].erase("wood")
+	BlockRegistry.clear_visual_cache()
+	hud.update_inventory()
+	_check("fq07_item_renders_from_image",
+		_fq07_icon_on and not _fq07_icon_dirt and not hud.hotbar_icon_visible(1),
+		"icon_with_art=%s dirt_icon=%s after_cleanup=%s" % [
+			str(_fq07_icon_on), str(_fq07_icon_dirt), str(hud.hotbar_icon_visible(1))])
+
 	# --- FQ-01: player health, damage, healing, and death loop ---
 
 	player.set_physics_process(false)

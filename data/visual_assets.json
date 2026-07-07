@@ -1,0 +1,12 @@
+{
+  "schema_version": "0.1",
+  "asset_root": "art/generated",
+  "convention": "art/generated/<category>/<id>.png is picked up automatically when the file exists; an explicit entry below overrides the convention path. Missing images are never an error - rendering falls back to the generated colors/shapes.",
+  "target_sizes": { "blocks": 16, "items": 16, "enemies": 16, "ui": 32 },
+  "categories": {
+    "blocks": {},
+    "items": {},
+    "enemies": {},
+    "ui": {}
+  }
+}

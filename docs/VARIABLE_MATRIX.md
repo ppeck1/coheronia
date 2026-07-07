@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-06 run `20260707_coheronia_fq06_skill_tree_navigator`.
+State: audited against FQ-07 run `20260707_coheronia_fq07_visual_asset_pipeline`.
 
 ## Authority Surfaces
 
@@ -12,6 +12,7 @@ State: audited against FQ-06 run `20260707_coheronia_fq06_skill_tree_navigator`.
 | World settings | `data/world_settings.json` | `WorldConfig`, shell UI, world generation, gameplay systems |
 | Character data | `data/character_data.json` | shell UI, `player.apply_character`, role item grant |
 | Equipment (FQ-03) | `data/equipment.json` | `BlockRegistry` equipment helpers -> `player` gear API, `hud` panel, `game_root` carried-state load, `save_manager` |
+| Visual assets (FQ-07) | `data/visual_assets.json` + `art/generated/<category>/<id>.png` convention | `BlockRegistry.visual_texture` -> `world._make_block_texture` (blocks), `simple_threat._draw` (enemies), `hud` hotbar icon strip (items); missing images always fall back to generated colors/shapes; loaded via `Image.load_from_file` (no editor import pass needed); explicit json entries validator-fail when broken, convention gaps are INFO-only |
 | Enemies | `data/enemies.json` | `enemy_registry.gd` -> `game_root` spawn paths, `simple_threat` drops |
 | Ancestries | `data/ancestries.json` | `ancestry_registry.gd` -> `player.apply_ancestry_effects`, shell create form |
 | Progression | `data/progression/*.json` | `progression_registry.gd` -> XP awards, base levels, HUD |
@@ -229,6 +230,16 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-07 adds 4 checks (`fq07_*`, suite total 173) covering: visual_assets.json
+loads with the four categories; missing images return null lookups while
+generated block textures still render and hotbar icons stay hidden (no crash);
+a runtime-written block PNG wins over the generated texture and the fallback
+returns after removal (pixel-verified both ways); and an item PNG lights its
+hotbar icon then hides on removal. The smoke writes and deletes its own temp
+art (with leftover cleanup at section start) so the repo stays art-free.
+`validate_repo.py` requires visual_assets.json + the art/generated dirs,
+fails on broken explicit references, and reports convention gaps as INFO.
 
 FQ-06 adds 6 checks (`fq06_*`, suite total 169) covering: perk data loads with
 7 lanes and correct miner prerequisites; at level 1 with nothing purchased the

@@ -42,10 +42,15 @@ var drop_chance_override: float = -1.0
 var contact_damage := PLAYER_DAMAGE
 var move_speed := SPEED
 
+## FQ-07: optional sprite from art/generated/enemies/<enemy_id>.png; null
+## keeps the drawn-rect fallback below.
+var _art: Texture2D = null
+
 
 func _ready() -> void:
 	add_to_group("threats")
 	max_hp = maxi(max_hp, hp)
+	_art = BlockRegistry.visual_texture("enemies", enemy_id)
 
 
 func _physics_process(delta: float) -> void:
@@ -96,9 +101,17 @@ func _roll_drops() -> void:
 
 
 func _draw() -> void:
+	# FQ-07: image-first with the drawn-rect fallback. Damage reddens the
+	# sprite via a subtractive tint (overbright modulate clamps to white in
+	# the compatibility renderer, so lightening would be invisible on art).
+	var hurt := minf(0.45, 0.15 * float(max_hp - hp)) if hp < max_hp else 0.0
+	if _art != null:
+		var tint := Color(1.0, 1.0 - hurt, 1.0 - hurt)
+		draw_texture(_art, -_art.get_size() / 2.0, tint)
+		return
 	var body: Color = FAMILY_COLORS.get(family, FAMILY_COLORS["surface"])
-	if hp < max_hp:
-		body = body.lightened(minf(0.45, 0.15 * float(max_hp - hp)))
+	if hurt > 0.0:
+		body = body.lightened(hurt)
 	draw_rect(Rect2(-7, -6, 14, 12), body)
 	draw_rect(Rect2(-4, -3, 3, 3), Color.WHITE)
 	draw_rect(Rect2(1, -3, 3, 3), Color.WHITE)

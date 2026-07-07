@@ -47,6 +47,8 @@ var _inv_content: Label
 # FQ-06: skill tree panel (K); preloaded script, no class_name (cache-safe).
 const SkillTreePanelScript := preload("res://scripts/ui/skill_tree_panel.gd")
 var _skill_panel: PanelContainer
+# FQ-07: optional hotbar item icons (visible only when the item has art).
+var _hotbar_icons: Array[TextureRect] = []
 
 
 func _ready() -> void:
@@ -101,6 +103,18 @@ func _build_bottom_left() -> void:
 	_mine_bar.show_percentage = false
 	_mine_bar.visible = false
 	box.add_child(_mine_bar)
+	# FQ-07: an icon strip above the hotbar text; each slot shows its item's
+	# image when one exists in art/generated/items/ and hides otherwise, so
+	# the text-only hotbar remains the fallback.
+	var icon_row := HBoxContainer.new()
+	box.add_child(icon_row)
+	for i in range(5):
+		var icon := TextureRect.new()
+		icon.custom_minimum_size = Vector2(18, 18)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.visible = false
+		icon_row.add_child(icon)
+		_hotbar_icons.append(icon)
 	_hotbar_label = _label(box, "")
 	_label(box, "LMB mine · RMB place · E town hall · C craft torch · F5 save · F9 load")
 	_save_label = _label(box, "No save yet — press F5 to save.")
@@ -220,6 +234,11 @@ func refresh_skill_panel() -> void:
 
 func skill_panel() -> PanelContainer:
 	return _skill_panel
+
+
+## FQ-07 smoke hook: whether slot i currently shows an item image.
+func hotbar_icon_visible(i: int) -> bool:
+	return i >= 0 and i < _hotbar_icons.size() and _hotbar_icons[i].visible
 
 
 ## Returns the current text of the inventory panel content label.
@@ -371,6 +390,13 @@ func update_inventory() -> void:
 	parts.append("  Pick tier %d · Axe %s · Weapon %s · Armor %d" % [
 		player.tool_tier, _axe_hb_str, _weapon_str, int(player.armor_total())])
 	_hotbar_label.text = "  ".join(parts)
+	# FQ-07: refresh the optional per-slot item icons.
+	for i in range(_hotbar_icons.size()):
+		var icon_tex: Texture2D = null
+		if i < player.hotbar.size():
+			icon_tex = BlockRegistry.visual_texture("items", player.hotbar[i])
+		_hotbar_icons[i].texture = icon_tex
+		_hotbar_icons[i].visible = icon_tex != null
 	_refresh_stock()
 	if _inv_panel != null and _inv_panel.visible:
 		_refresh_inventory_panel()

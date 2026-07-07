@@ -8,6 +8,8 @@ var settlement_rules: Dictionary = {}
 var world_settings: Dictionary = {}
 var character_data: Dictionary = {}
 var equipment: Dictionary = {}      # FQ-03: data/equipment.json (slots + items)
+var visual_assets: Dictionary = {}  # FQ-07: data/visual_assets.json (image refs)
+var _visual_cache: Dictionary = {}  # resolved path -> Texture2D (or null = missing)
 
 
 func _ready() -> void:
@@ -23,6 +25,7 @@ func _load_all() -> void:
 	world_settings = _load_json("res://data/world_settings.json")
 	character_data = _load_json("res://data/character_data.json")
 	equipment = _load_json("res://data/equipment.json")
+	visual_assets = _load_json("res://data/visual_assets.json")
 	if blocks.is_empty():
 		push_error("BlockRegistry: no blocks loaded from data/blocks.json")
 
@@ -121,6 +124,44 @@ func preferred_tool(block_id: String) -> String:
 ## Wave E: returns true if the block requires a solid block directly below to stay.
 func requires_support(block_id: String) -> bool:
 	return bool(get_block(block_id).get("requires_support", false))
+
+
+# ---------------------------------------------------------------------------
+# FQ-07: visual assets (data/visual_assets.json) — image-first, color fallback
+# ---------------------------------------------------------------------------
+
+## Resolved res:// path for a category/id: an explicit entry in
+## visual_assets.json overrides the art/generated/<category>/<id>.png
+## convention. The file may or may not exist — see visual_texture.
+func visual_asset_path(category: String, id: String) -> String:
+	var explicit := str(visual_assets.get("categories", {}).get(category, {}).get(id, ""))
+	if explicit != "":
+		return explicit if explicit.begins_with("res://") else "res://" + explicit
+	return "res://%s/%s/%s.png" % [
+		str(visual_assets.get("asset_root", "art/generated")), category, id]
+
+
+## The image texture for category/id, or null when no image exists — callers
+## fall back to their generated colors/shapes. Loaded via Image.load_from_file
+## (never the import system), so plain runs need no editor import pass.
+## Results (including misses) are cached; clear_visual_cache resets.
+func visual_texture(category: String, id: String) -> Texture2D:
+	var path := visual_asset_path(category, id)
+	if _visual_cache.has(path):
+		return _visual_cache[path]
+	var tex: Texture2D = null
+	if FileAccess.file_exists(path):
+		var img := Image.load_from_file(path)
+		if img != null and not img.is_empty():
+			tex = ImageTexture.create_from_image(img)
+	_visual_cache[path] = tex
+	return tex
+
+
+## Drops all cached lookups so newly added/removed art is picked up
+## (used by smoke and available for a future hot-reload).
+func clear_visual_cache() -> void:
+	_visual_cache.clear()
 
 
 # ---------------------------------------------------------------------------

@@ -15,3 +15,6 @@ Thumbs.db
 !.project/boh_outbox/imported/.gitkeep
 .project/boh_outbox/rejected/*
 !.project/boh_outbox/rejected/.gitkeep
+
+# FQ-07: smoke-test temp art (written and deleted at runtime; never real assets)
+art/generated/*/smoke_tmp_*.png
