@@ -100,6 +100,11 @@ func _ready() -> void:
 		var smoke := preload("res://scripts/main/smoke_test.gd").new()
 		smoke.name = "SmokeTest"
 		add_child(smoke)
+	elif OS.get_environment("COHERONIA_SHOTS") == "1":
+		# README media tour: staged screenshots, then quit (see the script).
+		var tour := preload("res://scripts/main/screenshot_tour.gd").new()
+		tour.name = "ScreenshotTour"
+		add_child(tour)
 
 
 func config() -> WorldConfig:

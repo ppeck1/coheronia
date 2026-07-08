@@ -1,183 +1,117 @@
-# Coheronia - v0.6 Character, Inventory, World Builder, Plants, Tools
+# Coheronia
 
-Coheronia is a Godot 4 side-view survival settlement sandbox inspired by the pleasures of Terraria-style digging/building, survival crafting, and civilization sims. The player is not just trying to survive as one person: the long-term fantasy is to carve out a place in a hostile world, rule a small civilization, and watch that civilization's needs, fears, politics, infrastructure, and defenses push back through play.
+**A side-view survival settlement sandbox where your civilization pushes back.**
 
-![Coheronia v0.4 smoke screenshot](docs/screenshots/v0.4-smoke.png)
+Dig, build, and light a frontier settlement Terraria-style — then keep it alive as a tiny civilization sim scores your shelter, food, light, and defenses in real time and answers with settlers, raids, and storms.
 
-Today, the player reshapes terrain directly while managing a settlement through three systemic pressures: **Coherence / Load / Resilience**.
+![Daytime settlement with the Town Hall, torch line, and live HUD](docs/screenshots/01_settlement_day.png)
 
-Current state: **v0.6 implemented and closed out** on Godot 4.6.1. The project launches into a persistent outer shell for characters, worlds, saves, and simulation settings. Each world is a configured simulation container: terrain seed, world size, generation variation, difficulty axes, rule toggles, save state, and summary metadata live together in `user://worlds/<id>.json`. v0.5 brought the first slices of the three future design docs into live gameplay (data-driven enemies, player XP and base levels, playable ancestries); v0.6 makes characters real owners of their backpacks and tools, adds an openable inventory, explains ancestries and world settings in the shell, roots plants to the ground, and forges the first differentiated tool.
+`Godot 4.6 · GDScript · data-driven design · 183-check self-verifying test suite · fallback art pipeline`
 
-## Version Highlights
+## What it is
 
-- v0.1: playable C/L/R vertical slice with movement, mining, block placement, torches, Town Hall stockpile, pressure events, HUD, and F5/F9 save/load.
-- v0.2: tool-tier progression, ore gating, food loop, berry bushes, light occlusion, and threat persistence.
-- v0.3: berry regrowth, dynamic population 1-8, storm hazard with roof mitigation, lanterns, and UX polish.
-- v0.4: persistent shell, character creation/selection, world creation/selection, world size, presets, six difficulty axes, simulation rule toggles, per-block-type seed variation, and per-world save files.
-- v0.5: data-driven enemies (surface slime, cave crawler, raider) with drops and difficulty-scaled density from `data/enemies.json`; player XP across six types with levels; base levels Camp -> Hamlet -> Village gating population growth; five playable ancestries with live player effects; full data models for all 16 enemies, 12 ancestries, research domains, and perk lanes.
-- v0.6: character-owned inventory/hotbar/tools that travel between worlds (world saves keep terrain, hall, threats, and progression); openable inventory panel (I); ancestry detail panel and world-builder help text sourced from data; berry bushes require support and no longer float; a forgeable axe that speeds wood and plant harvesting while the pick keeps stone/ore.
+Coheronia sits between a survival sandbox and a civilization pressure sim. Minute to minute you mine tunnels, roof the hall, place torches, and haul food home. The settlement model turns those physical acts into three live pressures — **Coherence, Load, and Resilience** — computed from real world state (shelter blocks, light sources, stockpile, threats), never faked. A coherent, fed, lit settlement attracts settlers and ratchets from Camp to Hamlet to Village; a neglected one starves, empties, and cracks under night raids and storms.
 
-## The Shell
+It is also a **portfolio project in AI-orchestrated software engineering**: every increment was planned from a task queue, implemented, reviewed by an independent agent pass, verified by an automated in-engine test suite that has grown from 62 to 183 checks, and shipped with a signed evidence ledger. The full audit trail lives in this repo.
 
-The configured main scene is `res://scenes/shell/Shell.tscn`.
+## Screenshots
 
-On launch:
+| | |
+|---|---|
+| ![Night falls — torch light holds the line](docs/screenshots/02_night_torchlight.png)<br>*Night, torchlight, and real-time light occlusion* | ![Inventory panel with icon grid and 12 gear slots](docs/screenshots/03_inventory.png)<br>*Backpack + a 12-slot equipment model (weapon, tools, armor, rings, amulet)* |
+| ![Town Hall panel with stockpile grid and forge stations](docs/screenshots/04_town_hall.png)<br>*Town Hall: stockpile grid and forge stations with crafted states* | ![Skill tree with owned, available, and locked nodes](docs/screenshots/05_skill_tree.png)<br>*Skill tree: level-earned points, prerequisites, one live lane* |
+| ![Character creation with data-driven ancestry details](docs/screenshots/07_character_create.png)<br>*Character creation: 5 playable ancestries with live effects, traits, roles* | ![World builder with presets, difficulty axes, and generation sliders](docs/screenshots/08_world_create.png)<br>*World builder: presets, six difficulty axes, rule toggles, generation controls* |
 
-1. Choose **Continue**, **Play**, or **Quit**.
-2. Select or create a character.
-3. Select or create a world.
-4. Enter the playable settlement scene.
+*All rendering is intentional placeholder art (generated tiles and swatches) — an image-first asset pipeline with per-asset color fallback is already wired, so real art can land one PNG at a time without touching code.*
 
-Character creation currently supports name, ancestry (human, dwarf, elf, goblin, orc), appearance, traits, and role/background. Selecting an ancestry shows a compact data-driven detail panel: description, live effects, tradeoffs, spawn band, and biome affinities. Ancestry effects come from `data/ancestries.json`: dwarves move and jump a little lower but mine stone and ore 20% faster, orcs carry +25 max health, elves jump higher, goblins run at 80% health, and humans learn 5% faster (all XP). The remaining seven ancestries (deep variants, gnome, lizardfolk, dragonkin) exist in data, are labeled as planned, and unlock in later phases.
+## Feature highlights
 
-Characters own their carried state: inventory, hotbar selection, and tools live on the character record in `user://shell.json` and travel between worlds. Two characters entering the same world each keep their own backpack, and role starter items are granted once per character. The world creation screen explains each preset (description plus deviations), size dimensions, difficulty axis, and generation slider with short data-sourced help lines.
+- **Persistent shell** — characters and worlds are separate persistent objects. Characters own their backpack, hotbar, tools, and 12 gear slots and carry them between worlds; each world file owns its terrain history, settlement, threats, and progression.
+- **Deterministic, configurable world generation** — seed + settings always produce the same world: terrain amplitude/frequency, ore/tree/bush density on independent seed channels, three world sizes, and pass-through background trees so the surface stays walkable.
+- **Survival loop with teeth** — hardness-timed mining with crack-stage feedback, tool tiers (forged pick, axe, crude sword and armor with flat mitigation), berry bushes that need soil and regrow, food, health, i-frames, collapse penalties, and passive recovery near the hall.
+- **A settlement that reacts** — day/night cycle, night threats scaled by six difficulty axes, raiders drawn to fat stockpiles, cave crawlers underground, storms mitigated by real roof coverage, population 1–8 that eats, leaves, and arrives based on computed Coherence.
+- **Progression stack** — six XP types feed player levels; levels grant perk points spent in a visual skill tree; base levels gate population; Attunement (the magic resource) regenerates and powers a first light-pulse ability, with ancestry/equipment/perk hooks already live.
+- **Everything is data** — blocks, recipes, enemies, 12 ancestries, XP curves, base levels, perk lanes, equipment, world presets, and item metadata are JSON authorities validated by a repo linter; most balance changes never touch code.
 
-World creation supports:
+## The engineering story
 
-- world name
-- world size: small, medium, large
-- seed, with 0 meaning random
-- presets: Peaceful Builder, Folk Kingdom, Tyrant's Burden, Dark Frontier, Mythic Survival, Custom
-- difficulty axes: enemy, ruler, survival, economy, social, subject impressionability
-- environment danger
-- generation controls: terrain amplitude/frequency, dirt depth, ore/tree/bush density, and independent ore/tree/bush seed channels
-- simulation rules: food requirements, weather survival, lighting safety, darkness threat, enemy time scaling, plus reserved future social/survival toggles
+This repo doubles as an experiment in disciplined AI-driven development:
 
-Persistence lives in:
+- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 183 checks: mining frame counts, save/load round-trips, legacy-save migrations, UI panel contents, a player physically walking past a background tree, armor math to the decimal. Every feature lands with new checks; the suite has never been allowed to stay red.
+- **Evidence over claims.** Every increment ships with a run ledger in [`.project/runs/`](.project/runs/) recording scope, decisions, review findings and their resolutions, and validation output — plus machine-readable packets in `.project/atlas_outbox/` and `.project/boh_outbox/`.
+- **Independent review loop.** Each change was reviewed by a separate agent pass before commit; findings (from save-corruption edge cases to invisible-tint rendering bugs) are documented and fixed in the ledgers.
+- **Task queue discipline.** Work follows [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) one bounded increment at a time — ten increments (FQ-00 … FQ-09) so far on top of the v0.1–v0.6 foundation, each documented in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md).
 
-```text
-user://shell.json
-user://worlds/<id>.json
-```
+## Run it
 
-Esc in-game saves the current world and returns to the shell.
-
-## Running
-
-Open this folder as a Godot 4.6+ project and run the configured main scene.
-
-From PowerShell:
+Requires [Godot 4.6+](https://godotengine.org/). No plugins, no imports, no build step.
 
 ```powershell
 & <path-to-godot-4.6> --path <this-repo-root>
 ```
 
-## Controls
+Or open the folder in the Godot editor and press Play.
 
 | Action | Input |
 |---|---|
-| Move | A/D or arrow keys |
-| Jump | Space |
-| Mine / hit threat | Hold left mouse |
-| Place selected block | Right mouse |
-| Select hotbar slot | 1-5 |
-| Interact with Town Hall | E or T |
-| Open/close inventory | I |
+| Move / jump | A/D or arrows · Space |
+| Mine / hit | Hold left mouse |
+| Place block | Right mouse |
+| Hotbar | 1–5 |
+| Town Hall | E or T |
+| Inventory / Skill tree | I / K |
+| Eat food / Attunement pulse | H / R |
 | Craft torch | C |
-| Save | F5 |
-| Load | F9 |
-| Debug overlay | F3 |
-| Save and return to shell | Esc |
+| Save / Load | F5 / F9 |
+| Save & exit to shell | Esc |
 
-## Play Loop
-
-Spawn near the Town Hall, mine dirt/wood/stone, gather food from berry bushes (rooted to their soil now — mine the support and the bush harvests itself), place blocks and torches, shelter the hall, deposit resources, forge the tier-2 pick and an axe for faster woodcutting, mine ore, craft lanterns, check the backpack with I, feed the settlement, survive night slimes and the occasional raider, watch for cave crawlers underground, roof against storms, repair damage, and repeat. Everything you do earns XP (combat, labor, survival, civic, exploration, craft) toward player levels, and a sheltered, lit, fed settlement ratchets from Camp to Hamlet to Village, raising the population cap. C/L/R bars are computed from real world state, not decorative values.
-
-## Design Direction
-
-Coheronia is meant to sit between a survival sandbox and a civilization pressure sim. The world should feel physical and cozy in the minute-to-minute: mine a tunnel, roof a hall, place a torch, bring food home. Over time, those simple actions should become the foundation of rule: subjects need food and shelter, raids test defenses, scarcity stresses loyalty, darkness changes public safety, and the player's choices shape whether the settlement becomes a folk kingdom, a fragile frontier town, or a collapsing tyranny.
-
-Planned civilization systems include subject roles, civic upgrades, ruler legitimacy, morale, loyalty, rebellion pressure, infrastructure needs, and events where enemies are not just monsters but political and social forces. The current v0.4 shell already stores many of these knobs as world rules so later gameplay can consume them without rewriting the save model.
-
-Future design references:
-
-- `docs/FUTURE_ENEMY_DESIGN.md`: planned enemy families, bosses, loot, density, and expansion order.
-- `docs/FUTURE_ANCESTRIES_AND_BIOMES.md`: planned ancestry, biome, spawn, player-effect, and settlement-effect matrices.
-- `docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`: planned player XP, base levels, research, laws, districts, factions, and world-scale progression.
-
-As of v0.5 the first slices of all three documents are live: the three MVP enemies, player XP/base levels, and five Phase B ancestries. The full matrices (remaining enemies, bosses, deep ancestries, research, perks, laws, districts) are present as validated data models in `data/` but not yet live gameplay.
-
-## Architecture
-
-```text
-scenes/shell/Shell.tscn          persistent shell entrypoint
-scripts/shell/shell_ui.gd        title, character, and world screens
-scripts/shell/game_state.gd      autoload: profile, characters, worlds
-scripts/shell/world_config.gd    per-world simulation rules and defaults
-scenes/main/Main.tscn            playable scene root
-scripts/main/game_root.gd        day/night, storms, threats, population, flow
-scripts/main/smoke_test.gd       automated acceptance smoke test
-scenes/world/World.tscn          grid, TileMapLayer, lights
-scripts/world/world.gd           mining, placement, deltas, regrowth
-scripts/world/world_gen.gd       config-driven deterministic generation
-scripts/world/block_registry.gd  data authority autoload
-scripts/player/player.gd         movement, mining, placement, traits
-scripts/save/save_manager.gd     per-world state collection/application
-scripts/settlement/*.gd          Town Hall and C/L/R model
-scripts/ui/hud.gd                code-built HUD
-```
-
-Data authorities:
-
-- `data/blocks.json`: block behavior, drops, light, tags
-- `data/recipes.json`: craft/forge recipes
-- `data/settlement_rules.json`: C/L/R formulas, clamps, tick rate
-- `data/world_settings.json`: sizes, defaults, presets, difficulty/rule/generation defaults
-- `data/character_data.json`: species, traits, roles, appearances
-- `data/enemies.json`: enemy defs, drops, spawn rules, density, difficulty scaling (loaded by `scripts/data/enemy_registry.gd`)
-- `data/ancestries.json`: 12 ancestries with player/settlement effects and biome affinities (loaded by `scripts/data/ancestry_registry.gd`)
-- `data/progression/*.json`: player XP events, base levels, research domains, perk lanes (loaded by `scripts/data/progression_registry.gd`)
-
-## Validation
+**Verify the build** (validators + the 183-check in-engine suite):
 
 ```powershell
 python scripts/validate_repo.py
 python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile public_repo
-```
 
-Automated smoke:
-
-```powershell
-$env:COHERONIA_SMOKE = "1"
-& <path-to-godot-4.6> --path <this-repo-root>
-```
-
-When using the Windows GUI Godot binary from a non-interactive shell, prefer:
-
-```powershell
 $env:COHERONIA_SMOKE = "1"
 Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-repo-root>") -Wait
+# results: user://smoke_results.json
 ```
 
-The smoke test exercises the real gameplay path and currently contains 122 checks covering shell persistence, world config, input bindings, movement, mining, tool tiers, food/regrowth, population, rule toggles, difficulty scaling, lanterns, C/L/R reactions, storm mitigation, threat persistence, save/load, world size, per-block seed variation, density controls, character trait effects, data-driven enemy spawning and drops, XP awards and level curve, base-level advancement and population gating, ancestry player effects, ancestry detail and world-builder help data, character-owned inventory isolation and migration, the openable inventory panel, berry-bush support cleanup, and axe/pick tool differentiation with save round-trips.
+**Regenerate the README screenshots** (staged capture tour — 8 shots including a title-screen extra not used below):
 
-In addition to console `SMOKE` lines, it writes:
+```powershell
+$env:COHERONIA_SHOTS = "1"
+Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-repo-root>") -Wait
+# shots land in user://shots/ (Windows: %APPDATA%\Godot\app_userdata\Coheronia\shots)
+# then copy the keepers into docs/screenshots/
+```
+
+## Architecture at a glance
 
 ```text
-user://smoke_results.json
-user://smoke_screenshot.png   # windowed runs only
+scenes/shell + scripts/shell     persistent shell: characters, worlds, world builder
+scenes/main  + scripts/main      game root (day/night, storms, threats, progression),
+                                 smoke suite, screenshot tour
+scripts/world                    deterministic generation, block grid, lighting,
+                                 data-authority registry
+scripts/player                   movement, mining, combat, equipment, attunement, perks
+scripts/settlement               Town Hall + the Coherence/Load/Resilience model
+scripts/ui                       code-built HUD, icon-grid panels, skill tree
+data/*.json                      the actual game design: blocks, recipes, enemies,
+                                 ancestries, progression, equipment, presets, items
+docs/                            handoff, variable matrix, task queue, future design
+.project/                        run ledgers + evidence packets for every increment
 ```
 
-## Known Limitations
+Persistence: `user://shell.json` (profile + characters) and `user://worlds/<id>.json` (one file per world: config + terrain deltas + simulation state).
 
-- Placeholder art: colored tiles and `_draw()` rectangles; no animation or audio.
-- Population is still abstract; settlers are not simulated as NPCs.
-- Enemy movement is simple walk/hop with no pathfinding; raiders walk at the hall, crawlers ambush underground.
-- Base levels cap at Village (level 3) for now; Town, Keep, and City-State exist in data only.
-- Perk lanes and research domains are validated data, not yet spendable/researchable in play.
-- Pre-v0.4 standalone saves at `user://coheronia_save.json` are not migrated into the new shell world files.
-- Several rule toggles are reserved for future systems: sleep, sickness, morale, loyalty decay, rebellion, ruler pressure growth, and scarcity growth.
-- Social difficulty is stored but not yet consumed by a social simulation.
-- Player position, health, and XP/progression remain world-owned; carried inventory, hotbar selection, and tools are character-owned as of v0.6.
-- The inventory panel is read-only (no drag/drop or slot reassignment yet).
-- Terrain is finite, up to 360 x 100 tiles, with one surface biome.
+## Roadmap
 
-## Protocol
+The active queue continues with ore families and metallurgy, station chains (workbench/furnace/anvil), farming on the bush-support groundwork, more enemies from a 16-enemy design roster, maps and scouting, and the civic layer (laws, districts, factions, legitimacy) sketched in [`docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`](docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md). Ancestries beyond the five playable ones (deep variants, gnome, lizardfolk, dragonkin) exist as validated data awaiting their phases.
 
-This repo includes the Project Ops Capsule under `.project/` and `_protocol/Project_Ops_Capsule/`.
+## Known limitations
 
-```text
-Every run records evidence; only signable runs update accepted truth.
-```
+Placeholder art and no audio (pipeline ready); settlers are abstract population, not NPCs; enemies walk-and-hop without pathfinding; one surface biome on finite maps (up to 360×100 tiles); panels are read-only (no drag/drop yet).
 
-Run ledgers live in `.project/runs/`. Atlas/BOH packets live in `.project/atlas_outbox/` and `.project/boh_outbox/`.
+---
+
+*Built with the Project Ops Capsule protocol: every run records evidence; only signable runs update accepted truth.*

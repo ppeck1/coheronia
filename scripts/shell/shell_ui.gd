@@ -86,6 +86,29 @@ func _ready() -> void:
 		return
 	_build_base()
 	_show_title()
+	if OS.get_environment("COHERONIA_SHOTS") == "1":
+		_run_shot_tour.call_deferred()
+
+
+## README media tour (COHERONIA_SHOTS=1): captures the shell screens, then
+## continues into Main where screenshot_tour.gd takes the gameplay shots.
+## Never part of smoke or validation.
+func _run_shot_tour() -> void:
+	DirAccess.make_dir_recursive_absolute("user://shots")
+	await _tour_shot("06_shell_title")
+	_show_char_create()
+	await _tour_shot("07_character_create")
+	_show_world_create()
+	await _tour_shot("08_world_create")
+	GameState.ensure_play_context()
+	get_tree().change_scene_to_file("res://scenes/main/Main.tscn")
+
+
+func _tour_shot(shot_name: String) -> void:
+	for i in range(20):
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png("user://shots/%s.png" % shot_name)
 
 
 func _unhandled_input(event: InputEvent) -> void:
