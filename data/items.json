@@ -1,0 +1,22 @@
+{
+  "schema_version": "0.1",
+  "note": "Display metadata for item ids that are not blocks (drops, gear icons). Blocks keep their names in blocks.json; this file backfills everything else for the FQ-09 icon grids. color is the FQ-07 fallback swatch (hex, no #).",
+  "items": {
+    "dirt": { "color": "785430", "description": "Soft ground. Quick to place, quick to mine." },
+    "grass": { "color": "4d9e40", "description": "Surface turf. Drops dirt." },
+    "wood": { "color": "9e7338", "description": "Building material and fuel." },
+    "stone": { "color": "73757f", "description": "Sturdy building material." },
+    "ore": { "color": "b89e59", "description": "Raw ore. Needs a tier-2 pick." },
+    "torch": { "color": "ffbf40", "description": "Light. Keeps the dark honest." },
+    "lantern": { "color": "f2e68c", "description": "Bright, far-reaching light." },
+    "berry_bush": { "color": "337330", "description": "A food-bearing bush." },
+    "food": { "display_name": "Food", "color": "c94f4f", "description": "Restores health when eaten (H)." },
+    "slime_gel": { "display_name": "Slime Gel", "color": "8c4fc9", "description": "Sticky residue from slimes." },
+    "wet_fiber": { "display_name": "Wet Fiber", "color": "4f8cc9", "description": "Damp plant strands." },
+    "tiny_core": { "display_name": "Tiny Core", "color": "e0d060", "description": "A faintly humming mote." },
+    "pick": { "display_name": "Pick", "color": "9a8f7a", "description": "Forge icon." },
+    "axe": { "display_name": "Axe", "color": "8f6a3f", "description": "Forge icon." },
+    "sword": { "display_name": "Sword", "color": "b8bcc4", "description": "Forge icon." },
+    "armor": { "display_name": "Armor", "color": "6f7b8a", "description": "Forge icon." }
+  }
+}

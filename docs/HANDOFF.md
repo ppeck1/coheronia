@@ -2,9 +2,17 @@
 
 ## Current State
 
-**FQ-08 (block and enemy damage visuals) implemented and closed out** (run `20260708_coheronia_fq08_damage_visuals`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 through FQ-07; Godot 4.6.1 stable).
+**FQ-09 (visual inventory, toolbelt, and village panels) implemented and closed out** (run `20260708_coheronia_fq09_visual_panels`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 through FQ-08; Godot 4.6.1 stable).
 
-v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 through FQ-08 followed from `docs/FABLE_TASK_QUEUE.md`.
+v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 through FQ-09 followed from `docs/FABLE_TASK_QUEUE.md`.
+
+## FQ-09 Additions
+
+- **Toolbelt**: five slot tiles (icon + count + numbered tooltip) with a gold border on the selected slot. Icons come from `BlockRegistry.item_icon` — FQ-07 art when present, else a generated color swatch (`data/items.json` color, else a stable hash-derived hue) — so every slot always reads visually. The text line below keeps the extras + tool/gear summary.
+- **Inventory panel**: a 6-column icon grid of stacks (count under each tile, display name + descriptor on hover) sits above the existing text block, which is unchanged so all prior panel assertions still hold.
+- **Town Hall panel**: the stockpile text list became an icon grid; station buttons carry item icons; disabled/crafted states keep the engine dimming plus the existing state text.
+- **`data/items.json` (new)**: display names, descriptions, and swatch colors for non-block item ids (food, drops, forge icons) plus icon colors for block items. `BlockRegistry.display_name` now falls back blocks -> items.json -> id, improving every log/tooltip surface.
+- Keyboard/mouse behavior unchanged: I toggles inventory, hotbar keys 1-5 select, E/T town panel, K skills — all pre-existing bindings and the Esc chain untouched.
 
 ## FQ-08 Additions
 
@@ -74,7 +82,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 179/179 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08) |
+| Automated smoke | PASS 183/183 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09) |
 
 ## Known Risks / Gotchas
 
@@ -96,7 +104,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-08 are complete (FQ-08: crack-stage overlay on the mined block, enemy hurt bars, all transient with drops/saves untouched, smoke 179/179); FQ-09 (visual inventory, toolbelt, and village panels) is next.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-09 are complete (FQ-09: icon-grid inventory/toolbelt/town panels on the FQ-07 fallback pipeline, data/items.json metadata, smoke 183/183); FQ-10 (more ores and metallurgy data) is next.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

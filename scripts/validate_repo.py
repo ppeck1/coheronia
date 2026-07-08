@@ -22,6 +22,7 @@ REQUIRED_FILES = [
     "data/character_data.json",
     "data/equipment.json",
     "data/visual_assets.json",
+    "data/items.json",
     "art/source_templates/ASSET_TEMPLATE.md",
     "data/enemies.json",
     "data/ancestries.json",
@@ -196,6 +197,15 @@ for va_cat, entries in va_categories.items():
         if not (ROOT / str(rel_path)).is_file():
             fail(f"visual_assets.json {va_cat}/{va_id} maps to missing file: {rel_path}")
 print("PASS visual assets data")
+
+# FQ-09: item metadata — the icon grids and display-name fallback read this.
+items_meta = json.loads((ROOT / "data/items.json").read_text(encoding="utf-8"))
+if not isinstance(items_meta.get("items"), dict):
+    fail("items.json missing items dict")
+for im_id, im in items_meta["items"].items():
+    if not isinstance(im, dict):
+        fail(f"items.json entry {im_id} must be a dict")
+print("PASS items data")
 _va_missing = 0
 for va_cat, va_ids in [
     ("blocks", [b for b in blocks if b != "air"]),

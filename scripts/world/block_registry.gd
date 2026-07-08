@@ -10,6 +10,8 @@ var character_data: Dictionary = {}
 var equipment: Dictionary = {}      # FQ-03: data/equipment.json (slots + items)
 var visual_assets: Dictionary = {}  # FQ-07: data/visual_assets.json (image refs)
 var _visual_cache: Dictionary = {}  # resolved path -> Texture2D (or null = missing)
+var items_data: Dictionary = {}     # FQ-09: data/items.json (non-block item metadata)
+var _item_icon_cache: Dictionary = {}  # item_id -> Texture2D (art or fallback swatch)
 
 
 func _ready() -> void:
@@ -26,6 +28,7 @@ func _load_all() -> void:
 	character_data = _load_json("res://data/character_data.json")
 	equipment = _load_json("res://data/equipment.json")
 	visual_assets = _load_json("res://data/visual_assets.json")
+	items_data = _load_json("res://data/items.json").get("items", {})
 	if blocks.is_empty():
 		push_error("BlockRegistry: no blocks loaded from data/blocks.json")
 
@@ -70,7 +73,16 @@ func get_block(block_id: String) -> Dictionary:
 
 
 func display_name(block_id: String) -> String:
-	return str(get_block(block_id).get("display_name", block_id))
+	# FQ-09: non-block item ids (drops etc.) resolve through items.json.
+	var block: Dictionary = get_block(block_id)
+	if not block.is_empty():
+		return str(block.get("display_name", block_id))
+	return str(items_data.get(block_id, {}).get("display_name", block_id))
+
+
+## FQ-09: one-line descriptor for tooltips ("" when none exists).
+func item_description(item_id: String) -> String:
+	return str(items_data.get(item_id, {}).get("description", ""))
 
 
 func hardness(block_id: String) -> float:
@@ -162,6 +174,37 @@ func visual_texture(category: String, id: String) -> Texture2D:
 ## (used by smoke and available for a future hot-reload).
 func clear_visual_cache() -> void:
 	_visual_cache.clear()
+	_item_icon_cache.clear()
+
+
+## FQ-09: a UI icon for any item id — real art when present (FQ-07 lookup),
+## otherwise a generated 16x16 color swatch: items.json color, or a
+## deterministic hash-derived hue for ids with no data anywhere. Cached;
+## cleared together with the visual cache.
+func item_icon(item_id: String) -> Texture2D:
+	if _item_icon_cache.has(item_id):
+		return _item_icon_cache[item_id]
+	var tex: Texture2D = visual_texture("items", item_id)
+	if tex == null:
+		var color := item_fallback_color(item_id)
+		var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		img.fill(color)
+		var edge := color.darkened(0.3)
+		for i in range(16):
+			img.set_pixel(i, 15, edge)
+			img.set_pixel(15, i, edge)
+		tex = ImageTexture.create_from_image(img)
+	_item_icon_cache[item_id] = tex
+	return tex
+
+
+## FQ-09: swatch color for an item id (items.json "color" hex, else a stable
+## hue derived from the id so unknown items still get a distinct icon).
+func item_fallback_color(item_id: String) -> Color:
+	var hex := str(items_data.get(item_id, {}).get("color", ""))
+	if hex != "":
+		return Color.from_string("#" + hex, Color.MAGENTA)
+	return Color.from_hsv(float(hash(item_id) % 360) / 360.0, 0.55, 0.72)
 
 
 # ---------------------------------------------------------------------------

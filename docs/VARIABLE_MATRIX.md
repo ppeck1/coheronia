@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-08 run `20260708_coheronia_fq08_damage_visuals`.
+State: audited against FQ-09 run `20260708_coheronia_fq09_visual_panels`.
 
 ## Authority Surfaces
 
@@ -12,7 +12,8 @@ State: audited against FQ-08 run `20260708_coheronia_fq08_damage_visuals`.
 | World settings | `data/world_settings.json` | `WorldConfig`, shell UI, world generation, gameplay systems |
 | Character data | `data/character_data.json` | shell UI, `player.apply_character`, role item grant |
 | Equipment (FQ-03) | `data/equipment.json` | `BlockRegistry` equipment helpers -> `player` gear API, `hud` panel, `game_root` carried-state load, `save_manager` |
-| Visual assets (FQ-07) | `data/visual_assets.json` + `art/generated/<category>/<id>.png` convention | `BlockRegistry.visual_texture` -> `world._make_block_texture` (blocks), `simple_threat._draw` (enemies), `hud` hotbar icon strip (items); missing images always fall back to generated colors/shapes; loaded via `Image.load_from_file` (no editor import pass needed); explicit json entries validator-fail when broken, convention gaps are INFO-only |
+| Visual assets (FQ-07) | `data/visual_assets.json` + `art/generated/<category>/<id>.png` convention | `BlockRegistry.visual_texture` -> `world._make_block_texture` (blocks), `simple_threat._draw` (enemies), `hud` toolbelt/grids (items via `item_icon`); missing images always fall back to generated colors/shapes; loaded via `Image.load_from_file` (no editor import pass needed); explicit json entries validator-fail when broken, convention gaps are INFO-only |
+| Item metadata (FQ-09) | `data/items.json` | `BlockRegistry.display_name` fallback chain (blocks -> items.json -> id), `item_description` (tooltips), `item_fallback_color` -> `item_icon` swatches for the FQ-09 icon grids; unknown ids get a stable hash-derived hue |
 | Enemies | `data/enemies.json` | `enemy_registry.gd` -> `game_root` spawn paths, `simple_threat` drops |
 | Ancestries | `data/ancestries.json` | `ancestry_registry.gd` -> `player.apply_ancestry_effects`, shell create form |
 | Progression | `data/progression/*.json` | `progression_registry.gd` -> XP awards, base levels, HUD |
@@ -232,6 +233,16 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-09 adds 4 checks (`fq09_*`, suite total 183) covering: toolbelt slot tiles
+show live counts and the gold selected-slot highlight follows the selected
+slot; the inventory panel's icon grid mirrors injected counts while the panel
+opens normally; the town stockpile grid mirrors the hall stockpile; and the
+acceptance flow — grids track counts through mine (+1 dirt), craft
+(craft_torch: 3 torches appear), deposit (stockpile grid rises; torches are
+not depositable), and load (grid matches the restored inventory exactly). The
+FQ-07 hotbar item check was rewritten to art-vs-fallback semantics
+(`hotbar_icon_is_art`) because slots now always display an icon.
 
 FQ-08 adds 6 checks (`fq08_*`, suite total 179) covering: a stone target's
 damage stage rises from 0 to 1-3 mid-mine; the stage resets on target change

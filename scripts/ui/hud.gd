@@ -39,6 +39,9 @@ var _forge_button: Button
 var _forge_axe_button: Button
 var _forge_sword_button: Button
 var _forge_armor_button: Button
+var _repair_button: Button
+var _lantern_button: Button
+var _stock_empty_label: Label
 var _save_label: Label
 var _debug_label: Label
 # Wave C: openable full inventory panel.
@@ -47,8 +50,19 @@ var _inv_content: Label
 # FQ-06: skill tree panel (K); preloaded script, no class_name (cache-safe).
 const SkillTreePanelScript := preload("res://scripts/ui/skill_tree_panel.gd")
 var _skill_panel: PanelContainer
-# FQ-07: optional hotbar item icons (visible only when the item has art).
+# FQ-07/FQ-09: toolbelt slot tiles — always-visible item icons (real art or
+# the FQ-07 fallback swatch), per-slot counts, and a selected-slot highlight.
 var _hotbar_icons: Array[TextureRect] = []
+var _hotbar_slots: Array[PanelContainer] = []
+var _hotbar_counts: Array[Label] = []
+var _hotbar_selected := -1
+var _slot_normal_sb: StyleBoxFlat
+var _slot_selected_sb: StyleBoxFlat
+# FQ-09: inventory panel item grid and town stockpile grid.
+var _inv_grid: GridContainer
+var _inv_grid_counts: Dictionary = {}    # item_id -> displayed count
+var _stock_grid: GridContainer
+var _stock_grid_counts: Dictionary = {}  # item_id -> displayed count
 
 
 func _ready() -> void:
@@ -103,21 +117,69 @@ func _build_bottom_left() -> void:
 	_mine_bar.show_percentage = false
 	_mine_bar.visible = false
 	box.add_child(_mine_bar)
-	# FQ-07: an icon strip above the hotbar text; each slot shows its item's
-	# image when one exists in art/generated/items/ and hides otherwise, so
-	# the text-only hotbar remains the fallback.
-	var icon_row := HBoxContainer.new()
-	box.add_child(icon_row)
+	# FQ-09: the toolbelt is a row of slot tiles — icon (art or FQ-07
+	# fallback swatch), count, and a gold border on the selected slot. The
+	# text line below keeps the tool/extras summary.
+	# Intentionally SHARED StyleBox instances across all five slots (Godot
+	# reads them without mutating) — clone before mutating per slot.
+	_slot_normal_sb = _make_slot_style(Color(0.35, 0.35, 0.4))
+	_slot_selected_sb = _make_slot_style(Color(0.95, 0.8, 0.25))
+	var slot_row := HBoxContainer.new()
+	box.add_child(slot_row)
 	for i in range(5):
+		var slot := PanelContainer.new()
+		slot.custom_minimum_size = Vector2(42, 46)
+		slot.add_theme_stylebox_override("panel", _slot_normal_sb)
+		slot_row.add_child(slot)
+		var col := VBoxContainer.new()
+		slot.add_child(col)
 		var icon := TextureRect.new()
-		icon.custom_minimum_size = Vector2(18, 18)
+		icon.custom_minimum_size = Vector2(20, 20)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.visible = false
-		icon_row.add_child(icon)
+		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		col.add_child(icon)
+		var count := _label(col, "")
+		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		count.add_theme_font_size_override("font_size", 11)
+		_hotbar_slots.append(slot)
 		_hotbar_icons.append(icon)
+		_hotbar_counts.append(count)
 	_hotbar_label = _label(box, "")
 	_label(box, "LMB mine · RMB place · E town hall · C craft torch · F5 save · F9 load")
 	_save_label = _label(box, "No save yet — press F5 to save.")
+
+
+func _make_slot_style(border: Color) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.1, 0.1, 0.14, 0.85)
+	sb.border_color = border
+	sb.set_border_width_all(2)
+	sb.set_content_margin_all(3)
+	return sb
+
+
+## FQ-09: one icon+count tile for the item grids. Descriptor arrives on hover
+## via the tooltip (display name + items.json description when present).
+func _make_item_tile(parent: Control, item_id: String, count: int) -> void:
+	var col := VBoxContainer.new()
+	var tip := BlockRegistry.display_name(item_id)
+	var desc := BlockRegistry.item_description(item_id)
+	if desc != "":
+		tip += "\n" + desc
+	col.tooltip_text = tip
+	parent.add_child(col)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(20, 20)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	icon.texture = BlockRegistry.item_icon(item_id)
+	icon.mouse_filter = Control.MOUSE_FILTER_PASS
+	col.add_child(icon)
+	var count_label := Label.new()
+	count_label.text = "×%d" % count
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count_label.add_theme_font_size_override("font_size", 11)
+	col.add_child(count_label)
 
 
 func _build_log() -> void:
@@ -149,14 +211,23 @@ func _build_town_panel() -> void:
 	var title := _label(box, "TOWN HALL")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_town_info = _label(box, "")
+	# FQ-09: visual stockpile grid between the status text and the stations.
+	_label(box, "Stockpile:")
+	_stock_empty_label = _label(box, "  (empty)")
+	_stock_grid = GridContainer.new()
+	_stock_grid.columns = 6
+	box.add_child(_stock_grid)
+	# FQ-09: station buttons carry item icons (re-resolved on every panel
+	# refresh so late-arriving art shows up); disabled states keep the
+	# engine's dimming plus the crafted-state text set in refresh_town_panel.
 	var deposit := Button.new()
 	deposit.text = "Deposit all resources"
 	deposit.pressed.connect(func() -> void: deposit_requested.emit())
 	box.add_child(deposit)
-	var repair := Button.new()
-	repair.text = "Repair (2 stone → -25 damage)"
-	repair.pressed.connect(func() -> void: repair_requested.emit())
-	box.add_child(repair)
+	_repair_button = Button.new()
+	_repair_button.text = "Repair (2 stone → -25 damage)"
+	_repair_button.pressed.connect(func() -> void: repair_requested.emit())
+	box.add_child(_repair_button)
 	_forge_button = Button.new()
 	_forge_button.text = "Forge pick upgrade (3 wood + 5 stone)"
 	_forge_button.pressed.connect(func() -> void: forge_requested.emit())
@@ -173,11 +244,23 @@ func _build_town_panel() -> void:
 	_forge_armor_button.text = "Forge crude armor set (6 wood + 4 stone)"
 	_forge_armor_button.pressed.connect(func() -> void: forge_armor_requested.emit())
 	box.add_child(_forge_armor_button)
-	var lantern := Button.new()
-	lantern.text = "Craft lantern (2 ore + 1 wood)"
-	lantern.pressed.connect(func() -> void: lantern_requested.emit())
-	box.add_child(lantern)
+	_lantern_button = Button.new()
+	_lantern_button.text = "Craft lantern (2 ore + 1 wood)"
+	_lantern_button.pressed.connect(func() -> void: lantern_requested.emit())
+	box.add_child(_lantern_button)
+	_refresh_station_icons()
 	_label(box, "Press E to close")
+
+
+## FQ-09: station icons resolve through item_icon so cleared caches / new
+## art are picked up on the next panel refresh.
+func _refresh_station_icons() -> void:
+	_repair_button.icon = BlockRegistry.item_icon("stone")
+	_forge_button.icon = BlockRegistry.item_icon("pick")
+	_forge_axe_button.icon = BlockRegistry.item_icon("axe")
+	_forge_sword_button.icon = BlockRegistry.item_icon("sword")
+	_forge_armor_button.icon = BlockRegistry.item_icon("armor")
+	_lantern_button.icon = BlockRegistry.item_icon("lantern")
 
 
 ## Wave C: openable inventory panel (I to toggle). Shows all carried stacks
@@ -197,6 +280,10 @@ func _build_inventory_panel() -> void:
 	_inv_panel.add_child(box)
 	var title := _label(box, "INVENTORY")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# FQ-09: icon grid above the detail text (hover a tile for its descriptor).
+	_inv_grid = GridContainer.new()
+	_inv_grid.columns = 6
+	box.add_child(_inv_grid)
 	_inv_content = _label(box, "")
 	_inv_content.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_label(box, "Press I to close")
@@ -236,9 +323,33 @@ func skill_panel() -> PanelContainer:
 	return _skill_panel
 
 
-## FQ-07 smoke hook: whether slot i currently shows an item image.
-func hotbar_icon_visible(i: int) -> bool:
-	return i >= 0 and i < _hotbar_icons.size() and _hotbar_icons[i].visible
+## FQ-07/FQ-09 smoke hook: whether slot i currently shows REAL art (as
+## opposed to the generated fallback swatch, which is always present).
+func hotbar_icon_is_art(i: int) -> bool:
+	if player == null or i < 0 or i >= _hotbar_icons.size() \
+			or i >= player.hotbar.size():
+		return false
+	var art: Texture2D = BlockRegistry.visual_texture("items", player.hotbar[i])
+	return art != null and _hotbar_icons[i].texture == art
+
+
+## FQ-09 smoke hooks: what the visual grids/slots currently display.
+func hotbar_slot_count(i: int) -> int:
+	if i < 0 or i >= _hotbar_counts.size() or not _hotbar_counts[i].text.is_valid_int():
+		return -1
+	return int(_hotbar_counts[i].text)
+
+
+func hotbar_selected_index() -> int:
+	return _hotbar_selected
+
+
+func inventory_grid_count(item_id: String) -> int:
+	return int(_inv_grid_counts.get(item_id, 0))
+
+
+func stockpile_grid_count(item_id: String) -> int:
+	return int(_stock_grid_counts.get(item_id, 0))
 
 
 ## Returns the current text of the inventory panel content label.
@@ -250,6 +361,16 @@ func get_inventory_panel_text() -> String:
 func _refresh_inventory_panel() -> void:
 	if player == null:
 		return
+	# FQ-09: rebuild the icon grid from the live counts.
+	for tile in _inv_grid.get_children():
+		tile.queue_free()
+	_inv_grid_counts = {}
+	var sorted_ids: Array = player.inventory.counts.keys()
+	sorted_ids.sort()
+	for item_id in sorted_ids:
+		var n: int = player.inventory.counts[item_id]
+		_inv_grid_counts[item_id] = n
+		_make_item_tile(_inv_grid, item_id, n)
 	var lines: Array[String] = []
 	if player.inventory.counts.is_empty():
 		lines.append("  (empty)")
@@ -373,30 +494,31 @@ func set_save_hint(has_save: bool) -> void:
 func update_inventory() -> void:
 	if player == null:
 		return
-	var parts: Array[String] = []
-	for i in range(player.hotbar.size()):
+	# FQ-09: slot tiles carry the per-item info; the text line keeps extras
+	# and the tool/gear summary.
+	_hotbar_selected = player.selected_slot
+	for i in range(_hotbar_slots.size()):
+		if i >= player.hotbar.size():
+			continue
 		var item_id: String = player.hotbar[i]
-		var marker := "▶" if i == player.selected_slot else " "
-		parts.append("%s[%d] %s ×%d" % [marker, i + 1, BlockRegistry.display_name(item_id), player.inventory.count(item_id)])
+		_hotbar_icons[i].texture = BlockRegistry.item_icon(item_id)
+		_hotbar_counts[i].text = str(player.inventory.count(item_id))
+		_hotbar_slots[i].tooltip_text = "[%d] %s" % [i + 1, BlockRegistry.display_name(item_id)]
+		_hotbar_slots[i].add_theme_stylebox_override("panel",
+			_slot_selected_sb if i == player.selected_slot else _slot_normal_sb)
+	var parts: Array[String] = []
 	for extra_id in ["ore", "food"]:
 		var extra: int = player.inventory.count(extra_id)
 		if extra > 0:
-			parts.append("  %s ×%d" % [BlockRegistry.display_name(extra_id).capitalize(), extra])
+			parts.append("%s ×%d" % [BlockRegistry.display_name(extra_id).capitalize(), extra])
 	var _axe_hb_str := ("tier %d" % player.axe_tier) if player.axe_tier > 0 else "none"
 	# FQ-04: weapon/armor state in the toolbelt line.
 	var _weapon_id := str(player.equipped_dict().get("weapon", ""))
 	var _weapon_str := BlockRegistry.equipment_item_display_name(_weapon_id) \
 		if _weapon_id != "" else "none"
-	parts.append("  Pick tier %d · Axe %s · Weapon %s · Armor %d" % [
+	parts.append("Pick tier %d · Axe %s · Weapon %s · Armor %d" % [
 		player.tool_tier, _axe_hb_str, _weapon_str, int(player.armor_total())])
 	_hotbar_label.text = "  ".join(parts)
-	# FQ-07: refresh the optional per-slot item icons.
-	for i in range(_hotbar_icons.size()):
-		var icon_tex: Texture2D = null
-		if i < player.hotbar.size():
-			icon_tex = BlockRegistry.visual_texture("items", player.hotbar[i])
-		_hotbar_icons[i].texture = icon_tex
-		_hotbar_icons[i].visible = icon_tex != null
 	_refresh_stock()
 	if _inv_panel != null and _inv_panel.visible:
 		_refresh_inventory_panel()
@@ -422,14 +544,20 @@ func town_panel_open() -> bool:
 func refresh_town_panel() -> void:
 	if town_hall == null:
 		return
-	var lines: Array[String] = ["Population: %d" % town_hall.population,
-		"Damage: %d%%" % int(round(town_hall.damage))]
-	lines.append("Stockpile:")
-	if town_hall.stockpile.is_empty():
-		lines.append("  (empty)")
-	for item_id in town_hall.stockpile:
-		lines.append("  %s ×%d" % [BlockRegistry.display_name(item_id), town_hall.stockpile[item_id]])
-	_town_info.text = "\n".join(lines)
+	_town_info.text = "Population: %d\nDamage: %d%%" % [
+		town_hall.population, int(round(town_hall.damage))]
+	# FQ-09: stockpile renders as an icon grid.
+	_refresh_station_icons()
+	for tile in _stock_grid.get_children():
+		tile.queue_free()
+	_stock_grid_counts = {}
+	_stock_empty_label.visible = town_hall.stockpile.is_empty()
+	var stock_ids: Array = town_hall.stockpile.keys()
+	stock_ids.sort()
+	for item_id in stock_ids:
+		var n: int = int(town_hall.stockpile[item_id])
+		_stock_grid_counts[item_id] = n
+		_make_item_tile(_stock_grid, item_id, n)
 	if player != null:
 		var forged: bool = player.tool_tier >= 2
 		_forge_button.disabled = forged

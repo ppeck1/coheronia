@@ -1458,14 +1458,15 @@ func _run() -> void:
 		and _fq07_cats.has("enemies") and _fq07_cats.has("ui"),
 		"categories=%s" % str(_fq07_cats.keys()))
 
-	# (b) missing images never crash: lookups return null and the generated
-	# color/shape textures still render; hotbar icons stay hidden.
+	# (b) missing images never crash: lookups return null, the generated
+	# color/shape textures still render, and toolbelt slots show the FQ-09
+	# fallback swatch rather than real art.
 	var _fq07_fallback_tex: ImageTexture = world._make_block_texture("dirt", 16)
 	_check("fq07_missing_assets_fall_back",
 		BlockRegistry.visual_texture("blocks", "dirt") == null
 		and BlockRegistry.visual_texture("enemies", "surface_slime") == null
 		and _fq07_fallback_tex != null
-		and not hud.hotbar_icon_visible(0),
+		and not hud.hotbar_icon_is_art(0),
 		"fallback_tex_ok=%s" % str(_fq07_fallback_tex != null))
 
 	# (c) a block image wins over the generated texture when present (via an
@@ -1496,16 +1497,16 @@ func _run() -> void:
 		"art/generated/items/smoke_tmp_wood.png"
 	BlockRegistry.clear_visual_cache()
 	hud.update_inventory()
-	var _fq07_icon_on: bool = hud.hotbar_icon_visible(1)    # slot 1 = wood
-	var _fq07_icon_dirt: bool = hud.hotbar_icon_visible(0)  # dirt has no art
+	var _fq07_icon_on: bool = hud.hotbar_icon_is_art(1)    # slot 1 = wood
+	var _fq07_icon_dirt: bool = hud.hotbar_icon_is_art(0)  # dirt has no art
 	DirAccess.remove_absolute("res://art/generated/items/smoke_tmp_wood.png")
 	BlockRegistry.visual_assets["categories"]["items"].erase("wood")
 	BlockRegistry.clear_visual_cache()
 	hud.update_inventory()
 	_check("fq07_item_renders_from_image",
-		_fq07_icon_on and not _fq07_icon_dirt and not hud.hotbar_icon_visible(1),
-		"icon_with_art=%s dirt_icon=%s after_cleanup=%s" % [
-			str(_fq07_icon_on), str(_fq07_icon_dirt), str(hud.hotbar_icon_visible(1))])
+		_fq07_icon_on and not _fq07_icon_dirt and not hud.hotbar_icon_is_art(1),
+		"art_icon=%s dirt_art=%s after_cleanup=%s" % [
+			str(_fq07_icon_on), str(_fq07_icon_dirt), str(hud.hotbar_icon_is_art(1))])
 
 	# --- FQ-08: block and enemy damage visuals ---
 
@@ -1577,6 +1578,73 @@ func _run() -> void:
 		if is_instance_valid(_fq08_slime):
 			_fq08_slime.queue_free()
 		await get_tree().process_frame
+
+	# --- FQ-09: visual inventory, toolbelt, and village panels ---
+
+	# (a) toolbelt slot tiles show live counts and the selected highlight
+	# follows the selected slot.
+	player.inventory.from_dict({"dirt": 7, "wood": 2})
+	player.selected_slot = 0
+	player.inventory_changed.emit()
+	var _fq09_counts_ok := true
+	for _fq09_i in range(5):
+		if hud.hotbar_slot_count(_fq09_i) != player.inventory.count(player.hotbar[_fq09_i]):
+			_fq09_counts_ok = false
+	var _fq09_sel_before: int = hud.hotbar_selected_index()
+	player.selected_slot = 2
+	hud.update_inventory()
+	_check("fq09_toolbelt_slots_live",
+		_fq09_counts_ok and _fq09_sel_before == 0 and hud.hotbar_selected_index() == 2,
+		"counts_ok=%s selected 0→%d" % [str(_fq09_counts_ok), hud.hotbar_selected_index()])
+	player.selected_slot = 0
+	hud.update_inventory()
+
+	# (b) the inventory panel opens (I binding covered by input_actions_bound)
+	# and its icon grid mirrors the counts.
+	hud.toggle_inventory_panel()
+	var _fq09_grid_ok: bool = hud.inventory_grid_count("dirt") == 7 \
+		and hud.inventory_grid_count("wood") == 2 \
+		and hud.inventory_grid_count("stone") == 0
+	_check("fq09_inventory_grid_reflects_counts",
+		hud.inventory_panel_open() and _fq09_grid_ok,
+		"dirt=%d wood=%d stone=%d" % [hud.inventory_grid_count("dirt"),
+			hud.inventory_grid_count("wood"), hud.inventory_grid_count("stone")])
+
+	# (c) the town stockpile grid mirrors the hall stockpile.
+	hall.stockpile["wood"] = 4
+	hall.stockpile["food"] = 6
+	hud.refresh_town_panel()
+	_check("fq09_town_stockpile_grid",
+		hud.stockpile_grid_count("wood") == 4 and hud.stockpile_grid_count("food") == 6
+		and hud.stockpile_grid_count("lantern") == 0,
+		"wood=%d food=%d" % [hud.stockpile_grid_count("wood"), hud.stockpile_grid_count("food")])
+
+	# (d) acceptance flow: grids track counts through mine -> craft ->
+	# deposit -> load (panel stays open; inventory_changed drives refreshes).
+	player.inventory.from_dict({"wood": 1, "stone": 1})
+	player.inventory_changed.emit()
+	var _fq09_dirt_cell: Variant = _find_block(world, world.hall_info["center_cell"], "dirt")
+	if _fq09_dirt_cell != null:
+		await _mine_cell(world, player, _fq09_dirt_cell as Vector2i)
+	var _fq09_after_mine: int = hud.inventory_grid_count("dirt")
+	var _fq09_crafted: bool = player.craft("craft_torch")   # 1 wood + 1 stone -> 3 torch
+	var _fq09_after_craft: int = hud.inventory_grid_count("torch")
+	hall.deposit_all(player.inventory)                      # moves dirt (torch not depositable)
+	hud.refresh_town_panel()
+	hud.update_inventory()
+	var _fq09_stock_dirt: int = hud.stockpile_grid_count("dirt")
+	root.save_manager.save_game()
+	player.inventory.from_dict({"dirt": 99})
+	player.inventory_changed.emit()
+	root.load_game()
+	var _fq09_after_load: int = hud.inventory_grid_count("torch")
+	_check("fq09_counts_after_mine_craft_deposit_load",
+		_fq09_after_mine >= 1 and _fq09_crafted and _fq09_after_craft == 3
+		and _fq09_stock_dirt >= 1 and _fq09_after_load == 3
+		and hud.inventory_grid_count("dirt") == 0,
+		"mine_dirt=%d craft_torch=%d stock_dirt=%d load_torch=%d" % [
+			_fq09_after_mine, _fq09_after_craft, _fq09_stock_dirt, _fq09_after_load])
+	hud.toggle_inventory_panel()
 
 	# --- FQ-01: player health, damage, healing, and death loop ---
 
