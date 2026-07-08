@@ -31,7 +31,7 @@ and outbox packets.
 | FQ-05 | P1 | Done | Mana or Attunement system MVP | Establishes how magic users work before adding spells or ancestry-specific magic. |
 | FQ-06 | P1 | Done | Visual player skill tree navigator | Player XP needs visible choices; start with navigation and one live lane. |
 | FQ-07 | P1 | Done | Visual asset pipeline with color fallback | Lets art improve incrementally while preserving current simple-color rendering. |
-| FQ-08 | P1 | Ready after FQ-07 | Block and enemy damage visuals | Makes mining/combat feedback readable before more combat depth arrives. |
+| FQ-08 | P1 | Done | Block and enemy damage visuals | Makes mining/combat feedback readable before more combat depth arrives. |
 | FQ-09 | P1 | Ready after FQ-07 | Visual inventory, toolbelt, and village panels | Converts text-heavy UI to image grids with labels and descriptors. |
 | FQ-10 | P1 | Ready | More ores and metallurgy data | Expands mining goals, but should stay data-first before full forge balance. |
 | FQ-11 | P1 | Ready after FQ-10 | Workbench, furnace, and anvil station chain | Makes ore useful through buildable progression stations. |

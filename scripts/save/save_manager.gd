@@ -104,6 +104,9 @@ func apply_state(state: Dictionary) -> bool:
 	# when the carried-state loader applies equipment (_clamp_attunement).
 	player.attunement = maxf(0.0, float(p.get("attunement", player.max_attunement())))
 	player.attunement_changed.emit(player.attunement, player.max_attunement())
+	# FQ-08: partial mining damage is transient visual state — never saved,
+	# and never carried across a load either.
+	player._reset_mining()
 	town_hall.from_dict(state.get("town_hall", {}))
 	game_root.apply_time_state(state.get("time", {}))
 	game_root.apply_threats(state.get("threats", []))

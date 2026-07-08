@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-07 run `20260707_coheronia_fq07_visual_asset_pipeline`.
+State: audited against FQ-08 run `20260708_coheronia_fq08_damage_visuals`.
 
 ## Authority Surfaces
 
@@ -146,7 +146,9 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 | `inventory_counts` | dictionary | `inventory.gd` / character-carried | stackable resource counts; travels between worlds |
 | `selected_hotbar_slot` | int | `player.gd` / character-carried | slots 1-5 |
 | `tool_tier` | int | `player.gd` / character-carried | pick tier alias; tier 2 unlocks ore and speed |
-| `effective_mine_speed` | func | `player.gd` | tool tier and trait multiplier |
+| `effective_mine_speed` | func | `player.gd` | tool tier, trait, and FQ-06 perk multiplier |
+| `mine_damage_stage()` | func | `player.gd` | FQ-08: 0-3 from mining progress; drives the transient crack overlay drawn on the target cell; never saved; resets via `_reset_mining` (target change, release, and on load via `apply_state`) |
+| `health_bar_ratio()` | func | `simple_threat.gd` | FQ-08: hp/max_hp fill for the mini hurt bar drawn above damaged enemies on both art and fallback paths |
 | `reach_bonus` | float | character effects | extends mining/placement reach |
 | `bush_bonus_food` | int | character effects | extra food from berry bushes |
 | `growth_threshold_delta` | float | character effects | modifies settler growth threshold |
@@ -230,6 +232,13 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-08 adds 6 checks (`fq08_*`, suite total 179) covering: a stone target's
+damage stage rises from 0 to 1-3 mid-mine; the stage resets on target change
+and on mining stop; partial damage is transient — it survives neither save nor
+load, the block stays intact, and finishing the mine still yields exactly one
+drop; and enemy damage is visible before death (hurt-bar ratio 1.00 -> 0.67
+after a non-lethal hit, enemy alive, no drops rolled).
 
 FQ-07 adds 4 checks (`fq07_*`, suite total 173) covering: visual_assets.json
 loads with the four categories; missing images return null lookups while

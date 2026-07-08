@@ -100,6 +100,11 @@ func _roll_drops() -> void:
 		player.inventory_changed.emit()
 
 
+## FQ-08: health-bar fill fraction (1.0 = unhurt) for the hurt bar.
+func health_bar_ratio() -> float:
+	return clampf(float(hp) / float(maxi(1, max_hp)), 0.0, 1.0)
+
+
 func _draw() -> void:
 	# FQ-07: image-first with the drawn-rect fallback. Damage reddens the
 	# sprite via a subtractive tint (overbright modulate clamps to white in
@@ -108,10 +113,15 @@ func _draw() -> void:
 	if _art != null:
 		var tint := Color(1.0, 1.0 - hurt, 1.0 - hurt)
 		draw_texture(_art, -_art.get_size() / 2.0, tint)
-		return
-	var body: Color = FAMILY_COLORS.get(family, FAMILY_COLORS["surface"])
-	if hurt > 0.0:
-		body = body.lightened(hurt)
-	draw_rect(Rect2(-7, -6, 14, 12), body)
-	draw_rect(Rect2(-4, -3, 3, 3), Color.WHITE)
-	draw_rect(Rect2(1, -3, 3, 3), Color.WHITE)
+	else:
+		var body: Color = FAMILY_COLORS.get(family, FAMILY_COLORS["surface"])
+		if hurt > 0.0:
+			body = body.lightened(hurt)
+		draw_rect(Rect2(-7, -6, 14, 12), body)
+		draw_rect(Rect2(-4, -3, 3, 3), Color.WHITE)
+		draw_rect(Rect2(1, -3, 3, 3), Color.WHITE)
+	# FQ-08: mini health bar above the body once damaged — damage is visible
+	# well before death on both the art and fallback paths.
+	if hp < max_hp:
+		draw_rect(Rect2(-8, -12, 16, 3), Color(0, 0, 0, 0.6))
+		draw_rect(Rect2(-8, -12, 16.0 * health_bar_ratio(), 3), Color(0.85, 0.2, 0.2))

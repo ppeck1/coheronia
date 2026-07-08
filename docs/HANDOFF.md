@@ -2,9 +2,15 @@
 
 ## Current State
 
-**FQ-07 (visual asset pipeline with color fallback) implemented and closed out** (run `20260707_coheronia_fq07_visual_asset_pipeline`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 -> FQ-01 -> FQ-02 -> FQ-03 -> FQ-04 -> FQ-05 -> FQ-06; Godot 4.6.1 stable).
+**FQ-08 (block and enemy damage visuals) implemented and closed out** (run `20260708_coheronia_fq08_damage_visuals`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 through FQ-07; Godot 4.6.1 stable).
 
-v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 through FQ-07 followed from `docs/FABLE_TASK_QUEUE.md`.
+v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 through FQ-08 followed from `docs/FABLE_TASK_QUEUE.md`.
+
+## FQ-08 Additions
+
+- **Block damage stages**: `player.mine_damage_stage()` (0-3 from mining progress) drives a crack overlay drawn on the target cell while mining — deterministic per cell (seeded from the target, no flicker), denser cracks per stage, layered over the existing highlight/progress bar. Purely transient: never enters `cells`/deltas/saves, resets via the existing `_reset_mining` on target change or release, and `apply_state` now clears in-memory progress so a load can never resurrect partial damage. `world.gd` untouched.
+- **Enemy hurt feedback**: a mini health bar appears above any damaged enemy (both the FQ-07 art path and the drawn-rect fallback, which also keep their tint/lighten cues); `health_bar_ratio()` exposes the fill. Damage is clearly visible well before death.
+- Drops, mining frame counts, and save/load behavior are untouched — verified by dedicated checks plus the unchanged legacy baselines.
 
 ## FQ-07 Additions
 
@@ -68,7 +74,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 173/173 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07) |
+| Automated smoke | PASS 179/179 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08) |
 
 ## Known Risks / Gotchas
 
@@ -90,7 +96,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-07 are complete (FQ-07: image-first rendering with color fallback across blocks/enemies/hotbar items, `data/visual_assets.json` + `art/generated/` convention, asset template docs for local image-model iteration, INFO-only validator policy for pending art, smoke 173/173); FQ-08 (block and enemy damage visuals) and FQ-09 (visual inventory/toolbelt/village panels) are now unblocked — FQ-08 is next by queue order.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-08 are complete (FQ-08: crack-stage overlay on the mined block, enemy hurt bars, all transient with drops/saves untouched, smoke 179/179); FQ-09 (visual inventory, toolbelt, and village panels) is next.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

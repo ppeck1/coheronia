@@ -84,6 +84,9 @@ var mine_required := 0.0
 
 var _hurt_cooldown := 0.0
 var _hurt_flash_timer := 0.0
+## FQ-08: reused by the crack overlay each draw (re-seeded per frame from the
+## target cell) so _draw never heap-allocates.
+var _crack_rng := RandomNumberGenerator.new()
 
 # FQ-01: data-driven tuning, read from character_data.json player_defaults
 # (falls back to the DEFAULT_* consts above when keys are missing).
@@ -631,6 +634,16 @@ func mine_progress_ratio() -> float:
 	return clampf(mine_progress / mine_required, 0.0, 1.0)
 
 
+## FQ-08: damage stage 0 (untouched) .. 3 (about to break) from mining
+## progress; drives the transient crack overlay. Purely visual state: it is
+## never saved and resets through _reset_mining whenever the target changes
+## or mining stops.
+func mine_damage_stage() -> int:
+	if mine_required <= 0.0 or mine_progress <= 0.0:
+		return 0
+	return clampi(int(mine_progress_ratio() * 4.0), 0, 3)
+
+
 func _reset_mining() -> void:
 	mine_target = Vector2i(-99999, -99999)
 	mine_progress = 0.0
@@ -673,3 +686,17 @@ func _draw() -> void:
 		if ratio > 0.0:
 			draw_rect(Rect2(local + Vector2(0, t + 2), Vector2(t, 3)), Color(0, 0, 0, 0.5))
 			draw_rect(Rect2(local + Vector2(0, t + 2), Vector2(t * ratio, 3)), Color(1.0, 0.85, 0.3))
+		# FQ-08: crack overlay — more cracks per damage stage. Deterministic
+		# per cell (seeded from the target) so cracks do not flicker between
+		# frames; vanishes with _reset_mining on target change or release.
+		var stage := mine_damage_stage()
+		if stage > 0:
+			_crack_rng.seed = hash(mine_target)
+			for i in range(stage * 3):
+				var from := local + Vector2(
+					_crack_rng.randf_range(2.0, t - 2.0), _crack_rng.randf_range(2.0, t - 2.0))
+				var to := from + Vector2(
+					_crack_rng.randf_range(-5.0, 5.0), _crack_rng.randf_range(-5.0, 5.0))
+				to.x = clampf(to.x, local.x, local.x + t)
+				to.y = clampf(to.y, local.y, local.y + t)
+				draw_line(from, to, Color(0, 0, 0, 0.65), 1.2)

@@ -1507,6 +1507,77 @@ func _run() -> void:
 		"icon_with_art=%s dirt_icon=%s after_cleanup=%s" % [
 			str(_fq07_icon_on), str(_fq07_icon_dirt), str(hud.hotbar_icon_visible(1))])
 
+	# --- FQ-08: block and enemy damage visuals ---
+
+	var _fq08_stone: Variant = _find_block(world, world.hall_info["center_cell"], "stone")
+	_check("fq08_stone_found", _fq08_stone != null)
+	if _fq08_stone != null:
+		var _fq08_cell: Vector2i = _fq08_stone
+
+		# (a) damage stages rise mid-mine: 0 untouched, 1..3 in progress.
+		player.global_position = world.cell_center(_fq08_cell) + Vector2(0, -32.0)
+		player._reset_mining()
+		var _fq08_stage_start: int = player.mine_damage_stage()
+		player.process_mining(_fq08_cell, 0.0)   # locks target, computes required
+		var _fq08_required: float = player.mine_required
+		player.process_mining(_fq08_cell, _fq08_required * 0.6)
+		var _fq08_stage_mid: int = player.mine_damage_stage()
+		_check("fq08_block_damage_stages",
+			_fq08_stage_start == 0 and _fq08_stage_mid >= 1 and _fq08_stage_mid <= 3,
+			"start=%d mid=%d required=%.2f" % [_fq08_stage_start, _fq08_stage_mid, _fq08_required])
+
+		# (b) the stage resets when the target moves off the damaged cell —
+		# whether via a genuine target switch or the can_mine/reach guard
+		# (both are documented reset paths through _reset_mining/retarget) —
+		# and on mining stop.
+		player.process_mining(_fq08_cell + Vector2i(0, 1), 0.0)
+		var _fq08_after_switch: int = player.mine_damage_stage()
+		player._reset_mining()
+		_check("fq08_stage_resets",
+			_fq08_after_switch == 0 and player.mine_damage_stage() == 0,
+			"after_switch=%d after_reset=%d" % [_fq08_after_switch, player.mine_damage_stage()])
+
+		# (c) partial damage is transient: it survives neither save nor load,
+		# and the block/drop behavior is untouched by the visuals.
+		player.process_mining(_fq08_cell, 0.0)
+		player.process_mining(_fq08_cell, player.mine_required * 0.5)
+		root.save_manager.save_game()
+		root.load_game()
+		_check("fq08_damage_never_saved",
+			world.block_at(_fq08_cell) == "stone" and player.mine_damage_stage() == 0,
+			"block=%s stage_after_load=%d" % [world.block_at(_fq08_cell), player.mine_damage_stage()])
+		var _fq08_stone_count: int = player.inventory.count("stone")
+		var _fq08_frames: int = await _mine_cell(world, player, _fq08_cell)
+		_check("fq08_drops_unchanged",
+			player.inventory.count("stone") == _fq08_stone_count + 1,
+			"stone %d→%d in %d frames" % [_fq08_stone_count,
+				player.inventory.count("stone"), _fq08_frames])
+
+		# (d) enemy damage is visible before death: the hurt-bar ratio drops
+		# after a non-lethal hit; drops still roll only on death.
+		for _fq08_t in get_tree().get_nodes_in_group("threats"):
+			if is_instance_valid(_fq08_t):
+				_fq08_t.queue_free()
+		await get_tree().process_frame
+		var _fq08_slime: Node = root.spawn_enemy_for_test("surface_slime")
+		_fq08_slime.hp = 3
+		_fq08_slime.max_hp = 3
+		var _fq08_full: float = _fq08_slime.health_bar_ratio()
+		var _fq08_inv_total: int = player.inventory.total()
+		_fq08_slime.take_hit(1)
+		var _fq08_hurt_ratio: float = _fq08_slime.health_bar_ratio()
+		var _fq08_alive: bool = is_instance_valid(_fq08_slime) \
+			and not _fq08_slime.is_queued_for_deletion()
+		_check("fq08_enemy_hurt_visible",
+			absf(_fq08_full - 1.0) < 0.001
+			and _fq08_hurt_ratio > 0.0 and _fq08_hurt_ratio < 1.0
+			and _fq08_alive and player.inventory.total() == _fq08_inv_total,
+			"ratio 1.00→%.2f alive=%s inv_delta=%d" % [_fq08_hurt_ratio, str(_fq08_alive),
+				player.inventory.total() - _fq08_inv_total])
+		if is_instance_valid(_fq08_slime):
+			_fq08_slime.queue_free()
+		await get_tree().process_frame
+
 	# --- FQ-01: player health, damage, healing, and death loop ---
 
 	player.set_physics_process(false)
