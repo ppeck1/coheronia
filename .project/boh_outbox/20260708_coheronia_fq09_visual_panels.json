@@ -1,0 +1,57 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260708_coheronia_fq09_visual_panels",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "09db082",
+  "end_commit": "59a00e2",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-09: visual inventory, toolbelt, and village panels — replace text-heavy panels with icon grids and clear labels, using the FQ-07 fallbacks until real art arrives.",
+  "summary": "Item metadata: new data/items.json carries display names, one-line descriptions (hover tooltips), and fallback swatch colors for item ids (drops, forge icons, block-item palette); BlockRegistry.display_name now falls back blocks -> items.json -> id, and item_icon(id) resolves FQ-07 art -> items.json color swatch -> stable hash-derived hue (cached, cleared with the visual cache so late-arriving art is picked up). Toolbelt: five slot tiles — always-visible icon, live count, numbered tooltip, gold StyleBox border on the selected slot (shared instances documented); the text line keeps the extras + tool/gear summary. Inventory panel: a 6-column icon grid of stacks with hover descriptors sits above the unchanged detail text, so every prior text assertion (wave_c, fq03 equipment, fq04 combat summary) still holds. Town Hall: the stockpile text list became an icon grid with a toggled (empty) label; all six station buttons carry item icons re-resolved on every panel refresh (review fix — icons no longer go stale after cache clears); disabled/crafted states keep the engine dimming plus the existing state text. Keyboard/mouse behavior unchanged (I, 1-5, E/T, K, Esc chain). The fq07 hotbar item check was rewritten to art-vs-fallback semantics (hotbar_icon_is_art) because slots now always render an icon.",
+  "acceptance": [
+    "Inventory panel still opens with I and reflects current counts (fq09_inventory_grid_reflects_counts: dirt=7/wood=2/stone=0; legacy text assertions intact)",
+    "Hotbar/toolbelt remains usable during play: slot tiles show live counts and the gold highlight follows the selected slot 0 -> 2 (fq09_toolbelt_slots_live)",
+    "Town Hall panel clearly shows stockpile and station actions: icon grid mirrors the stockpile (fq09_town_stockpile_grid); buttons carry icons with crafted/disabled states",
+    "Smoke verifies counts after mine, craft, deposit, and load: +1 dirt mined, craft_torch yields 3 in the grid, deposit raises the stockpile grid (torches correctly not depositable), load restores the grid exactly (fq09_counts_after_mine_craft_deposit_load)",
+    "FQ-07 fallbacks everywhere: the repo ships zero art and every icon renders from generated swatches",
+    "Smoke 183/183 (was 179) on windowed Godot 4.6.1; validator PASS incl. the new items.json check; capsule doctor healthy; git diff --check clean"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> PASS incl. items.json requirement + schema",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited windowed run -> 183/183 PASS incl. four fq09_* checks and the rewritten fq07 item check",
+    "git diff --check -> exit 0"
+  ],
+  "docs_updated": ["docs/VARIABLE_MATRIX.md", "docs/HANDOFF.md", "docs/FABLE_TASK_QUEUE.md"],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Item icons always render (art or generated swatch) rather than hiding without art — a readable toolbelt beats an empty one; the fq07 check semantics moved to art-vs-fallback accordingly",
+    "items.json is the single metadata home for non-block item ids and block icon colors; display_name's fallback chain improves every log/tooltip surface without touching blocks.json",
+    "The inventory panel keeps its full text block under the new grid so seven existing smoke assertions stay byte-compatible — duplication accepted until a dedicated UI pass",
+    "Descriptors arrive on hover via tooltips (queue's 'below or on hover' option) — no layout cost, no new input handling",
+    "Station icons re-resolve on every panel refresh (review fix) so cache clears / late art propagate to buttons like everywhere else",
+    "Recon agent skipped (surfaces in-session); sonnet review ran: no must-fix; 2 should-fix + 4 nits applied"
+  ],
+  "risks": [
+    "Swatch colors diverge slightly from world tile colors by design; real art supersedes both",
+    "The taller town panel may clip at very low resolutions — pre-existing layout concern for a future UI-scaling pass",
+    "Tooltips are mouse-only; no gamepad/keyboard inspection path yet"
+  ],
+  "next_action": "FQ-10: more ores and metallurgy data.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260708_coheronia_fq09_visual_panels.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/HANDOFF.md",
+    "docs/FABLE_TASK_QUEUE.md"
+  ],
+  "ledger_path": ".project/runs/20260708_coheronia_fq09_visual_panels.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-08T07:55:00-04:00"
+}
