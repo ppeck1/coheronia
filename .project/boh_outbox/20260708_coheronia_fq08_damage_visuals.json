@@ -1,0 +1,56 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260708_coheronia_fq08_damage_visuals",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "79c993c",
+  "end_commit": "f3d8997",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-08: block and enemy damage visuals — make destruction readable before it completes.",
+  "summary": "Blocks: player.mine_damage_stage() maps mining progress to stages 0-3 and drives a crack overlay drawn on the target cell while the mine action is held — deterministic per cell (member RNG re-seeded from hash(mine_target) each frame; no flicker, no per-frame allocation), stage x 3 short lines clamped inside the tile, layered over the existing highlight and progress bar. Transience is guaranteed three ways: the overlay never enters cells/deltas/saves (world.gd untouched, zero save growth per the queue's explicit constraint); the existing _reset_mining clears it on target change, reach/can_mine failure, and release; and save_manager.apply_state now resets in-memory mining so a load can never resurrect partial damage. Enemies: a mini health bar (health_bar_ratio fill) appears above any enemy with hp < max_hp on both the FQ-07 art path and the drawn-rect fallback, keeping the existing tint/lighten damage cues — damage is visible well before death. Drops, mining frame counts (dirt 21 / wood 33 / stone 66 baselines), and save/load semantics are untouched.",
+  "acceptance": [
+    "A stone block visibly changes before breaking: stage 0 -> 2 at 60% of required mining time (fq08_block_damage_stages)",
+    "Enemy damage is visible before death: hurt-bar ratio 1.00 -> 0.67 after a non-lethal hit with the enemy alive (fq08_enemy_hurt_visible)",
+    "Visuals do not alter drop counts: finishing the mine yields exactly one stone (fq08_drops_unchanged); a non-lethal hit rolls zero drops",
+    "Visuals do not alter save/load: 50% partial damage + save + load leaves the block intact at stage 0 (fq08_damage_never_saved); block damage is transient by design",
+    "Visual damage resets on target change and on mining stop (fq08_stage_resets), plus on load",
+    "Smoke 179/179 (was 173) on windowed Godot 4.6.1; validator PASS; capsule doctor healthy; git diff --check clean"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> PASS",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited windowed run -> 179/179 PASS incl. six fq08_* checks",
+    "git diff --check -> exit 0"
+  ],
+  "docs_updated": ["docs/VARIABLE_MATRIX.md", "docs/HANDOFF.md", "docs/FABLE_TASK_QUEUE.md"],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Block damage lives entirely in the player's transient mining state and is drawn by the player overlay — no per-block damage storage, honoring the queue's no-save-growth constraint literally (zero bytes added)",
+    "Cracks are deterministic per cell (seeded from the target) so they read as damage rather than noise; endpoints clamp to the tile",
+    "apply_state clears in-memory mining on load (review-adjacent hardening): a restored world must not inherit the pre-load mining target",
+    "Enemy feedback is a minimal hurt bar over both draw paths rather than posture/animation stages — those belong to a future art-driven pass on the FQ-07 pipeline",
+    "Recon agent skipped (all surfaces already in-session); sonnet review ran: no must-fix or should-fix, three nits applied (RNG reuse, crack clamping, comment clarity)"
+  ],
+  "risks": [
+    "Crack and bar aesthetics are programmer art; FQ-07's pipeline can supply real per-stage crack sprites later",
+    "Hurt bar width is fixed at 16px — revisit if oversized enemy art arrives",
+    "Stage thresholds (25/50/75%) untested by human play"
+  ],
+  "next_action": "FQ-09: visual inventory, toolbelt, and village panels.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260708_coheronia_fq08_damage_visuals.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/HANDOFF.md",
+    "docs/FABLE_TASK_QUEUE.md"
+  ],
+  "ledger_path": ".project/runs/20260708_coheronia_fq08_damage_visuals.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-08T07:05:00-04:00"
+}
