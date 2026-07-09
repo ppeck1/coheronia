@@ -2,7 +2,7 @@
 
 ## Current State
 
-**FQ-09 (visual inventory, toolbelt, and village panels) implemented and closed out** (run `20260708_coheronia_fq09_visual_panels`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 through FQ-08; Godot 4.6.1 stable).
+**FQ-09R (review hardening: unified trees, creation-rule clarity) implemented and closed out** (run `20260709_coheronia_fq09r_review_hardening`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 through FQ-08; Godot 4.6.1 stable).
 
 v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 through FQ-09 followed from `docs/FABLE_TASK_QUEUE.md`.
 
@@ -13,6 +13,14 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - **Town Hall panel**: the stockpile text list became an icon grid; station buttons carry item icons; disabled/crafted states keep the engine dimming plus the existing state text.
 - **`data/items.json` (new)**: display names, descriptions, and swatch colors for non-block item ids (food, drops, forge icons) plus icon colors for block items. `BlockRegistry.display_name` now falls back blocks -> items.json -> id, improving every log/tooltip surface.
 - Keyboard/mouse behavior unchanged: I toggles inventory, hotbar keys 1-5 select, E/T town panel, K skills — all pre-existing bindings and the Esc chain untouched.
+
+## FQ-09R Additions
+
+- **Unified tree rule (replaces the FQ-02 split)**: every generated tree is now a `tree_trunk` column (3-5 tall, wood hardness 0.55, axe-preferred, drops 1 wood per cell) topped by a `tree_leaves` canopy (3x2, fast to clear, no drops). Both blocks are non-solid and non-placeable: the player walks in front of/past every tree with no collision, and harvests any tree through the existing mining/axe path. There is no walkable-but-not-harvestable tree class anymore.
+- **Retired FQ-02 surfaces**: `background_cells`, the `BackgroundFlora` TileMapLayer, `bg_trunk`/`bg_canopy`, `WorldGen._grow_background_tree`, `world.background_at`, and the `generation.tree_foreground_ratio` config key + "Solid Tree Ratio" world-builder slider are all removed. Trees live in `cells` like any block: regenerated from seed+config, mined cells persist as normal `air` deltas, and the Town Hall stamp clears its footprint. Placed `wood` blocks are untouched (still solid, buildable, roof/shelter material).
+- **Creation-rule clarity**: the character create form states that backpack, tools, equipment, ancestry, role, and traits follow the character between worlds, role starter items are granted once, and collapse loses a fraction of carried stacks (wording matches the live destroy-not-drop behavior). The world create form states that terrain, stockpile, threats, storms, base level, player level, position, and current health belong to the world, and that entering with another character uses that character's carried gear. No future mechanics are implied.
+- **Smoke**: the 8 `fq02_*` checks are replaced by 8 `fq09r_*` checks (suite total unchanged at 183); the wood mining/axe baselines now harvest `tree_trunk` (same hardness, same wood drop, same frame expectations).
+- **Skill tree direction**: FQ-09S should be a presentation-only pass: Skyrim-style constellation/star-map vibes with 8-16bit readability, using the existing perk data, point economy, Miner lane, K/Esc behavior, and `try_purchase_perk` purchase path.
 
 ## FQ-08 Additions
 
@@ -54,11 +62,10 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - **Character-owned persistence**: character records gain an `equipment` dict (new characters: `pick_basic` + 11 empty). `save_character_carried` gained an optional 5th equipment param (`{}` = leave stored gear untouched, keeping legacy 4-arg callers safe); `save_manager.save_game` passes `player.equipped_dict()`. Both carried-state load paths apply the dict; pre-FQ-03 characters keep tiers/inventory and gain gear on migration/first save. Backpack inventory stays fully separate from equipped gear.
 - **Minimal UI**: the inventory panel (I) gained a read-only EQUIPMENT section listing all 12 slots with item names or `(empty)`.
 
-## FQ-02 Additions
+## FQ-02 Additions (superseded by FQ-09R)
 
-- **Foreground/background tree split**: each tree site from the tree seed channel now becomes either a solid, mineable foreground `wood` column (unchanged 3-5 tall) or a pass-through background tree (4-7 trunk + small canopy) the player simply walks past. New config key `generation.tree_foreground_ratio` (0-1, default 0.4, world-builder slider "Solid Tree Ratio"); a foreground tree is forced after 2 consecutive background trees so wood supply stays meaningful.
-- **Background visual layer**: `world.gd` renders `background_cells` (`bg_trunk`/`bg_canopy`, produced by `WorldGen.generate`) on a new `BackgroundFlora` TileMapLayer added before the `Blocks` layer, modulated with a dim cool tint. Its tileset has no physics and no occlusion layers, so background flora can never collide, block light, or shelter. Background cells are pure visuals: never in `cells`, never mineable/placeable/saved (deterministic from seed+config), never overwrite terrain/wood/bushes, and are cleared across the Town Hall footprint columns.
-- **Preserved contracts**: mining frames (dirt 21 / wood 33 / stone 66; wood with axe 24), wood drops, axe preference, bush support/regrowth (bushes also skip background-occupied cells), save/load, player health loop — all unchanged and re-verified by smoke.
+- FQ-02 introduced a foreground/background tree split: solid mineable `wood` columns vs. pass-through `bg_trunk`/`bg_canopy` visuals on a separate `BackgroundFlora` layer, controlled by `generation.tree_foreground_ratio`. **FQ-09R replaced this split with one unified tree rule** (see FQ-09R Additions); the background layer, ratio key, and slider no longer exist.
+- Still true from FQ-02: trees generate on their own seed channel, tree density is world-builder controlled, and mining frame contracts (dirt 21 / trunk-at-wood-hardness 33 / stone 66; with axe 24) plus wood drops, axe preference, bush support/regrowth, and save/load were preserved through both passes.
 
 ## v0.6 Additions
 
@@ -93,8 +100,9 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - The inventory panel is read-only; hotbar contents remain the fixed block set.
 - Axe tiers stop at 1; only the pick has a tier-2 upgrade path.
 - Raider pressure, XP pacing, and base-level thresholds remain untested by human play.
-- FQ-02 changes the tree layout of regenerated terrain: worlds saved before FQ-02 will regenerate with some former solid trees now background flora. Terrain deltas still apply cleanly (they overlay regenerated cells), but a pre-FQ-02 "air" delta where a tree used to stand may sit oddly next to new background flora. Cosmetic only; no data loss.
-- Background trees are intentionally not harvestable in this pass (no minimal hook was needed); revisit if a "clear background flora" action is ever wanted.
+- FQ-09R changes the tree layout of regenerated terrain (as FQ-02 did before it): worlds saved earlier regenerate with unified `tree_trunk`/`tree_leaves` trees where solid wood columns or background flora used to stand. Terrain deltas still apply cleanly (they overlay regenerated cells); an old "air" delta where a tree used to stand may sit oddly next to new trees. Cosmetic only; no data loss. Old world configs may still carry a stored `tree_foreground_ratio` key; it is simply ignored.
+- Generated trees no longer contribute to shelter/roof/occlusion math (trunk and leaves are non-solid and do not block light); only placed solid blocks such as `wood` do. Wood supply per tree site rose slightly (every tree is now harvestable), untested by human play.
+- Mining a low trunk cell leaves the upper trunk/canopy cells floating (no support rule on trees, mirroring the old floating wood columns). Cosmetic; each floating cell remains harvestable.
 - Equipment UI remains read-only (`player.equip_item` is the API; no drag/drop). Rings, amulet, and accessory still have no live effects; ring_band exists only for the round-trip smoke.
 - FQ-04 armor is flat mitigation with a 1-health minimum chip; there is no unequip flow for forged gear in play (forge guards prevent duplicates). Combat feel (sword damage 3, armor total 4 vs slime 8) is untested by human play; all numbers are data-tunable in `data/equipment.json`.
 - FQ-05 attunement has exactly one use (the light pulse); no live ancestry or acquirable gear modifies it yet — the hooks are data-ready and smoke-proven but dormant. The pulse light is cosmetic (does not affect `light_score`, night spawns, or occlusion safety math).
@@ -104,7 +112,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-09 are complete (FQ-09: icon-grid inventory/toolbelt/town panels on the FQ-07 fallback pipeline, data/items.json metadata, smoke 183/183); FQ-10 (more ores and metallurgy data) is next.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-09 plus FQ-09R are complete. Next is FQ-09S for the skill tree visual treatment pass, then FQ-09V/FQ-09A/FQ-09M for deterministic visual variants, the future asset roadmap/prompt packs, and lightweight action animation. FQ-10 (more ores and metallurgy data) should wait until those presentation-foundation items are closed or the operator explicitly changes priority.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

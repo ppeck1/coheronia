@@ -101,7 +101,9 @@ func _run() -> void:
 	var hall_cell: Vector2i = world.hall_info["center_cell"]
 	var dirt_cell: Variant = _find_block(world, hall_cell, "dirt")
 	var stone_cell: Variant = _find_block(world, hall_cell, "stone")
-	var wood_cell: Variant = _find_block(world, hall_cell, "wood")
+	# FQ-09R: generated trees are tree_trunk columns (hardness matches wood,
+	# drops wood), so tree harvesting rides the same mining assertions.
+	var wood_cell: Variant = _find_block(world, hall_cell, "tree_trunk")
 	_check("mineable_blocks_found", dirt_cell != null and stone_cell != null and wood_cell != null)
 
 	var dirt_frames := await _mine_cell(world, player, dirt_cell)
@@ -112,7 +114,7 @@ func _run() -> void:
 		and player.inventory.count("wood") >= 1,
 		"inv=%s" % str(player.inventory.counts))
 	_check("hardness_orders_mining_time", dirt_frames < wood_frames and wood_frames < stone_frames,
-		"frames dirt=%d wood=%d stone=%d" % [dirt_frames, wood_frames, stone_frames])
+		"frames dirt=%d trunk=%d stone=%d" % [dirt_frames, wood_frames, stone_frames])
 
 	# --- Tool tier progression (forge at Town Hall) ---
 	var ore_cell: Variant = _find_block(world, hall_cell, "ore", 2)
@@ -369,88 +371,99 @@ func _run() -> void:
 	GameState.current_config = WorldConfig.new(
 		{"generation": {"tree_density": 0.0, "bush_density": 0.0}})
 	world.setup(777)
-	_check("density_settings", _count_blocks(world, "wood") == 0
+	_check("density_settings", _count_blocks(world, "tree_trunk") == 0
 		and _count_blocks(world, "berry_bush") == 0)
 
-	# --- FQ-02: background trees and pass-through flora ---
-	_check("fq02_density_zero_clears_background", world.background_cells.size() == 0,
-		"background=%d" % world.background_cells.size())
+	# --- FQ-09R: unified trees — leafy, walk-past, harvestable ---
+	_check("fq09r_density_zero_clears_trees",
+		_count_blocks(world, "tree_trunk") == 0
+		and _count_blocks(world, "tree_leaves") == 0,
+		"trunks=%d leaves=%d" % [
+			_count_blocks(world, "tree_trunk"), _count_blocks(world, "tree_leaves")])
 	GameState.current_config = WorldConfig.new({})
 	world.setup(777)
-	var _fq02_bg_default: int = world.background_cells.size()
-	var _fq02_fg_default: int = _count_blocks(world, "wood")
-	_check("fq02_background_trees_generated",
-		_fq02_bg_default > 0 and _fq02_fg_default > 0,
-		"background=%d foreground_wood=%d" % [_fq02_bg_default, _fq02_fg_default])
-	var _fq02_overlap := 0
-	var _fq02_oob := 0
-	for _fq02_cell: Vector2i in world.background_cells:
-		if world.cells.has(_fq02_cell):
-			_fq02_overlap += 1
-		if _fq02_cell.y < 0 or _fq02_cell.x < 0 or _fq02_cell.x >= world.width:
-			_fq02_oob += 1
-	_check("fq02_background_in_bounds_no_overlap",
-		_fq02_overlap == 0 and _fq02_oob == 0,
-		"overlap=%d out_of_bounds=%d of %d" % [_fq02_overlap, _fq02_oob, _fq02_bg_default])
-	_check("fq02_background_layer_behind_blocks",
-		world._bg_tilemap.get_index() < world._tilemap.get_index()
-		and world._bg_tilemap.tile_set.get_physics_layers_count() == 0
-		and world._bg_tilemap.tile_set.get_occlusion_layers_count() == 0,
-		"bg_index=%d blocks_index=%d bg_physics_layers=%d" % [
-			world._bg_tilemap.get_index(), world._tilemap.get_index(),
-			world._bg_tilemap.tile_set.get_physics_layers_count()])
+	var _fq09r_trunks: int = _count_blocks(world, "tree_trunk")
+	var _fq09r_leaves: int = _count_blocks(world, "tree_leaves")
+	_check("fq09r_trees_have_leaves", _fq09r_trunks > 0 and _fq09r_leaves > 0,
+		"trunks=%d leaves=%d" % [_fq09r_trunks, _fq09r_leaves])
+	# One tree class: every tree cell is non-solid (walk in front of/past) and
+	# mineable bare-handed (harvestable) — no second walk-past-only tree kind.
+	var _fq09r_bad := 0
+	for _fq09r_cell: Vector2i in world.cells:
+		var _fq09r_id: String = world.cells[_fq09r_cell]
+		if _fq09r_id == "tree_trunk" or _fq09r_id == "tree_leaves":
+			if BlockRegistry.is_solid(_fq09r_id) or not world.can_mine(_fq09r_cell, 0):
+				_fq09r_bad += 1
+	_check("fq09r_trees_passable_and_harvestable", _fq09r_bad == 0,
+		"violating_cells=%d of %d" % [_fq09r_bad, _fq09r_trunks + _fq09r_leaves])
 	GameState.current_config = WorldConfig.new(
-		{"generation": {"tree_density": 2.0, "tree_foreground_ratio": 0.0}})
+		{"generation": {"tree_density": 2.0}})
 	world.setup(777)
-	_check("fq02_ratio_zero_all_background", _count_blocks(world, "wood") == 0
-		and world.background_cells.size() > 0,
-		"wood=%d background=%d" % [_count_blocks(world, "wood"), world.background_cells.size()])
-	GameState.current_config = WorldConfig.new(
-		{"generation": {"tree_density": 2.0, "tree_foreground_ratio": 1.0}})
-	world.setup(777)
-	_check("fq02_ratio_one_all_foreground", world.background_cells.size() == 0
-		and _count_blocks(world, "wood") > 0,
-		"wood=%d background=%d" % [_count_blocks(world, "wood"), world.background_cells.size()])
+	var _fq09r_trunks_dense: int = _count_blocks(world, "tree_trunk")
+	_check("fq09r_density_scales_tree_count", _fq09r_trunks_dense > _fq09r_trunks,
+		"default=%d dense=%d" % [_fq09r_trunks, _fq09r_trunks_dense])
 
-	# Walk-through: on flat terrain the player walks past a background tree
-	# without jumping or mining. Threats are cleared so nothing shoves the
-	# player during the walk; load_game below restores the saved set.
-	for _fq02_t in get_tree().get_nodes_in_group("threats"):
-		if is_instance_valid(_fq02_t):
-			_fq02_t.queue_free()
+	# Harvest: mining a trunk yields wood via the normal drop path; clearing
+	# leaves yields nothing (no new resource economy).
+	player.set_physics_process(false)
+	var _fq09r_hall: Vector2i = world.hall_info["center_cell"]
+	var _fq09r_trunk_cell: Variant = _find_block(world, _fq09r_hall, "tree_trunk", 0)
+	var _fq09r_wood_before: int = player.inventory.count("wood")
+	if _fq09r_trunk_cell != null:
+		await _mine_cell(world, player, _fq09r_trunk_cell as Vector2i)
+	_check("fq09r_harvest_trunk_yields_wood", _fq09r_trunk_cell != null
+		and player.inventory.count("wood") == _fq09r_wood_before + 1
+		and world.block_at(_fq09r_trunk_cell as Vector2i) == "air",
+		"wood %d→%d" % [_fq09r_wood_before, player.inventory.count("wood")])
+	var _fq09r_leaf_cell: Variant = _find_block(world, _fq09r_hall, "tree_leaves", 0)
+	var _fq09r_inv_before: Dictionary = player.inventory.counts.duplicate()
+	if _fq09r_leaf_cell != null:
+		await _mine_cell(world, player, _fq09r_leaf_cell as Vector2i)
+	_check("fq09r_leaves_clear_without_drops", _fq09r_leaf_cell != null
+		and player.inventory.counts == _fq09r_inv_before
+		and world.block_at(_fq09r_leaf_cell as Vector2i) == "air",
+		"inv unchanged=%s" % str(player.inventory.counts == _fq09r_inv_before))
+	player.set_physics_process(true)
+
+	# Walk-through: on flat terrain the player walks past a tree trunk without
+	# jumping or mining. Threats are cleared so nothing shoves the player
+	# during the walk; load_game below restores the saved set.
+	for _fq09r_t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_fq09r_t):
+			_fq09r_t.queue_free()
 	await get_tree().process_frame
 	GameState.current_config = WorldConfig.new({"generation": {
-		"terrain_amplitude": 0.0, "tree_density": 2.0,
-		"tree_foreground_ratio": 0.0, "bush_density": 0.0}})
+		"terrain_amplitude": 0.0, "tree_density": 2.0, "bush_density": 0.0}})
 	world.setup(777)
 	root._position_actors()
-	var _fq02_hall_x: int = (world.hall_info["center_cell"] as Vector2i).x
-	var _fq02_trunk: Variant = null
-	for _fq02_bg: Vector2i in world.background_cells:
-		if world.background_cells[_fq02_bg] == "bg_trunk" \
-				and _fq02_bg.y == int(world.surface[_fq02_bg.x]) - 1 \
-				and _fq02_bg.x > _fq02_hall_x + 10 and _fq02_bg.x < world.width - 8:
-			_fq02_trunk = _fq02_bg
+	var _fq09r_hall_x: int = (world.hall_info["center_cell"] as Vector2i).x
+	var _fq09r_trunk: Variant = null
+	for _fq09r_walk_cell: Vector2i in world.cells:
+		if world.cells[_fq09r_walk_cell] == "tree_trunk" \
+				and _fq09r_walk_cell.y == int(world.surface[_fq09r_walk_cell.x]) - 1 \
+				and _fq09r_walk_cell.x > _fq09r_hall_x + 10 \
+				and _fq09r_walk_cell.x < world.width - 8:
+			_fq09r_trunk = _fq09r_walk_cell
 			break
-	_check("fq02_walkable_trunk_found", _fq02_trunk != null,
-		"background=%d" % world.background_cells.size())
-	if _fq02_trunk != null:
-		var _fq02_trunk_cell: Vector2i = _fq02_trunk
+	_check("fq09r_walkable_trunk_found", _fq09r_trunk != null,
+		"trunks=%d" % _count_blocks(world, "tree_trunk"))
+	if _fq09r_trunk != null:
+		var _fq09r_walk_trunk: Vector2i = _fq09r_trunk
 		player.global_position = world.cell_center(
-			Vector2i(_fq02_trunk_cell.x - 4, _fq02_trunk_cell.y)) + Vector2(0, -4)
+			Vector2i(_fq09r_walk_trunk.x - 4, _fq09r_walk_trunk.y)) + Vector2(0, -4)
 		player.velocity = Vector2.ZERO
-		for _fq02_i in range(20):
+		for _fq09r_i in range(20):
 			await get_tree().physics_frame  # settle onto the floor
 		Input.action_press("move_right")
-		for _fq02_j in range(75):
+		for _fq09r_j in range(75):
 			await get_tree().physics_frame
 		Input.action_release("move_right")
-		var _fq02_target_x: float = world.cell_center(
-			Vector2i(_fq02_trunk_cell.x + 3, _fq02_trunk_cell.y)).x
-		_check("fq02_player_walks_past_background_tree",
-			player.global_position.x >= _fq02_target_x,
+		var _fq09r_target_x: float = world.cell_center(
+			Vector2i(_fq09r_walk_trunk.x + 3, _fq09r_walk_trunk.y)).x
+		_check("fq09r_player_walks_past_tree",
+			player.global_position.x >= _fq09r_target_x,
 			"x=%.1f target=%.1f trunk_x=%d" % [
-				player.global_position.x, _fq02_target_x, _fq02_trunk_cell.x])
+				player.global_position.x, _fq09r_target_x, _fq09r_walk_trunk.x])
 
 	GameState.current_config = original_config
 	_check("world_restored_after_config_tests", root.load_game())
@@ -963,8 +976,9 @@ func _run() -> void:
 	player.inventory_changed.emit()
 	var _f_hall: Vector2i = world.hall_info["center_cell"]
 
-	# Baseline wood frame count without axe (tier 1, no axe) — ordering must hold.
-	var _f_wood: Variant = _find_block(world, _f_hall, "wood")
+	# Baseline trunk frame count without axe (tier 1, no axe) — ordering must
+	# hold. FQ-09R: generated trees are tree_trunk (wood hardness, drops wood).
+	var _f_wood: Variant = _find_block(world, _f_hall, "tree_trunk")
 	_check("wave_f_wood_found", _f_wood != null)
 	var _f_wood_frames_no_axe := 0
 	if _f_wood != null:
@@ -992,7 +1006,7 @@ func _run() -> void:
 		"second forge_axe must return false")
 
 	# (f) With axe, wood mines measurably faster than without.
-	var _f_wood2: Variant = _find_block(world, _f_hall, "wood")
+	var _f_wood2: Variant = _find_block(world, _f_hall, "tree_trunk")
 	var _f_wood_frames_axe := 600
 	if _f_wood2 != null:
 		_f_wood_frames_axe = await _mine_cell(world, player, _f_wood2 as Vector2i)

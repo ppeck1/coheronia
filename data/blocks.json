@@ -99,6 +99,34 @@
         "progression"
       ]
     },
+    "tree_trunk": {
+      "display_name": "Tree Trunk",
+      "hardness": 0.55,
+      "required_tool_tier": 0,
+      "drops": {
+        "wood": 1
+      },
+      "is_placeable": false,
+      "is_solid": false,
+      "blocks_light": false,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "axe",
+      "settlement_tags": []
+    },
+    "tree_leaves": {
+      "display_name": "Leaves",
+      "hardness": 0.15,
+      "required_tool_tier": 0,
+      "drops": {},
+      "is_placeable": false,
+      "is_solid": false,
+      "blocks_light": false,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "axe",
+      "settlement_tags": []
+    },
     "berry_bush": {
       "display_name": "Berry Bush",
       "hardness": 0.15,

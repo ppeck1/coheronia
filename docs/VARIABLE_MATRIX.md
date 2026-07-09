@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09 run `20260708_coheronia_fq09_visual_panels`.
+State: audited against FQ-09R run `20260709_coheronia_fq09r_review_hardening`.
 
 ## Authority Surfaces
 
@@ -47,8 +47,7 @@ All registries load through `scripts/data/json_data.gd` (`load_dict`, push_error
 | `generation.dirt_depth` | `WorldGen.generate` | dirt layer depth before stone/ore |
 | `generation.ore_abundance` | `WorldGen.generate` | ore threshold; 0 disables ore |
 | `generation.ore_seed_offset` | `WorldGen.generate` | independent ore layout channel |
-| `generation.tree_density` | `WorldGen.generate` | tree site frequency (foreground wood + background flora); 0 disables both |
-| `generation.tree_foreground_ratio` | `WorldGen.generate` | FQ-02: fraction of tree sites that are solid, mineable wood columns (0-1, default 0.4); the rest become pass-through background trees; a foreground tree is forced after 2 consecutive background trees when the ratio is > 0 |
+| `generation.tree_density` | `WorldGen.generate` | tree site frequency; 0 disables trees. FQ-09R: every site grows one unified tree (`tree_trunk` column + `tree_leaves` canopy), walk-past and harvestable. The FQ-02 `tree_foreground_ratio` key/slider is removed (stored copies in old world configs are ignored) |
 | `generation.tree_seed_offset` | `WorldGen.generate` | independent tree channel |
 | `generation.bush_density` | `WorldGen.generate` | berry bush frequency; 0 disables bushes |
 | `generation.bush_seed_offset` | `WorldGen.generate` | independent bush channel |
@@ -115,7 +114,8 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 | Variable | Type | Authority | Notes |
 |---|---|---|---|
 | `tile_size` | int | `data/blocks.json` | 16 px |
-| `block_id` | string | `data/blocks.json` | dirt, grass, wood, stone, ore, berry_bush, torch, lantern, town_hall_core, air |
+| `block_id` | string | `data/blocks.json` | dirt, grass, wood, stone, ore, tree_trunk, tree_leaves, berry_bush, torch, lantern, town_hall_core, air |
+| `tree_trunk` / `tree_leaves` | blocks | `data/blocks.json` | FQ-09R unified trees: both non-solid (walk in front of/past, no occlusion) and non-placeable; trunk = wood hardness 0.55, axe-preferred, drops 1 wood; leaves = hardness 0.15, no drops. Generated into `cells` like any block; mined cells persist as normal `air` deltas |
 | `hardness` | float | `data/blocks.json` | mining time input |
 | `required_tool_tier` | int | `data/blocks.json` | ore requires tier 2 (pick tier) |
 | `preferred_tool` | string | `data/blocks.json` | axe: wood, berry_bush; pick: stone, ore; axe-preferred mine 1.4x faster with an axe |
@@ -138,7 +138,6 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 | `terrain_deltas` | dictionary | world file state | edits over regenerated terrain |
 | `world.width/height` | int | `WorldConfig.size_dims` | replaces old constants |
 | `surface` | dictionary | `WorldGen.generate` | top solid y per x |
-| `background_cells` | dictionary | `WorldGen.generate` -> `world.background_cells` | FQ-02: Vector2i -> `bg_trunk`/`bg_canopy` pass-through flora; rendered on the `BackgroundFlora` TileMapLayer (no physics/occlusion layers, `BACKGROUND_TINT` modulate) behind blocks and actors; regenerated from seed+config, never saved, never in `cells`, never solid/mineable/placeable; cleared across the hall footprint columns |
 | `hall_info` | dictionary | `WorldGen.stamp_town_hall` | center cell, ground y, protected core cells |
 | `bush_regrow` | dictionary | `world.gd` / save | harvested bush timers |
 | `player_position` | Vector2 | save state | restored after world rebuild |
@@ -305,11 +304,22 @@ migrates with tool tiers and inventory preserved and gear derived from tiers.
 `validate_repo.py` additionally enforces the equipment.json schema (slot list,
 required items, slot_type coherence, tool item tiers).
 
-FQ-02 adds 8 checks (`fq02_*`, suite total 142) covering: background flora generates on default config alongside foreground wood; no background cell overlaps `cells` or falls outside world bounds; the `BackgroundFlora` layer sits before the `Blocks` layer and its tileset has zero physics and occlusion layers; `tree_foreground_ratio` 0.0 produces only background trees and 1.0 only foreground wood; `tree_density` 0.0 clears background flora too; and a live traversal check where the player walks past a background trunk on flat terrain using only `move_right` (no jump, no mining).
+FQ-09R replaces the 8 FQ-02 checks with 8 `fq09r_*` checks (suite total
+unchanged at 183) covering: tree_density 0 clears trunks and leaves; default
+generation produces trees with leaves (trunk and leaf counts both > 0); every
+generated tree cell is non-solid and bare-hand mineable (one tree class — no
+walk-past-only kind); density 2.0 grows more trunks than default on the same
+seed; mining a trunk yields exactly 1 wood through the normal drop path and
+leaves an air delta; clearing a leaf cell changes no inventory count; and the
+live traversal pair — a surface trunk is found on flat terrain and the player
+walks past it using only `move_right` (no jump, no mining). The baseline
+mining checks (`mineable_blocks_found`, `hardness_orders_mining_time`,
+`wave_f_*`) now harvest `tree_trunk`, preserving the dirt < trunk < stone
+ordering and the axe speed-up on the same wood-hardness value.
 
 FQ-01 adds 8 checks (`fq01_*`) covering: i-frame damage gating and the post-cooldown hit; eat-food healing (consumes 1 food, clamps to max_health) and its full-health no-op; passive regen near vs. far from the Town Hall; collapse inventory loss (floored per stack) plus respawn-at-hall-at-full-health; health save/load round-trip with max_health preserved; and enemy contact damage read from `data/enemies.json` scaled by `difficulty("enemy")`.
 
-The v0.6 smoke suite (122 checks) additionally verifies: ancestry detail text (dwarf effects + constraint, planned label for non-live); world_settings ui_help coverage of all six axes and preset deviations; character inventory isolation (two characters, one world; second world; no starter-item duplication; legacy migration); toggle_inventory binding and panel open/close/content; berry-bush support cleanup on mine/load/regrowth; axe crafting, axe-vs-pick speed differentiation (wood 33 -> 24 frames, stone unchanged), and {pick, axe} save round-trips with legacy tool-tier migration.
+The v0.6 smoke suite (122 checks) additionally verifies: ancestry detail text (dwarf effects + constraint, planned label for non-live); world_settings ui_help coverage of all six axes and preset deviations; character inventory isolation (two characters, one world; second world; no starter-item duplication; legacy migration); toggle_inventory binding and panel open/close/content; berry-bush support cleanup on mine/load/regrowth; axe crafting, axe-vs-pick speed differentiation (33 -> 24 frames at wood hardness — originally on solid `wood` columns, harvested from `tree_trunk` since FQ-09R; stone unchanged), and {pick, axe} save round-trips with legacy tool-tier migration.
 
 The v0.5 smoke suite (90 checks) additionally verifies: enemies.json loads with 3 live defs; each live enemy spawns with its def id; drops enter the inventory; enemy save/load round-trips id/hp/max_hp/hall_dps; progression JSONs load; XP awards accrue (including human fractional bonus 21 vs 20 over 20 events); level curve; base level advances camp -> hamlet; population caps at 4/6/8 by level and growth is gated; underground threats survive dawn while surface threats are freed; peaceful rule blocks cave spawns; ancestry effects (dwarf mults, orc health, goblin reduction, elf jump) and unknown-species baseline.
 

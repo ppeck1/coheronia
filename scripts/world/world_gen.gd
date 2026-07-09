@@ -7,17 +7,13 @@ extends RefCounted
 
 const TREE_MIN_H := 3
 const TREE_MAX_H := 5
-const BG_TREE_MIN_H := 4
-const BG_TREE_MAX_H := 7
-## FQ-02: force a solid foreground tree after this many consecutive background
-## trees so harvestable wood stays available at any tree_foreground_ratio > 0.
-const MAX_CONSECUTIVE_BG_TREES := 2
 
 
 ## Returns { "cells": {Vector2i: block_id}, "surface": {int x: int y},
-##           "background": {Vector2i: flora_id}, "width": int, "height": int }.
-## background holds decorative pass-through flora (bg_trunk/bg_canopy) that is
-## rendered behind actors and never collides, mines, or persists in deltas.
+##           "width": int, "height": int }.
+## FQ-09R: every tree follows one rule — a tree_trunk column topped by a small
+## tree_leaves canopy, both non-solid cells the player walks in front of and
+## harvests through the normal mining/axe path (trunks drop wood).
 static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 	var dims: Dictionary = config.size_dims()
 	var width := int(dims.get("width", 240))
@@ -56,65 +52,50 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 				else:
 					cells[pos] = "stone"
 
-	# Trees, on their own seed channel. FQ-02 splits each tree site into one
-	# of two concepts: a solid, mineable foreground wood column, or a taller
-	# pass-through background tree (trunk + canopy) in the background dict.
-	var background: Dictionary = {}
+	# Trees, on their own seed channel. FQ-09R: one unified tree rule — every
+	# tree site grows a tree_trunk column topped by a tree_leaves canopy. Both
+	# blocks are non-solid (walk in front of/past) and mineable (trunks drop
+	# wood through the normal axe-preferred path).
 	var tree_density := config.gen("tree_density")
 	if tree_density > 0.0:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = world_seed + int(config.gen("tree_seed_offset"))
-		var fg_ratio := clampf(config.gen("tree_foreground_ratio"), 0.0, 1.0)
-		var bg_streak := 0
 		var x_cursor := 4
 		while x_cursor < width - 4:
 			if rng.randf() < 0.55 * tree_density:
-				var surf_y2: int = surface[x_cursor]
-				var foreground := rng.randf() < fg_ratio
-				if fg_ratio > 0.0 and bg_streak >= MAX_CONSECUTIVE_BG_TREES:
-					foreground = true
-				if foreground:
-					bg_streak = 0
-					var tree_h := rng.randi_range(TREE_MIN_H, TREE_MAX_H)
-					for i in range(tree_h):
-						cells[Vector2i(x_cursor, surf_y2 - 1 - i)] = "wood"
-				else:
-					bg_streak += 1
-					_grow_background_tree(cells, background, rng, x_cursor, surf_y2)
+				_grow_tree(cells, rng, x_cursor, surface[x_cursor])
 			x_cursor += rng.randi_range(7, 14)
 
-	# Berry bushes: surface food source, own seed channel. Skip cells that
-	# background flora occupies so bushes never grow inside a background trunk.
+	# Berry bushes: surface food source, own seed channel. Trees occupy the
+	# cell above the surface, so the cells guard also keeps bushes out of trunks.
 	var bush_density := config.gen("bush_density")
 	if bush_density > 0.0:
 		var bush_rng := RandomNumberGenerator.new()
 		bush_rng.seed = world_seed + int(config.gen("bush_seed_offset"))
 		for x in range(2, width - 2):
 			var above := Vector2i(x, surface[x] - 1)
-			if bush_rng.randf() < 0.07 * bush_density and not cells.has(above) \
-					and not background.has(above):
+			if bush_rng.randf() < 0.07 * bush_density and not cells.has(above):
 				cells[above] = "berry_bush"
 
-	return {"cells": cells, "surface": surface, "background": background,
+	return {"cells": cells, "surface": surface,
 		"width": width, "height": height}
 
 
-## Stamps one pass-through background tree: a trunk column topped by a small
-## canopy. Background flora never overwrites real cells, so it cannot swallow
-## terrain, foreground wood, or bushes.
-static func _grow_background_tree(cells: Dictionary, background: Dictionary,
-		rng: RandomNumberGenerator, x: int, surf_y: int) -> void:
-	var trunk_h := rng.randi_range(BG_TREE_MIN_H, BG_TREE_MAX_H)
+## Stamps one tree: a tree_trunk column topped by a small tree_leaves canopy.
+## Trees never overwrite existing cells, so they cannot swallow terrain.
+static func _grow_tree(cells: Dictionary, rng: RandomNumberGenerator,
+		x: int, surf_y: int) -> void:
+	var trunk_h := rng.randi_range(TREE_MIN_H, TREE_MAX_H)
 	for i in range(trunk_h):
 		var pos := Vector2i(x, surf_y - 1 - i)
 		if pos.y >= 0 and not cells.has(pos):
-			background[pos] = "bg_trunk"
-	var top_y := surf_y - trunk_h
+			cells[pos] = "tree_trunk"
+	var top_y := surf_y - 1 - trunk_h
 	for dx in range(-1, 2):
 		for dy in range(-1, 1):
 			var pos := Vector2i(x + dx, top_y + dy)
-			if pos.y >= 0 and not cells.has(pos) and not background.has(pos):
-				background[pos] = "bg_canopy"
+			if pos.y >= 0 and not cells.has(pos):
+				cells[pos] = "tree_leaves"
 
 
 ## Flattens ground and clears air around the Town Hall site, then stamps

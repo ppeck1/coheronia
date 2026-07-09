@@ -33,6 +33,11 @@ and outbox packets.
 | FQ-07 | P1 | Done | Visual asset pipeline with color fallback | Lets art improve incrementally while preserving current simple-color rendering. |
 | FQ-08 | P1 | Done | Block and enemy damage visuals | Makes mining/combat feedback readable before more combat depth arrives. |
 | FQ-09 | P1 | Done | Visual inventory, toolbelt, and village panels | Converts text-heavy UI to image grids with labels and descriptors. |
+| FQ-09R | P0 | Done | Review hardening: unified trees, creation-rule clarity, no new mechanics | Fix current review findings before adding ore/furnace/farming systems. |
+| FQ-09S | P0 | Ready | Skill tree visual treatment pass | Improve the existing skill tree presentation without adding new progression mechanics. |
+| FQ-09V | P1 | Ready after FQ-09S | Visual variant pipeline | Adds deterministic per-id sprite variety without bloating saves or changing mechanics. |
+| FQ-09A | P1 | Ready after FQ-09V | Future asset manifest and prompt packs | Gives future art/model agents a concrete asset map before new ore, station, crop, and enemy content expands. |
+| FQ-09M | P1 | Ready after FQ-09A | Lightweight action animation pass | Makes actions readable while preserving existing timing, saves, and mechanics. |
 | FQ-10 | P1 | Ready | More ores and metallurgy data | Expands mining goals, but should stay data-first before full forge balance. |
 | FQ-11 | P1 | Ready after FQ-10 | Workbench, furnace, and anvil station chain | Makes ore useful through buildable progression stations. |
 | FQ-12 | P1 | Ready | Farming and food stability | Current bush support groundwork is ideal for plantable crops and settlement food pressure. |
@@ -359,6 +364,220 @@ Acceptance:
 - Hotbar/toolbelt remains usable during play.
 - Town Hall panel clearly shows stockpile and station actions.
 - Smoke verifies counts after mine, craft, deposit, and load.
+
+## FQ-09R - Review Hardening: Unified Trees, Creation Rules, No New Mechanics
+
+Goal: close current review findings before new systems are stacked on top.
+
+Scope:
+
+- Tree model:
+  - Replace the split behavior with one consistent tree rule: all generated
+    trees should have leaves, let the player walk in front of/past them, and
+    be harvestable.
+  - Do not leave one class of tree as "walk past but not harvestable" and
+    another as "solid harvestable trunk"; that makes the world rules feel
+    arbitrary.
+  - Use the existing mining/axe/wood-drop concepts where possible. The goal is
+    to make trees consistent, not to add a separate forestry or chopping
+    minigame.
+  - Tree visuals should read as trees at 8-16bit scale: trunk plus leaves, with
+    enough depth layering that the player can pass in front of them.
+- Character/world creation:
+  - Surface already-live rules in creation or adjacent help text where relevant:
+    character-owned carried inventory, role starter grants once, equipment
+    follows the character, inventory loss on collapse/death, and world-owned
+    position/health/progression.
+  - Avoid implying that future mechanics already exist.
+- Hardening rule:
+  - Do not add new mechanics in this pass. Reuse existing inputs, panels, log
+    messages, data fields, and smoke hooks.
+
+Likely files:
+
+- `scripts/world/world_gen.gd`
+- `scripts/world/world.gd`
+- `scripts/main/game_root.gd`
+- `scripts/main/smoke_test.gd`
+- `scripts/shell/shell_ui.gd`
+- `scripts/data/ancestry_detail.gd`
+- `data/world_settings.json`
+- `docs/HANDOFF.md`
+- `docs/VARIABLE_MATRIX.md`
+
+Acceptance:
+
+- Smoke proves generated trees have leaves.
+- Smoke proves the player can walk in front of/past trees without collision.
+- Smoke proves trees are harvestable through the existing mining/axe path and
+  still yield wood.
+- Creation/help text mentions already-live collapse inventory loss and
+  character/world ownership boundaries.
+- Validator, diff check, and Godot smoke pass.
+
+## FQ-09S - Skill Tree Visual Treatment Pass
+
+Goal: make the existing skill tree feel like a Skyrim-style star map filtered
+through an 8-16bit Coheronia aesthetic, without adding new perks, currencies,
+or progression rules.
+
+Scope:
+
+- Keep `data/progression/perks.json`, point rules, prerequisite rules, save
+  ownership, and live Miner-lane behavior unchanged unless a review bug is
+  found.
+- Rework only presentation and navigation:
+  - dark sky/deep cave backdrop
+  - pixel/star node styling
+  - faint constellation links between prerequisites
+  - clear owned/available/locked states
+  - small icons or glyph-like labels if they use existing/fallback art rules
+  - readable inspector text and purchase button state
+- Preserve keyboard/mouse behavior: K opens/closes, Esc closes first, click
+  selects, Learn buys only through the current `try_purchase_perk` path.
+
+Likely files:
+
+- `scripts/ui/skill_tree_panel.gd`
+- `data/progression/perks.json` only if wording needs clarification
+- `scripts/main/smoke_test.gd`
+- `docs/HANDOFF.md`
+- `docs/VARIABLE_MATRIX.md`
+
+Acceptance:
+
+- The panel visually reads as a star/constellation tree at 8-16bit scale.
+- Existing smoke checks for purchase, persistence, state, and inspection still
+  pass.
+- New smoke or test hooks cover any added visual state that affects behavior.
+- No new live mechanics, no new perk effects, no new progression economy.
+
+## FQ-09V - Visual Variant Pipeline
+
+Goal: let one data id have multiple optional visual variants so terrain and
+items look less repetitive without adding save bloat or changing gameplay.
+
+Scope:
+
+- Extend the FQ-07 image-first pipeline to support optional variant pools per
+  visual id, such as four dirt block sprites or several stone/grass/wood
+  treatments.
+- Select block variants deterministically from world seed and cell position so
+  the same world renders the same visual variety without recording variant
+  choices in saves.
+- Keep the current one-file convention (`art/generated/<category>/<id>.png`)
+  valid as the default path.
+- Add a clear convention for variant files, such as
+  `art/generated/blocks/dirt_01.png` through `dirt_04.png`, or explicit pools
+  in `data/visual_assets.json`.
+- Preserve fallback behavior: missing variants or missing pools must use the
+  existing single asset/fallback color path.
+- Do not add new blocks, ores, stations, crops, enemies, or balance changes in
+  this pass.
+
+Likely files:
+
+- `data/visual_assets.json`
+- `scripts/world/block_registry.gd`
+- `scripts/world/world.gd`
+- `scripts/validate_repo.py`
+- `scripts/main/smoke_test.gd`
+- `art/source_templates/ASSET_TEMPLATE.md`
+- `docs/HANDOFF.md`
+- `docs/VARIABLE_MATRIX.md`
+
+Acceptance:
+
+- A block id can resolve several variant images when present.
+- Variant selection is deterministic by world seed/cell and does not enter the
+  save format.
+- A one-image asset still works exactly as before.
+- Missing variants fall back cleanly.
+- Smoke covers deterministic selection and fallback behavior.
+
+## FQ-09A - Future Asset Manifest And Prompt Packs
+
+Goal: give future human and LLM art passes a concrete asset map covering live
+assets and planned near-term content before new systems multiply the art needs.
+
+Scope:
+
+- Add an asset roadmap or manifest, preferably `docs/ASSET_ROADMAP.md` for
+  human readability plus `data/asset_manifest.json` only if code/validation
+  will consume it.
+- List live asset ids from current data: blocks, items, enemies, equipment,
+  UI icons, and any current player/shell visual surfaces that are still drawn
+  shapes.
+- List planned near-term ids from the queue and future docs: ore families,
+  station blocks, ingots, crops/seeds, enemy variants, tools, armor, UI icons,
+  player/ancestry sprites, and action-effect sprites.
+- For each entry, record category, data id, intended file path, target size,
+  transparency/opacity rule, current fallback behavior, priority, and prompt
+  note.
+- Add prompt-pack sections that another LLM/image model can use without
+  inventing naming rules.
+- Keep the manifest honest: planned items must be marked planned, not live.
+
+Likely files:
+
+- `docs/ASSET_ROADMAP.md`
+- `art/source_templates/ASSET_TEMPLATE.md`
+- `data/visual_assets.json` only if needed for examples
+- `scripts/validate_repo.py` only if a machine-readable manifest is added
+- `docs/HANDOFF.md`
+- `docs/VARIABLE_MATRIX.md`
+
+Acceptance:
+
+- The roadmap separates live assets from planned assets.
+- Naming and prompt instructions are specific enough for another LLM to create
+  candidates without extra repo archaeology.
+- Future planned items include ore, furnace/anvil/workbench, crops, enemies,
+  tools, armor, UI icons, player/ancestry sprites, and action visuals.
+- Validator remains green; any new manifest schema is validated if introduced.
+
+## FQ-09M - Lightweight Action Animation Pass
+
+Goal: add readable action motion/feedback while preserving the current gameplay
+timing, save ownership, and mechanics.
+
+Scope:
+
+- Add small presentation-only animations for common actions:
+  - mining/chopping swing or tool arc
+  - block placement pulse
+  - attunement pulse cast/readability
+  - player hurt/collapse feedback
+  - enemy hit feedback if FQ-08 visuals need polish
+  - crafting/forge confirmation feedback
+- Keep animations lightweight: timers, tweens, code-drawn effects, or optional
+  FQ-07/FQ-09V art hooks are fine; no new animation framework unless the local
+  codebase clearly wants it.
+- Do not change mining frame counts, damage numbers, drops, recipes, save data,
+  or input bindings.
+- Respect reduced visual clutter: actions should become easier to read, not
+  noisier.
+
+Likely files:
+
+- `scripts/player/player.gd`
+- `scripts/entities/simple_threat.gd`
+- `scripts/world/world.gd`
+- `scripts/ui/hud.gd`
+- `scripts/settlement/town_hall.gd`
+- `scripts/main/smoke_test.gd`
+- `data/visual_assets.json` only for optional effect hooks
+- `docs/HANDOFF.md`
+- `docs/VARIABLE_MATRIX.md`
+
+Acceptance:
+
+- Mining/chopping/placing/casting/hurt/crafting actions have visible feedback.
+- Existing behavior and smoke expectations for timing, drops, combat, and
+  saves remain green.
+- Any animation state is transient and does not enter world or character saves.
+- Smoke or test hooks prove at least the behavior-preserving paths and any
+  exposed visual state that could affect gameplay.
 
 ## FQ-10 - More Ores And Metallurgy Data
 

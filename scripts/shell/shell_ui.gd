@@ -25,7 +25,6 @@ const GEN_ROWS := [
 	["terrain_frequency", "Terrain Frequency", 0.25, 2.0, 0.05],
 	["ore_abundance", "Ore Abundance", 0.0, 2.0, 0.05],
 	["tree_density", "Tree Density", 0.0, 2.0, 0.05],
-	["tree_foreground_ratio", "Solid Tree Ratio", 0.0, 1.0, 0.05],
 	["bush_density", "Bush Density", 0.0, 2.0, 0.05],
 	["dirt_depth", "Dirt Depth", 2.0, 8.0, 1.0],
 ]
@@ -279,6 +278,12 @@ func _show_char_create() -> void:
 	form.add_child(_species_detail)
 	_update_species_detail(0)
 
+	var carried_note := _label(form,
+		"Character rules: backpack, tools, equipment, ancestry, role, and traits follow this character between worlds. Role starter items are granted once. Collapse loses a fraction of carried stacks.",
+		12)
+	carried_note.add_theme_color_override("font_color", DIM_COLOR)
+	carried_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
 	var appearance_row := _form_row(form, "Appearance")
 	_appearance_option = OptionButton.new()
 	_appearance_ids.clear()
@@ -509,6 +514,12 @@ func _show_world_create() -> void:
 	_preset_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(_preset_desc)
 	_update_preset_desc()
+
+	var world_rule_note := _label(form,
+		"World rules: terrain, stockpile, threats, storms, base level, player level, position, and current health belong to the world. Entering with another character uses that character's carried gear and inventory.",
+		12)
+	world_rule_note.add_theme_color_override("font_color", DIM_COLOR)
+	world_rule_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	var size_row := _form_row(form, "Size")
 	_size_option = OptionButton.new()
