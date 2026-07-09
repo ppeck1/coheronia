@@ -1,0 +1,60 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260709_coheronia_fq09r_review_hardening",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "3926e9a",
+  "end_commit": "f12946c",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-09R: review hardening — replace the foreground/background tree split with one unified tree rule (leafy, walk-past, harvestable) and surface live character/world ownership rules in the creation forms, with no new mechanics.",
+  "summary": "Unified trees: WorldGen grows a tree_trunk column (3-5 tall) plus a tree_leaves canopy (3x2) at every tree site, both into the normal cells grid. The blocks are data-only additions reusing existing fields: non-solid (no collision polygon, so the player walks in front of/past every tree), non-placeable, no occlusion; trunk carries wood's 0.55 hardness, axe preference, and 1-wood drop, so the entire mining/axe/drop contract is inherited unchanged (frames dirt 21 / trunk 33 / stone 66 / axe 24). Leaves clear fast and drop nothing. The FQ-02 split machinery is fully retired: background_cells, the BackgroundFlora TileMapLayer, bg_trunk/bg_canopy textures, world.background_at, and generation.tree_foreground_ratio (default, ui_help, and the Solid Tree Ratio world-builder slider). Old world configs storing the ratio key are ignored harmlessly; mined tree cells persist as normal air deltas; tree ids can never enter deltas. Placed wood is untouched (solid, buildable, roof/shelter). Creation clarity: the character form states carried-state ownership, one-time role grants, and 'Collapse loses a fraction of carried stacks' (wording corrected from 'drops' — items are destroyed, not ground-dropped); the world form states world-owned terrain/stockpile/threats/storms/base level/player level/position/health and cross-character entry behavior. Every claim was fact-checked against live code paths by a recon scout.",
+  "acceptance": [
+    "Smoke proves generated trees have leaves: 54 trunks / 84 leaf cells on default config, seed 777 (fq09r_trees_have_leaves)",
+    "Smoke proves walk-past: all 138 tree cells non-solid and bare-hand mineable, 0 violations (fq09r_trees_passable_and_harvestable); live walk check passes x=2279.0 past target 2216.0 with only move_right (fq09r_player_walks_past_tree)",
+    "Smoke proves harvest through the existing path: mining a trunk yields exactly 1 wood and an air cell (fq09r_harvest_trunk_yields_wood); axe speeds trunk mining 33 -> 24 frames (wave_f checks retargeted)",
+    "No walkable-but-not-harvestable tree class remains; leaves clear without drops (fq09r_leaves_clear_without_drops); density 0 clears all tree cells and density scales trunk count (54 -> 84 at 2.0)",
+    "Creation/help text states live collapse loss and character/world ownership boundaries without implying future mechanics",
+    "Smoke 183/183 (8 fq02_* checks replaced by 8 fq09r_*, total unchanged) on waited windowed Godot 4.6.1; validator PASS; capsule doctor healthy; git diff --check clean"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> PASS (new tree blocks satisfy preferred_tool policy; 2 new INFO fallback-art lines only)",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited windowed run -> 183/183 PASS at 2026-07-09T13:45:16 incl. all 8 fq09r_* checks and preserved frame baselines",
+    "git diff --check -> exit 0"
+  ],
+  "docs_updated": ["docs/HANDOFF.md", "docs/VARIABLE_MATRIX.md", "docs/FABLE_TASK_QUEUE.md", "README.md"],
+  "readme_state": "updated",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Unified trees are non-solid cells in the normal block grid rather than a special layer — can_mine never checks is_solid (berry_bush precedent), so walk-past + harvestable required zero new mechanics",
+    "tree_trunk deliberately shares wood's hardness/preference/drop so every existing mining, axe, and frame-count contract is inherited; the smoke baselines only retargeted which block they harvest",
+    "Placed wood remains a distinct solid block: building, roofs, and shelter math are untouched; generated trees intentionally stop contributing to shelter/occlusion (they are scenery + resource, not structure)",
+    "tree_foreground_ratio was removed rather than deprecated — stored copies in old world configs are ignored harmlessly and no code path reads the key",
+    "Leaves drop nothing (no new resource economy) and trees have no support rule (floating cells after partial harvest mirror the old floating wood columns; cosmetic)",
+    "Prior-session creation notes were audited rather than rewritten; the one factual wording bug (drops vs loses) was fixed",
+    "Swarm pipeline: 2 haiku recon scouts (tree surface map; creation-note fact-check), one implementation lane (orchestrator), sonnet diff review -> SIGNABLE with zero blockers; 1 nit fixed, 1 pre-existing should-fix recorded as a risk"
+  ],
+  "risks": [
+    "Generated trees no longer count toward shelter/roof/occlusion inputs; slight C/L/R drift near tree lines is intentional but untested by human play",
+    "Wood supply per world rose (every tree harvestable vs ~40% of sites before); numbers are data-tunable",
+    "Pre-FQ-09R worlds regenerate with unified trees where old solid columns/background flora stood; deltas overlay cleanly — cosmetic only",
+    "Pre-existing smoke hygiene: the baseline _mine_cell calls lack a null guard after mineable_blocks_found (a find failure would crash the suite, not fail cleanly); candidate for a future smoke pass"
+  ],
+  "next_action": "FQ-09S: skill tree visual treatment pass.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260709_coheronia_fq09r_review_hardening.md",
+    "docs/HANDOFF.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/FABLE_TASK_QUEUE.md",
+    "README.md"
+  ],
+  "ledger_path": ".project/runs/20260709_coheronia_fq09r_review_hardening.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-09T14:05:00-04:00"
+}
