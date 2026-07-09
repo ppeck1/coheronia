@@ -21,6 +21,7 @@ var _tilemap: TileMapLayer
 var _source_ids: Dictionary = {}    # block_id -> tileset source id
 var _lights: Dictionary = {}        # Vector2i -> PointLight2D
 var _light_texture: GradientTexture2D
+var _opaque_masks: Dictionary = {}  # block_id -> BitMap of the tile's opaque pixels
 
 const BLOCK_COLORS := {
 	"dirt": Color(0.47, 0.33, 0.18),
@@ -121,6 +122,22 @@ func block_at(cell: Vector2i) -> String:
 
 func is_solid_at(cell: Vector2i) -> bool:
 	return BlockRegistry.is_solid(block_at(cell))
+
+
+## Opaque-pixel mask of a block's tile texture (art or generated fallback),
+## so damage overlays can stay inside the visible sprite — cracks on a thin
+## tree trunk or a torch must not float in the transparent part of the cell.
+## Cached per block id; like the tileset, masks reflect the art present when
+## first built (null for air/unknown ids).
+func block_opaque_mask(block_id: String) -> BitMap:
+	if block_id == "air" or not BlockRegistry.blocks.has(block_id):
+		return null
+	if not _opaque_masks.has(block_id):
+		var img: Image = _make_block_texture(block_id, tile_size()).get_image()
+		var mask := BitMap.new()
+		mask.create_from_image_alpha(img, 0.1)
+		_opaque_masks[block_id] = mask
+	return _opaque_masks[block_id]
 
 
 func can_mine(cell: Vector2i, tool_tier: int) -> bool:

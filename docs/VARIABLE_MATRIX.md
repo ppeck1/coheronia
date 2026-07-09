@@ -147,7 +147,8 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 | `selected_hotbar_slot` | int | `player.gd` / character-carried | slots 1-5 |
 | `tool_tier` | int | `player.gd` / character-carried | pick tier alias; tier 2 unlocks ore and speed |
 | `effective_mine_speed` | func | `player.gd` | tool tier, trait, and FQ-06 perk multiplier |
-| `mine_damage_stage()` | func | `player.gd` | FQ-08: 0-3 from mining progress; drives the transient crack overlay drawn on the target cell; never saved; resets via `_reset_mining` (target change, release, and on load via `apply_state`) |
+| `mine_damage_stage()` | func | `player.gd` | FQ-08: 0-3 from mining progress; drives the transient crack overlay drawn on the target cell; never saved; resets via `_reset_mining` (target change, release, and on load via `apply_state`). Cracks rasterize through `world.block_opaque_mask` so they never draw outside the sprite |
+| `block_opaque_mask(block_id)` | func | `world.gd` | cached BitMap of a tile texture's opaque pixels (art or generated fallback; null for air/unknown); consumed by the crack overlay so degradation stays inside the visible sprite (thin trunks, leaves, bushes, torches) |
 | `health_bar_ratio()` | func | `simple_threat.gd` | FQ-08: hp/max_hp fill for the mini hurt bar drawn above damaged enemies on both art and fallback paths |
 | `reach_bonus` | float | character effects | extends mining/placement reach |
 | `bush_bonus_food` | int | character effects | extra food from berry bushes |
@@ -303,6 +304,12 @@ slot with (empty) placeholders; and a pre-FQ-03 character (no equipment key)
 migrates with tool tiers and inventory preserved and gear derived from tiers.
 `validate_repo.py` additionally enforces the equipment.json schema (slot list,
 required items, slot_type coherence, tool item tiers).
+
+A post-FQ-09R hardening run adds 1 check (`fq08_crack_mask_inside_sprite`,
+suite total 184): `world.block_opaque_mask` is fully opaque for stone,
+opaque at the trunk bar but transparent at both tile edges for `tree_trunk`,
+and null for air — pinning that the crack overlay's per-pixel mask keeps
+degradation inside the visible sprite.
 
 FQ-09R replaces the 8 FQ-02 checks with 8 `fq09r_*` checks (suite total
 unchanged at 183) covering: tree_density 0 clears trunks and leaves; default

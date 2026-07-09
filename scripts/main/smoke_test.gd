@@ -1568,6 +1568,26 @@ func _run() -> void:
 			"stone %d→%d in %d frames" % [_fq08_stone_count,
 				player.inventory.count("stone"), _fq08_frames])
 
+		# (c2) the crack overlay is masked to the sprite's opaque pixels: a
+		# solid stone tile is opaque everywhere, while a thin tree_trunk bar
+		# is opaque at its center column and transparent at the tile's left
+		# edge — so degradation can never draw outside the visible sprite.
+		var _fq08_ts: int = world.tile_size()
+		var _fq08_stone_mask: BitMap = world.block_opaque_mask("stone")
+		var _fq08_trunk_mask: BitMap = world.block_opaque_mask("tree_trunk")
+		_check("fq08_crack_mask_inside_sprite",
+			_fq08_stone_mask != null and _fq08_trunk_mask != null
+			and _fq08_stone_mask.get_bit(0, 0)
+			and _fq08_stone_mask.get_bit(_fq08_ts / 2, _fq08_ts / 2)
+			and _fq08_trunk_mask.get_bit(_fq08_ts / 2, _fq08_ts / 2)
+			and not _fq08_trunk_mask.get_bit(0, _fq08_ts / 2)
+			and not _fq08_trunk_mask.get_bit(_fq08_ts - 1, _fq08_ts / 2)
+			and world.block_opaque_mask("air") == null,
+			"stone(0,0)=%s trunk(center)=%s trunk(edge)=%s" % [
+				str(_fq08_stone_mask != null and _fq08_stone_mask.get_bit(0, 0)),
+				str(_fq08_trunk_mask != null and _fq08_trunk_mask.get_bit(_fq08_ts / 2, _fq08_ts / 2)),
+				str(_fq08_trunk_mask != null and _fq08_trunk_mask.get_bit(0, _fq08_ts / 2))])
+
 		# (d) enemy damage is visible before death: the hurt-bar ratio drops
 		# after a non-lethal hit; drops still roll only on death.
 		for _fq08_t in get_tree().get_nodes_in_group("threats"):

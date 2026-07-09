@@ -24,7 +24,8 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 ## FQ-08 Additions
 
-- **Block damage stages**: `player.mine_damage_stage()` (0-3 from mining progress) drives a crack overlay drawn on the target cell while mining — deterministic per cell (seeded from the target, no flicker), denser cracks per stage, layered over the existing highlight/progress bar. Purely transient: never enters `cells`/deltas/saves, resets via the existing `_reset_mining` on target change or release, and `apply_state` now clears in-memory progress so a load can never resurrect partial damage. `world.gd` untouched.
+- **Block damage stages**: `player.mine_damage_stage()` (0-3 from mining progress) drives a crack overlay drawn on the target cell while mining — deterministic per cell (seeded from the target, no flicker), denser cracks per stage, layered over the existing highlight/progress bar. Purely transient: never enters `cells`/deltas/saves, resets via the existing `_reset_mining` on target change or release, and `apply_state` now clears in-memory progress so a load can never resurrect partial damage.
+- **Crack sprite mask (post-FQ-09R hardening)**: crack segments are rasterized pixel by pixel through `world.block_opaque_mask(block_id)` — a cached BitMap of the tile texture's opaque pixels (art or generated fallback) — so degradation never draws outside the visible sprite: a thin `tree_trunk` bar, leaves, a bush, or a torch only crack where their pixels actually are. Solid tiles are fully opaque, so their crack layout is unchanged. The same principle already held elsewhere: the Town Hall damage overlay covers exactly its drawn wall rect, and enemy hurt tints ride the sprite/fallback shape.
 - **Enemy hurt feedback**: a mini health bar appears above any damaged enemy (both the FQ-07 art path and the drawn-rect fallback, which also keep their tint/lighten cues); `health_bar_ratio()` exposes the fill. Damage is clearly visible well before death.
 - Drops, mining frame counts, and save/load behavior are untouched — verified by dedicated checks plus the unchanged legacy baselines.
 
@@ -89,7 +90,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 183/183 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09) |
+| Automated smoke | PASS 184/184 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask) |
 
 ## Known Risks / Gotchas
 

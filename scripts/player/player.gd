@@ -689,14 +689,25 @@ func _draw() -> void:
 		# FQ-08: crack overlay — more cracks per damage stage. Deterministic
 		# per cell (seeded from the target) so cracks do not flicker between
 		# frames; vanishes with _reset_mining on target change or release.
+		# Crack segments are rasterized pixel by pixel through the block's
+		# opaque mask so damage never shows outside the visible sprite (thin
+		# trunks, leaves, bushes, torches).
 		var stage := mine_damage_stage()
 		if stage > 0:
+			var mask: BitMap = world.block_opaque_mask(world.block_at(mine_target))
 			_crack_rng.seed = hash(mine_target)
 			for i in range(stage * 3):
-				var from := local + Vector2(
+				var from := Vector2(
 					_crack_rng.randf_range(2.0, t - 2.0), _crack_rng.randf_range(2.0, t - 2.0))
 				var to := from + Vector2(
 					_crack_rng.randf_range(-5.0, 5.0), _crack_rng.randf_range(-5.0, 5.0))
-				to.x = clampf(to.x, local.x, local.x + t)
-				to.y = clampf(to.y, local.y, local.y + t)
-				draw_line(from, to, Color(0, 0, 0, 0.65), 1.2)
+				to.x = clampf(to.x, 0.0, t - 1.0)
+				to.y = clampf(to.y, 0.0, t - 1.0)
+				var steps := maxi(int(ceilf(from.distance_to(to))), 1)
+				for s in range(steps + 1):
+					var p := from.lerp(to, float(s) / float(steps))
+					var px := Vector2i(
+						clampi(int(p.x), 0, int(t) - 1), clampi(int(p.y), 0, int(t) - 1))
+					if mask == null or mask.get_bit(px.x, px.y):
+						draw_rect(Rect2(local + Vector2(px), Vector2.ONE),
+							Color(0, 0, 0, 0.65))
