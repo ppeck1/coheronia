@@ -1,0 +1,58 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260709_coheronia_fq09v_visual_variants",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "447a725",
+  "end_commit": "516bc13",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-09V: let one data id have multiple optional visual variants so terrain and items look less repetitive, selected deterministically from world seed + cell position, without save bloat or gameplay changes.",
+  "summary": "BlockRegistry.visual_variant_textures(category, id): ordered pool from an explicit Array entry in visual_assets.json or the <id>_01.png consecutive-file convention (first gap ends the scan, MAX_VARIANTS 8); empty pool means the single-image visual_texture path is used exactly as before. visual_texture refactored onto a shared cached file loader; an explicit Array's first entry is the id's canonical single image, keeping HUD icons and enemy sprites coherent if an id gains a pool. world._build_tileset creates one TileSetAtlasSource per variant, each with identical collision/occlusion polygons, so variety can never change physics, lighting, or shelter; _source_ids became block_id -> Array of source ids; _set_tile picks posmod(hash(Vector3i(cell.x, cell.y, world_seed)), n) — same world, same look, nothing stored (an explicit empty-pool guard erases instead of indexing, per review). world.rebuild_tileset() rebuilds sources from art on disk and re-derives crack-overlay masks (smoke/dev hook; gameplay still loads art at world entry). Validator accepts path-or-array entries (all paths must exist; empty arrays fail); ASSET_TEMPLATE.md gained a Variants section; visual_assets.json documents the convention.",
+  "acceptance": [
+    "A block id resolves several variant images when present: explicit array pool on dirt = 2, file-convention scan on a temp id = 2, pool-less stone = 0 (fq09v_variant_pools_resolve)",
+    "Selection is deterministic by seed/cell and never enters saves: two setups of seed 777 render identical variants across 40 sampled dirt cells with 2 variants in use (fq09v_deterministic_variant_selection); seed 778 changes the pick among shared cells, zero overlap/difference FAILS rather than passing vacuously (fq09v_seed_changes_selection)",
+    "A one-image asset works exactly as before and missing variants fall back cleanly: pool removal restores exactly 1 source and the generated dirt pixel (fq09v_fallback_after_removal); all fq07_* checks pass unchanged",
+    "Live world state restored before the FQ-08 section (fq09v_world_restored)",
+    "Smoke 190/190 PASS at 2026-07-09T16:15:47 (re-run green after review fixes) on waited windowed Godot 4.6.1; validator PASS; capsule doctor healthy; git diff --check clean"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> PASS incl. array pool-entry rules",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited windowed run -> 190/190 PASS incl. 5 new fq09v_* checks with self-cleaning temp art",
+    "git diff --check -> exit 0"
+  ],
+  "docs_updated": ["docs/HANDOFF.md", "docs/VARIABLE_MATRIX.md", "docs/FABLE_TASK_QUEUE.md", "README.md", "art/source_templates/ASSET_TEMPLATE.md", "data/visual_assets.json"],
+  "readme_state": "updated",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Variants are extra tileset atlas sources selected at _set_tile time — the tileset is built once at _ready before any seed exists, so per-cell selection is the only placement that keeps determinism without rebuilds",
+    "Every variant of a block carries identical physics/occlusion polygons: variety is pixels only, provably unable to alter collision, lighting, or shelter math",
+    "The variant hash is hash(Vector3i(cell.x, cell.y, world_seed)) — pure function of seed+cell, regenerated on every load, so the save format is untouched by construction",
+    "An explicit array's first entry doubles as the single-image resolution for visual_texture consumers, so giving an id a pool never breaks the HUD or enemies",
+    "Blocks are the only variant renderer this pass; items/enemies accept pools in data but keep single images (deliberate scope hold)",
+    "Swarm pipeline: 1 haiku recon scout (pipeline map incl. the tileset-build-timing constraint), one implementation lane (orchestrator), sonnet diff review -> SIGNABLE; should-fix empty-pool guard + 2 clarity nits applied, 2 nits accepted as documented behavior; loop re-ran green"
+  ],
+  "risks": [
+    "The mining crack mask derives from the id's base texture, not per-variant pixels — variants should share one silhouette (documented; terrain blocks are full squares today)",
+    "world_seed truncates to 32 bits inside Vector3i for the variant hash — deterministic regardless; typical seeds are small",
+    "Runtime-broken pool paths are skipped (pool shrinks) rather than erroring; the validator enforces existence at repo level",
+    "The repo still ships zero art — the pipeline is proven via temp files; first real pool candidates are dirt/stone/grass"
+  ],
+  "next_action": "FQ-09A: future asset manifest and prompt packs.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260709_coheronia_fq09v_visual_variants.md",
+    "docs/HANDOFF.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/FABLE_TASK_QUEUE.md",
+    "README.md"
+  ],
+  "ledger_path": ".project/runs/20260709_coheronia_fq09v_visual_variants.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-09T17:00:00-04:00"
+}
