@@ -142,11 +142,20 @@ func requires_support(block_id: String) -> bool:
 # FQ-07: visual assets (data/visual_assets.json) — image-first, color fallback
 # ---------------------------------------------------------------------------
 
+## FQ-09V: variant scans stop at the first missing file and never look past
+## this many pool entries.
+const MAX_VARIANTS := 8
+
 ## Resolved res:// path for a category/id: an explicit entry in
 ## visual_assets.json overrides the art/generated/<category>/<id>.png
-## convention. The file may or may not exist — see visual_texture.
+## convention. FQ-09V: an explicit Array pool resolves to its first entry
+## here (the pool's canonical single image); use visual_variant_textures for
+## the whole pool. The file may or may not exist — see visual_texture.
 func visual_asset_path(category: String, id: String) -> String:
-	var explicit := str(visual_assets.get("categories", {}).get(category, {}).get(id, ""))
+	var entry: Variant = visual_assets.get("categories", {}).get(category, {}).get(id, "")
+	if entry is Array:
+		entry = str(entry[0]) if not (entry as Array).is_empty() else ""
+	var explicit := str(entry)
 	if explicit != "":
 		return explicit if explicit.begins_with("res://") else "res://" + explicit
 	return "res://%s/%s/%s.png" % [
@@ -158,7 +167,43 @@ func visual_asset_path(category: String, id: String) -> String:
 ## (never the import system), so plain runs need no editor import pass.
 ## Results (including misses) are cached; clear_visual_cache resets.
 func visual_texture(category: String, id: String) -> Texture2D:
-	var path := visual_asset_path(category, id)
+	return _texture_from_file(visual_asset_path(category, id))
+
+
+## FQ-09V: the ordered variant pool for a category/id — an explicit Array in
+## visual_assets.json (each entry a path), else the consecutive-file
+## convention <id>_01.png, <id>_02.png, ... under the asset root (the first
+## gap ends the scan; capped at MAX_VARIANTS). Empty means "no pool": callers
+## keep using the single-image visual_texture path exactly as before.
+## Cached under a synthetic key; clear_visual_cache resets.
+func visual_variant_textures(category: String, id: String) -> Array:
+	var key := "variants::%s/%s" % [category, id]
+	if _visual_cache.has(key):
+		return _visual_cache[key]
+	var pool: Array = []
+	var entry: Variant = visual_assets.get("categories", {}).get(category, {}).get(id)
+	if entry is Array:
+		for raw in entry:
+			var path := str(raw)
+			if not path.begins_with("res://"):
+				path = "res://" + path
+			var tex := _texture_from_file(path)
+			if tex != null:
+				pool.append(tex)
+	else:
+		var root := str(visual_assets.get("asset_root", "art/generated"))
+		for i in range(1, MAX_VARIANTS + 1):
+			var tex := _texture_from_file(
+				"res://%s/%s/%s_%02d.png" % [root, category, id, i])
+			if tex == null:
+				break
+			pool.append(tex)
+	_visual_cache[key] = pool
+	return pool
+
+
+## Shared cached file loader for the visual pipeline (misses cached as null).
+func _texture_from_file(path: String) -> Texture2D:
 	if _visual_cache.has(path):
 		return _visual_cache[path]
 	var tex: Texture2D = null

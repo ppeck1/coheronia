@@ -1535,6 +1535,101 @@ func _run() -> void:
 		"art_icon=%s dirt_art=%s after_cleanup=%s" % [
 			str(_fq07_icon_on), str(_fq07_icon_dirt), str(hud.hotbar_icon_is_art(1))])
 
+	# --- FQ-09V: visual variant pipeline ---
+
+	# Same smoke_tmp_* temp-art discipline as FQ-07 (leftover cleanup first).
+	var _fq09v_files: Array[String] = [
+		"res://art/generated/blocks/smoke_tmp_dirt_a.png",
+		"res://art/generated/blocks/smoke_tmp_dirt_b.png",
+		"res://art/generated/blocks/smoke_tmp_vscan_01.png",
+		"res://art/generated/blocks/smoke_tmp_vscan_02.png"]
+	for _fq09v_leftover in _fq09v_files:
+		if FileAccess.file_exists(_fq09v_leftover):
+			DirAccess.remove_absolute(_fq09v_leftover)
+	BlockRegistry.clear_visual_cache()
+
+	# (a) pools resolve both ways: the <id>_01/_02 file convention (scanned on
+	# a temp id so no real asset names are ever written) and an explicit
+	# array entry for a real block; a pool-less block reports no pool.
+	var _fq09v_img_a := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	_fq09v_img_a.fill(Color(1.0, 0.0, 0.0))
+	var _fq09v_img_b := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	_fq09v_img_b.fill(Color(0.0, 0.0, 1.0))
+	for _fq09v_path in _fq09v_files:
+		var _fq09v_src: Image = _fq09v_img_b
+		if "_a" in _fq09v_path or "_01" in _fq09v_path:
+			_fq09v_src = _fq09v_img_a
+		_fq09v_src.save_png(_fq09v_path)
+	BlockRegistry.visual_assets["categories"]["blocks"]["dirt"] = [
+		"art/generated/blocks/smoke_tmp_dirt_a.png",
+		"art/generated/blocks/smoke_tmp_dirt_b.png"]
+	BlockRegistry.clear_visual_cache()
+	_check("fq09v_variant_pools_resolve",
+		BlockRegistry.visual_variant_textures("blocks", "smoke_tmp_vscan").size() == 2
+		and BlockRegistry.visual_variant_textures("blocks", "dirt").size() == 2
+		and BlockRegistry.visual_variant_textures("blocks", "stone").is_empty(),
+		"scan=%d pool=%d stone=%d" % [
+			BlockRegistry.visual_variant_textures("blocks", "smoke_tmp_vscan").size(),
+			BlockRegistry.visual_variant_textures("blocks", "dirt").size(),
+			BlockRegistry.visual_variant_textures("blocks", "stone").size()])
+
+	# (b) selection is deterministic from seed + cell: two setups of the same
+	# seed render identical dirt variants, with at least two variants in use.
+	world.rebuild_tileset()
+	world.setup(777)
+	var _fq09v_cells: Array = []
+	for _fq09v_c: Vector2i in world.cells:
+		if world.cells[_fq09v_c] == "dirt":
+			_fq09v_cells.append(_fq09v_c)
+		if _fq09v_cells.size() >= 40:
+			break
+	var _fq09v_first: Array = []
+	var _fq09v_distinct: Dictionary = {}
+	for _fq09v_c1: Vector2i in _fq09v_cells:
+		var _fq09v_sid: int = world._tilemap.get_cell_source_id(_fq09v_c1)
+		_fq09v_first.append(_fq09v_sid)
+		_fq09v_distinct[_fq09v_sid] = true
+	world.setup(777)
+	var _fq09v_stable := true
+	for _fq09v_i in range(_fq09v_cells.size()):
+		if world._tilemap.get_cell_source_id(_fq09v_cells[_fq09v_i]) != _fq09v_first[_fq09v_i]:
+			_fq09v_stable = false
+			break
+	_check("fq09v_deterministic_variant_selection",
+		_fq09v_cells.size() >= 10 and _fq09v_stable and _fq09v_distinct.size() >= 2,
+		"cells=%d stable=%s distinct=%d" % [
+			_fq09v_cells.size(), str(_fq09v_stable), _fq09v_distinct.size()])
+
+	# (c) the seed drives the pattern (nothing is stored): another seed picks
+	# a different variant somewhere among cells that are dirt in both worlds.
+	# Zero overlap or zero difference FAILS the check (never a vacuous pass).
+	world.setup(778)
+	var _fq09v_changed := false
+	for _fq09v_i2 in range(_fq09v_cells.size()):
+		var _fq09v_c2: Vector2i = _fq09v_cells[_fq09v_i2]
+		if world.block_at(_fq09v_c2) != "dirt":
+			continue
+		if world._tilemap.get_cell_source_id(_fq09v_c2) != _fq09v_first[_fq09v_i2]:
+			_fq09v_changed = true
+			break
+	_check("fq09v_seed_changes_selection", _fq09v_changed,
+		"seed 777 vs 778 over %d sampled cells" % _fq09v_cells.size())
+
+	# (d) removal falls all the way back to the single generated texture and
+	# the live world state returns untouched.
+	for _fq09v_path2 in _fq09v_files:
+		DirAccess.remove_absolute(_fq09v_path2)
+	BlockRegistry.visual_assets["categories"]["blocks"].erase("dirt")
+	BlockRegistry.clear_visual_cache()
+	world.rebuild_tileset()
+	_check("fq09v_fallback_after_removal",
+		(world._source_ids["dirt"] as Array).size() == 1
+		and BlockRegistry.visual_variant_textures("blocks", "dirt").is_empty()
+		and world._make_block_texture("dirt", 16).get_image().get_pixel(4, 4) \
+			.is_equal_approx(_fq07_clean_pixel),
+		"sources=%d" % (world._source_ids["dirt"] as Array).size())
+	_check("fq09v_world_restored", root.load_game())
+
 	# --- FQ-08: block and enemy damage visuals ---
 
 	var _fq08_stone: Variant = _find_block(world, world.hall_info["center_cell"], "stone")

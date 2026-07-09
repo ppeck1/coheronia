@@ -2,7 +2,7 @@
 
 ## Current State
 
-**FQ-09S (skill tree visual treatment pass) implemented and closed out** (run `20260709_coheronia_fq09s_skill_constellations`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 through FQ-08; Godot 4.6.1 stable).
+**FQ-09V (visual variant pipeline) implemented and closed out** (run `20260709_coheronia_fq09v_visual_variants`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 through FQ-08; Godot 4.6.1 stable).
 
 v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 through FQ-09 followed from `docs/FABLE_TASK_QUEUE.md`.
 
@@ -13,6 +13,13 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - **Town Hall panel**: the stockpile text list became an icon grid; station buttons carry item icons; disabled/crafted states keep the engine dimming plus the existing state text.
 - **`data/items.json` (new)**: display names, descriptions, and swatch colors for non-block item ids (food, drops, forge icons) plus icon colors for block items. `BlockRegistry.display_name` now falls back blocks -> items.json -> id, improving every log/tooltip surface.
 - Keyboard/mouse behavior unchanged: I toggles inventory, hotbar keys 1-5 select, E/T town panel, K skills — all pre-existing bindings and the Esc chain untouched.
+
+## FQ-09V Additions
+
+- **Variant pools**: one visual id may now ship several interchangeable images — either the file convention `art/generated/<category>/<id>_01.png` … (consecutive from `_01`, first gap ends the scan, max 8) or an explicit **array** entry in `data/visual_assets.json` (`BlockRegistry.visual_variant_textures(category, id)`; validator fails broken/empty pool entries, same rule as single paths).
+- **Deterministic block variety**: `world._build_tileset` creates one atlas source per variant (identical physics/occlusion on every variant), and `_set_tile` picks `posmod(hash(Vector3i(cell.x, cell.y, world_seed)), n)` — the same world always renders the same variety and the choice never enters `cells`, deltas, or saves. Pool-less blocks keep exactly one source built by the unchanged `_make_block_texture` path.
+- **Fallback intact**: a single `<id>.png` behaves exactly as in FQ-07 (an explicit array's first entry doubles as the id's canonical single image for `visual_texture` consumers like the HUD); ids with no art keep their generated colors/shapes. `world.rebuild_tileset()` (smoke/dev hook) rebuilds sources from the art on disk and re-derives the crack-overlay opacity masks; gameplay still loads art once at world entry.
+- The repo still ships zero art; smoke proves both directions with self-cleaning `smoke_tmp_*` temp files (5 `fq09v_*` checks, suite total 190).
 
 ## FQ-09S Additions
 
@@ -96,7 +103,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 185/185 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S) |
+| Automated smoke | PASS 190/190 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V) |
 
 ## Known Risks / Gotchas
 
@@ -119,7 +126,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-09 plus FQ-09R and FQ-09S are complete. Next is FQ-09V (visual variant pipeline), then FQ-09A/FQ-09M for the future asset roadmap/prompt packs and lightweight action animation. FQ-10 (more ores and metallurgy data) should wait until those presentation-foundation items are closed or the operator explicitly changes priority.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, and FQ-09V are complete. Next is FQ-09A (future asset manifest and prompt packs), then FQ-09M (lightweight action animation). FQ-10 (more ores and metallurgy data) should wait until those presentation-foundation items are closed or the operator explicitly changes priority.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

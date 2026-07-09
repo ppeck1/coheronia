@@ -22,6 +22,24 @@ half-finished art pass never breaks anything.
   uses, but an exported (PCK) build would not see these files — an
   import-aware path would be needed then (deliberately out of scope).
 
+## Variants (FQ-09V)
+
+One id may ship several interchangeable looks so terrain reads less
+repetitive — entirely optional:
+
+- File convention: `art/generated/<category>/<id>_01.png`, `<id>_02.png`, …
+  numbered consecutively from `_01` (two digits). The first missing number
+  ends the pool; at most 8 variants are read.
+- Or map an explicit pool in `data/visual_assets.json`:
+  `categories.<category>.<id>` may be an ARRAY of paths (each must exist —
+  the validator fails on a broken pool entry, same rule as single paths).
+- Blocks pick a variant deterministically from world seed + cell position:
+  the same world always renders the same variety, and the choice is never
+  saved. All variants of a block share identical physics/occlusion.
+- A single `<id>.png` (no suffix) keeps working exactly as before, and ids
+  with no art keep their generated fallback. Variants should share one
+  silhouette; the mining crack mask derives from the id's base texture.
+
 ## Target Sizes
 
 | Category | Size (px) | Notes |

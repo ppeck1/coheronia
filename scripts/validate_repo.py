@@ -193,9 +193,17 @@ asset_root = str(visual_assets.get("asset_root", "art/generated"))
 for va_cat, entries in va_categories.items():
     if entries is not None and not isinstance(entries, dict):
         fail(f"visual_assets.json categories.{va_cat} must be a dict")
-    for va_id, rel_path in (entries or {}).items():
-        if not (ROOT / str(rel_path)).is_file():
-            fail(f"visual_assets.json {va_cat}/{va_id} maps to missing file: {rel_path}")
+    for va_id, entry in (entries or {}).items():
+        # FQ-09V: an entry may be one path or an array of variant paths.
+        if isinstance(entry, list):
+            if not entry:
+                fail(f"visual_assets.json {va_cat}/{va_id} variant pool is empty")
+            paths = entry
+        else:
+            paths = [entry]
+        for rel_path in paths:
+            if not (ROOT / str(rel_path)).is_file():
+                fail(f"visual_assets.json {va_cat}/{va_id} maps to missing file: {rel_path}")
 print("PASS visual assets data")
 
 # FQ-09: item metadata — the icon grids and display-name fallback read this.

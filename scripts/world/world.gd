@@ -18,7 +18,7 @@ var hall_info: Dictionary = {}
 var bush_regrow: Dictionary = {}    # Vector2i -> float seconds until regrowth
 
 var _tilemap: TileMapLayer
-var _source_ids: Dictionary = {}    # block_id -> tileset source id
+var _source_ids: Dictionary = {}    # block_id -> Array of tileset source ids (FQ-09V: one per variant)
 var _lights: Dictionary = {}        # Vector2i -> PointLight2D
 var _light_texture: GradientTexture2D
 var _opaque_masks: Dictionary = {}  # block_id -> BitMap of the tile's opaque pixels
@@ -225,10 +225,19 @@ func _redraw_all() -> void:
 
 
 func _set_tile(cell: Vector2i, block_id: String) -> void:
-	if block_id == "air" or not _source_ids.has(block_id):
+	# _block_textures guarantees at least one source per known block; the
+	# is_empty guard makes that invariant explicit rather than an index crash.
+	if block_id == "air" or (_source_ids.get(block_id, []) as Array).is_empty():
 		_tilemap.erase_cell(cell)
 	else:
-		_tilemap.set_cell(cell, _source_ids[block_id], Vector2i.ZERO)
+		# FQ-09V: blocks with a variant pool pick one deterministically from
+		# world seed + cell position — the same world always renders the same
+		# variety, and nothing about the choice ever enters saves.
+		var sids: Array = _source_ids[block_id]
+		var idx := 0
+		if sids.size() > 1:
+			idx = posmod(hash(Vector3i(cell.x, cell.y, world_seed)), sids.size())
+		_tilemap.set_cell(cell, sids[idx], Vector2i.ZERO)
 	_update_light(cell, block_id)
 
 
@@ -266,25 +275,54 @@ func _build_tileset() -> TileSet:
 	for block_id in BlockRegistry.blocks:
 		if block_id == "air":
 			continue
-		var src := TileSetAtlasSource.new()
-		src.texture = _make_block_texture(block_id, t)
-		src.texture_region_size = Vector2i(t, t)
-		src.create_tile(Vector2i.ZERO)
-		var sid := ts.add_source(src)
-		_source_ids[block_id] = sid
-		var tile_data := src.get_tile_data(Vector2i.ZERO, 0)
-		if BlockRegistry.is_solid(block_id):
-			tile_data.add_collision_polygon(0)
-			tile_data.set_collision_polygon_points(0, 0, square)
-		if BlockRegistry.blocks_light(block_id):
-			var occluder := OccluderPolygon2D.new()
-			occluder.polygon = square
-			if tile_data.has_method("add_occluder_polygon"):
-				tile_data.add_occluder_polygon(0)
-				tile_data.set_occluder_polygon(0, 0, occluder)
-			else:
-				tile_data.set_occluder(0, occluder)
+		# FQ-09V: one atlas source per variant texture (usually just one —
+		# the single-image/fallback path). Every variant of a block carries
+		# identical physics and occlusion, so variety can never change
+		# collision, lighting, or shelter behavior.
+		var sids: Array = []
+		for tex: ImageTexture in _block_textures(block_id, t):
+			var src := TileSetAtlasSource.new()
+			src.texture = tex
+			src.texture_region_size = Vector2i(t, t)
+			src.create_tile(Vector2i.ZERO)
+			sids.append(ts.add_source(src))
+			var tile_data := src.get_tile_data(Vector2i.ZERO, 0)
+			if BlockRegistry.is_solid(block_id):
+				tile_data.add_collision_polygon(0)
+				tile_data.set_collision_polygon_points(0, 0, square)
+			if BlockRegistry.blocks_light(block_id):
+				var occluder := OccluderPolygon2D.new()
+				occluder.polygon = square
+				if tile_data.has_method("add_occluder_polygon"):
+					tile_data.add_occluder_polygon(0)
+					tile_data.set_occluder_polygon(0, 0, occluder)
+				else:
+					tile_data.set_occluder(0, occluder)
+		_source_ids[block_id] = sids
 	return ts
+
+
+## FQ-09V: the ordered textures a block renders with — its variant pool when
+## one exists (each image normalized to tile size), else exactly the single
+## image-or-fallback texture from _make_block_texture, unchanged.
+func _block_textures(block_id: String, t: int) -> Array:
+	var out: Array = []
+	for variant: Texture2D in BlockRegistry.visual_variant_textures("blocks", block_id):
+		out.append(_normalize_art(variant as ImageTexture, t))
+	if out.is_empty():
+		out.append(_make_block_texture(block_id, t))
+	return out
+
+
+## FQ-09V: rebuilds all tile sources from the art currently on disk (variant
+## pools included) and redraws. A smoke/dev hook — gameplay builds the
+## tileset once at _ready, matching the FQ-07 "art loads at world entry"
+## rule. Also drops the crack-overlay opacity masks so they re-derive.
+func rebuild_tileset() -> void:
+	_source_ids.clear()
+	_opaque_masks.clear()
+	_tilemap.tile_set = _build_tileset()
+	_redraw_all()
 
 
 func _make_block_texture(block_id: String, t: int) -> ImageTexture:
@@ -294,11 +332,7 @@ func _make_block_texture(block_id: String, t: int) -> ImageTexture:
 	# stray art dimension can never corrupt the tileset.
 	var art := BlockRegistry.visual_texture("blocks", block_id) as ImageTexture
 	if art != null:
-		var art_img: Image = art.get_image()
-		if art_img.get_width() != t or art_img.get_height() != t:
-			art_img.resize(t, t, Image.INTERPOLATE_NEAREST)
-			return ImageTexture.create_from_image(art_img)
-		return art
+		return _normalize_art(art, t)
 	var color: Color = BLOCK_COLORS.get(block_id, Color.MAGENTA)
 	var img := Image.create(t, t, false, Image.FORMAT_RGBA8)
 	if block_id == "tree_trunk":
@@ -354,6 +388,16 @@ func _make_block_texture(block_id: String, t: int) -> ImageTexture:
 			img.set_pixel(i, t - 1, edge)
 			img.set_pixel(t - 1, i, edge)
 	return ImageTexture.create_from_image(img)
+
+
+## Nearest-neighbor resize guard shared by every block-art path, so a stray
+## art dimension can never corrupt the tileset.
+func _normalize_art(art: ImageTexture, t: int) -> ImageTexture:
+	var art_img: Image = art.get_image()
+	if art_img.get_width() != t or art_img.get_height() != t:
+		art_img.resize(t, t, Image.INTERPOLATE_NEAREST)
+		return ImageTexture.create_from_image(art_img)
+	return art
 
 
 func _make_light_texture() -> GradientTexture2D:

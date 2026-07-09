@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09S run `20260709_coheronia_fq09s_skill_constellations`.
+State: audited against FQ-09V run `20260709_coheronia_fq09v_visual_variants`.
 
 ## Authority Surfaces
 
@@ -13,6 +13,7 @@ State: audited against FQ-09S run `20260709_coheronia_fq09s_skill_constellations
 | Character data | `data/character_data.json` | shell UI, `player.apply_character`, role item grant |
 | Equipment (FQ-03) | `data/equipment.json` | `BlockRegistry` equipment helpers -> `player` gear API, `hud` panel, `game_root` carried-state load, `save_manager` |
 | Visual assets (FQ-07) | `data/visual_assets.json` + `art/generated/<category>/<id>.png` convention | `BlockRegistry.visual_texture` -> `world._make_block_texture` (blocks), `simple_threat._draw` (enemies), `hud` toolbelt/grids (items via `item_icon`); missing images always fall back to generated colors/shapes; loaded via `Image.load_from_file` (no editor import pass needed); explicit json entries validator-fail when broken, convention gaps are INFO-only |
+| Variant pools (FQ-09V) | `<id>_01.png` … convention (consecutive, max 8) or explicit array entries in `data/visual_assets.json` | `BlockRegistry.visual_variant_textures` -> `world._build_tileset` (one atlas source per variant, identical physics/occlusion); `world._set_tile` picks `posmod(hash(Vector3i(cell.x, cell.y, world_seed)), n)` — deterministic per seed+cell, never saved; empty pool = unchanged single-image/fallback path; an explicit array's first entry is the id's canonical single image for `visual_texture` consumers; validator fails broken/empty pool entries |
 | Item metadata (FQ-09) | `data/items.json` | `BlockRegistry.display_name` fallback chain (blocks -> items.json -> id), `item_description` (tooltips), `item_fallback_color` -> `item_icon` swatches for the FQ-09 icon grids; unknown ids get a stable hash-derived hue |
 | Enemies | `data/enemies.json` | `enemy_registry.gd` -> `game_root` spawn paths, `simple_threat` drops |
 | Ancestries | `data/ancestries.json` | `ancestry_registry.gd` -> `player.apply_ancestry_effects`, shell create form |
@@ -305,8 +306,17 @@ migrates with tool tiers and inventory preserved and gear derived from tiers.
 `validate_repo.py` additionally enforces the equipment.json schema (slot list,
 required items, slot_type coherence, tool item tiers).
 
-FQ-09S adds 1 check (`fq09s_constellation_links_match_prereqs`, suite total
-185): the star-map canvas draws exactly one constellation link per
+FQ-09V adds 5 checks (`fq09v_*`, suite total 190) with self-cleaning
+`smoke_tmp_*` temp art: pools resolve through both the `<id>_01/_02` file
+convention and an explicit array entry while a pool-less block reports none;
+variant selection is deterministic (two setups of seed 777 render identical
+dirt variants over a 40-cell sample with at least 2 variants in use); a
+different seed (778) changes the selection somewhere in the sample (nothing
+is stored); removing the pool falls back to exactly one source with the
+generated texture; and the live world state is restored afterwards.
+
+FQ-09S adds 1 check (`fq09s_constellation_links_match_prereqs`, bringing the
+suite to 185 at that point): the star-map canvas draws exactly one constellation link per
 prerequisite pair in the live lane, with the expected count derived from the
 same `perk_lanes()` data the buttons use — presentation cannot invent or
 drop an edge. All six fq06_* checks (states, purchase, prereq/cost gates,
