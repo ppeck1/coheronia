@@ -34,8 +34,8 @@ and outbox packets.
 | FQ-08 | P1 | Done | Block and enemy damage visuals | Makes mining/combat feedback readable before more combat depth arrives. |
 | FQ-09 | P1 | Done | Visual inventory, toolbelt, and village panels | Converts text-heavy UI to image grids with labels and descriptors. |
 | FQ-09R | P0 | Done | Review hardening: unified trees, creation-rule clarity, no new mechanics | Fix current review findings before adding ore/furnace/farming systems. |
-| FQ-09S | P0 | Ready | Skill tree visual treatment pass | Improve the existing skill tree presentation without adding new progression mechanics. |
-| FQ-09V | P1 | Ready after FQ-09S | Visual variant pipeline | Adds deterministic per-id sprite variety without bloating saves or changing mechanics. |
+| FQ-09S | P0 | Done | Skill tree visual treatment pass | Improve the existing skill tree presentation without adding new progression mechanics. |
+| FQ-09V | P1 | Ready | Visual variant pipeline | Adds deterministic per-id sprite variety without bloating saves or changing mechanics. |
 | FQ-09A | P1 | Ready after FQ-09V | Future asset manifest and prompt packs | Gives future art/model agents a concrete asset map before new ore, station, crop, and enemy content expands. |
 | FQ-09M | P1 | Ready after FQ-09A | Lightweight action animation pass | Makes actions readable while preserving existing timing, saves, and mechanics. |
 | FQ-10 | P1 | Ready | More ores and metallurgy data | Expands mining goals, but should stay data-first before full forge balance. |

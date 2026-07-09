@@ -2,7 +2,7 @@
 
 ## Current State
 
-**FQ-09R (review hardening: unified trees, creation-rule clarity) implemented and closed out** (run `20260709_coheronia_fq09r_review_hardening`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 through FQ-08; Godot 4.6.1 stable).
+**FQ-09S (skill tree visual treatment pass) implemented and closed out** (run `20260709_coheronia_fq09s_skill_constellations`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 through FQ-08; Godot 4.6.1 stable).
 
 v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 through FQ-09 followed from `docs/FABLE_TASK_QUEUE.md`.
 
@@ -13,6 +13,12 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - **Town Hall panel**: the stockpile text list became an icon grid; station buttons carry item icons; disabled/crafted states keep the engine dimming plus the existing state text.
 - **`data/items.json` (new)**: display names, descriptions, and swatch colors for non-block item ids (food, drops, forge icons) plus icon colors for block items. `BlockRegistry.display_name` now falls back blocks -> items.json -> id, improving every log/tooltip surface.
 - Keyboard/mouse behavior unchanged: I toggles inventory, hotbar keys 1-5 select, E/T town panel, K skills — all pre-existing bindings and the Esc chain untouched.
+
+## FQ-09S Additions
+
+- **Star-map treatment (presentation only)**: the skill tree panel wears a deep night-sky backdrop with a thin cool border; the node canvas draws a deterministic starfield (fixed seed, ~110 dim pixels), faint constellation link lines between prerequisite nodes (brighter when both ends are owned, soft white toward an available node, near-invisible toward locked), and a small pixel star glyph above each node (a 4-arm crosshair; owned nodes get a larger 8-arm star). Node buttons became dark plaques with state-colored borders and text instead of whole-button modulate.
+- **Nothing mechanical moved**: perk data, point economy, prerequisites, save ownership, K/Esc/click behavior, the `purchase_requested` -> `try_purchase_perk` path, and the inspector text format are byte-identical; `[OWNED]`/`[LOCKED]` markers and `STATE_COLORS` semantics kept. The only wording change is the planned-lanes line ("Planned constellations: …") and the title ("SKILL CONSTELLATIONS — MINER LANE"), neither smoke-asserted.
+- **New hook + check**: `link_count()` exposes how many constellation links the canvas draws; `fq09s_constellation_links_match_prereqs` (suite total 185) proves it equals the live lane's prerequisite-pair count derived from the same data, so presentation can never invent or drop an edge.
 
 ## FQ-09R Additions
 
@@ -90,7 +96,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 184/184 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask) |
+| Automated smoke | PASS 185/185 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S) |
 
 ## Known Risks / Gotchas
 
@@ -113,7 +119,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-09 plus FQ-09R are complete. Next is FQ-09S for the skill tree visual treatment pass, then FQ-09V/FQ-09A/FQ-09M for deterministic visual variants, the future asset roadmap/prompt packs, and lightweight action animation. FQ-10 (more ores and metallurgy data) should wait until those presentation-foundation items are closed or the operator explicitly changes priority.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-09 plus FQ-09R and FQ-09S are complete. Next is FQ-09V (visual variant pipeline), then FQ-09A/FQ-09M for the future asset roadmap/prompt packs and lightweight action animation. FQ-10 (more ores and metallurgy data) should wait until those presentation-foundation items are closed or the operator explicitly changes priority.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

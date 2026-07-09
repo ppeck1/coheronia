@@ -1447,6 +1447,19 @@ func _run() -> void:
 		and "Stone Recovery" in _fq06_info2,
 		"info=%s" % _fq06_info.left(90))
 
+	# (g) FQ-09S: the star-map canvas draws one constellation link per
+	# prerequisite pair in the live lane — derived from the same perk data
+	# the buttons use, so presentation can never invent or drop an edge.
+	var _fq09s_expected_links := 0
+	for _fq09s_lane: Dictionary in root.perk_lanes():
+		if str(_fq09s_lane.get("id", "")) == "miner":
+			for _fq09s_perk: Dictionary in _fq09s_lane.get("perks", []):
+				_fq09s_expected_links += (_fq09s_perk.get("prerequisites", []) as Array).size()
+	_check("fq09s_constellation_links_match_prereqs",
+		_fq09s_expected_links > 0
+		and hud.skill_panel().link_count() == _fq09s_expected_links,
+		"links=%d expected=%d" % [hud.skill_panel().link_count(), _fq09s_expected_links])
+
 	# Restore progression so later sections see the pre-FQ-06 world.
 	root.purchased_perks = _fq06_saved_perks.duplicate()
 	root._apply_purchased_perk_effects()

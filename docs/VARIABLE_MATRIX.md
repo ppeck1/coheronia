@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09R run `20260709_coheronia_fq09r_review_hardening`.
+State: audited against FQ-09S run `20260709_coheronia_fq09s_skill_constellations`.
 
 ## Authority Surfaces
 
@@ -192,7 +192,7 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 | `player.perk_mine_speed_mult` | float | `game_root._apply_purchased_perk_effects` -> `player.apply_perk_effects` | live effect_key `mining_speed` (Miner lane); multiplies `effective_mine_speed` |
 | `player.perk_attunement_bonus` | float | same | live effect_key `attunement_bonus`; the FQ-05 join point inside `max_attunement()` (no node carries it yet) |
 | planning effect keys | data-only | `data/progression/perks.json` | detect_ore_range, cave_safety, and all non-miner lane keys stay inert until their systems ship |
-| skill tree panel | UI | `scripts/ui/skill_tree_panel.gd` (K, `toggle_skills`) | scrollable node canvas from data positions; locked/available/purchased colors + [OWNED]/[LOCKED] markers; inspector + learn button; joins the Esc close chain ahead of inventory |
+| skill tree panel | UI | `scripts/ui/skill_tree_panel.gd` (K, `toggle_skills`) | scrollable node canvas from data positions; locked/available/purchased colors + [OWNED]/[LOCKED] markers; inspector + learn button; joins the Esc close chain ahead of inventory. FQ-09S: night-sky backdrop, deterministic starfield, constellation link lines per prerequisite pair (`link_count()` hook), star glyphs, state-colored plaques — presentation only, inspector format and purchase path unchanged |
 
 ## v0.5 Progression Variables
 
@@ -304,6 +304,13 @@ slot with (empty) placeholders; and a pre-FQ-03 character (no equipment key)
 migrates with tool tiers and inventory preserved and gear derived from tiers.
 `validate_repo.py` additionally enforces the equipment.json schema (slot list,
 required items, slot_type coherence, tool item tiers).
+
+FQ-09S adds 1 check (`fq09s_constellation_links_match_prereqs`, suite total
+185): the star-map canvas draws exactly one constellation link per
+prerequisite pair in the live lane, with the expected count derived from the
+same `perk_lanes()` data the buttons use — presentation cannot invent or
+drop an edge. All six fq06_* checks (states, purchase, prereq/cost gates,
+persistence, inspection text) pass unchanged against the restyled panel.
 
 A post-FQ-09R hardening run adds 1 check (`fq08_crack_mask_inside_sprite`,
 suite total 184): `world.block_opaque_mask` is fully opaque for stone,
