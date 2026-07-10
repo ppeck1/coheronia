@@ -1,0 +1,47 @@
+{
+  "schema": "m8str0-placeholder-v1",
+  "title": "Coheronia Adaptive Suite",
+  "status": "deterministic Codex placeholder render; replace with M8str0-authored performance after operator listening approval",
+  "bpm": 72,
+  "meter": "4/4",
+  "bars": 16,
+  "sample_rate_hz": 48000,
+  "loop_samples": 2560000,
+  "key_family": "D Dorian / D-centered pentatonic",
+  "motif_contour": [
+    "grounded D",
+    "small lift",
+    "held support",
+    "controlled fourth-like span",
+    "open return"
+  ],
+  "checkpoints": {
+    "bar_1": 0,
+    "bar_5": 640000,
+    "bar_9": 1280000,
+    "bar_13": 1920000,
+    "return": 2560000
+  },
+  "contexts": [
+    "surface_day",
+    "surface_night",
+    "underground",
+    "crisis"
+  ],
+  "stems": [
+    "foundation",
+    "hearth",
+    "motion",
+    "pressure",
+    "attunement",
+    "fracture"
+  ],
+  "stingers": [
+    "dawn",
+    "nightfall",
+    "raid_warning",
+    "attunement",
+    "base_advance"
+  ],
+  "operator_approval": "pending by-ear review; mechanical validation is not final approval"
+}
