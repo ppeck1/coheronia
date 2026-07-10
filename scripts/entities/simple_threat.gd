@@ -10,6 +10,8 @@ signal died
 const SPEED := 38.0
 const GRAVITY := 820.0
 const JUMP_VELOCITY := -240.0
+# FQ-09M: self-freeing action effects (presentation only, never saved).
+const SimpleThreatFx := preload("res://scripts/fx/action_fx.gd")
 const PLAYER_DAMAGE := 8.0
 const SEVERITY := 10.0
 
@@ -76,7 +78,13 @@ func _physics_process(delta: float) -> void:
 
 func take_hit(amount: int) -> void:
 	hp -= amount
+	# FQ-09M: a spark on every landed hit; dust when the threat goes down.
+	# Presentation only — drops, hp, and death flow are untouched.
+	if is_inside_tree():
+		SimpleThreatFx.spawn(get_parent(), "hit_spark", global_position)
 	if hp <= 0:
+		if is_inside_tree():
+			SimpleThreatFx.spawn(get_parent(), "dust_puff", global_position)
 		_roll_drops()
 		died.emit()
 		queue_free()

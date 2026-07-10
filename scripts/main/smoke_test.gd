@@ -1982,6 +1982,108 @@ func _run() -> void:
 	root.storm_active = _fq09w_storm_was
 	_check("fq09w_world_restored", root.load_game())
 
+	# --- FQ-09M: lightweight action animation ---
+	# Presentation only: state hooks are asserted directly, the fx nodes are
+	# transient "action_fx" group members that free themselves, and every
+	# gameplay number is pinned by the pre-existing checks (mining frames,
+	# drops, damage math, saves) which all still run after this section.
+
+	# (a) the tool swing tracks mining state and resets with it.
+	var _fq09m_swing_cell: Variant = _find_block(world, world.hall_info["center_cell"], "stone")
+	var _fq09m_cell: Variant = _find_block(world, world.hall_info["center_cell"], "dirt")
+	var _fq09m_swing_ok := false
+	var _fq09m_detail := "no stone swing fixture found"
+	if _fq09m_swing_cell != null:
+		player.global_position = world.cell_center(_fq09m_swing_cell) + Vector2(0, -32.0)
+		player._reset_mining()
+		var _fq09m_idle: int = player.swing_phase()
+		player.process_mining(_fq09m_swing_cell, 0.0)
+		var _fq09m_active: int = player.swing_phase()
+		player.process_mining(_fq09m_swing_cell, minf(player.mine_required * 0.5, 0.34))
+		var _fq09m_mid: int = player.swing_phase()
+		player._reset_mining()
+		_fq09m_swing_ok = _fq09m_idle == -1 and _fq09m_active >= 0 and _fq09m_mid >= 0 \
+			and _fq09m_mid != _fq09m_active and player.swing_phase() == -1
+		_fq09m_detail = "idle=%d active=%d mid=%d after_reset=%d" % [
+			_fq09m_idle, _fq09m_active, _fq09m_mid, player.swing_phase()]
+	_check("fq09m_swing_tracks_mining", _fq09m_swing_ok, _fq09m_detail)
+
+	# (b) placing a block spawns exactly one placement pulse.
+	var _fq09m_placed := false
+	var _fq09m_after_mine := 0
+	if _fq09m_cell != null:
+		await _mine_cell(world, player, _fq09m_cell)
+		_fq09m_after_mine = get_tree().get_nodes_in_group("action_fx").size()
+		_fq09m_placed = player.try_place(_fq09m_cell, "dirt")
+	_check("fq09m_place_pulse_spawns",
+		_fq09m_cell != null and _fq09m_placed
+		and get_tree().get_nodes_in_group("action_fx").size() == _fq09m_after_mine + 1,
+		"cell=%s placed=%s fx %d -> %d" % [str(_fq09m_cell), str(_fq09m_placed),
+			_fq09m_after_mine, get_tree().get_nodes_in_group("action_fx").size()])
+
+	# (c) the attunement cast spawns its ring at the cast moment.
+	player.attunement = player.max_attunement()
+	player._pulse_cooldown = 0.0
+	var _fq09m_fx0: int = get_tree().get_nodes_in_group("action_fx").size()
+	var _fq09m_fired: bool = player._try_attune_pulse()
+	_check("fq09m_cast_ring_on_pulse",
+		_fq09m_fired
+		and get_tree().get_nodes_in_group("action_fx").size() == _fq09m_fx0 + 1,
+		"fired=%s" % str(_fq09m_fired))
+
+	# (d) a landed hit sparks; a collapse adds dust at fall and respawn.
+	player.health = player.max_health
+	player._hurt_cooldown = 0.0
+	var _fq09m_fx1: int = get_tree().get_nodes_in_group("action_fx").size()
+	player.take_damage(5.0)
+	var _fq09m_after_hit: int = get_tree().get_nodes_in_group("action_fx").size()
+	player._hurt_cooldown = 0.0
+	player.take_damage(9999.0)
+	_check("fq09m_hurt_and_collapse_fx",
+		_fq09m_after_hit == _fq09m_fx1 + 1
+		and get_tree().get_nodes_in_group("action_fx").size() >= _fq09m_after_hit + 3,
+		"hit fx %d -> %d, after collapse %d" % [_fq09m_fx1, _fq09m_after_hit,
+			get_tree().get_nodes_in_group("action_fx").size()])
+
+	# (e) enemy hits spark too (hp/drops behavior stays pinned by fq08).
+	for _fq09m_t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_fq09m_t):
+			_fq09m_t.queue_free()
+	await get_tree().process_frame
+	var _fq09m_slime: Node = root.spawn_enemy_for_test("surface_slime")
+	var _fq09m_fx2: int = get_tree().get_nodes_in_group("action_fx").size()
+	if _fq09m_slime != null:
+		_fq09m_slime.hp = 3
+		_fq09m_slime.max_hp = 3
+		_fq09m_slime.take_hit(1)
+	_check("fq09m_enemy_hit_spark",
+		_fq09m_slime != null
+		and get_tree().get_nodes_in_group("action_fx").size() == _fq09m_fx2 + 1,
+		"spawned=%s fx %d -> %d" % [str(_fq09m_slime != null), _fq09m_fx2,
+			get_tree().get_nodes_in_group("action_fx").size()])
+	if is_instance_valid(_fq09m_slime):
+		_fq09m_slime.queue_free()
+	await get_tree().process_frame
+
+	# (f) a successful hand craft fires the confirmation burst (the forge
+	# handlers share the same _craft_confirm_fx path).
+	player.inventory.from_dict({"wood": 4, "stone": 4})
+	player.inventory_changed.emit()
+	var _fq09m_fx3: int = get_tree().get_nodes_in_group("action_fx").size()
+	var _fq09m_crafted: bool = player.craft("craft_torch")
+	_check("fq09m_craft_confirmation",
+		_fq09m_crafted
+		and get_tree().get_nodes_in_group("action_fx").size() == _fq09m_fx3 + 1,
+		"crafted=%s" % str(_fq09m_crafted))
+
+	# (g) every effect self-frees within its lifetime — transient by
+	# construction, so nothing can leak into scene state or saves.
+	for _fq09m_w in range(50):
+		await get_tree().process_frame
+	_check("fq09m_fx_transient",
+		get_tree().get_nodes_in_group("action_fx").is_empty(),
+		"remaining=%d" % get_tree().get_nodes_in_group("action_fx").size())
+
 	# --- FQ-08: block and enemy damage visuals ---
 
 	var _fq08_stone: Variant = _find_block(world, world.hall_info["center_cell"], "stone")

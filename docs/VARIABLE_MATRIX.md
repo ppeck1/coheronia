@@ -1,7 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09U0 run `20260710_coheronia_fq09u0_music_planning`
-(planning-only increment; runtime surfaces unchanged from FQ-09W).
+State: audited against FQ-09M run `20260710_coheronia_fq09m_action_fx`.
 
 ## Authority Surfaces
 
@@ -27,6 +26,8 @@ State: audited against FQ-09U0 run `20260710_coheronia_fq09u0_music_planning`
 | Opening cinematic imagery (FQ-09C) | `scripts/shell/prologue_canvas.gd` `build_commands(scene, tick)` — pure deterministic 640x360 plot at 10 Hz with integer-zoom camera cuts; no image files | SubViewport display (2x nearest), smoke fingerprints |
 | Opening puppet acting (FQ-09C) | `scripts/shell/prologue_puppets.gd` — static articulated-figure renderer + keyframe tracks (angles quantized to 5°, pixels snapped) | `prologue_canvas.gd` scene functions |
 | Opening cel-shot hook (FQ-09C) | `BlockRegistry.visual_variant_textures("opening", scene_id)` — FQ-09V `<id>_01.png` convention or explicit array in `data/visual_assets.json`; empty pool = plotted fallback | `prologue.gd` (frames at 8 fps in place of the plotted shot) |
+| Action effects (FQ-09M) | `scripts/fx/action_fx.gd` — five deterministic self-freeing kinds, stepped 10 Hz, "action_fx" group, `spawn(parent, kind, at[, tint])` | `player.gd` (place/cast/hurt/respawn), `simple_threat.gd` (hit/death), `game_root._craft_confirm_fx` (forges + hand craft); transient, never saved |
+| Tool swing (FQ-09M) | `player.swing_phase()` — 0/1/2 six pose-steps/s from mining progress, -1 idle; drawn in `player._draw` with pick/axe glyph | presentation only; mining timing/drops pinned by unchanged baselines |
 | Scenic backdrop (FQ-09W) | `scripts/world/world_backdrop.gd` — code-drawn sky/far/mid planes, stepped parallax, `light_mask 0`; optional `art/generated/backgrounds/` hooks (`surface_sky`, `surface_far_terrain`, `surface_mid_silhouette`) | world scene (z -10); cosmetic only, never saved/collides |
 | Natural backing walls (FQ-09W) | derived each `world.setup` from pristine `gen.surface` + `generation.dirt_depth` — `dirt_wall` band then `stone_wall`; tileset has 0 physics / 0 occlusion layers; optional `art/generated/back_walls/` tiles else darkened block textures | `BackgroundWalls` TileMapLayer (z -2); `world.wall_at(cell)` visual-only query; never in cells/deltas/saves |
 | Column skylight + cave ambient (FQ-09W) | `world.sky_line(x)` (first solid y in LIVE column, cached, invalidated per column on block change) -> `game_root.ambient_darkness_factor()` / `ambient_target_color()` (`CAVE_TINT`, `CAVE_FADE_CELLS` 6) | the `CanvasModulate` tint lerp in `_advance_time` and the instant set in `apply_time_state`; documented approximation — player-column roof-awareness, no lateral bleed |
@@ -266,6 +267,22 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-09M adds 7 checks (`fq09m_*`, suite total 217) covering: the swing phase
+tracks mining state (idle -1, active >= 0, back to -1 on reset); placing a
+block spawns exactly one placement pulse; the attunement cast spawns its
+ring at the fire moment; a landed player hit sparks and a collapse adds
+fall-and-respawn dust; enemy hits spark (hp/drops behavior stays pinned by
+the fq08 checks); a successful hand craft fires the shared confirmation
+burst (the four forge handlers use the same `_craft_confirm_fx` path); and
+every effect self-frees within its lifetime, so the "action_fx" group
+returns to empty — transient by construction, nothing can reach saves.
+`validate_repo.py` additionally requires `scripts/fx/action_fx.gd`.
+
+Separately in the same run, the Codex lane's `scripts/audio/verify_music_assets.py`
+mechanically verified the FQ-09U asset suite (loop sample counts, stinger
+lengths, stem-combination headroom); it is Codex-lane tooling, not part of
+the Godot smoke.
 
 FQ-09W adds 7 checks (`fq09w_*`, suite total 210) covering: the natural wall
 map is identical across two same-seed setups with the dirt band above stone,

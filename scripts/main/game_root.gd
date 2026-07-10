@@ -3,6 +3,7 @@ extends Node2D
 ## cycle and the night pressure event, and handles save/load/interact input.
 
 const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
+const ActionFx := preload("res://scripts/fx/action_fx.gd")   # FQ-09M confirmations
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
 const ProgressionRegistryClass := preload("res://scripts/data/progression_registry.gd")
 const AncestryRegistryClass := preload("res://scripts/data/ancestry_registry.gd")
@@ -715,6 +716,7 @@ func _on_forge_requested() -> void:
 	if town_hall.forge_pick(player):
 		log_event("Forged a sturdier pick (tier 2). Ore is now mineable, and mining is faster.")
 		award_xp("tool_crafted")
+		_craft_confirm_fx(town_hall.global_position)
 	else:
 		log_event("Cannot forge pick (already forged, or stockpile lacks 3 wood + 5 stone).")
 	hud.refresh_town_panel()
@@ -724,6 +726,7 @@ func _on_forge_axe_requested() -> void:
 	if town_hall.forge_axe(player):
 		log_event("Crafted an axe (tier 1). Wood and plants harvest faster.")
 		award_xp("tool_crafted")
+		_craft_confirm_fx(town_hall.global_position)
 	else:
 		log_event("Cannot craft axe (already crafted, or stockpile lacks 4 wood + 2 stone).")
 	hud.refresh_town_panel()
@@ -733,6 +736,7 @@ func _on_forge_sword_requested() -> void:
 	if town_hall.forge_sword(player):
 		log_event("Forged a crude sword. Your strikes hit much harder.")
 		award_xp("tool_crafted")
+		_craft_confirm_fx(town_hall.global_position)
 	else:
 		log_event("Cannot forge sword (already armed, or stockpile lacks 2 wood + 3 stone).")
 	hud.refresh_town_panel()
@@ -742,6 +746,7 @@ func _on_forge_armor_requested() -> void:
 	if town_hall.forge_armor(player):
 		log_event("Forged a crude armor set. Incoming blows are softened.")
 		award_xp("tool_crafted")
+		_craft_confirm_fx(town_hall.global_position)
 	else:
 		log_event("Cannot forge armor (already armored, or stockpile lacks 6 wood + 4 stone).")
 	hud.refresh_town_panel()
@@ -770,6 +775,13 @@ func _on_player_placed(_block_id: String) -> void:
 func _on_player_crafted(recipe_id: String) -> void:
 	log_event("Crafted %s." % BlockRegistry.get_recipe(recipe_id).get("display_name", recipe_id))
 	award_xp("tool_crafted")
+	_craft_confirm_fx(player.global_position)
+
+
+## FQ-09M: one confirmation burst per successful craft/forge — at the hall
+## for station work, at the player for hand crafting. Presentation only.
+func _craft_confirm_fx(at: Vector2) -> void:
+	ActionFx.spawn(world, "forge_spark", at + Vector2(0, -20))
 
 
 func log_event(message: String) -> void:

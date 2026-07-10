@@ -14,6 +14,8 @@ const SPEED := 140.0
 const JUMP_VELOCITY := -300.0
 const GRAVITY := 820.0
 const REACH_TILES := 5.0
+# FQ-09M: self-freeing action effects (presentation only, never saved).
+const ActionFx := preload("res://scripts/fx/action_fx.gd")
 
 ## FQ-01 defaults; overridden by data/character_data.json player_defaults
 ## (see _load_player_defaults). Kept as fallback if keys are missing.
@@ -345,6 +347,7 @@ func try_place(cell: Vector2i, block_id: String) -> bool:
 	inventory.remove(block_id)
 	inventory_changed.emit()
 	placed.emit(block_id)
+	ActionFx.spawn(world, "place_pulse", world.cell_center(cell))
 	return true
 
 
@@ -458,6 +461,10 @@ func _try_attune_pulse() -> bool:
 		add_child(_pulse_light)
 	_pulse_light.enabled = true
 	_pulse_light.energy = 1.5
+	# FQ-09M: a stepped star-white ring makes the cast moment itself readable
+	# (the light fade was previously the only cue).
+	if world != null:
+		ActionFx.spawn(world, "cast_ring", global_position)
 	attunement_changed.emit(attunement, max_attunement())
 	player_event.emit("You release a soft pulse of light.")
 	return true
@@ -566,6 +573,9 @@ func take_damage(amount: float) -> void:
 	health = maxf(0.0, health - mitigated)
 	_hurt_flash_timer = 0.2
 	modulate = Color(1.0, 0.35, 0.35)
+	# FQ-09M: a brief spark burst joins the tint flash on every landed hit.
+	if world != null:
+		ActionFx.spawn(world, "hit_spark", global_position, Color(1.0, 0.45, 0.35))
 	health_changed.emit(health, max_health)
 	_check_low_health()
 	if health <= 0.0:
@@ -597,8 +607,11 @@ func respawn(supplies_lost: bool = false) -> void:
 	health_changed.emit(health, max_health)
 	_check_low_health()
 	if world != null and not world.hall_info.is_empty():
+		# FQ-09M: dust where the player fell and where they come to.
+		ActionFx.spawn(world, "dust_puff", global_position)
 		global_position = world.cell_center(world.hall_info["center_cell"]) + Vector2(-48, -24)
 		velocity = Vector2.ZERO
+		ActionFx.spawn(world, "dust_puff", global_position)
 	_regen_active = false
 	var _msg := "You collapsed and awoke near the Town Hall."
 	if supplies_lost:
@@ -650,6 +663,16 @@ func _reset_mining() -> void:
 	mine_required = 0.0
 
 
+## FQ-09M: the mining tool arc's pose — 0/1/2 (raise, mid, strike) cycling
+## six pose-steps per second while a mining target is active, -1 otherwise.
+## Pure presentation state derived from mining progress; never persisted and
+## never fed back into mining timing.
+func swing_phase() -> int:
+	if mine_required <= 0.0:
+		return -1
+	return int(mine_progress * 6.0) % 3
+
+
 func _in_reach(cell: Vector2i) -> bool:
 	var t: float = float(world.tile_size())
 	return global_position.distance_to(world.cell_center(cell)) <= (REACH_TILES + reach_bonus) * t
@@ -677,6 +700,29 @@ func _draw() -> void:
 	# Placeholder body in the character's appearance colors.
 	draw_rect(Rect2(-6, -14, 12, 28), body_color)
 	draw_rect(Rect2(-4, -12, 8, 6), trim_color)
+	# FQ-09M: stepped tool swing toward the mining target — an arm plus a
+	# pick or axe glyph cycling raise/mid/strike with mining progress.
+	# Presentation only: reads mining state, never writes it.
+	if world != null and mine_required > 0.0:
+		var swing_t: float = float(world.tile_size())
+		var target_center := to_local(Vector2(mine_target) * swing_t
+			+ Vector2.ONE * (swing_t / 2.0))
+		var side := 1.0 if target_center.x >= 0.0 else -1.0
+		var phase := swing_phase()
+		var hand_offsets := [Vector2(2, -14), Vector2(9, -7), Vector2(12, 0)]
+		var shoulder := Vector2(side * 5.0, -8.0)
+		var swing_hand: Vector2 = shoulder + Vector2(
+			side * (hand_offsets[phase] as Vector2).x, (hand_offsets[phase] as Vector2).y)
+		draw_line(shoulder, swing_hand, body_color.darkened(0.25), 2.0)
+		var tool_dir := (swing_hand - shoulder).normalized()
+		var tip := swing_hand + tool_dir * 6.0
+		draw_line(swing_hand, tip, Color(0.45, 0.30, 0.15), 2.0)
+		if axe_tier > 0 and BlockRegistry.preferred_tool(world.block_at(mine_target)) == "axe":
+			draw_rect(Rect2(tip - Vector2(2, 2), Vector2(4, 4)), Color(0.75, 0.78, 0.82))
+		else:
+			var head_side := Vector2(-tool_dir.y, tool_dir.x)
+			draw_line(tip - head_side * 3.0, tip + head_side * 3.0,
+				Color(0.75, 0.78, 0.82), 2.0)
 	# Mining target highlight with progress fill at the cursor.
 	if world != null and Input.is_action_pressed("mine") and mine_required > 0.0:
 		var t: float = float(world.tile_size())

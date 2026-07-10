@@ -2,11 +2,64 @@
 
 ## Current State
 
-**FQ-09U0 (adaptive music planning and templates) implemented and closed
-out** (run `20260710_coheronia_fq09u0_music_planning`; lineage: v0.1 oneshot
--> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
+**FQ-09M (lightweight action animation) implemented and closed out, with
+the Codex lane's adaptive-score assets taken into the repo in the same run**
+(run `20260710_coheronia_fq09m_action_fx`; lineage: v0.1 oneshot -> input
+repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
 `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` ->
-FQ-00 through FQ-09V -> FQ-09C -> FQ-09W -> FQ-09A; Godot 4.6.1 stable).
+FQ-00 through FQ-09V -> FQ-09C -> FQ-09W -> FQ-09A -> FQ-09U0;
+Godot 4.6.1 stable).
+
+## FQ-09M Additions
+
+- **`scripts/fx/action_fx.gd`** (new, validator-required): one reusable
+  self-freeing effect node — five deterministic kinds (place_pulse,
+  hit_spark, cast_ring, dust_puff, forge_spark) drawn at stepped 10 Hz
+  visual updates with no randomness, all under 0.4 s, members of the
+  "action_fx" group, spawned via a null-safe static
+  `ActionFx.spawn(parent, kind, at[, tint])`. Presentation only: effects
+  free themselves, never enter saves, and never touch gameplay numbers.
+- **Tool swing**: `player._draw` gains a stepped swing arc while a mining
+  target is active — arm plus pick/axe glyph (axe when the target is
+  axe-preferred and an axe is carried) cycling raise/mid/strike six
+  pose-steps per second toward the target side. `swing_phase()` is the
+  smoke hook (-1 idle). Reads mining state, never writes it — the mining
+  frame baselines (dirt 21 / trunk 33 / stone 66 / axe 24) pass unchanged.
+- **Wiring**: placement pulse at the placed cell on `try_place` success;
+  star-white cast ring at the attunement fire moment (joining the existing
+  light fade); hit sparks on every landed player/enemy hit (plus the
+  existing tint flash and hurt bar); dust puffs where the player falls and
+  respawns and where an enemy dies; one `game_root._craft_confirm_fx`
+  choke point for all four hall forges (burst at the hall) and hand
+  crafting via `_on_player_crafted` (burst at the player).
+- **Smoke** (7 `fq09m_*` checks, suite total 217): swing tracks mining
+  state and resets with it; placing spawns exactly one pulse; the cast
+  ring appears at fire; a landed hit sparks and a collapse adds fall+
+  respawn dust; enemy hits spark; a successful hand craft fires the
+  confirmation; and every effect self-frees within its lifetime
+  (transient by construction). All pre-existing timing/drop/damage/save
+  checks run after the section and stay green.
+
+## FQ-09U Asset Intake (Codex lane, same run — runtime still not wired)
+
+- The Codex lane rendered the full adaptive suite into the repo per the
+  FQ-09U0 contract: 4 context loops (`audio/music/rendered/contexts/`),
+  6 phase-locked stems (`.../stems/`), 5 stingers (`.../stingers/`), the
+  source patch `audio/music/source_m8str0/coheronia_adaptive_suite.m8patch`,
+  a repeatable renderer (`scripts/audio/render_adaptive_score.py`) and a
+  mechanical verifier (`scripts/audio/verify_music_assets.py`).
+- Codex's verification: every loop decodes to exactly 2,560,000 samples at
+  48 kHz (= 16 bars at 72 BPM), stingers under 8 s, all 63 stem
+  combinations below full scale; validator + capsule doctor + diff check
+  green with the assets present.
+- **Boundaries preserved**: runtime adaptive playback is NOT wired —
+  nothing in the game reads these files until FQ-09U1. The spec's human
+  gate stands: **operator listening approval is pending** (the patch marks
+  it explicitly). FQ-09U1's remaining gates: Godot 4.6 audio spike
+  evidence + that listening approval.
+- Operator-side `.rar` packaging archives found next to the OGGs were
+  ignore-listed (`audio/**/*.rar`), not committed — only OGGs, the patch,
+  and tooling are tracked.
 
 ## FQ-09U0 Additions (planning only — no runtime audio code)
 
@@ -300,7 +353,8 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks and the FQ-09W backgrounds/back_walls categories, dirs, and required backdrop script |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 210/210 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 203 FQ-09C -> 210 FQ-09W) |
+| Automated smoke | PASS 217/217 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 203 FQ-09C -> 210 FQ-09W -> 217 FQ-09M) |
+| Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval PENDING |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls) |
 
 ## Known Risks / Gotchas
@@ -336,13 +390,12 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
 increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, FQ-09W,
-FQ-09A, and the FQ-09U0 music planning pass are complete. The queue head is
-FQ-09M (lightweight action animation pass), then FQ-09U1 -> U2 -> U3
-(adaptive music, gated on the Codex Godot spike and M8-AUDIO-01 review),
-then FQ-10. Two lanes can run in parallel with any increment: art
-production (`docs/ASSET_ROADMAP.md`) and music authoring/tooling
-(`audio/source_templates/MUSIC_TEMPLATE.md` — Codex in m8str0, operator
-approving by ear).
+FQ-09A, FQ-09U0, and FQ-09M are complete. The queue head is FQ-09U1
+(adaptive context music foundation): the asset suite is rendered and
+mechanically verified in-repo; the two remaining gates are the Godot 4.6
+audio spike evidence and the operator's listening approval of the suite —
+implementation should not start before both. Then FQ-09U2 -> U3 -> FQ-10.
+Art production continues in parallel via `docs/ASSET_ROADMAP.md`.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

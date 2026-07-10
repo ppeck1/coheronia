@@ -18,3 +18,8 @@ Thumbs.db
 
 # FQ-07: smoke-test temp art (written and deleted at runtime; never real assets)
 art/generated/*/smoke_tmp_*.png
+
+# FQ-09U: operator-side packaging archives never enter the repo — only the
+# rendered OGGs, sources, and tooling are tracked.
+audio/**/*.rar
+audio/**/*.zip

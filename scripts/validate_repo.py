@@ -36,6 +36,7 @@ REQUIRED_FILES = [
     "scripts/shell/prologue_canvas.gd",
     "scripts/shell/prologue_puppets.gd",
     "scripts/world/world_backdrop.gd",
+    "scripts/fx/action_fx.gd",
     "data/enemies.json",
     "data/ancestries.json",
     "data/progression/player_xp.json",

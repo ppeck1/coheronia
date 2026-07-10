@@ -39,8 +39,8 @@ and outbox packets.
 | FQ-09C | P0 | Done | Canon lock, art-direction bible, and opening cinematic | Establishes what the game means, how it looks, and `By Paul Peck` before further asset or feature work. |
 | FQ-09W | P0 | Done | Scene backdrops, underground darkness, and backing-wall foundation | Fixes global daylight underground and creates fallback-safe visual planes before final environment art. |
 | FQ-09A | P1 | Done | Future asset manifest and prompt packs | Gives future art/model agents a concrete asset map after the opening/background runtime contracts are real. |
-| FQ-09M | P1 | Ready - next | Lightweight action animation pass | Makes actions readable while preserving existing timing, saves, and mechanics. |
-| FQ-09U1 | P1 | Ready after FQ-09M (operator-approved 2026-07-10; gated on Godot audio spike + assets) | Adaptive context music foundation | Seamless bar-quantized day/night/underground/crisis music from existing game truth; the hybrid adaptive score's horizontal layer. |
+| FQ-09M | P1 | Done | Lightweight action animation pass | Makes actions readable while preserving existing timing, saves, and mechanics. |
+| FQ-09U1 | P1 | Ready - next (assets rendered + mechanically verified by the Codex lane 2026-07-10; remaining gates: Godot audio spike evidence + operator listening approval) | Adaptive context music foundation | Seamless bar-quantized day/night/underground/crisis music from existing game truth; the hybrid adaptive score's horizontal layer. |
 | FQ-09U2 | P1 | Ready after FQ-09U1 | Settlement-responsive music layering | Synchronized stems weighted by pressure/Coherence/Resilience/Attunement; the vertical layer. |
 | FQ-09U3 | P2 | Ready after FQ-09U2 | Music stingers, ducking, and audio settings | Event one-shots over brief ducking, volume settings, pause behavior, final asset validation. |
 | FQ-10 | P1 | Ready after FQ-09U3 | More ores and metallurgy data | Expands mining goals after the presentation-foundation sequence closes. |
@@ -680,10 +680,22 @@ Acceptance:
   dimensions, transparency, fallback, layering, and no-baked-text rules.
 - Validator remains green; any new manifest schema is validated if introduced.
 
-## FQ-09M - Lightweight Action Animation Pass
+## FQ-09M - Lightweight Action Animation Pass (Done)
 
 Goal: add readable action motion/feedback while preserving the current gameplay
 timing, save ownership, and mechanics.
+
+Shipped: one reusable self-freeing effect node (`scripts/fx/action_fx.gd` —
+five deterministic stepped-10 Hz kinds in the "action_fx" group, all under
+0.4 s) plus a stepped tool-swing arc in `player._draw` (pick/axe glyph
+cycling raise/mid/strike with mining progress toward the target side;
+`swing_phase()` hook, -1 when idle). Wired: placement pulse on
+`try_place` success, cast ring at the attunement fire moment, hit sparks on
+player and enemy landed hits, dust at collapse fall/respawn and enemy death,
+and one `_craft_confirm_fx` choke point for all four hall forges (at the
+hall) and hand crafting (at the player). Zero timing/drops/damage/save
+changes — all pre-existing baselines pass unchanged. 7 `fq09m_*` smoke
+checks (suite 217).
 
 Scope:
 
@@ -948,7 +960,10 @@ ahead of FQ-00 through FQ-03 unless the operator explicitly changes priority.
 You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 
 Read README.md, docs/HANDOFF.md, docs/VARIABLE_MATRIX.md, and
-docs/FABLE_TASK_QUEUE.md. FQ-09C, FQ-09W, and FQ-09A are done. The queue
-head is FQ-09M (lightweight action animation pass). Take only that item.
-Do not begin FQ-10 or later feature work.
+docs/FABLE_TASK_QUEUE.md. FQ-09C, FQ-09W, FQ-09A, and FQ-09M are done. The
+queue head is FQ-09U1 (adaptive context music foundation) per
+docs/WORK_ORDER_FQ_09U_ADAPTIVE_MUSIC.md: the Codex lane has rendered and
+mechanically verified the full asset suite; before implementing, confirm
+the two remaining gates — Godot 4.6 audio spike evidence and operator
+listening approval of the suite. Take only that item.
 ```
