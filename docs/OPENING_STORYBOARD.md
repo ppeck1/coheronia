@@ -7,8 +7,11 @@ Status: narrative and presentation authority for the FQ-09C opening cinematic.
 Create a founding-myth opening cinematic before the title menu in the style
 of an early-1990s DOS game introduction: **Coheronia DOS Vector Cinematic**.
 Rasterized monoline contours, stepped plotting, hard indexed color, sparse
-deliberate motion, and engine-rendered text. The screen should feel as though
-a period computer is constructing the world line by line.
+deliberate motion, and engine-rendered text — plus a character layer of
+articulated filled-polygon puppets (the early-90s cinematic-platformer
+school) that walk in, build, react, kneel, and work. The screen should feel
+as though a period computer is constructing the world line by line while its
+people act inside it.
 
 The opening teaches one structure and nothing more:
 
@@ -62,12 +65,12 @@ stepped pixels or sparse concentric outlines.
 |---|---|---|---:|---|---|
 | 1 | `opening_01_first_star` | Orientation | 4.0s | Before the first hall, the world was held together by names, roads, oaths, and light. | Fade from black; broken land contour plots itself; one star appears and pulses exactly once |
 | 2 | `opening_02_unraveling_roads` | Deviation | 5.0s | Then the old compacts failed. Roads forgot their ends. Borders became dust. | Plotted map assembles, then unravels: road segments vanish discretely, the river detaches in steps, border dashes fail, towers become broken forms; slow stepped pan |
-| 3 | `opening_03_scattered_peoples` | Propagation | 6.0s | The scattered peoples carried what they could: craft, seed, iron, memory, anger, and hope. | Human, Dwarf, Elf, Orc, and Goblin silhouettes assemble around a weak fire; 3-frame fire cycle, staggered pose shifts, one ridge of restrained parallax |
-| 4 | `opening_04_darkness_measures_light` | Instability | 5.0s | Hunger tested every storehouse. Storms tested every roof. The dark measured every light. | Sparse frontier line and empty cave mouth; torch points flicker by palette cycle; eyes appear for two stepped frames; storm contours cross in 6px steps; one plotted lightning fork |
-| 5 | `opening_05_first_hall_raised` | Collapse Edge | 6.0s | So they raised a hall—not a throne, not a temple, but a promise with a roof. | The inversion of scene 2: foundation stones step in, posts and beams plot upward, builders work in two-pose loops, the ridge beam locks with a white flash, dawn steps up in hard bands, the camera rises in 2px steps |
-| 6 | `opening_06_attunement_pulse` | Insight | 5.0s | Where shelter, food, work, and courage aligned, the world answered. | A star-white front expands from the hall in quantized radius steps, re-illuminating soil, roots, trees, and cave contours segment by segment before they settle; a small constellation joins link by link |
-| 7 | `opening_07_civilization_pushes_back` | Reintegration | 6.0s | Dig. Build. Feed. Govern. Endure. | Side-view settlement schematic in parallax layers: hall, torches, berry bushes, stockpile, worked earth, mined tunnel with ladder; the light's boundary pushes outward in three discrete increments while eyes and a lurking shape hold beyond it |
-| 8 | `opening_08_title_card` | Reintegration | 5.0s | COHERONIA / By Paul Peck / Where civilization pushes back. | Stars shift in sparse steps and settle into a constellation above the hall silhouette; the three title lines step in as separate engine labels; clean transition to the menu |
+| 3 | `opening_03_scattered_peoples` | Propagation | 6.0s | The scattered peoples carried what they could: craft, seed, iron, memory, anger, and hope. | Human, Dwarf, Elf, Orc, and Goblin puppets walk in one at a time and act (gesture to the fire, set a pack down, scan the dark, plant and breathe, hurry in and warm hands); 3-frame fire cycle; one ridge of parallax; a hard camera cut punches in on the circle once all five have arrived |
+| 4 | `opening_04_darkness_measures_light` | Instability | 5.0s | Hunger tested every storehouse. Storms tested every roof. The dark measured every light. | Sparse frontier line and empty cave mouth; torch points flicker by palette cycle; a lone watch paces the stakes and freezes mid-step, head snapping toward the cave, each time the eyes open for two frames; storm contours cross in 6px steps; one plotted lightning fork |
+| 5 | `opening_05_first_hall_raised` | Collapse Edge | 6.0s | So they raised a hall—not a throne, not a temple, but a promise with a roof. | The inversion of scene 2, opening tight on the foundation stones then cutting wide: two builders swing hammers on staggered loops (a white spark on every strike), the orc carries the roof beam in and raises it overhead, posts and rafters plot upward, the ridge locks with a white flash, dawn steps up in hard bands, the camera rises in 2px steps |
+| 6 | `opening_06_attunement_pulse` | Insight | 5.0s | Where shelter, food, work, and courage aligned, the world answered. | The founder walks out from the hall, kneels, and lays a hand on the ground; a star-white front expands from the touch in quantized radius steps, re-illuminating soil, roots, trees, and cave contours segment by segment before they settle; the head lifts as a small constellation joins link by link |
+| 7 | `opening_07_civilization_pushes_back` | Reintegration | 6.0s | Dig. Build. Feed. Govern. Endure. | Side-view settlement schematic in parallax layers: a digger swings a pick at the tunnel face (stone chips per strike), a carrier walks crates between stockpile and diggings, the goblin tends the berry line; hall, torches, worked earth, ladder shaft; the light's boundary pushes outward in three discrete increments while eyes and a lurking shape hold beyond it |
+| 8 | `opening_08_title_card` | Reintegration | 5.0s | COHERONIA / By Paul Peck / Where civilization pushes back. | Stars shift in sparse steps and settle into a constellation above the hall silhouette while the founder stands beside it watching; the three title lines step in as separate engine labels; clean transition to the menu |
 
 The slash separators in the title-card row describe separate UI lines. They
 are not literal characters to render.
@@ -112,13 +115,26 @@ words.
 - Rendering is a pure deterministic function in
   `scripts/shell/prologue_canvas.gd` built from reusable quantized
   primitives (plot_line, plot_path, dissolve_path, pulse_ring, palette
-  cycle, stepped offsets, pose-shifted silhouettes, hall assembly).
+  cycle, stepped offsets, hall assembly) plus hard camera cuts via an
+  integer-zoom command transform (`_apply_cam`; pixels become zoom-sized
+  blocks so close-ups keep the same grammar).
+- Character acting comes from `scripts/shell/prologue_puppets.gd`:
+  articulated filled-quad puppets (legs, torso, head, two arms, optional
+  two-segment tool arm; hammer/pick/crate/beam props) posed by keyframe
+  tracks whose interpolation quantizes angles to 5-degree steps and
+  positions to whole pixels — acting stays visibly stepped, never tweened.
+  Ancestry identity is carried by body proportion (spec table), not detail.
 - Every scene must contain at least one meaningful animated element beyond
   opacity fading; smoke fingerprints each scene at two ticks to prove the
-  drawn state actually changes.
-- No full-frame illustration PNGs are used or required. The
-  `art/generated/opening/` directory is reserved for future intermediate
-  source layers only; nothing at runtime depends on files existing there.
+  drawn state actually changes, and re-fingerprints to prove determinism.
+- **Cel-shot hook (future art path)**: a scene id that resolves a frame pool
+  through `BlockRegistry.visual_variant_textures("opening", id)` — the
+  FQ-09V `<id>_01.png` … convention or an explicit array entry in
+  `data/visual_assets.json` — plays those authored frames at 8 fps in place
+  of the code-plotted shot (640x360 masters, no baked words). No frames
+  ship; every scene always has the puppet/plotted rendering as its fallback,
+  and shots can be upgraded to hand-authored cel animation one at a time
+  without touching the sequence.
 
 ## Sound Direction
 

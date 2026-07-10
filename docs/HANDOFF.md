@@ -36,6 +36,26 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
   unraveling scene) with a white ridge-lock flash, the attunement front
   re-illuminates contours in quantized radius steps, and the settlement
   schematic layers parallax with a stepped amber light boundary.
+- **Puppet acting layer** (`scripts/shell/prologue_puppets.gd`): articulated
+  filled-quad figures (legs/torso/head/arms, optional two-segment tool arm
+  with hammer/pick/crate/beam props) posed by keyframe tracks; interpolation
+  quantizes angles to 5-degree steps and positions to whole pixels so acting
+  stays stepped. Ancestry identity by proportion (human/dwarf/elf/orc/goblin
+  specs). The scenes act: the five peoples walk in and behave in scene 3
+  (gesture, pack set-down, scanning, planted breathing, hand-warming), a
+  watch paces and freezes toward the cave eyes in scene 4, two builders
+  hammer on staggered loops with strike sparks while the orc walks the roof
+  beam in and raises it in scene 5, the founder walks out, kneels, and
+  touches the ground to source the pulse in scene 6, and a digger/carrier/
+  tender work the settlement in scene 7. Hard camera cuts come from an
+  integer-zoom command transform (`_apply_cam`): scene 3 punches in on the
+  fire circle, scene 5 opens tight on the foundation stones.
+- **Cel-shot hook (future art path)**: a scene id resolving a frame pool via
+  `BlockRegistry.visual_variant_textures("opening", id)` (FQ-09V `<id>_01`
+  convention or explicit array) plays those authored 640x360 frames at 8 fps
+  instead of the plotted shot; removal falls back cleanly. No frames ship —
+  this is how individual shots get upgraded to hand-authored cel animation
+  later (FQ-09A prompt packs) without touching the sequence.
 - **Text and authorship lock**: all copy is engine-rendered in a stable
   lower-quarter band with hard quarter-alpha step reveals — nothing textual
   in imagery. The title card steps in `COHERONIA` / `By Paul Peck` /
@@ -56,17 +76,17 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
   `cue_opening_08_title_chord`) resolved against
   `res://audio/opening/<id>.ogg`; absent files are silently skipped. No
   audio assets ship yet.
-- **No image dependency**: the cinematic uses zero PNGs. The old per-panel
-  image-swap hook was retired with the static panels;
-  `art/generated/opening/` remains as a reserved directory for future
-  intermediate source layers only (documented in `data/visual_assets.json`).
-- **Smoke** (12 `fq09c_*` checks, suite total 202): smoke-bypass proof, exact
+- **No image dependency**: the cinematic ships zero PNGs; the cel-shot hook
+  above is the only image path and it is optional per scene
+  (documented in `data/visual_assets.json`).
+- **Smoke** (13 `fq09c_*` checks, suite total 203): smoke-bypass proof, exact
   scene order/copy, title-card authorship lines, completion emits once,
   skip finishes safely with the clock and audio stopped, profile seen-flag
   round-trip (operator value restored), replay isolation, data-driven
   timing/cues (42.0s), 640x360/10 Hz surface constants, every scene's command
   list changes across ticks (a fade-only scene would fail), deterministic
-  replotting, and the title screen's authorship/replay wiring.
+  replotting, the cel-shot hook (temp pool plays, removal falls back), and
+  the title screen's authorship/replay wiring.
 
 ## FQ-09 Additions
 

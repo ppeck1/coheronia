@@ -511,13 +511,18 @@ Authority docs:
 - `docs/ART_DIRECTION_AND_CANON.md`
 - `docs/OPENING_STORYBOARD.md`
 
-Shipped as an eight-scene, ~42s "Coheronia DOS Vector Cinematic": authored
-at 640x360 on a SubViewport, integer-scaled 2x nearest, plotted per tick by
-a deterministic 10 Hz `(scene, tick) -> draw commands` renderer
-(`scripts/shell/prologue_canvas.gd`) driven by a data-driven controller
-(`scripts/shell/prologue.gd`). Every scene genuinely animates (plotting,
-segmented dissolves, palette cycling, stepped pulses/pans/parallax, pose
-shifts, structure assembly); no image files are used or required.
+Shipped as an eight-scene, ~42s "Coheronia DOS Vector Cinematic" with a
+puppet acting layer: authored at 640x360 on a SubViewport, integer-scaled 2x
+nearest, plotted per tick by a deterministic 10 Hz `(scene, tick) -> draw
+commands` renderer (`scripts/shell/prologue_canvas.gd`) driven by a
+data-driven controller (`scripts/shell/prologue.gd`), with articulated
+keyframed figures (`scripts/shell/prologue_puppets.gd`) that walk in,
+gesture, patrol and freeze, hammer with strike sparks, raise the roof beam,
+kneel to source the attunement pulse, and work the settlement — plus hard
+integer-zoom camera cuts. Every scene genuinely animates; no image files are
+used or required. A per-scene cel-shot hook (FQ-09V frame pools under
+`art/generated/opening/`) lets future hand-authored animation replace any
+shot at 8 fps without touching the sequence.
 
 Acceptance (all proven by smoke + waited GUI passes):
 

@@ -30,6 +30,7 @@ REQUIRED_FILES = [
     "art/source_templates/BACKGROUND_TEMPLATE.md",
     "scripts/shell/prologue.gd",
     "scripts/shell/prologue_canvas.gd",
+    "scripts/shell/prologue_puppets.gd",
     "data/enemies.json",
     "data/ancestries.json",
     "data/progression/player_xp.json",

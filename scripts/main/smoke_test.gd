@@ -1802,6 +1802,43 @@ func _run() -> void:
 	_fq09c_cin.queue_free()
 	await get_tree().process_frame
 
+	# (h2) cel-shot hook: a frame pool registered for a scene id (fq09v temp
+	# discipline — no real asset filename is written) plays authored frames
+	# in place of the plotted shot; removing the pool falls back cleanly.
+	var _fq09c_cels: Array[String] = [
+		"res://art/generated/opening/smoke_tmp_cel_a.png",
+		"res://art/generated/opening/smoke_tmp_cel_b.png"]
+	for _fq09c_cp in _fq09c_cels:
+		if FileAccess.file_exists(_fq09c_cp):
+			DirAccess.remove_absolute(_fq09c_cp)
+	var _fq09c_cel_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	_fq09c_cel_img.fill(Color(0.2, 0.6, 0.9))
+	for _fq09c_cp2 in _fq09c_cels:
+		_fq09c_cel_img.save_png(_fq09c_cp2)
+	BlockRegistry.visual_assets["categories"]["opening"]["opening_01_first_star"] = [
+		"art/generated/opening/smoke_tmp_cel_a.png",
+		"art/generated/opening/smoke_tmp_cel_b.png"]
+	BlockRegistry.clear_visual_cache()
+	var _fq09c_celp: Control = _fq09c_script.new()
+	_fq09c_celp.autoplay = false
+	add_child(_fq09c_celp)
+	var _fq09c_cel_on: bool = _fq09c_celp.current_uses_cel() \
+		and _fq09c_celp.cel_frame_index() == 0
+	_fq09c_celp.queue_free()
+	BlockRegistry.visual_assets["categories"]["opening"].erase("opening_01_first_star")
+	for _fq09c_cp3 in _fq09c_cels:
+		DirAccess.remove_absolute(_fq09c_cp3)
+	BlockRegistry.clear_visual_cache()
+	await get_tree().process_frame
+	var _fq09c_celq: Control = _fq09c_script.new()
+	_fq09c_celq.autoplay = false
+	add_child(_fq09c_celq)
+	var _fq09c_cel_off: bool = not _fq09c_celq.current_uses_cel()
+	_check("fq09c_cel_shot_hook", _fq09c_cel_on and _fq09c_cel_off,
+		"pool_plays=%s removal_falls_back=%s" % [str(_fq09c_cel_on), str(_fq09c_cel_off)])
+	_fq09c_celq.queue_free()
+	await get_tree().process_frame
+
 	# (i) the normal title screen renders the exact title/authorship/tagline
 	# labels plus the Prologue replay button next to the intact Play/Quit flow
 	# (shell UI built off-tree so _ready's smoke bypass never runs).

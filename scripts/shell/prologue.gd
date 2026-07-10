@@ -77,6 +77,9 @@ var _tick := -1
 var _debug := false
 var _canvas: Control
 var _viewport: SubViewport
+var _display: TextureRect
+var _cel_rect: TextureRect
+var _cel_frames: Array = []
 var _overlay_label: Label
 var _overlay_back: ColorRect
 var _title_box: VBoxContainer
@@ -111,13 +114,26 @@ func _ready() -> void:
 	_canvas.custom_minimum_size = Vector2(CanvasScript.W, CanvasScript.H)
 	_canvas.size = Vector2(CanvasScript.W, CanvasScript.H)
 	_viewport.add_child(_canvas)
-	var display := TextureRect.new()
-	display.texture = _viewport.get_texture()
-	display.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	display.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	display.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	display.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(display)
+	_display = TextureRect.new()
+	_display.texture = _viewport.get_texture()
+	_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_display.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_display.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_display.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_display)
+
+	# Cel-shot hook (future art path): a scene id resolving a frame pool via
+	# BlockRegistry.visual_variant_textures("opening", id) — the FQ-09V
+	# `<id>_01.png` … convention or an explicit array entry — plays those
+	# frames at 8 fps in place of the code-plotted shot. No frames shipped;
+	# every scene falls back to the puppet/plotted rendering.
+	_cel_rect = TextureRect.new()
+	_cel_rect.visible = false
+	_cel_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cel_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_cel_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_cel_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_cel_rect)
 
 	# Stable lower-quarter text region with a hard dark backing band.
 	_overlay_back = ColorRect.new()
@@ -215,7 +231,10 @@ func _scene_duration(index: int) -> float:
 ## One visual update: the canvas replots for this tick, text steps in hard
 ## quarter-alpha increments (no smooth tween), the title card lines stagger.
 func _on_tick() -> void:
-	_canvas.set_state(_index, _tick)
+	if _cel_frames.is_empty():
+		_canvas.set_state(_index, _tick)
+	else:
+		_cel_rect.texture = _cel_frames[cel_frame_index()]
 	_overlay_label.modulate.a = clampf(0.25 * float(_tick + 1), 0.0, 1.0)
 	_overlay_back.modulate.a = _overlay_label.modulate.a
 	if _index == SCENES.size() - 1:
@@ -300,6 +319,9 @@ func _show_scene(index: int) -> void:
 		_title_label.modulate.a = 0.0
 		_author_label.modulate.a = 0.0
 		_tagline_label.modulate.a = 0.0
+	_cel_frames = BlockRegistry.visual_variant_textures("opening", str(scene["id"]))
+	_cel_rect.visible = not _cel_frames.is_empty()
+	_display.visible = _cel_frames.is_empty()
 	_canvas.set_state(index, 0)
 	_play_cue(str(scene.get("audio", "")))
 	_on_tick()
@@ -368,6 +390,18 @@ func scene_cues(index: int) -> Array:
 
 func audio_playing() -> bool:
 	return _audio != null and _audio.playing
+
+
+## True when the current scene plays authored cel frames instead of the
+## code-plotted shot (no frames ship yet; fallback is always available).
+func current_uses_cel() -> bool:
+	return not _cel_frames.is_empty()
+
+
+func cel_frame_index() -> int:
+	if _cel_frames.is_empty():
+		return -1
+	return (_tick * 8 / TICK_HZ) % _cel_frames.size()
 
 
 ## Debug helper (COHERONIA_PROLOGUE_DEBUG=1 sessions and tests): jump straight

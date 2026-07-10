@@ -20,6 +20,8 @@ const W := 640
 const H := 360
 const TICK_HZ := 10
 
+const Puppets := preload("res://scripts/shell/prologue_puppets.gd")
+
 # --- EGA-inspired palette: ~60% void, ~30% cool linework, ~10% accents ---
 const INK := Color8(3, 5, 10)            # void / negative space
 const NIGHT := Color8(10, 14, 26)        # deep blue-black field
@@ -53,7 +55,7 @@ func _draw() -> void:
 			"box":
 				draw_rect(c[1], c[2], false, 1.0)
 			"line":
-				draw_line(c[1], c[2], c[3], 1.0, false)
+				draw_line(c[1], c[2], c[3], c[4] if c.size() > 4 else 1.0, false)
 			"poly":
 				draw_colored_polygon(c[1], c[2])
 
@@ -191,6 +193,48 @@ static func _step_off(t: int, per: int, px_per_step: float) -> float:
 	return float(t / maxi(1, per)) * px_per_step
 
 
+## Camera cut: transforms world-space commands into screen space at an
+## integer zoom (1 = wide, 2 = close shot). Pixels become zoom-sized blocks
+## and line widths scale, so a close-up keeps the same hard pixel grammar.
+func _apply_cam(c: Array, world: Array, center: Vector2, zoom: int) -> void:
+	var off := Vector2(W / 2.0, H / 2.0) - center * float(zoom)
+	var z := float(zoom)
+	for cmd in world:
+		match cmd[0]:
+			"px":
+				c.append(["rect", Rect2(_sn((cmd[1] as Vector2) * z + off), Vector2(z, z)), cmd[2]])
+			"rect":
+				var r: Rect2 = cmd[1]
+				c.append(["rect", Rect2(_sn(r.position * z + off), _sn(r.size * z)), cmd[2]])
+			"box":
+				var rb: Rect2 = cmd[1]
+				c.append(["box", Rect2(_sn(rb.position * z + off), _sn(rb.size * z)), cmd[2]])
+			"line":
+				c.append(["line", _sn((cmd[1] as Vector2) * z + off),
+					_sn((cmd[2] as Vector2) * z + off), cmd[3], z])
+			"poly":
+				var pts := PackedVector2Array()
+				for p in cmd[1]:
+					pts.append(_sn((p as Vector2) * z + off))
+				c.append(["poly", pts, cmd[2]])
+
+
+## An entering actor: walks from `from_x` to `to_x` over `walk_ticks` after
+## `enter_tick`, then plays its idle/acting track. Nothing shows before entry.
+func _actor(c: Array, kind: String, col: Color, t: int, enter_tick: int,
+		from_x: float, to_x: float, base_y: float, walk_ticks: int, idle: Array) -> void:
+	if t < enter_tick:
+		return
+	var body := Puppets.spec(kind, col)
+	if t < enter_tick + walk_ticks:
+		var f := float(t - enter_tick) / float(maxi(1, walk_ticks))
+		var x := roundf(lerpf(from_x, to_x, f))
+		Puppets.render(c, body, Vector2(x, base_y), Puppets.cycle_at(Puppets.walk_track(), t, 6))
+	else:
+		Puppets.render(c, body, Vector2(to_x, base_y),
+			Puppets.pose_at(idle, t - enter_tick - walk_ticks))
+
+
 # =========================================================================
 # Shared structures
 # =========================================================================
@@ -253,38 +297,6 @@ func _hall_silhouette(c: Array, o: Vector2, col: Color) -> void:
 		Vector2(o.x, o.y - 52), Vector2(o.x + 28, o.y - 34),
 		Vector2(o.x + 28, o.y),
 	]), col])
-
-
-## Blocky ancestry silhouettes built from filled rects (period raster look).
-## Pose B nudges head/lean by 1px on a stepped cadence — small, alive, cheap.
-func _figure(c: Array, kind: String, base: Vector2, pose_b: bool, col: Color) -> void:
-	var lean := 1 if pose_b else 0
-	match kind:
-		"human":   # balanced, upright, civic
-			c.append(["rect", Rect2(base.x - 3 + lean, base.y - 22, 6, 12), col])
-			c.append(["rect", Rect2(base.x - 2 + lean, base.y - 26, 4, 4), col])
-			c.append(["rect", Rect2(base.x - 3, base.y - 10, 2, 10), col])
-			c.append(["rect", Rect2(base.x + 1, base.y - 10, 2, 10), col])
-		"dwarf":   # low, compact, heavy
-			c.append(["rect", Rect2(base.x - 5, base.y - 12, 10, 8), col])
-			c.append(["rect", Rect2(base.x - 3 + lean, base.y - 16, 6, 4), col])
-			c.append(["rect", Rect2(base.x - 4, base.y - 4, 3, 4), col])
-			c.append(["rect", Rect2(base.x + 1, base.y - 4, 3, 4), col])
-		"elf":     # narrow, vertical, agile
-			c.append(["rect", Rect2(base.x - 2 + lean, base.y - 24, 4, 14), col])
-			c.append(["rect", Rect2(base.x - 1 + lean, base.y - 28, 3, 4), col])
-			c.append(["rect", Rect2(base.x - 2, base.y - 10, 1, 10), col])
-			c.append(["rect", Rect2(base.x + 1, base.y - 10, 1, 10), col])
-		"orc":     # broad, durable, grounded
-			c.append(["rect", Rect2(base.x - 5, base.y - 20, 11, 12), col])
-			c.append(["rect", Rect2(base.x - 3 + lean, base.y - 25, 6, 5), col])
-			c.append(["rect", Rect2(base.x - 4, base.y - 8, 3, 8), col])
-			c.append(["rect", Rect2(base.x + 2, base.y - 8, 3, 8), col])
-		"goblin":  # small, quick, irregular
-			c.append(["rect", Rect2(base.x - 3, base.y - 9, 6, 6), col])
-			c.append(["rect", Rect2(base.x - 1 + lean * 2, base.y - 13, 4, 4), col])
-			c.append(["rect", Rect2(base.x - 2, base.y - 3, 2, 3), col])
-			c.append(["rect", Rect2(base.x + 1, base.y - 3, 2, 3), col])
 
 
 # =========================================================================
@@ -396,48 +408,67 @@ func _scene_unraveling_roads(c: Array, t: int) -> void:
 ## low-frame-rate flame cycle, staggered pose shifts, and one ridge of
 ## restrained parallax behind them.
 func _scene_scattered_peoples(c: Array, t: int) -> void:
+	var w: Array = []
 	# Night field behind the figures so the silhouettes actually read.
-	c.append(["rect", Rect2(0, 0, W, 252), NIGHT])
+	w.append(["rect", Rect2(0, 0, W, 252), NIGHT])
 	# Far ridge: creeps 1px every 8 ticks — barely alive, and behind everything.
 	var rx := _step_off(t, 8, 1.0)
-	_plot_path(c, [Vector2(-10 + rx, 168), Vector2(120 + rx, 154), Vector2(300 + rx, 172),
+	_plot_path(w, [Vector2(-10 + rx, 168), Vector2(120 + rx, 154), Vector2(300 + rx, 172),
 		Vector2(470 + rx, 156), Vector2(650 + rx, 170)], LINE_DIM, 1.0)
 	# Ground.
-	_ln(c, Vector2(0, 252), Vector2(W, 252), SLATE)
+	_ln(w, Vector2(0, 252), Vector2(W, 252), SLATE)
 	# The shared fire: 3-frame flame cycle, hard palette steps, sparse embers.
-	var fire := Vector2(320, 248)
-	c.append(["rect", Rect2(fire.x - 8, fire.y, 16, 3), STEEL])   # fire ring stones
+	var fire := Vector2(318, 248)
+	w.append(["rect", Rect2(fire.x - 8, fire.y, 16, 3), STEEL])   # fire ring stones
 	var fl := (t / 3) % 3
 	var fcol := _cycle([AMBER, BRASS, AMBER, EMBER], t, 3)
 	match fl:
 		0:
-			c.append(["rect", Rect2(fire.x - 3, fire.y - 9, 6, 9), fcol])
-			c.append(["rect", Rect2(fire.x - 1, fire.y - 12, 2, 3), fcol])
+			w.append(["rect", Rect2(fire.x - 3, fire.y - 9, 6, 9), fcol])
+			w.append(["rect", Rect2(fire.x - 1, fire.y - 12, 2, 3), fcol])
 		1:
-			c.append(["rect", Rect2(fire.x - 2, fire.y - 10, 5, 10), fcol])
-			c.append(["rect", Rect2(fire.x + 1, fire.y - 13, 2, 3), fcol])
+			w.append(["rect", Rect2(fire.x - 2, fire.y - 10, 5, 10), fcol])
+			w.append(["rect", Rect2(fire.x + 1, fire.y - 13, 2, 3), fcol])
 		2:
-			c.append(["rect", Rect2(fire.x - 3, fire.y - 8, 6, 8), fcol])
-			c.append(["rect", Rect2(fire.x - 2, fire.y - 11, 2, 3), fcol])
+			w.append(["rect", Rect2(fire.x - 3, fire.y - 8, 6, 8), fcol])
+			w.append(["rect", Rect2(fire.x - 2, fire.y - 11, 2, 3), fcol])
 	if t % 5 == 0:
-		_px(c, fire + Vector2(3, -15), EMBER)
+		_px(w, fire + Vector2(3, -15), EMBER)
 	if t % 7 == 0:
-		_px(c, fire + Vector2(-4, -17), EMBER)
-	# The five peoples arrive one at a time, then hold with tiny pose shifts.
-	var order := [["human", Vector2(268, 252), 6], ["dwarf", Vector2(296, 252), 14],
-		["elf", Vector2(352, 252), 22], ["orc", Vector2(392, 252), 30],
-		["goblin", Vector2(238, 252), 38]]
-	for i in range(order.size()):
-		var f: Array = order[i]
-		if t < f[2]:
-			continue
-		var pose_b := ((t + i * 7) / 16) % 2 == 1
-		_figure(c, f[0], f[1], pose_b, Color8(30, 38, 58))
+		_px(w, fire + Vector2(-4, -17), EMBER)
+	# The five peoples walk in one at a time and act: the human gestures to
+	# the fire, the dwarf sets a pack down, the elf scans the dark, the orc
+	# plants itself and breathes, the goblin hurries in to warm its hands.
+	var sil := Color8(30, 38, 58)
+	_actor(w, "human", sil, t, 4, 180, 264, 252, 10, [
+		[0, {}], [8, {"arm_r_ang": 55.0, "lean": 5.0}], [13, {"arm_r_ang": 55.0, "lean": 5.0}],
+		[18, {}], [30, {"head_ang": -10.0}], [38, {}]])
+	_actor(w, "dwarf", sil, t, 12, 190, 296, 252, 10, [
+		[0, {}], [6, {"lean": 22.0, "bob": 2.0}], [11, {"lean": 22.0, "bob": 2.0}],
+		[15, {}], [28, {"lean": 6.0}], [34, {}]])
+	_actor(w, "elf", sil, t, 20, 470, 354, 252, 10, [
+		[0, {}], [8, {"head_ang": -15.0}], [14, {"head_ang": -15.0}],
+		[20, {"head_ang": 12.0}], [26, {}]])
+	_actor(w, "orc", sil, t, 27, 480, 394, 252, 8, [
+		[0, {"arm_l_ang": 24.0, "arm_r_ang": -24.0}],
+		[10, {"arm_l_ang": 24.0, "arm_r_ang": -24.0, "bob": -1.0}],
+		[20, {"arm_l_ang": 24.0, "arm_r_ang": -24.0}]])
+	_actor(w, "goblin", sil, t, 34, 200, 242, 252, 6, [
+		[0, {"arm_l_ang": 40.0, "arm_r_ang": 40.0, "lean": 10.0}],
+		[5, {"arm_l_ang": 30.0, "arm_r_ang": 32.0, "lean": 10.0}],
+		[10, {"arm_l_ang": 40.0, "arm_r_ang": 40.0, "lean": 10.0}],
+		[15, {"arm_l_ang": 30.0, "arm_r_ang": 32.0, "lean": 10.0}]])
 	# Firelight edge on the ground: two hard amber strips, no gradient.
 	if t >= 4:
-		_ln(c, Vector2(296, 253), Vector2(346, 253), EMBER)
+		_ln(w, Vector2(296, 253), Vector2(346, 253), EMBER)
 	if t >= 10:
-		_ln(c, Vector2(308, 254), Vector2(334, 254), EMBER)
+		_ln(w, Vector2(308, 254), Vector2(334, 254), EMBER)
+	# Camera: hold the wide establishing shot, then one hard cut in close on
+	# the circle around the fire once everyone has arrived.
+	if t < 44:
+		_apply_cam(c, w, Vector2(W / 2.0, H / 2.0), 1)
+	else:
+		_apply_cam(c, w, Vector2(318, 224), 2)
 
 
 # =========================================================================
@@ -474,6 +505,24 @@ func _scene_darkness_measures(c: Array, t: int) -> void:
 		_torch(c, Vector2(432, 256), t, 6)
 	else:
 		_px(c, Vector2(432, 251), EMBER)
+	# A lone watch pacing the stake line; each time the eyes open in the cave
+	# the walk stops dead and the head snaps toward the dark.
+	var frozen := _shown(t, 18, 5) or _shown(t, 34, 5)
+	# The patrol clock pauses while frozen so the stop is a real stop.
+	var patrol_t := t - clampi(t - 18, 0, 5) - clampi(t - 34, 0, 5)
+	var leg_t := posmod(patrol_t, 40)
+	var wx: float
+	if leg_t < 20:
+		wx = roundf(lerpf(300.0, 412.0, float(leg_t) / 20.0))
+	else:
+		wx = roundf(lerpf(412.0, 300.0, float(leg_t - 20) / 20.0))
+	var watch_body := Puppets.spec("human", Color8(30, 38, 58))
+	if frozen:
+		Puppets.render(c, watch_body, Vector2(wx, 256),
+			{"head_ang": -25.0, "lean": -4.0})
+	else:
+		Puppets.render(c, watch_body, Vector2(wx, 256),
+			Puppets.cycle_at(Puppets.walk_track(), t, 6))
 	# Storm contours cross the upper frame in 6px steps.
 	var sx2 := _step_off(t, 2, 6.0)
 	for row in [[40.0, 0.0], [64.0, 120.0], [88.0, 260.0]]:
@@ -502,33 +551,48 @@ func _scene_darkness_measures(c: Array, t: int) -> void:
 func _scene_first_hall(c: Array, t: int) -> void:
 	# The camera rises slightly as the roof completes: world shifts down in
 	# 2px steps after tick 30.
+	var w: Array = []
 	var rise := 2.0 * float(clampi((t - 30) / 6, 0, 4))
 	var o := Vector2(320, 254 + rise)
 	# Dawn: hard horizon bands, one more step of amber every 15 ticks.
 	var dawn_step := clampi(t / 15, 0, 3)
 	if dawn_step >= 1:
-		c.append(["rect", Rect2(0, 250 + rise, W, 2), EMBER])
+		w.append(["rect", Rect2(0, 250 + rise, W, 2), EMBER])
 	if dawn_step >= 2:
-		c.append(["rect", Rect2(0, 246 + rise, W, 2), Color8(60, 36, 22)])
+		w.append(["rect", Rect2(0, 246 + rise, W, 2), Color8(60, 36, 22)])
 	if dawn_step >= 3:
-		c.append(["rect", Rect2(0, 238 + rise, W, 1), BRASS])
-	_ln(c, Vector2(0, 254 + rise), Vector2(W, 254 + rise), SLATE)
+		w.append(["rect", Rect2(0, 238 + rise, W, 1), BRASS])
+	_ln(w, Vector2(0, 254 + rise), Vector2(W, 254 + rise), SLATE)
 	# Assembly: one segment every 3 ticks, each plotting over its window.
 	var seg_f := float(t) / 3.0
 	var upto := int(seg_f) + 1
 	var partial := seg_f - floorf(seg_f)
-	_hall(c, o, t, upto, partial)
-	# Builders raise structural lines: two-pose work loop, staggered.
-	_figure(c, "human", Vector2(o.x - 40, o.y), (t / 4) % 2 == 0, NIGHT.lightened(0.08))
-	_figure(c, "dwarf", Vector2(o.x + 42, o.y), (t / 4) % 2 == 1, NIGHT.lightened(0.08))
-	if t >= 12:
-		_figure(c, "orc", Vector2(o.x - 58, o.y), (t / 6) % 2 == 0, NIGHT.lightened(0.08))
-	# Raising lines: from the working figures to the segment under assembly.
-	if t >= 12 and t < 39 and (t / 2) % 2 == 0:
-		_ln(c, Vector2(o.x - 38, o.y - 18), Vector2(o.x - 26, o.y - 30), LINE_DIM)
-		_ln(c, Vector2(o.x + 40, o.y - 18), Vector2(o.x + 26, o.y - 30), LINE_DIM)
+	_hall(w, o, t, upto, partial)
+	# The crew: two builders on staggered hammer loops (a hard white spark
+	# lands on each strike), and the orc walking a roof beam in and raising
+	# it overhead while the rafters go up.
+	var sil := Color8(34, 42, 62)
+	Puppets.render(w, Puppets.spec("human", sil), Vector2(o.x - 40, o.y),
+		Puppets.cycle_at(Puppets.hammer_track(12), t, 12))
+	Puppets.render(w, Puppets.spec("dwarf", sil), Vector2(o.x + 44, o.y),
+		Puppets.mirror(Puppets.cycle_at(Puppets.hammer_track(12), t, 12, 6)))
+	if posmod(t, 12) == 10:
+		_px(w, Vector2(o.x - 31, o.y - 8), STAR_WHITE)
+	if posmod(t + 6, 12) == 10:
+		_px(w, Vector2(o.x + 35, o.y - 8), STAR_WHITE)
+	_actor(w, "orc", sil, t, 12, 230, 264, o.y, 10, [
+		[0, {"tool": "beam", "arm_r_ang": 60.0, "tool_ang": 90.0}],
+		[5, {"tool": "beam", "arm_r_ang": 140.0, "tool_ang": 90.0, "lean": -5.0}],
+		[10, {"tool": "beam", "arm_r_ang": 165.0, "tool_ang": 90.0, "lean": -5.0}],
+		[24, {"tool": "beam", "arm_r_ang": 165.0, "tool_ang": 90.0}]])
 	# A shared fire keeps the crew warm at the edge of frame.
-	_torch(c, Vector2(o.x - 80, o.y), t, 2)
+	_torch(w, Vector2(o.x - 84, o.y), t, 2)
+	# Camera: begin tight on the foundation stones (the storyboard's opening
+	# beat), then one hard cut out to the wide as the structure climbs.
+	if t < 14:
+		_apply_cam(c, w, Vector2(o.x, o.y - 12), 2)
+	else:
+		_apply_cam(c, w, Vector2(W / 2.0, H / 2.0), 1)
 
 
 # =========================================================================
@@ -542,6 +606,18 @@ func _scene_attunement_pulse(c: Array, t: int) -> void:
 	var hall := Vector2(320, 254)
 	_ln(c, Vector2(0, 254), Vector2(W, 254), LINE_DIM)
 	_hall(c, hall, t, 99, 1.0)
+	# The founder walks out from the hall, kneels, and lays a hand on the
+	# ground; the world answers from exactly that point.
+	var touch := Vector2(348, 250)
+	_actor(c, "human", Color8(34, 42, 62), t, 0, 390, 340, 254, 8, [
+		[0, {}],
+		[3, {"lean": 20.0, "bob": 2.0, "leg_l_ang": 25.0, "leg_r_ang": -30.0}],
+		[6, {"lean": 30.0, "bob": 4.0, "leg_l_ang": 35.0, "leg_r_ang": -40.0, "arm_r_ang": 55.0}],
+		[20, {"lean": 30.0, "bob": 4.0, "leg_l_ang": 35.0, "leg_r_ang": -40.0, "arm_r_ang": 55.0}],
+		[26, {"lean": 22.0, "bob": 3.0, "leg_l_ang": 30.0, "leg_r_ang": -35.0,
+			"arm_r_ang": 45.0, "head_ang": -25.0}],
+		[36, {"lean": 22.0, "bob": 3.0, "leg_l_ang": 30.0, "leg_r_ang": -35.0,
+			"arm_r_ang": 45.0, "head_ang": -25.0}]])
 	# Contour web: each entry is a polyline the pulse can reach.
 	var webs := [
 		[Vector2(292, 254), Vector2(240, 260), Vector2(180, 258), Vector2(110, 264)],
@@ -554,29 +630,29 @@ func _scene_attunement_pulse(c: Array, t: int) -> void:
 		[Vector2(506, 238), Vector2(516, 228)],
 		[Vector2(560, 264), Vector2(590, 254), Vector2(612, 236), Vector2(622, 254)],  # cave edge
 	]
-	var r := 12.0 * float(maxi(0, t - 4))   # quantized wavefront radius
+	var r := 12.0 * float(maxi(0, t - 14))   # wavefront leaves the touch point
 	for w in webs:
 		for i in range(w.size() - 1):
 			var a: Vector2 = w[i]
 			var b: Vector2 = w[i + 1]
-			var d := ((a + b) * 0.5).distance_to(hall + Vector2(0, -20))
+			var d := ((a + b) * 0.5).distance_to(touch)
 			if d < r - 36.0:
 				_ln(c, a, b, SLATE)          # settled: the world holds
 			elif d < r:
 				_ln(c, a, b, STAR_WHITE)     # the front passing through
 			else:
 				_ln(c, a, b, LINE_DIM)       # not yet reached
-	# The pulse itself: two stepped rings leaving the hall.
-	_pulse_ring(c, hall + Vector2(0, -30), t, 4, 5, 10, STAR_WHITE)
-	_pulse_ring(c, hall + Vector2(0, -30), t, 10, 5, 10, LINE_DIM)
+	# The pulse itself: two stepped rings leaving the founder's hand.
+	_pulse_ring(c, touch, t, 14, 5, 10, STAR_WHITE)
+	_pulse_ring(c, touch, t, 20, 5, 10, LINE_DIM)
 	# Constellation: five points connect one link per 3 ticks, then hold.
 	var stars := [Vector2(268, 90), Vector2(320, 68), Vector2(372, 88),
 		Vector2(352, 128), Vector2(292, 126)]
 	for sp in stars:
-		if t >= 20:
+		if t >= 26:
 			_px(c, sp, STAR_WHITE)
 			_px(c, (sp as Vector2) + Vector2(0, -1), STAR_WHITE)
-	var links := clampi((t - 24) / 3, 0, stars.size())
+	var links := clampi((t - 30) / 3, 0, stars.size())
 	for i in range(links):
 		_ln(c, stars[i], stars[(i + 1) % stars.size()], LINE_DIM)
 
@@ -622,6 +698,34 @@ func _scene_civilization(c: Array, t: int) -> void:
 		_ln(c, Vector2(317, g + 10 + i * 8), Vector2(331, g + 10 + i * 8), BRASS)
 	if t >= 30:
 		_torch(c, Vector2(372, g + 46), t, 2)
+	# The settlement works: a digger swings a pick at the tunnel face (stone
+	# chips on each strike), a carrier walks crates between the stockpile and
+	# the diggings, and the goblin tends the berry line.
+	var sil := Color8(30, 38, 58)
+	Puppets.render(c, Puppets.spec("dwarf", sil), Vector2(360, g + 46),
+		Puppets.cycle_at([
+			[0, {"tool": "pick", "arm_r_ang": 140.0, "elbow_r": 35.0, "tool_ang": 150.0, "lean": -5.0}],
+			[4, {"tool": "pick", "arm_r_ang": 55.0, "elbow_r": 10.0, "tool_ang": 60.0, "lean": 14.0}],
+			[8, {"tool": "pick", "arm_r_ang": 140.0, "elbow_r": 35.0, "tool_ang": 150.0, "lean": -5.0}],
+		], t, 8))
+	if posmod(t, 8) == 4:
+		_px(c, Vector2(374, g + 42), STEEL)
+	var ct := posmod(t, 44)
+	var cx: float
+	if ct < 22:
+		cx = roundf(lerpf(262.0, 402.0, float(ct) / 22.0))
+	else:
+		cx = roundf(lerpf(402.0, 262.0, float(ct - 22) / 22.0))
+	var cpose: Dictionary = Puppets.cycle_at(Puppets.walk_track(), t, 6).duplicate()
+	cpose["tool"] = "crate"
+	cpose["arm_r_ang"] = 30.0
+	Puppets.render(c, Puppets.spec("human", sil), Vector2(cx, g), cpose)
+	Puppets.render(c, Puppets.spec("goblin", sil), Vector2(424, g),
+		Puppets.cycle_at([
+			[0, {"lean": 25.0, "bob": 2.0, "arm_r_ang": 50.0}],
+			[6, {"lean": 5.0, "arm_r_ang": 20.0}],
+			[12, {"lean": 25.0, "bob": 2.0, "arm_r_ang": 50.0}],
+		], t, 12))
 	# The light's boundary: a dotted amber arc that pushes outward in three
 	# discrete increments — and holds.
 	var reach: float = [70.0, 96.0, 122.0][clampi(t / 20, 0, 2)]
@@ -651,6 +755,9 @@ func _scene_title_card(c: Array, t: int) -> void:
 	_ln(c, Vector2(0, 318), Vector2(W, 318), LINE_DIM)
 	_hall_silhouette(c, Vector2(320, 318), Color8(6, 8, 14))
 	_px(c, Vector2(320, 296), AMBER if (t / 4) % 2 == 0 else BRASS)   # hearth kept lit
+	# The founder stands beside the hall, watching the constellation join.
+	Puppets.render(c, Puppets.spec("human", Color8(16, 20, 34)), Vector2(374, 318),
+		{"head_ang": -20.0, "arm_l_ang": 3.0, "arm_r_ang": -3.0})
 	# Six stars: three drift 1px at fixed steps, then all settle.
 	var stars := [Vector2(258, 62), Vector2(304, 40), Vector2(352, 52),
 		Vector2(384, 82), Vector2(330, 102), Vector2(276, 94)]
