@@ -2,11 +2,61 @@
 
 ## Current State
 
-**FQ-09C (canon lock, art direction, and opening cinematic) implemented and
-closed out** (run `20260709_coheronia_fq09c_opening_cinematic`; lineage: v0.1
-oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
-`20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` ->
-FQ-00 through FQ-09V; Godot 4.6.1 stable).
+**FQ-09W (scene backdrops, underground darkness, and backing walls)
+implemented and closed out** (run `20260710_coheronia_fq09w_backdrops_walls`;
+lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 ->
+`20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` ->
+`20260704_coheronia_v06_increment` -> FQ-00 through FQ-09V -> FQ-09C;
+Godot 4.6.1 stable).
+
+## FQ-09W Additions
+
+- **Scenic backdrop** (`scripts/world/world_backdrop.gd`, z -10 inside the
+  world canvas so day/night/storm CanvasModulate applies): code-drawn sky
+  gradient bands reaching the deepest valley line (no terrain height exposes
+  a void), far/mid silhouette ridges with 2px-stepped parallax stable in
+  world space, and a deep earth tone below everything. `light_mask = 0` so
+  torches never paint glow onto distant scenery. Optional image hooks:
+  `art/generated/backgrounds/surface_sky.png` (640x360 full frame),
+  `surface_far_terrain.png` / `surface_mid_silhouette.png` (tiling strips);
+  missing files always fall back to the code-drawn planes.
+- **Natural backing walls**: a `BackgroundWalls` TileMapLayer (z -2, behind
+  Blocks) filled each `setup` from the PRISTINE generated surface — a
+  dirt-wall band for the configured dirt depth, stone wall below, nothing at
+  or above the surface row. Deterministic from seed/config by construction;
+  never enters cells/deltas/saves; the wall tileset has zero physics and
+  zero occlusion layers, so walls provably cannot affect collision,
+  lighting, shelter, or settlement math. Mining a below-surface block
+  reveals the wall instead of the viewport. Tiles come from
+  `art/generated/back_walls/dirt_wall.png`/`stone_wall.png` when present,
+  else the matching block texture pushed darker and fully opaque.
+  `world.wall_at(cell)` is the visual-only query.
+- **Underground darkness (column-skylight ambient)**: `world.sky_line(x)` =
+  first solid cell from the top of the LIVE column (cached per column,
+  invalidated by any block change there). `game_root.ambient_darkness_factor()`
+  fades 0 -> 1 over `CAVE_FADE_CELLS` (6) below the player's local sky line,
+  and `ambient_target_color()` pushes the day/night/storm base toward
+  `CAVE_TINT` (0.10, 0.11, 0.16) by that factor — the existing tint lerp
+  smooths transitions at cave mouths. Mining an open shaft re-admits real
+  daylight to the shaft floor; a sealed column at the same depth stays dark.
+  Documented approximation: no lateral light bleed; roof-awareness is
+  per-column. The directional-shadow sunlight path was assessed and not
+  taken this slice: occluders are tileset-level and exist only on
+  blocks_light blocks, so a DirectionalLight2D would need an occluder
+  redesign (recorded as the future path to true skylight).
+- **Torches stay the readable local lights**: PointLight2D behavior, light
+  radii, `light_score`, shelter/occlusion math, mining, collision, and the
+  save format are all untouched; old saves load unchanged (no new keys).
+- **Smoke** (7 `fq09w_*` checks, suite total 210): deterministic wall map
+  across two same-seed setups with correct dirt/stone banding and an inert
+  tileset (0 physics / 0 occlusion layers); mined cells reveal walls while
+  staying normal air deltas; midday underground darkness vs full-day
+  surface (asserted on the ambient target, not the smoothing lerp); an open
+  shaft admits daylight while a sealed neighbor column stays dark; backdrop
+  z-order behind walls behind blocks with null image hooks falling back;
+  the back_walls art hook resolves and falls back with temp art; and the
+  saved world restores cleanly. The screenshot tour gained
+  `09_underground_midday_torch` (mined chamber, dark ambient, one torch).
 
 The canon bible (`docs/ART_DIRECTION_AND_CANON.md`) and the cinematic
 storyboard (`docs/OPENING_STORYBOARD.md`) are the locked authorities for all
@@ -183,10 +233,10 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Check | State | Evidence |
 |---|---|---|
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
-| JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue runtime/storyboard authorship locks |
+| JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks and the FQ-09W backgrounds/back_walls categories, dirs, and required backdrop script |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 202/202 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 202 FQ-09C) |
-| Manual GUI passes | PASS | clean-profile autoplay to completion (flag written by autoplay alone), real-ESC skip, menu-click replay, single-step key advance, attributed title menu — all on the waited windowed build with screenshots |
+| Automated smoke | PASS 210/210 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 203 FQ-09C -> 210 FQ-09W) |
+| Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls) |
 
 ## Known Risks / Gotchas
 
@@ -206,22 +256,27 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - FQ-05 attunement has exactly one use (the light pulse); no live ancestry or acquirable gear modifies it yet — the hooks are data-ready and smoke-proven but dormant. The pulse light is cosmetic (does not affect `light_score`, night spawns, or occlusion safety math).
 - FQ-06: only the Miner lane's `mining_speed` effect is live; `detect_ore_range`, `cave_safety`, and all non-miner lane effect keys are inert data awaiting their systems. There is no perk refund/respec. Perk points come only from player levels; XP pacing (100 x 1.35^n) means points arrive slowly — untested by human play.
 - FQ-07: art loads bypass the Godot import system (`Image.load_from_file`) by design for plain non-editor runs — an exported build would need an import-aware path (out of scope; this repo never exports). The block tileset reads art at `world.setup`/tileset-build time; dropping in new art requires re-entering the world (no hot-reload). Player/hall visuals are still drawn shapes (not yet image-capable; extend when their art lands).
-- Underground daylight is unresolved: daytime currently applies one global
-  white `CanvasModulate` tint, the world has only the foreground Blocks layer,
-  and mined air reveals the clear viewport. FQ-09W is the bounded follow-on for
-  scenic backdrop hooks, deterministic natural backing walls, and roof-aware
-  sunlight/depth-darkness. A background image alone is not considered a fix.
+- FQ-09W's underground darkness is a documented approximation: the ambient
+  follows the PLAYER's column skylight (no lateral light bleed, no per-cell
+  darkness — the whole canvas darkens when the player is buried, so surface
+  areas at the screen edge darken too while underground). True per-cell
+  skylight (directional shadows or cell connectivity) is the recorded future
+  path and would require extending occluders beyond blocks_light blocks.
+  Natural backing walls are visual-only and immutable this slice; placeable/
+  removable constructed walls (drops, wall deltas, save migration) remain a
+  deliberately separate future gameplay task.
 - A hypothetical pick tier above 2 has no matching equipment item; the gear shape would record the highest defined pick (`pick_forged`) while the live tier is preserved in `carried_tool_tiers`. No real character can exceed tier 2 today (forge caps at 2).
 
 ## Next Action
 
 Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
-increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, and FQ-09C are
-complete. The queue head is FQ-09W (scene backdrops, backing walls, and
-underground darkness), followed by FQ-09A (future asset manifest and prompt
-packs) and FQ-09M (lightweight action animation). FQ-10 should wait until
-those presentation foundations close or the operator explicitly changes
-priority.
+increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, and
+FQ-09W are complete. The queue head is FQ-09A (future asset manifest and
+prompt packs — it should include the opening's cel-frame sprite sheets, the
+scenic background layers, and the back-wall tiles now that their runtime
+contracts are real), followed by FQ-09M (lightweight action animation).
+FQ-10 should wait until those presentation foundations close or the operator
+explicitly changes priority.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

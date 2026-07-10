@@ -23,6 +23,19 @@ var _lights: Dictionary = {}        # Vector2i -> PointLight2D
 var _light_texture: GradientTexture2D
 var _opaque_masks: Dictionary = {}  # block_id -> BitMap of the tile's opaque pixels
 
+# FQ-09W: natural backing walls — a purely visual rear plane derived from
+# the generated surface each setup. No physics/occlusion layers, no deltas,
+# never saved; mining a foreground block reveals the wall behind it.
+var _walls: TileMapLayer
+var _wall_source_ids: Dictionary = {}   # wall_id -> tileset source id
+# FQ-09W: column skylight cache — int x -> first solid y from the top of the
+# LIVE cells (mining a shaft re-admits daylight). Invalidated per column on
+# any block change; documented approximation (no lateral light bleed).
+var _sky_line: Dictionary = {}
+
+const BackdropScript := preload("res://scripts/world/world_backdrop.gd")
+const WALL_MATERIALS := {"dirt_wall": "dirt", "stone_wall": "stone"}
+
 const BLOCK_COLORS := {
 	"dirt": Color(0.47, 0.33, 0.18),
 	"grass": Color(0.30, 0.62, 0.25),
@@ -40,6 +53,16 @@ const BLOCK_COLORS := {
 
 func _ready() -> void:
 	_light_texture = _make_light_texture()
+	# FQ-09W plane order (back to front): scenic backdrop, backing walls,
+	# foreground blocks. Only the Blocks layer has collision/occlusion.
+	var backdrop: Node2D = BackdropScript.new()
+	backdrop.z_index = -10
+	add_child(backdrop)
+	_walls = TileMapLayer.new()
+	_walls.name = "BackgroundWalls"
+	_walls.z_index = -2
+	_walls.tile_set = _build_wall_tileset()
+	add_child(_walls)
 	_tilemap = TileMapLayer.new()
 	_tilemap.name = "Blocks"
 	_tilemap.tile_set = _build_tileset()
@@ -86,6 +109,11 @@ func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionar
 	width = int(gen["width"])
 	height = int(gen["height"])
 	hall_info = WorldGen.stamp_town_hall(cells, surface, width / 2)
+	# FQ-09W: natural backing walls derive from the pristine generated surface
+	# (before deltas), so the same seed/config always yields the same wall map
+	# and player edits can never alter it.
+	_rebuild_walls(config)
+	_sky_line.clear()
 	for cell in deltas:
 		var block_id: String = deltas[cell]
 		if block_id == "air":
@@ -224,7 +252,78 @@ func _redraw_all() -> void:
 		_set_tile(cell, cells[cell])
 
 
+# ---------- FQ-09W: backing walls and column skylight ----------
+
+## Fills the BackgroundWalls layer from the generated surface: a dirt wall
+## band for the configured dirt depth, stone wall below, nothing at or above
+## the surface row (mining the top block reveals sky/backdrop, not a wall).
+func _rebuild_walls(config: WorldConfig) -> void:
+	_walls.clear()
+	var dirt_depth := int(config.gen("dirt_depth"))
+	for x in range(width):
+		var sy: int = int(surface.get(x, height))
+		for y in range(sy + 1, height):
+			var wall_id := "dirt_wall" if y <= sy + dirt_depth else "stone_wall"
+			_walls.set_cell(Vector2i(x, y), _wall_source_ids[wall_id], Vector2i.ZERO)
+
+
+## The wall id behind a cell ("" above the wall line) — a visual-only query.
+func wall_at(cell: Vector2i) -> String:
+	var sid := _walls.get_cell_source_id(cell)
+	if sid == -1:
+		return ""
+	for wall_id in _wall_source_ids:
+		if _wall_source_ids[wall_id] == sid:
+			return wall_id
+	return ""
+
+
+## First solid cell y from the top of column x in the LIVE world (cached per
+## column, invalidated on block change). Cells above it are sky-exposed:
+## mining a full shaft makes the column admit daylight to the shaft floor.
+func sky_line(x: int) -> int:
+	if x < 0 or x >= width:
+		return height   # off-world columns are open sky
+	if not _sky_line.has(x):
+		var y := 0
+		while y < height and not BlockRegistry.is_solid(cells.get(Vector2i(x, y), "air")):
+			y += 1
+		_sky_line[x] = y
+	return _sky_line[x]
+
+
+## Walls have no physics or occlusion layers at all — variety in this layer
+## can never change collision, lighting, shelter, or settlement math.
+func _build_wall_tileset() -> TileSet:
+	var ts := TileSet.new()
+	var t := tile_size()
+	ts.tile_size = Vector2i(t, t)
+	for wall_id in WALL_MATERIALS:
+		var src := TileSetAtlasSource.new()
+		src.texture = _make_wall_texture(wall_id, str(WALL_MATERIALS[wall_id]), t)
+		src.texture_region_size = Vector2i(t, t)
+		src.create_tile(Vector2i.ZERO)
+		_wall_source_ids[wall_id] = ts.add_source(src)
+	return ts
+
+
+## Back-wall tile: art at art/generated/back_walls/<wall_id>.png when
+## present, else the matching block texture pushed darker and fully opaque
+## (walls must read quieter than foreground and never as open sky).
+func _make_wall_texture(wall_id: String, base_block: String, t: int) -> ImageTexture:
+	var art := BlockRegistry.visual_texture("back_walls", wall_id) as ImageTexture
+	if art != null:
+		return _normalize_art(art, t)
+	var img: Image = _make_block_texture(base_block, t).get_image()
+	for y in range(t):
+		for x in range(t):
+			var c := img.get_pixel(x, y)
+			img.set_pixel(x, y, Color(c.r * 0.40, c.g * 0.40, c.b * 0.46, 1.0))
+	return ImageTexture.create_from_image(img)
+
+
 func _set_tile(cell: Vector2i, block_id: String) -> void:
+	_sky_line.erase(cell.x)   # FQ-09W: any block change re-derives that column's skylight
 	# _block_textures guarantees at least one source per known block; the
 	# is_empty guard makes that invariant explicit rather than an index crash.
 	if block_id == "air" or (_source_ids.get(block_id, []) as Array).is_empty():

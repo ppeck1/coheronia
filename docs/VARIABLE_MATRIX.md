@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09C run `20260709_coheronia_fq09c_opening_cinematic`.
+State: audited against FQ-09W run `20260710_coheronia_fq09w_backdrops_walls`.
 
 ## Authority Surfaces
 
@@ -26,6 +26,9 @@ State: audited against FQ-09C run `20260709_coheronia_fq09c_opening_cinematic`.
 | Opening cinematic imagery (FQ-09C) | `scripts/shell/prologue_canvas.gd` `build_commands(scene, tick)` — pure deterministic 640x360 plot at 10 Hz with integer-zoom camera cuts; no image files | SubViewport display (2x nearest), smoke fingerprints |
 | Opening puppet acting (FQ-09C) | `scripts/shell/prologue_puppets.gd` — static articulated-figure renderer + keyframe tracks (angles quantized to 5°, pixels snapped) | `prologue_canvas.gd` scene functions |
 | Opening cel-shot hook (FQ-09C) | `BlockRegistry.visual_variant_textures("opening", scene_id)` — FQ-09V `<id>_01.png` convention or explicit array in `data/visual_assets.json`; empty pool = plotted fallback | `prologue.gd` (frames at 8 fps in place of the plotted shot) |
+| Scenic backdrop (FQ-09W) | `scripts/world/world_backdrop.gd` — code-drawn sky/far/mid planes, stepped parallax, `light_mask 0`; optional `art/generated/backgrounds/` hooks (`surface_sky`, `surface_far_terrain`, `surface_mid_silhouette`) | world scene (z -10); cosmetic only, never saved/collides |
+| Natural backing walls (FQ-09W) | derived each `world.setup` from pristine `gen.surface` + `generation.dirt_depth` — `dirt_wall` band then `stone_wall`; tileset has 0 physics / 0 occlusion layers; optional `art/generated/back_walls/` tiles else darkened block textures | `BackgroundWalls` TileMapLayer (z -2); `world.wall_at(cell)` visual-only query; never in cells/deltas/saves |
+| Column skylight + cave ambient (FQ-09W) | `world.sky_line(x)` (first solid y in LIVE column, cached, invalidated per column on block change) -> `game_root.ambient_darkness_factor()` / `ambient_target_color()` (`CAVE_TINT`, `CAVE_FADE_CELLS` 6) | the `CanvasModulate` tint lerp in `_advance_time` and the instant set in `apply_time_state`; documented approximation — player-column roof-awareness, no lateral bleed |
 | Title/authorship/tagline text (FQ-09C) | `prologue.gd` consts `TITLE_TEXT` / `AUTHORSHIP_TEXT` / `TAGLINE_TEXT` | cinematic title card and `shell_ui._show_title` (single source, cannot drift) |
 | `profile.prologue_seen` (FQ-09C) | `user://shell.json` profile via `GameState.mark_prologue_seen()` (idempotent; written only on completion or skip) | `shell_ui._ready` clean-profile autoplay gate |
 
@@ -33,22 +36,22 @@ All registries load through `scripts/data/json_data.gd` (`load_dict`, push_error
 
 ## Planned Authority Surfaces (Not Live)
 
-These rows record operator-approved planning authority. They do not claim
-that background planes, wall state, or lighting behavior exists yet. (The
-FQ-09C opening cinematic is live — see the authority table above;
-`docs/ART_DIRECTION_AND_CANON.md` and `docs/OPENING_STORYBOARD.md` remain
-the style/copy authorities for it and for later art.)
+These rows record operator-approved planning authority. (The FQ-09C opening
+cinematic and the FQ-09W backdrop/backing-wall/ambient planes are live — see
+the authority table above; `docs/ART_DIRECTION_AND_CANON.md`,
+`docs/OPENING_STORYBOARD.md`, and `art/source_templates/BACKGROUND_TEMPLATE.md`
+remain the style/copy/asset authorities for them and for later art.)
 
 | Planned surface | Planning authority | Intended consumer |
 |---|---|---|
 | Canon, tone, terminology, palette roles | `docs/ART_DIRECTION_AND_CANON.md` | FQ-09A prompts, later public/game writing |
-| Scenic backgrounds and backing-wall asset contract | `art/source_templates/BACKGROUND_TEMPLATE.md` | FQ-09W runtime hooks and FQ-09A asset roadmap |
+| Constructed (player-placeable) backing walls | `art/source_templates/BACKGROUND_TEMPLATE.md` | a later bounded gameplay task — needs wall deltas, drops, recipes, save ownership/migration decisions |
+| Cave/deep background layers (`cave_far`, `deep_cavern_far`) and wall variants beyond dirt/stone | `art/source_templates/BACKGROUND_TEMPLATE.md` | FQ-09A asset roadmap; runtime wiring when those environments exist |
 
-FQ-09W must keep scenic backdrops, natural/constructed backing walls, and
-foreground `cells` as separate planes. No planned wall dictionary or wall
-delta is a live save authority. First-slice natural walls are intended to be
-deterministic/derived; player-placeable walls require a later explicit save
-ownership and migration decision.
+Scenic backdrops, natural backing walls, and foreground `cells` are separate
+planes (live as of FQ-09W). No wall dictionary or wall delta is a live save
+authority: natural walls are deterministic/derived; player-placeable walls
+require a later explicit save ownership and migration decision.
 
 ## v0.6 Ownership Boundary
 
@@ -259,6 +262,24 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-09W adds 7 checks (`fq09w_*`, suite total 210) covering: the natural wall
+map is identical across two same-seed setups with the dirt band above stone,
+nothing at/above the surface row, and a wall tileset carrying zero physics
+and zero occlusion layers (structurally unable to affect collision,
+lighting, shelter, or settlement math); a mined below-surface block stays a
+normal air delta while `wall_at` still reports the wall behind it; at midday
+the underground ambient target reaches the cave tint while the surface stays
+exactly `DAY_TINT` (asserted on `ambient_target_color`, not the smoothing
+lerp); a freshly mined open shaft admits daylight to its floor while a
+sealed column at the same depth stays dark (live column skylight); the
+backdrop node sits behind the walls layer which sits behind the Blocks
+layer, with null image hooks falling back to code-drawn planes; a dropped-in
+`back_walls` PNG resolves through the registry and removal falls back
+(self-cleaning temp art); and the saved world restores cleanly afterwards.
+`validate_repo.py` additionally requires `world_backdrop.gd`, the
+`backgrounds`/`back_walls` categories, and their art directories. The
+screenshot tour adds `09_underground_midday_torch`.
 
 FQ-09C adds 13 checks (`fq09c_*`, suite total 203) covering: the smoke run
 itself proves the `COHERONIA_SMOKE` bypass (no prologue node in the tree);

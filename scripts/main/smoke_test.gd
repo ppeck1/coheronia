@@ -1864,6 +1864,124 @@ func _run() -> void:
 		"labels=%s buttons=%s" % [str(_fq09c_labels), str(_fq09c_buttons)])
 	_fq09c_shell.free()
 
+	# --- FQ-09W: scenic backdrop, backing walls, underground darkness ---
+
+	# (a) natural walls derive deterministically from seed/config: same seed
+	# twice yields the same wall map, the dirt band sits above stone, nothing
+	# exists at/above the surface row, and the wall tileset carries zero
+	# physics/occlusion layers — provably inert to collision/shelter/light.
+	world.setup(777)
+	var _fq09w_dd: int = int(GameState.current_config.gen("dirt_depth"))
+	var _fq09w_x: int = clampi(int(world.hall_info["center_cell"].x) - 30, 2, world.width - 14)
+	var _fq09w_sy: int = int(world.surface[_fq09w_x])
+	var _fq09w_samples: Array = []
+	for _fq09w_i in range(10):
+		_fq09w_samples.append(Vector2i(_fq09w_x + _fq09w_i,
+			int(world.surface[_fq09w_x + _fq09w_i]) + 1 + (_fq09w_i % 12)))
+	var _fq09w_first: Array = []
+	for _fq09w_c: Vector2i in _fq09w_samples:
+		_fq09w_first.append(world.wall_at(_fq09w_c))
+	world.setup(777)
+	var _fq09w_same := true
+	for _fq09w_i2 in range(_fq09w_samples.size()):
+		if world.wall_at(_fq09w_samples[_fq09w_i2]) != _fq09w_first[_fq09w_i2]:
+			_fq09w_same = false
+	_check("fq09w_walls_deterministic_and_inert",
+		_fq09w_same
+		and world.wall_at(Vector2i(_fq09w_x, _fq09w_sy + 1)) == "dirt_wall"
+		and world.wall_at(Vector2i(_fq09w_x, _fq09w_sy + _fq09w_dd + 1)) == "stone_wall"
+		and world.wall_at(Vector2i(_fq09w_x, _fq09w_sy)) == ""
+		and world.wall_at(Vector2i(_fq09w_x, _fq09w_sy - 3)) == ""
+		and world._walls.tile_set.get_physics_layers_count() == 0
+		and world._walls.tile_set.get_occlusion_layers_count() == 0,
+		"same=%s band=%s/%s above_empty=%s phys=%d occ=%d" % [str(_fq09w_same),
+			world.wall_at(Vector2i(_fq09w_x, _fq09w_sy + 1)),
+			world.wall_at(Vector2i(_fq09w_x, _fq09w_sy + _fq09w_dd + 1)),
+			str(world.wall_at(Vector2i(_fq09w_x, _fq09w_sy)) == ""),
+			world._walls.tile_set.get_physics_layers_count(),
+			world._walls.tile_set.get_occlusion_layers_count()])
+
+	# (b) mining a below-surface block reveals the wall behind it while the
+	# foreground stays a normal air delta (walls are never part of cells).
+	var _fq09w_mine := Vector2i(_fq09w_x, _fq09w_sy + 2)
+	world.break_block(_fq09w_mine)
+	_check("fq09w_mined_chamber_reveals_wall",
+		world.block_at(_fq09w_mine) == "air"
+		and str(world.deltas.get(_fq09w_mine, "")) == "air"
+		and world.wall_at(_fq09w_mine) != "",
+		"block=%s delta=%s wall=%s" % [world.block_at(_fq09w_mine),
+			str(world.deltas.get(_fq09w_mine, "")), world.wall_at(_fq09w_mine)])
+
+	# (c) underground is dark at midday and the surface stays full daylight —
+	# the depth-aware ambient target, not the smoothing lerp, is asserted.
+	root.time_of_day = 0.5
+	root.is_night = false
+	var _fq09w_storm_was: bool = root.storm_active
+	root.storm_active = false
+	player.global_position = world.cell_center(Vector2i(_fq09w_x, _fq09w_sy + 10))
+	var _fq09w_deep: float = root.ambient_darkness_factor()
+	var _fq09w_deep_col: Color = root.ambient_target_color()
+	player.global_position = world.cell_center(Vector2i(_fq09w_x, _fq09w_sy - 2))
+	var _fq09w_surf: float = root.ambient_darkness_factor()
+	var _fq09w_surf_col: Color = root.ambient_target_color()
+	_check("fq09w_underground_dark_at_midday",
+		_fq09w_deep > 0.95 and _fq09w_deep_col.r < 0.15
+		and is_equal_approx(_fq09w_surf, 0.0) and _fq09w_surf_col == root.DAY_TINT,
+		"deep=%.2f deep_col=%s surface=%.2f surface_col=%s" % [
+			_fq09w_deep, str(_fq09w_deep_col), _fq09w_surf, str(_fq09w_surf_col)])
+
+	# (d) roof-aware: a mined open shaft admits daylight to its floor while a
+	# sealed column at the same depth stays dark (live column skylight).
+	var _fq09w_shx: int = _fq09w_x + 6
+	var _fq09w_shy: int = int(world.surface[_fq09w_shx])
+	for _fq09w_y in range(_fq09w_shy, _fq09w_shy + 10):
+		if world.block_at(Vector2i(_fq09w_shx, _fq09w_y)) != "air":
+			world.break_block(Vector2i(_fq09w_shx, _fq09w_y))
+	player.global_position = world.cell_center(Vector2i(_fq09w_shx, _fq09w_shy + 9))
+	var _fq09w_shaft_f: float = root.ambient_darkness_factor()
+	player.global_position = world.cell_center(
+		Vector2i(_fq09w_shx + 3, int(world.surface[_fq09w_shx + 3]) + 9))
+	var _fq09w_sealed_f: float = root.ambient_darkness_factor()
+	_check("fq09w_open_shaft_admits_daylight",
+		_fq09w_shaft_f < 0.2 and _fq09w_sealed_f > 0.95,
+		"shaft=%.2f sealed=%.2f" % [_fq09w_shaft_f, _fq09w_sealed_f])
+
+	# (e) the scenic backdrop sits behind walls, which sit behind blocks; with
+	# no art shipped its image hooks resolve null (code-drawn fallback).
+	var _fq09w_bd: Node2D = world.get_node("Backdrop")
+	_check("fq09w_backdrop_behind_world",
+		_fq09w_bd != null and _fq09w_bd.z_index < world._walls.z_index
+		and world._walls.z_index < world._tilemap.z_index
+		and _fq09w_bd.layer_texture("surface_sky") == null
+		and _fq09w_bd.layer_texture("surface_far_terrain") == null,
+		"bd_z=%d walls_z=%d blocks_z=%d" % [_fq09w_bd.z_index,
+			world._walls.z_index, world._tilemap.z_index])
+
+	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
+	# registry and removal falls back (fq09v temp discipline; the wall
+	# tileset itself reads art once at world entry per the FQ-07 rule).
+	var _fq09w_tmp := "res://art/generated/back_walls/smoke_tmp_wall.png"
+	if FileAccess.file_exists(_fq09w_tmp):
+		DirAccess.remove_absolute(_fq09w_tmp)
+	BlockRegistry.clear_visual_cache()
+	var _fq09w_no_art: bool = BlockRegistry.visual_texture("back_walls", "smoke_tmp_wall") == null
+	var _fq09w_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	_fq09w_img.fill(Color(0.3, 0.25, 0.2))
+	_fq09w_img.save_png(_fq09w_tmp)
+	BlockRegistry.clear_visual_cache()
+	var _fq09w_with_art: bool = BlockRegistry.visual_texture("back_walls", "smoke_tmp_wall") != null
+	DirAccess.remove_absolute(_fq09w_tmp)
+	BlockRegistry.clear_visual_cache()
+	var _fq09w_back: bool = BlockRegistry.visual_texture("back_walls", "smoke_tmp_wall") == null
+	_check("fq09w_wall_art_hook", _fq09w_no_art and _fq09w_with_art and _fq09w_back,
+		"none=%s resolves=%s falls_back=%s" % [str(_fq09w_no_art),
+			str(_fq09w_with_art), str(_fq09w_back)])
+
+	# (g) restore the saved world/time for the sections that follow; walls
+	# and the skylight cache rebuild inside setup on load.
+	root.storm_active = _fq09w_storm_was
+	_check("fq09w_world_restored", root.load_game())
+
 	# --- FQ-08: block and enemy damage visuals ---
 
 	var _fq08_stone: Variant = _find_block(world, world.hall_info["center_cell"], "stone")

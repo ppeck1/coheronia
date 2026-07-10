@@ -15,6 +15,10 @@ const INTERACT_RANGE := 72.0
 const DAY_TINT := Color(1, 1, 1)
 const NIGHT_TINT := Color(0.22, 0.24, 0.38)
 const STORM_TINT := Color(0.55, 0.58, 0.66)
+# FQ-09W: the ambient underground, at any hour — darker than night, so
+# torches/lanterns/the pulse stay the readable local lights.
+const CAVE_TINT := Color(0.10, 0.11, 0.16)
+const CAVE_FADE_CELLS := 6.0   # smooth band below the local sky line
 
 const POPULATION_MAX := 8        # absolute ceiling; base_level gates effective cap
 const BASE_LEVEL_MAX_MVP := 3   # progression capped at village for MVP
@@ -348,9 +352,28 @@ func _advance_time(delta: float) -> void:
 		_on_dawn()
 	is_night = night_now
 	_advance_storm(delta)
-	# Smooth tint transition near the day/night/storm boundaries.
-	var target := NIGHT_TINT if is_night else (STORM_TINT if storm_active else DAY_TINT)
-	canvas_modulate.color = canvas_modulate.color.lerp(target, delta * 1.5)
+	# Smooth tint transition near the day/night/storm boundaries and across
+	# cave mouths (FQ-09W: the target itself is depth-aware).
+	canvas_modulate.color = canvas_modulate.color.lerp(ambient_target_color(), delta * 1.5)
+
+
+## FQ-09W: 0 = sky-exposed, 1 = fully buried. Column-skylight approximation:
+## sunlight reaches down the player's column to its first LIVE solid cell
+## (so mining an open shaft re-admits daylight), then fades over
+## CAVE_FADE_CELLS. Deliberately no lateral light bleed — documented
+## first-slice model, not the final skylight system.
+func ambient_darkness_factor() -> float:
+	var t := float(world.tile_size())
+	var cell: Vector2i = world.cell_of(player.global_position)
+	var depth_px := player.global_position.y - float(world.sky_line(cell.x)) * t
+	return clampf(depth_px / (CAVE_FADE_CELLS * t), 0.0, 1.0)
+
+
+## The ambient tint the world lerps toward: the day/night/storm base pushed
+## toward CAVE_TINT by how buried the player currently is.
+func ambient_target_color() -> Color:
+	var base := NIGHT_TINT if is_night else (STORM_TINT if storm_active else DAY_TINT)
+	return base.lerp(CAVE_TINT, ambient_darkness_factor())
 
 
 func _advance_storm(delta: float) -> void:
@@ -819,7 +842,7 @@ func apply_time_state(data: Dictionary) -> void:
 	# instantly roll a surprise storm.
 	_storm_rolled_today = bool(data.get("storm_rolled_today", time_of_day >= STORM_ROLL_TIME))
 	is_night = time_of_day >= NIGHT_START
-	canvas_modulate.color = NIGHT_TINT if is_night else (STORM_TINT if storm_active else DAY_TINT)
+	canvas_modulate.color = ambient_target_color()
 
 
 ## Used by the smoke test to exercise the threat loop deterministically.

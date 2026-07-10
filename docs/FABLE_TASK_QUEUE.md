@@ -37,8 +37,8 @@ and outbox packets.
 | FQ-09S | P0 | Done | Skill tree visual treatment pass | Improve the existing skill tree presentation without adding new progression mechanics. |
 | FQ-09V | P1 | Done | Visual variant pipeline | Adds deterministic per-id sprite variety without bloating saves or changing mechanics. |
 | FQ-09C | P0 | Done | Canon lock, art-direction bible, and opening cinematic | Establishes what the game means, how it looks, and `By Paul Peck` before further asset or feature work. |
-| FQ-09W | P0 | Ready - next | Scene backdrops, underground darkness, and backing-wall foundation | Fixes global daylight underground and creates fallback-safe visual planes before final environment art. |
-| FQ-09A | P1 | Ready after FQ-09W | Future asset manifest and prompt packs | Gives future art/model agents a concrete asset map after the opening/background runtime contracts are real. |
+| FQ-09W | P0 | Done | Scene backdrops, underground darkness, and backing-wall foundation | Fixes global daylight underground and creates fallback-safe visual planes before final environment art. |
+| FQ-09A | P1 | Ready - next | Future asset manifest and prompt packs | Gives future art/model agents a concrete asset map after the opening/background runtime contracts are real. |
 | FQ-09M | P1 | Ready after FQ-09A | Lightweight action animation pass | Makes actions readable while preserving existing timing, saves, and mechanics. |
 | FQ-10 | P1 | Ready after FQ-09M | More ores and metallurgy data | Expands mining goals after the presentation-foundation sequence closes. |
 | FQ-11 | P1 | Ready after FQ-10 | Workbench, furnace, and anvil station chain | Makes ore useful through buildable progression stations. |
@@ -537,10 +537,26 @@ Acceptance (all proven by smoke + waited GUI passes):
   when present; absent audio never blocks or crashes the cinematic.
 - Validator, capsule doctor, full Godot smoke, and `git diff --check` pass.
 
-## FQ-09W - Scene Backdrops, Underground Darkness, And Backing Walls
+## FQ-09W - Scene Backdrops, Underground Darkness, And Backing Walls (Done)
 
 Goal: give the side-view world deliberate scenic depth and stop global
 daylight from making mined underground space appear sunlit.
+
+Shipped: a scenic backdrop plane (`scripts/world/world_backdrop.gd` — sky
+gradient to the deepest valley line, far/mid silhouette strips with stepped
+parallax, light_mask 0, optional `art/generated/backgrounds/` hooks), a
+`BackgroundWalls` TileMapLayer (dirt/stone wall tiles derived from the
+pristine generated surface + dirt depth each setup — zero physics/occlusion
+layers, never saved, `art/generated/back_walls/` hooks with darkened-block
+fallbacks), and depth-aware ambient: a live column-skylight model
+(`world.sky_line(x)`, cached, invalidated per column on block change) drives
+`game_root.ambient_target_color()` from the day/night/storm base toward
+`CAVE_TINT` over a 6-cell fade band — mining an open shaft re-admits
+daylight; a sealed column at the same depth stays dark. Documented
+approximation: no lateral light bleed (directional-shadow sunlight was
+assessed and rejected for this slice — occluders are tileset-level and only
+on blocks_light blocks). 7 fq09w_* smoke checks (suite 210); screenshot tour
+gained `09_underground_midday_torch`.
 
 Planning authority:
 
@@ -881,8 +897,8 @@ ahead of FQ-00 through FQ-03 unless the operator explicitly changes priority.
 You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 
 Read README.md, docs/HANDOFF.md, docs/VARIABLE_MATRIX.md, and
-docs/FABLE_TASK_QUEUE.md. FQ-09C (canon lock and opening cinematic) is done.
-The queue head is FQ-09W (scene backdrops, underground darkness, and
-backing-wall foundation). Take only that item. Do not begin FQ-09A, FQ-09M,
-or later feature work.
+docs/FABLE_TASK_QUEUE.md. FQ-09C and FQ-09W are done. The queue head is
+FQ-09A (future asset manifest and prompt packs — include the opening's
+cel-frame sprite sheets, scenic backgrounds, and back-wall tiles). Take only
+that item. Do not begin FQ-09M or later feature work.
 ```

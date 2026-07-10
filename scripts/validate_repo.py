@@ -31,6 +31,7 @@ REQUIRED_FILES = [
     "scripts/shell/prologue.gd",
     "scripts/shell/prologue_canvas.gd",
     "scripts/shell/prologue_puppets.gd",
+    "scripts/world/world_backdrop.gd",
     "data/enemies.json",
     "data/ancestries.json",
     "data/progression/player_xp.json",
@@ -46,6 +47,8 @@ REQUIRED_DIRS = [
     "art/generated/enemies",
     "art/generated/ui",
     "art/generated/opening",
+    "art/generated/backgrounds",
+    "art/generated/back_walls",
     ".project/runs",
     ".project/atlas_outbox/imported",
     ".project/atlas_outbox/rejected",
@@ -233,7 +236,7 @@ visual_assets = json.loads((ROOT / "data/visual_assets.json").read_text(encoding
 va_categories = visual_assets.get("categories")
 if not isinstance(va_categories, dict):
     fail("visual_assets.json missing categories dict")
-for va_cat in ["blocks", "items", "enemies", "ui"]:
+for va_cat in ["blocks", "items", "enemies", "ui", "opening", "backgrounds", "back_walls"]:
     if va_cat not in va_categories:
         fail(f"visual_assets.json categories missing: {va_cat}")
 asset_root = str(visual_assets.get("asset_root", "art/generated"))

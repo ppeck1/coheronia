@@ -68,6 +68,24 @@ func _run() -> void:
 	await _shot("05_skill_tree")
 	hud.toggle_skill_panel()
 
+	# FQ-09W verification shot: a mined chamber at midday — backing walls
+	# behind the air, dark cave ambient, one torch as the readable light.
+	var shaft_x: int = hall_cell.x + 14
+	var shaft_top: int = int(world.surface.get(shaft_x, 30))
+	for y in range(shaft_top, shaft_top + 9):
+		for x in range(shaft_x - 2, shaft_x + 3):
+			if y > shaft_top + 2 or x == shaft_x:
+				if world.block_at(Vector2i(x, y)) != "air":
+					world.break_block(Vector2i(x, y))
+	world.place_block(Vector2i(shaft_x - 1, shaft_top + 8), "torch")
+	root.time_of_day = 0.5
+	root.is_night = false
+	player.global_position = world.cell_center(Vector2i(shaft_x + 1, shaft_top + 7))
+	player.velocity = Vector2.ZERO
+	root.canvas_modulate.color = root.ambient_target_color()
+	player.get_node("Camera2D").reset_smoothing()
+	await _shot("09_underground_midday_torch")
+
 	print("SHOTS complete -> user://shots")
 	get_tree().quit(0)
 

@@ -1,7 +1,12 @@
 # Coheronia Background And Back-Wall Template
 
-Status: planned contract for FQ-09W. The current runtime does not consume these
-paths yet. Do not add explicit manifest entries until the loader exists.
+Status: live contract as of FQ-09W. The runtime consumes
+`backgrounds/surface_sky.png`, `backgrounds/surface_far_terrain.png`,
+`backgrounds/surface_mid_silhouette.png` (scripts/world/world_backdrop.gd)
+and `back_walls/dirt_wall.png`, `back_walls/stone_wall.png`
+(world._make_wall_texture) — all optional, with code-drawn/darkened-block
+fallbacks. The cave/deep background layers and the other wall variants below
+remain planned (FQ-09A roadmap; wired when their environments exist).
 
 ## Keep The Planes Separate
 
