@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09M run `20260710_coheronia_fq09m_action_fx`.
+State: audited against FQ-09U1 run `20260710_coheronia_fq09u1_adaptive_music`.
 
 ## Authority Surfaces
 
@@ -28,6 +28,8 @@ State: audited against FQ-09M run `20260710_coheronia_fq09m_action_fx`.
 | Opening cel-shot hook (FQ-09C) | `BlockRegistry.visual_variant_textures("opening", scene_id)` — FQ-09V `<id>_01.png` convention or explicit array in `data/visual_assets.json`; empty pool = plotted fallback | `prologue.gd` (frames at 8 fps in place of the plotted shot) |
 | Action effects (FQ-09M) | `scripts/fx/action_fx.gd` — five deterministic self-freeing kinds, stepped 10 Hz, "action_fx" group, `spawn(parent, kind, at[, tint])` | `player.gd` (place/cast/hurt/respawn), `simple_threat.gd` (hit/death), `game_root._craft_confirm_fx` (forges + hand craft); transient, never saved |
 | Tool swing (FQ-09M) | `player.swing_phase()` — 0/1/2 six pose-steps/s from mining progress, -1 idle; drawn in `player._draw` with pick/axe glyph | presentation only; mining timing/drops pinned by unchanged baselines |
+| Adaptive music runtime (FQ-09U1) | `data/music_manifest.json` via `scripts/audio/music_manifest.gd` -> `scripts/audio/adaptive_music_director.gd` (`scenes/audio/AdaptiveMusicDirector.tscn` in Main); "Music" bus created at runtime | one AudioStreamInteractive, four named context clips, any->clip next-bar same-position crossfades (crisis entry next-beat); reads is_night/storm_active/current_threat_severity/health ratio/cave-spawn underground rule + the settlement `updated` signal; transient — never saved |
+| Music context state machine (FQ-09U1) | `adaptive_music_director.evaluate(state, delta)` — deterministic; priority crisis > underground > surface_night > surface_day; pressure = max(threat/40, load/100, 1-health)+storm 0.15; hysteresis 0.60/2s enter, 0.35/6s exit; 1-bar min hold; no re-requests | 0.5 s poll in _process; smoke drives it directly with synthetic snapshots |
 | Scenic backdrop (FQ-09W) | `scripts/world/world_backdrop.gd` — code-drawn sky/far/mid planes, stepped parallax, `light_mask 0`; optional `art/generated/backgrounds/` hooks (`surface_sky`, `surface_far_terrain`, `surface_mid_silhouette`) | world scene (z -10); cosmetic only, never saved/collides |
 | Natural backing walls (FQ-09W) | derived each `world.setup` from pristine `gen.surface` + `generation.dirt_depth` — `dirt_wall` band then `stone_wall`; tileset has 0 physics / 0 occlusion layers; optional `art/generated/back_walls/` tiles else darkened block textures | `BackgroundWalls` TileMapLayer (z -2); `world.wall_at(cell)` visual-only query; never in cells/deltas/saves |
 | Column skylight + cave ambient (FQ-09W) | `world.sky_line(x)` (first solid y in LIVE column, cached, invalidated per column on block change) -> `game_root.ambient_darkness_factor()` / `ambient_target_color()` (`CAVE_TINT`, `CAVE_FADE_CELLS` 6) | the `CanvasModulate` tint lerp in `_advance_time` and the instant set in `apply_time_state`; documented approximation — player-column roof-awareness, no lateral bleed |
@@ -267,6 +269,23 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-09U1 adds 9 checks (`fq09u1_*`, suite total 226) covering: the manifest
+loads with all four context loops decoded and the 72/4/64 musical grid
+stamped onto every stream; the director is live on the runtime-created
+Music bus with a four-clip AudioStreamInteractive; night/dawn/underground
+resolution from clean baselines; crisis enter hysteresis (a brief spike
+never enters, sustained 2 s does); crisis exit requiring both the lower
+threshold and the 6 s delay; identical states never re-request the current
+or pending clip; the LIVE spike proof that a next-bar same-position
+crossfade actually reaches the requested clip during real playback
+(`get_current_clip_index`); missing assets disabling audio silently while
+the state machine keeps evaluating; and save round-trips carrying zero
+music keys with the director surviving load. All state-machine checks call
+`evaluate(state, delta)` directly with synthetic snapshots — no wall-clock
+dependence. `validate_repo.py` additionally requires the director script/
+scene, the manifest loader, the Codex render/verify tooling, the m8patch,
+and the four context OGGs.
 
 FQ-09M adds 7 checks (`fq09m_*`, suite total 217) covering: the swing phase
 tracks mining state (idle -1, active >= 0, back to -1 on reset); placing a

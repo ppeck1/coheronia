@@ -2,13 +2,60 @@
 
 ## Current State
 
-**FQ-09M (lightweight action animation) implemented and closed out, with
-the Codex lane's adaptive-score assets taken into the repo in the same run**
-(run `20260710_coheronia_fq09m_action_fx`; lineage: v0.1 oneshot -> input
+**FQ-09U1 (adaptive context music foundation) implemented and closed out —
+the game now has live adaptive music** (run
+`20260710_coheronia_fq09u1_adaptive_music`; lineage: v0.1 oneshot -> input
 repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
 `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` ->
-FQ-00 through FQ-09V -> FQ-09C -> FQ-09W -> FQ-09A -> FQ-09U0;
+FQ-00 through FQ-09V -> FQ-09C -> FQ-09W -> FQ-09A -> FQ-09U0 -> FQ-09M;
 Godot 4.6.1 stable).
+
+## FQ-09U1 Additions
+
+- **Gates cleared**: operator listening approval of the rendered suite
+  ("Music is beautiful", 2026-07-10); the Godot 4.6 spike executed in-lane
+  in two parts — a headless ClassDB probe of the real binary confirmed the
+  exact API surface (AudioStreamInteractive set_clip_*/add_transition with
+  TRANSITION_FROM_TIME_NEXT_BAR/NEXT_BEAT, TO_TIME_SAME_POSITION,
+  FADE_CROSS, CLIP_ANY; AudioStreamPlaybackInteractive
+  switch_to_clip_by_name + get_current_clip_index; AudioStreamSynchronized
+  per-stream volumes), and the live half runs inside the smoke
+  (fq09u1_live_clip_switch proves a next-bar same-position crossfade
+  actually reaches the requested clip during real playback). The
+  Synchronized-inside-Interactive nesting question is deliberately deferred
+  to open FQ-09U2.
+- **`scripts/audio/music_manifest.gd`**: dedicated loader for
+  `data/music_manifest.json` (no BlockRegistry service-locator creep).
+  Context OGGs load via `AudioStreamOggVorbis.load_from_file` — the FQ-07
+  no-import rule applied to audio — with loop=true and the musical grid
+  (bpm 72, bar_beats 4, beat_count 64) stamped onto each stream so the
+  interactive resource can quantize to bars. Missing/broken files are never
+  fatal anywhere in the path.
+- **`scripts/audio/adaptive_music_director.gd` +
+  `scenes/audio/AdaptiveMusicDirector.tscn`** (instanced in Main between
+  SaveManager and HUD; ContextPlayer live, LayerPlayer/StingerPlayer
+  reserved for U2/U3): builds one AudioStreamInteractive with the four
+  named context clips and any->clip transitions (next-bar + same-position +
+  1-bar crossfade; crisis entry escalates to next-beat), creates the
+  "Music" bus at runtime and routes through it. Context resolution reads
+  existing game truth on a 0.5 s poll — `is_night`, `storm_active`,
+  `current_threat_severity()`, player health ratio, and the cave-spawn
+  underground rule — plus the settlement `updated` signal for load;
+  pressure = max(threat/norm, load/norm, inverse health) + storm bonus, all
+  divisors data-defined. Priority crisis > underground > surface_night >
+  surface_day with data-defined hysteresis (enter 0.60/2 s, exit
+  0.35/6 s), a one-bar minimum context hold, and never re-requesting the
+  current or pending clip. The state machine core is a deterministic
+  `evaluate(state, delta)` the smoke drives directly with synthetic
+  snapshots. Missing assets disable audio silently while the state machine
+  keeps working; music state is transient and appears nowhere in saves.
+- **Smoke** (9 `fq09u1_*` checks, suite total 226): manifest/stream grid
+  metadata; director live on the Music bus with a 4-clip interactive
+  stream; night/dawn/underground resolution; crisis enter hysteresis
+  (brief spike never enters, sustained does); crisis exit threshold AND
+  delay; no re-request churn; the LIVE clip-switch spike proof; missing
+  assets silent-safe (an override-manifest director instance); and save
+  round-trips carrying zero music keys with the director surviving load.
 
 ## FQ-09M Additions
 
@@ -353,8 +400,8 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks and the FQ-09W backgrounds/back_walls categories, dirs, and required backdrop script |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 217/217 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 203 FQ-09C -> 210 FQ-09W -> 217 FQ-09M) |
-| Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval PENDING |
+| Automated smoke | PASS 226/226 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 203 FQ-09C -> 210 FQ-09W -> 217 FQ-09M -> 226 FQ-09U1) |
+| Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls) |
 
 ## Known Risks / Gotchas
@@ -390,12 +437,14 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
 increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, FQ-09W,
-FQ-09A, FQ-09U0, and FQ-09M are complete. The queue head is FQ-09U1
-(adaptive context music foundation): the asset suite is rendered and
-mechanically verified in-repo; the two remaining gates are the Godot 4.6
-audio spike evidence and the operator's listening approval of the suite —
-implementation should not start before both. Then FQ-09U2 -> U3 -> FQ-10.
-Art production continues in parallel via `docs/ASSET_ROADMAP.md`.
+FQ-09A, FQ-09U0, FQ-09M, and FQ-09U1 are complete — the game plays its
+adaptive score live. The queue head is FQ-09U2 (settlement-responsive
+stem layering); it must OPEN with the deferred spike: prove at runtime
+whether an AudioStreamSynchronized stem group can serve as a clip inside
+AudioStreamInteractive, and design to the finding (fallback: a parallel
+synchronized LayerPlayer mixed alongside the context stream). Then FQ-09U3
+-> FQ-10. Art production continues in parallel via
+`docs/ASSET_ROADMAP.md`.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

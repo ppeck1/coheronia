@@ -2084,6 +2084,166 @@ func _run() -> void:
 		get_tree().get_nodes_in_group("action_fx").is_empty(),
 		"remaining=%d" % get_tree().get_nodes_in_group("action_fx").size())
 
+	# --- FQ-09U1: adaptive context music foundation ---
+	# The state machine is asserted deterministically (direct evaluate calls
+	# with synthetic snapshots and explicit deltas — no wall-clock waits);
+	# the one live-audio check proves the interactive stream actually
+	# switches clips (the in-run behavior half of the FQ-09U spike).
+
+	var _fq09u_dir: Node = root.get_node("AdaptiveMusicDirector")
+	_fq09u_dir.set_process(false)   # keep the live poll out of synthetic checks
+	_fq09u_dir._settlement_load = 0.0
+	var _fq09u_day := {"is_night": false, "storm": false, "threat": 0.0,
+		"health_ratio": 1.0, "underground": false}
+	var _fq09u_night := {"is_night": true, "storm": false, "threat": 0.0,
+		"health_ratio": 1.0, "underground": false}
+	var _fq09u_under := {"is_night": false, "storm": false, "threat": 0.0,
+		"health_ratio": 1.0, "underground": true}
+	var _fq09u_high := {"is_night": false, "storm": false, "threat": 40.0,
+		"health_ratio": 1.0, "underground": false}
+
+	# (a) manifest + streams: the machine contract loads, all four context
+	# loops decode, and the musical grid is stamped onto every stream.
+	var _fq09u_mm: GDScript = load("res://scripts/audio/music_manifest.gd")
+	var _fq09u_manifest: Dictionary = _fq09u_mm.load_manifest()
+	var _fq09u_streams: Dictionary = _fq09u_mm.load_context_streams(_fq09u_manifest)
+	var _fq09u_meta_ok := _fq09u_streams.size() == 4
+	for _fq09u_ctx in _fq09u_streams:
+		var _fq09u_s: AudioStream = _fq09u_streams[_fq09u_ctx]
+		if not (_fq09u_s.loop and is_equal_approx(_fq09u_s.bpm, 72.0)
+				and _fq09u_s.bar_beats == 4 and _fq09u_s.beat_count == 64):
+			_fq09u_meta_ok = false
+	_check("fq09u1_manifest_and_streams",
+		int(_fq09u_manifest.get("bpm", 0)) == 72 and _fq09u_meta_ok,
+		"streams=%d bpm=%s" % [_fq09u_streams.size(), str(_fq09u_manifest.get("bpm"))])
+
+	# (b) the director is live: Music bus exists, the context player plays an
+	# interactive stream with the four named clips.
+	var _fq09u_stream: AudioStream = _fq09u_dir.get_node("ContextPlayer").stream
+	_check("fq09u1_director_live",
+		_fq09u_dir.enabled()
+		and AudioServer.get_bus_index("Music") != -1
+		and _fq09u_dir.get_node("ContextPlayer").playing
+		and _fq09u_dir.get_node("ContextPlayer").bus == "Music"
+		and _fq09u_stream is AudioStreamInteractive
+		and (_fq09u_stream as AudioStreamInteractive).clip_count == 4,
+		"enabled=%s playing=%s" % [str(_fq09u_dir.enabled()),
+			str(_fq09u_dir.get_node("ContextPlayer").playing)])
+
+	# (c) context resolution: night, dawn, and underground each request the
+	# right clip from a clean baseline.
+	_fq09u_dir.debug_reset("surface_day")
+	_fq09u_dir.evaluate(_fq09u_night, 1.0)
+	var _fq09u_night_req: String = _fq09u_dir.requested_context()
+	_fq09u_dir.debug_reset("surface_night")
+	_fq09u_dir.evaluate(_fq09u_day, 1.0)
+	var _fq09u_dawn_req: String = _fq09u_dir.requested_context()
+	_fq09u_dir.debug_reset("surface_day")
+	_fq09u_dir.evaluate(_fq09u_under, 1.0)
+	var _fq09u_under_req: String = _fq09u_dir.requested_context()
+	_check("fq09u1_context_resolution",
+		_fq09u_night_req == "surface_night" and _fq09u_dawn_req == "surface_day"
+		and _fq09u_under_req == "underground",
+		"night=%s dawn=%s underground=%s" % [_fq09u_night_req, _fq09u_dawn_req, _fq09u_under_req])
+
+	# (d) crisis hysteresis: a brief spike never enters; sustained pressure
+	# does (0.60 for 2 s, data-defined).
+	_fq09u_dir.debug_reset("surface_day")
+	_fq09u_dir.evaluate(_fq09u_high, 0.5)
+	var _fq09u_brief_crisis: bool = _fq09u_dir.in_crisis()
+	_fq09u_dir.evaluate(_fq09u_day, 0.5)   # spike over: accumulator resets
+	_fq09u_dir.evaluate(_fq09u_high, 0.5)
+	_fq09u_dir.evaluate(_fq09u_high, 0.5)
+	_fq09u_dir.evaluate(_fq09u_high, 0.5)
+	_fq09u_dir.evaluate(_fq09u_high, 0.5)
+	_check("fq09u1_crisis_enter_hysteresis",
+		not _fq09u_brief_crisis and _fq09u_dir.in_crisis()
+		and _fq09u_dir.requested_context() == "crisis"
+		and _fq09u_dir.pressure_value() > 0.9,
+		"brief=%s sustained=%s pressure=%.2f" % [str(_fq09u_brief_crisis),
+			str(_fq09u_dir.in_crisis()), _fq09u_dir.pressure_value()])
+
+	# (e) crisis exits only after the exit threshold AND delay (0.35 / 6 s).
+	_fq09u_dir._current = "crisis"
+	_fq09u_dir._pending = ""
+	_fq09u_dir.evaluate(_fq09u_day, 3.0)
+	var _fq09u_still: bool = _fq09u_dir.in_crisis()
+	_fq09u_dir.evaluate(_fq09u_day, 3.5)
+	_check("fq09u1_crisis_exit_delay",
+		_fq09u_still and not _fq09u_dir.in_crisis()
+		and _fq09u_dir.requested_context() == "surface_day",
+		"at3s=%s at6.5s=%s requested=%s" % [str(_fq09u_still),
+			str(_fq09u_dir.in_crisis()), _fq09u_dir.requested_context()])
+
+	# (f) identical state never re-requests the current or pending clip.
+	_fq09u_dir.debug_reset("surface_day")
+	var _fq09u_reqs: int = _fq09u_dir.switch_request_count()
+	_fq09u_dir.evaluate(_fq09u_day, 1.0)
+	_fq09u_dir.evaluate(_fq09u_day, 1.0)
+	_fq09u_dir.evaluate(_fq09u_day, 1.0)
+	_check("fq09u1_no_rerequest",
+		_fq09u_dir.switch_request_count() == _fq09u_reqs,
+		"requests %d -> %d" % [_fq09u_reqs, _fq09u_dir.switch_request_count()])
+
+	# (g) LIVE spike proof: the interactive playback really reaches the
+	# requested clip via the registered next-bar same-position transition
+	# (one bar = 3.33 s at 72 BPM; budget 8 s).
+	_fq09u_dir.debug_reset("surface_day")
+	_fq09u_dir.evaluate(_fq09u_under, 1.0)
+	var _fq09u_target: int = _fq09u_dir.clip_index_of("underground")
+	var _fq09u_reached := false
+	for _fq09u_i in range(480):
+		_fq09u_dir._settle_pending()
+		if _fq09u_dir.playback_clip_index() == _fq09u_target \
+				and _fq09u_dir.current_context() == "underground":
+			_fq09u_reached = true
+			break
+		await get_tree().process_frame
+	_check("fq09u1_live_clip_switch", _fq09u_reached,
+		"reached=%s clip=%d target=%d" % [str(_fq09u_reached),
+			_fq09u_dir.playback_clip_index(), _fq09u_target])
+
+	# (h) missing assets are silent-safe: a director with a manifest pointing
+	# at nonexistent files disables audio, still evaluates, never crashes.
+	var _fq09u_scene: PackedScene = load("res://scenes/audio/AdaptiveMusicDirector.tscn")
+	var _fq09u_bad: Node = _fq09u_scene.instantiate()
+	_fq09u_bad.manifest_override = {
+		"bpm": 72, "beats_per_bar": 4, "bars_per_loop": 16,
+		"contexts": {
+			"surface_day": {"stream": "res://audio/music/rendered/contexts/missing_a.ogg"},
+			"surface_night": {"stream": "res://audio/music/rendered/contexts/missing_b.ogg"},
+			"underground": {"stream": "res://audio/music/rendered/contexts/missing_c.ogg"},
+			"crisis": {"stream": "res://audio/music/rendered/contexts/missing_d.ogg"},
+		},
+		"transition": {}, "thresholds": {}, "pressure": {},
+	}
+	add_child(_fq09u_bad)
+	_fq09u_bad.evaluate(_fq09u_night, 1.0)
+	_fq09u_bad._settle_pending()
+	_check("fq09u1_missing_assets_silent_safe",
+		not _fq09u_bad.enabled()
+		and not _fq09u_bad.get_node("ContextPlayer").playing
+		and _fq09u_bad.requested_context() == "surface_night",
+		"enabled=%s playing=%s state=%s" % [str(_fq09u_bad.enabled()),
+			str(_fq09u_bad.get_node("ContextPlayer").playing),
+			_fq09u_bad.requested_context()])
+	_fq09u_bad.queue_free()
+	await get_tree().process_frame
+
+	# (i) music state is transient: a save round-trip carries no music keys
+	# and the director keeps playing across the load untouched.
+	root.save_manager.save_game()
+	var _fq09u_state: Dictionary = GameState.get_current_state()
+	var _fq09u_music_keys := ""
+	for _fq09u_k in _fq09u_state:
+		if "music" in str(_fq09u_k).to_lower():
+			_fq09u_music_keys += str(_fq09u_k) + " "
+	_check("fq09u1_state_not_saved",
+		_fq09u_music_keys == "" and root.load_game() and _fq09u_dir.enabled(),
+		("music keys: " + _fq09u_music_keys) if _fq09u_music_keys != ""
+		else "no music keys in the world save; director survives load")
+	_fq09u_dir.set_process(true)
+
 	# --- FQ-08: block and enemy damage visuals ---
 
 	var _fq08_stone: Variant = _find_block(world, world.hall_info["center_cell"], "stone")

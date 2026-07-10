@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/main/game_root.gd" id="1_root"]
 [ext_resource type="PackedScene" path="res://scenes/world/World.tscn" id="2_world"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="5_hud"]
 [ext_resource type="Script" path="res://scripts/settlement/settlement_model.gd" id="6_settlement"]
 [ext_resource type="Script" path="res://scripts/save/save_manager.gd" id="7_save"]
+[ext_resource type="PackedScene" path="res://scenes/audio/AdaptiveMusicDirector.tscn" id="8_music"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_root")
@@ -26,5 +27,7 @@ script = ExtResource("6_settlement")
 
 [node name="SaveManager" type="Node" parent="."]
 script = ExtResource("7_save")
+
+[node name="AdaptiveMusicDirector" parent="." instance=ExtResource("8_music")]
 
 [node name="HUD" parent="." instance=ExtResource("5_hud")]

@@ -1,10 +1,15 @@
 # Work Order FQ-09U - Adaptive Music Program (U1/U2/U3)
 
-Status: PLANNED - operator-approved direction ("hybrid adaptive score"),
-recorded 2026-07-10. This document plus
-`audio/source_templates/MUSIC_TEMPLATE.md` and `data/music_manifest.json`
-are the planning authority. No runtime audio code exists yet; FQ-09U1 is the
-first implementation increment and is gated (see Gating).
+Status: U1 DONE (2026-07-10) — operator-approved direction ("hybrid
+adaptive score") and operator listening approval of the rendered suite both
+recorded. This document plus `audio/source_templates/MUSIC_TEMPLATE.md` and
+`data/music_manifest.json` remain the authority for U2/U3. U1's gates were
+cleared as follows: the assets were rendered/verified by the Codex lane
+(offline Python renderer in place of the M8-AUDIO increments; the m8patch
+is source metadata), and the Godot 4.6 spike was executed in-lane — a
+headless ClassDB probe of the real binary plus a live in-smoke behavior
+proof (fq09u1_live_clip_switch). The Synchronized-inside-Interactive
+nesting question is deliberately still open and MUST be U2's first step.
 
 ## Queue Placement (operator decision record)
 

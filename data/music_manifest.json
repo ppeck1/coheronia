@@ -1,6 +1,6 @@
 {
   "schema_version": "0.1",
-  "status": "planning-contract: consumed by scripts/audio/music_manifest.gd starting FQ-09U1; until then nothing reads this file and no audio asset is required",
+  "status": "live since FQ-09U1: consumed by scripts/audio/music_manifest.gd for the AdaptiveMusicDirector's context layer; the stems/stingers sections remain planning contracts for FQ-09U2/U3. Missing assets are never fatal - the director disables silently.",
   "bpm": 72,
   "beats_per_bar": 4,
   "bars_per_loop": 16,
