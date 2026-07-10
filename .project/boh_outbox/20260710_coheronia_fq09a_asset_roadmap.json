@@ -1,0 +1,58 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260710_coheronia_fq09a_asset_roadmap",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "81600b5",
+  "end_commit": "0142e33",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-09A: give future human and LLM art passes a concrete asset map covering live assets and planned near-term content, with prompt packs specific enough that another model can produce candidates without repo archaeology. No art produced; no code/data changes.",
+  "summary": "docs/ASSET_ROADMAP.md is the single asset authority (the queue's optional machine manifest was deliberately not created - nothing consumes one; the runtime resolves all art by convention, so the roadmap IS the manifest). It records: how the pipeline works for any art agent (drop a PNG at art/generated/<category>/<id>.png and it is live next entry; fallbacks always cover missing files; <id>_01..._08 variant pools give deterministic block variety and 8 fps opening cel frames; the validator treats gaps as INFO; text baked into any image is auto-rejected); live tables for every renderable id with path, size, transparency rule, current fallback, P1-P3 priority, and a per-id prompt note (11 blocks, 16 item icons, 3 live enemies, 9 equipment icons, dirt/stone back walls, 3 scenic backdrop layers, 8 opening scenes); the three drawn-shape actors that need a small renderer extension shipped alongside their first sprites (player - currently appearance-colored rects, town hall, attunement pulse); honest planned tables keyed to gating queue items (FQ-10 copper/iron/coal/tin/silver/crystal/rare ores, FQ-11 workbench/furnace/anvil + ingots, FQ-12 seeds/crops/tilled soil, FQ-13+ thornrat/ore_tick/raider_torchbearer then the data-planned roster and bosses, FQ-09M action effects, ore/fungal/crystal/timber walls and cave/deep backgrounds, phase C-E ancestry sprites incl. 6 dragonkin types, FQ-14/15 UI icons); and per-category prompt packs under one shared style preamble compressing the canon bible's palette roles, production rules, tone, and avoid list, with the template checklists as the review gate.",
+  "acceptance": [
+    "Live and planned assets are separated (validator-locked headings; every planned family names its gating queue item and the doc forbids producing early)",
+    "Naming/prompt instructions are self-sufficient: paths, sizes, transparency rules, per-id notes, category packs, shared preamble, review gate",
+    "Planned coverage includes ores, stations, crops, enemies, tools/armor icons, UI icons, player/ancestry sprites, and action visuals",
+    "Opening, background, and back-wall entries restate their locked dimensions, transparency, fallback, layering, and no-baked-text rules",
+    "Validator green with the new required file and phrase locks; suite unchanged 210/210 (docs-only)",
+    "Haiku verifier fact-checked the inventory against blocks/items/enemies/equipment/ancestries data, prologue SCENES, and the wired backdrop/wall ids: NO FINDINGS"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> PASS incl. asset roadmap authority",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited windowed run -> 210/210 PASS at 2026-07-10T12:04:53",
+    "git diff --check -> exit 0",
+    "haiku read-only verifier -> NO FINDINGS (9/9 fact-check items)"
+  ],
+  "docs_updated": ["docs/ASSET_ROADMAP.md", "docs/HANDOFF.md", "docs/VARIABLE_MATRIX.md", "docs/FABLE_TASK_QUEUE.md"],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "No data/asset_manifest.json: the FQ-09A scope adds a machine manifest only if code/validation consumes one, and nothing does - avoiding a second source of truth that would drift from the convention-based runtime",
+    "art/generated/ui/ documented as reserved: no consumer reads it, so producing 32x32 icons now would create dead assets",
+    "Priorities encode operator-visible wins first: P1 terrain blocks + back walls (every screen), then player/hall renderer extensions; P2 loop surfaces; P3 presentation polish",
+    "Prompt packs compress the canon bible rather than quoting it, but defer to it explicitly - the roadmap cannot fork the style authority",
+    "Swarm: 2 parallel haiku inventory scouts (live ids + fallbacks; planned ids + citations), lead authorship, 1 haiku fact-check verifier"
+  ],
+  "risks": [
+    "Point-in-time inventory: future queue items must add their new ids to the roadmap or it drifts (stated in the doc)",
+    "Player/hall/pulse art is blocked on small renderer extensions; the roadmap requires shipping the code change with the sprites",
+    "The operator may reorder priorities at art-production time"
+  ],
+  "next_action": "FQ-09M: lightweight action animation pass. Art production can run in parallel using the roadmap's prompt packs.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260710_coheronia_fq09a_asset_roadmap.md",
+    "docs/ASSET_ROADMAP.md",
+    "docs/HANDOFF.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/FABLE_TASK_QUEUE.md"
+  ],
+  "ledger_path": ".project/runs/20260710_coheronia_fq09a_asset_roadmap.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-10T13:00:00-04:00"
+}
