@@ -1630,6 +1630,203 @@ func _run() -> void:
 		"sources=%d" % (world._source_ids["dirt"] as Array).size())
 	_check("fq09v_world_restored", root.load_game())
 
+	# --- FQ-09C: opening prologue (driven deterministically — autoplay timing
+	# is disabled, so no check ever waits through real-time panel durations) ---
+
+	var _fq09c_script: GDScript = load("res://scripts/shell/prologue.gd")
+
+	# (a) this very run proves the COHERONIA_SMOKE bypass: the shell jumped
+	# straight to Main and no prologue node ever entered the tree.
+	_check("fq09c_smoke_bypasses_prologue",
+		OS.get_environment("COHERONIA_SMOKE") == "1"
+		and get_tree().root.find_child("Prologue", true, false) == null)
+
+	# (b) scene count, order, and exact overlay copy from the storyboard; each
+	# advance() moves exactly one scene (the shown text is read live per scene).
+	var _fq09c_expected: Array = [
+		["opening_01_first_star", "Before the first hall, the world was held together by names, roads, oaths, and light."],
+		["opening_02_unraveling_roads", "Then the old compacts failed. Roads forgot their ends. Borders became dust."],
+		["opening_03_scattered_peoples", "The scattered peoples carried what they could: craft, seed, iron, memory, anger, and hope."],
+		["opening_04_darkness_measures_light", "Hunger tested every storehouse. Storms tested every roof. The dark measured every light."],
+		["opening_05_first_hall_raised", "So they raised a hall—not a throne, not a temple, but a promise with a roof."],
+		["opening_06_attunement_pulse", "Where shelter, food, work, and courage aligned, the world answered."],
+		["opening_07_civilization_pushes_back", "Dig. Build. Feed. Govern. Endure."],
+		["opening_08_title_card", ""],
+	]
+	var _fq09c_pro: Control = _fq09c_script.new()
+	_fq09c_pro.autoplay = false
+	add_child(_fq09c_pro)
+	var _fq09c_done: Array = [0, false]   # [finished emit count, completed flag]
+	_fq09c_pro.finished.connect(func(completed: bool) -> void:
+		_fq09c_done[0] += 1
+		_fq09c_done[1] = completed)
+	var _fq09c_copy_ok: bool = _fq09c_pro.panel_count() == 8
+	var _fq09c_copy_detail := "8 panels, exact storyboard copy"
+	for _fq09c_i in range(8):
+		if _fq09c_pro.current_index() != _fq09c_i:
+			_fq09c_copy_ok = false
+			_fq09c_copy_detail = "index drift at panel %d (got %d)" % [_fq09c_i, _fq09c_pro.current_index()]
+			break
+		if str(_fq09c_pro.panel_ids()[_fq09c_i]) != str(_fq09c_expected[_fq09c_i][0]) \
+				or _fq09c_pro.current_overlay_text() != str(_fq09c_expected[_fq09c_i][1]):
+			_fq09c_copy_ok = false
+			_fq09c_copy_detail = "panel %d mismatch: id=%s text=%s" % [_fq09c_i,
+				str(_fq09c_pro.panel_ids()[_fq09c_i]), _fq09c_pro.current_overlay_text()]
+			break
+		if _fq09c_i < 7:
+			_fq09c_pro.advance()
+	_check("fq09c_panel_order_and_exact_copy", _fq09c_copy_ok, _fq09c_copy_detail)
+
+	# (c) the title card renders the three exact engine-rendered lines — the
+	# authorship lock (`By Paul Peck`) is a live Label, never baked art.
+	_check("fq09c_title_card_authorship",
+		_fq09c_pro.title_card_visible()
+		and _fq09c_pro.title_card_lines() == ["COHERONIA", "By Paul Peck",
+			"Where civilization pushes back."],
+		"lines=%s" % str(_fq09c_pro.title_card_lines()))
+
+	# (d) completion emits finished(true) exactly once; further advance/skip
+	# calls past the end never re-emit (no double-advance or double-finish).
+	_fq09c_pro.advance()
+	_fq09c_pro.advance()
+	_fq09c_pro.skip()
+	_check("fq09c_completion_emits_once",
+		_fq09c_done[0] == 1 and _fq09c_done[1] and _fq09c_pro.is_finished(),
+		"emits=%d completed=%s" % [_fq09c_done[0], str(_fq09c_done[1])])
+	_fq09c_pro.queue_free()
+	await get_tree().process_frame
+
+	# (e) skip (the Escape path) finishes safely mid-sequence with
+	# completed=false; the single advance() before it moved exactly one scene;
+	# a skip leaves no clock or audio running behind the menu.
+	var _fq09c_skip: Control = _fq09c_script.new()
+	_fq09c_skip.autoplay = false
+	add_child(_fq09c_skip)
+	var _fq09c_skip_done: Array = [0, true]
+	_fq09c_skip.finished.connect(func(completed: bool) -> void:
+		_fq09c_skip_done[0] += 1
+		_fq09c_skip_done[1] = completed)
+	_fq09c_skip.advance()
+	var _fq09c_idx_after_one: int = _fq09c_skip.current_index()
+	_fq09c_skip.skip()
+	_fq09c_skip.advance()
+	_check("fq09c_skip_finishes_safely",
+		_fq09c_idx_after_one == 1 and _fq09c_skip_done[0] == 1
+		and not _fq09c_skip_done[1] and _fq09c_skip.is_finished()
+		and not _fq09c_skip.is_processing() and not _fq09c_skip.audio_playing(),
+		"idx_after_one_advance=%d emits=%d completed=%s processing=%s audio=%s" % [
+			_fq09c_idx_after_one, _fq09c_skip_done[0], str(_fq09c_skip_done[1]),
+			str(_fq09c_skip.is_processing()), str(_fq09c_skip.audio_playing())])
+	_fq09c_skip.queue_free()
+	await get_tree().process_frame
+
+	# (f) prologue_seen is a profile-level flag: absent on a clean profile,
+	# persists through a shell reload, idempotent on replay closeout. The
+	# operator's real profile value is restored afterwards.
+	var _fq09c_prev_seen: bool = bool(GameState.profile.get("prologue_seen", false))
+	GameState.profile.erase("prologue_seen")
+	GameState.save_shell()
+	GameState.load_shell()
+	var _fq09c_clean_default: bool = not bool(GameState.profile.get("prologue_seen", false))
+	GameState.mark_prologue_seen()
+	GameState.load_shell()
+	var _fq09c_seen_after: bool = bool(GameState.profile.get("prologue_seen", false))
+	GameState.mark_prologue_seen()   # replay closeout: stays true, never clears
+	var _fq09c_still_seen: bool = bool(GameState.profile.get("prologue_seen", false))
+	if _fq09c_prev_seen:
+		GameState.profile["prologue_seen"] = true
+	else:
+		GameState.profile.erase("prologue_seen")
+	GameState.save_shell()
+	_check("fq09c_seen_flag_profile_roundtrip",
+		_fq09c_clean_default and _fq09c_seen_after and _fq09c_still_seen,
+		"clean_default=%s persisted=%s idempotent=%s" % [
+			str(_fq09c_clean_default), str(_fq09c_seen_after), str(_fq09c_still_seen)])
+
+	# (g) replay isolation: a full replay run creates/alters no characters or
+	# worlds (the prologue itself writes nothing; the shell owns the flag).
+	var _fq09c_chars_before: int = GameState.characters.size()
+	var _fq09c_worlds_before: int = GameState.list_worlds().size()
+	var _fq09c_replay: Control = _fq09c_script.new()
+	_fq09c_replay.autoplay = false
+	add_child(_fq09c_replay)
+	for _fq09c_j in range(8):
+		_fq09c_replay.advance()
+	_check("fq09c_replay_isolated",
+		_fq09c_replay.is_finished()
+		and GameState.characters.size() == _fq09c_chars_before
+		and GameState.list_worlds().size() == _fq09c_worlds_before,
+		"chars %d->%d worlds %d->%d" % [_fq09c_chars_before, GameState.characters.size(),
+			_fq09c_worlds_before, GameState.list_worlds().size()])
+	_fq09c_replay.queue_free()
+	await get_tree().process_frame
+
+	# (h) cinematic contract: durations and animation cues are data-driven
+	# (42.0s total, every scene declares nontrivial cues), the authored
+	# surface is the locked 640x360 pixel grid, every scene genuinely
+	# animates (the plotted command state differs across ticks — a fade-only
+	# scene would fingerprint identically), and rendering is deterministic
+	# (same scene+tick always replots the identical command list).
+	var _fq09c_cin: Control = _fq09c_script.new()
+	_fq09c_cin.autoplay = false
+	add_child(_fq09c_cin)
+	var _fq09c_durs: Array = _fq09c_cin.scene_durations()
+	var _fq09c_total := 0.0
+	var _fq09c_cues_ok := true
+	for _fq09c_di in range(_fq09c_durs.size()):
+		_fq09c_total += float(_fq09c_durs[_fq09c_di])
+		if float(_fq09c_durs[_fq09c_di]) <= 0.0 \
+				or (_fq09c_cin.scene_cues(_fq09c_di) as Array).is_empty():
+			_fq09c_cues_ok = false
+	_check("fq09c_scene_timing_and_cues_data_driven",
+		_fq09c_durs.size() == 8 and absf(_fq09c_total - 42.0) < 0.001 and _fq09c_cues_ok,
+		"scenes=%d total=%.1fs cues_ok=%s" % [_fq09c_durs.size(), _fq09c_total,
+			str(_fq09c_cues_ok)])
+	var _fq09c_cv: Control = _fq09c_cin.canvas()
+	_check("fq09c_pixel_surface_640x360",
+		_fq09c_cv.W == 640 and _fq09c_cv.H == 360 and _fq09c_cv.TICK_HZ == 10)
+	var _fq09c_static_scenes := ""
+	var _fq09c_nondet := ""
+	for _fq09c_si in range(8):
+		var _fq09c_late: int = int(float(_fq09c_durs[_fq09c_si]) * 10.0) - 2
+		if _fq09c_cv.fingerprint(_fq09c_si, 1) == _fq09c_cv.fingerprint(_fq09c_si, _fq09c_late):
+			_fq09c_static_scenes += "%d " % _fq09c_si
+		if _fq09c_cv.fingerprint(_fq09c_si, _fq09c_late) != _fq09c_cv.fingerprint(_fq09c_si, _fq09c_late):
+			_fq09c_nondet += "%d " % _fq09c_si
+	_check("fq09c_every_scene_genuinely_animated", _fq09c_static_scenes == "",
+		("static scenes: " + _fq09c_static_scenes) if _fq09c_static_scenes != ""
+		else "all 8 scenes replot differently across ticks")
+	_check("fq09c_rendering_deterministic", _fq09c_nondet == "",
+		("nondeterministic scenes: " + _fq09c_nondet) if _fq09c_nondet != ""
+		else "same scene+tick always yields the identical command list")
+	_fq09c_cin.queue_free()
+	await get_tree().process_frame
+
+	# (i) the normal title screen renders the exact title/authorship/tagline
+	# labels plus the Prologue replay button next to the intact Play/Quit flow
+	# (shell UI built off-tree so _ready's smoke bypass never runs).
+	var _fq09c_shell: Control = (load("res://scripts/shell/shell_ui.gd") as GDScript).new()
+	_fq09c_shell._build_base()
+	_fq09c_shell._show_title()
+	var _fq09c_labels: Array = []
+	var _fq09c_buttons: Array = []
+	var _fq09c_stack: Array = [_fq09c_shell]
+	while not _fq09c_stack.is_empty():
+		var _fq09c_node: Node = _fq09c_stack.pop_back()
+		for _fq09c_child in _fq09c_node.get_children():
+			_fq09c_stack.append(_fq09c_child)
+		if _fq09c_node is Label:
+			_fq09c_labels.append((_fq09c_node as Label).text)
+		elif _fq09c_node is Button:
+			_fq09c_buttons.append((_fq09c_node as Button).text)
+	_check("fq09c_title_screen_authorship_and_replay",
+		"COHERONIA" in _fq09c_labels and "By Paul Peck" in _fq09c_labels
+		and "Where civilization pushes back." in _fq09c_labels
+		and "Prologue" in _fq09c_buttons and "Play" in _fq09c_buttons
+		and "Quit" in _fq09c_buttons,
+		"labels=%s buttons=%s" % [str(_fq09c_labels), str(_fq09c_buttons)])
+	_fq09c_shell.free()
+
 	# --- FQ-08: block and enemy damage visuals ---
 
 	var _fq08_stone: Variant = _find_block(world, world.hall_info["center_cell"], "stone")

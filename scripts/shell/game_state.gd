@@ -33,6 +33,16 @@ func load_shell() -> void:
 		characters = parsed.get("characters", [])
 
 
+## FQ-09C: profile-level flag — the opening prologue has been completed or
+## skipped at least once. Idempotent: replay never rewrites or clears it, and
+## no character/world/inventory state is touched.
+func mark_prologue_seen() -> void:
+	if bool(profile.get("prologue_seen", false)):
+		return
+	profile["prologue_seen"] = true
+	save_shell()
+
+
 func save_shell() -> bool:
 	var file := FileAccess.open(SHELL_PATH, FileAccess.WRITE)
 	if file == null:

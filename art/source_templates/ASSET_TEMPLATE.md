@@ -77,3 +77,18 @@ Per-category subject hints:
 5. Run the game once: the asset appears; nothing else changed.
 6. Run `python scripts/validate_repo.py`: no FAIL (INFO lines about other
    missing assets are expected and fine).
+
+## Planned Full-Scene And Backing-Wall Assets
+
+Opening panels, scenic environment backgrounds, and Terraria-style backing
+walls have different dimensions, layering, and lighting responsibilities than
+the four live sprite categories above. Their planning contract is:
+
+- `docs/ART_DIRECTION_AND_CANON.md`
+- `docs/OPENING_STORYBOARD.md`
+- `art/source_templates/BACKGROUND_TEMPLATE.md`
+
+The runtime does not consume `opening`, `backgrounds`, or `back_walls`
+categories yet. Do not add final files or explicit
+`data/visual_assets.json` entries until FQ-09C/FQ-09W add their fallback-safe
+hooks and validation rules.

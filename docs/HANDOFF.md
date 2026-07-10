@@ -2,9 +2,71 @@
 
 ## Current State
 
-**FQ-09V (visual variant pipeline) implemented and closed out** (run `20260709_coheronia_fq09v_visual_variants`; lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` -> FQ-00 through FQ-08; Godot 4.6.1 stable).
+**FQ-09C (canon lock, art direction, and opening cinematic) implemented and
+closed out** (run `20260709_coheronia_fq09c_opening_cinematic`; lineage: v0.1
+oneshot -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
+`20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` ->
+FQ-00 through FQ-09V; Godot 4.6.1 stable).
+
+The canon bible (`docs/ART_DIRECTION_AND_CANON.md`) and the cinematic
+storyboard (`docs/OPENING_STORYBOARD.md`) are the locked authorities for all
+later art/writing work. The opening shipped as a genuinely animated
+eight-scene DOS-style cinematic — a first static-panel implementation was
+operator-rejected mid-run and rebuilt (see FQ-09C Additions).
 
 v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_TOOLS.md` in three implementation commits (A/D, B/C, E/F) plus closeout. FQ-00 through FQ-09 followed from `docs/FABLE_TASK_QUEUE.md`.
+
+## FQ-09C Additions
+
+- **Opening cinematic ("Coheronia DOS Vector Cinematic")**: eight data-driven
+  scenes, ~42s, playing automatically on a clean profile before the title.
+  Authored at 640x360 on a SubViewport and integer-scaled 2x
+  nearest-neighbor into the 1280x720 viewport, so every plotted line lands on
+  a hard pixel grid. `scripts/shell/prologue.gd` owns narrative data (`SCENES`:
+  id, phase, duration, overlay text, audio cue, animation cues), the 10 Hz
+  tick clock, text overlays, input, audio hooks, and the finished/skip
+  contract; `scripts/shell/prologue_canvas.gd` is a pure deterministic
+  `(scene, tick) -> draw command list` renderer built from quantized
+  primitives (plot_line/plot_path, dissolve_path, pulse_ring, palette cycle,
+  stepped offsets, pose-shifted rect silhouettes, ordered hall assembly).
+  Every scene animates beyond fading: contours plot, roads dissolve in
+  discrete segments, the river detaches in steps, fire cycles at 3 ticks per
+  frame, torches palette-cycle, eyes appear for two ticks, storms cross in
+  6px jumps, the hall assembles beam by beam (the deliberate inversion of the
+  unraveling scene) with a white ridge-lock flash, the attunement front
+  re-illuminates contours in quantized radius steps, and the settlement
+  schematic layers parallax with a stepped amber light boundary.
+- **Text and authorship lock**: all copy is engine-rendered in a stable
+  lower-quarter band with hard quarter-alpha step reveals — nothing textual
+  in imagery. The title card steps in `COHERONIA` / `By Paul Peck` /
+  `Where civilization pushes back.` as three separate labels; the persistent
+  title screen shows the same three lines (authorship in amber) plus the new
+  `Prologue` replay button between Play and Quit.
+- **Flow and persistence**: any key or primary click advances exactly one
+  scene (keys via `_unhandled_input`, clicks via the root's `_gui_input` with
+  a STOP mouse filter — the overlay can never click through to title
+  buttons); Escape skips; completion or skip writes only the profile-level
+  `prologue_seen` flag via the idempotent `GameState.mark_prologue_seen()`;
+  `finished(completed)` emits exactly once, and finishing stops the tick
+  clock and any playing audio. `COHERONIA_SMOKE=1` bypasses (unchanged
+  shell path), `COHERONIA_SHOTS=1` keeps its exact pre-prologue title tour,
+  and `COHERONIA_PROLOGUE_DEBUG=1` shortens scenes and shows
+  scene-id/phase/tick for review.
+- **Audio hooks**: placeholder-safe cue ids (`cue_opening_01_drone_bell` …
+  `cue_opening_08_title_chord`) resolved against
+  `res://audio/opening/<id>.ogg`; absent files are silently skipped. No
+  audio assets ship yet.
+- **No image dependency**: the cinematic uses zero PNGs. The old per-panel
+  image-swap hook was retired with the static panels;
+  `art/generated/opening/` remains as a reserved directory for future
+  intermediate source layers only (documented in `data/visual_assets.json`).
+- **Smoke** (12 `fq09c_*` checks, suite total 202): smoke-bypass proof, exact
+  scene order/copy, title-card authorship lines, completion emits once,
+  skip finishes safely with the clock and audio stopped, profile seen-flag
+  round-trip (operator value restored), replay isolation, data-driven
+  timing/cues (42.0s), 640x360/10 Hz surface constants, every scene's command
+  list changes across ticks (a fade-only scene would fail), deterministic
+  replotting, and the title screen's authorship/replay wiring.
 
 ## FQ-09 Additions
 
@@ -101,14 +163,16 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Check | State | Evidence |
 |---|---|---|
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
-| JSON/scaffold validator | PASS | `python scripts/validate_repo.py` covers v0.6 fields (descriptions, ui_help, requires_support, preferred_tool, craft_axe) |
+| JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue runtime/storyboard authorship locks |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 190/190 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V) |
+| Automated smoke | PASS 202/202 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 202 FQ-09C) |
+| Manual GUI passes | PASS | clean-profile autoplay to completion (flag written by autoplay alone), real-ESC skip, menu-click replay, single-step key advance, attributed title menu — all on the waited windowed build with screenshots |
 
 ## Known Risks / Gotchas
 
 - The Windows Godot GUI binary does not reliably run smoke through a direct headless invocation. Use `Start-Process -Wait` and verify `user://smoke_results.json`.
-- The smoke run mutates the real `user://shell.json` profile; its tests create and delete their own characters/worlds. If a smoke run is killed mid-test, stray "Smoke"/"Legacy" test characters may remain in the shell.
+- The smoke run mutates the real `user://shell.json` profile; its tests create and delete their own characters/worlds. If a smoke run is killed mid-test, stray "Smoke"/"Legacy" test characters may remain in the shell. The FQ-09C seen-flag check restores the profile's prior `prologue_seen` value.
+- FQ-09C: cinematic composition keeps meaningful action above canvas y≈272 because the lower-quarter text band overlays the pixel surface; new scene content should respect that line. Audio cues are placeholder ids with no shipped assets. The scene 3/5 figures and hall geometry are hand-plotted coordinates in `prologue_canvas.gd` — adjust there, not via images.
 - A character's backpack now follows them between worlds — dropping items "in a world" for another character is no longer possible (no ground-drop mechanic exists).
 - Player position/health are still world-owned: entering a world last played by another character starts from that world's saved position/health with the entering character's inventory/tools/traits.
 - The inventory panel is read-only; hotbar contents remain the fixed block set.
@@ -122,11 +186,22 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - FQ-05 attunement has exactly one use (the light pulse); no live ancestry or acquirable gear modifies it yet — the hooks are data-ready and smoke-proven but dormant. The pulse light is cosmetic (does not affect `light_score`, night spawns, or occlusion safety math).
 - FQ-06: only the Miner lane's `mining_speed` effect is live; `detect_ore_range`, `cave_safety`, and all non-miner lane effect keys are inert data awaiting their systems. There is no perk refund/respec. Perk points come only from player levels; XP pacing (100 x 1.35^n) means points arrive slowly — untested by human play.
 - FQ-07: art loads bypass the Godot import system (`Image.load_from_file`) by design for plain non-editor runs — an exported build would need an import-aware path (out of scope; this repo never exports). The block tileset reads art at `world.setup`/tileset-build time; dropping in new art requires re-entering the world (no hot-reload). Player/hall visuals are still drawn shapes (not yet image-capable; extend when their art lands).
+- Underground daylight is unresolved: daytime currently applies one global
+  white `CanvasModulate` tint, the world has only the foreground Blocks layer,
+  and mined air reveals the clear viewport. FQ-09W is the bounded follow-on for
+  scenic backdrop hooks, deterministic natural backing walls, and roof-aware
+  sunlight/depth-darkness. A background image alone is not considered a fix.
 - A hypothetical pick tier above 2 has no matching equipment item; the gear shape would record the highest defined pick (`pick_forged`) while the live tier is preserved in `carried_tool_tiers`. No real character can exceed tier 2 today (forge caps at 2).
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, and FQ-09V are complete. Next is FQ-09A (future asset manifest and prompt packs), then FQ-09M (lightweight action animation). FQ-10 (more ores and metallurgy data) should wait until those presentation-foundation items are closed or the operator explicitly changes priority.
+Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
+increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, and FQ-09C are
+complete. The queue head is FQ-09W (scene backdrops, backing walls, and
+underground darkness), followed by FQ-09A (future asset manifest and prompt
+packs) and FQ-09M (lightweight action animation). FQ-10 should wait until
+those presentation foundations close or the operator explicitly changes
+priority.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

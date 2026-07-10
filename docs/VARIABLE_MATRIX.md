@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09V run `20260709_coheronia_fq09v_visual_variants`.
+State: audited against FQ-09C run `20260709_coheronia_fq09c_opening_cinematic`.
 
 ## Authority Surfaces
 
@@ -22,8 +22,31 @@ State: audited against FQ-09V run `20260709_coheronia_fq09v_visual_variants`.
 | World files | `user://worlds/<id>.json` | `GameState`, `SaveManager`, shell world list |
 | Shell UI help text | `data/world_settings.json` `ui_help` | shell create screen (axis/gen/preset help) |
 | Ancestry detail text | `scripts/data/ancestry_detail.gd` `build_panel_text` | shell create form, smoke |
+| Opening cinematic narrative (FQ-09C) | `scripts/shell/prologue.gd` `SCENES` (id, phase, duration, overlay text, audio cue, animation cues; exact copy locked by `docs/OPENING_STORYBOARD.md`) | prologue controller tick clock/text/audio, smoke |
+| Opening cinematic imagery (FQ-09C) | `scripts/shell/prologue_canvas.gd` `build_commands(scene, tick)` — pure deterministic 640x360 plot at 10 Hz; no image files | SubViewport display (2x nearest), smoke fingerprints |
+| Title/authorship/tagline text (FQ-09C) | `prologue.gd` consts `TITLE_TEXT` / `AUTHORSHIP_TEXT` / `TAGLINE_TEXT` | cinematic title card and `shell_ui._show_title` (single source, cannot drift) |
+| `profile.prologue_seen` (FQ-09C) | `user://shell.json` profile via `GameState.mark_prologue_seen()` (idempotent; written only on completion or skip) | `shell_ui._ready` clean-profile autoplay gate |
 
 All registries load through `scripts/data/json_data.gd` (`load_dict`, push_error + `{}` on failure).
+
+## Planned Authority Surfaces (Not Live)
+
+These rows record operator-approved planning authority. They do not claim
+that background planes, wall state, or lighting behavior exists yet. (The
+FQ-09C opening cinematic is live — see the authority table above;
+`docs/ART_DIRECTION_AND_CANON.md` and `docs/OPENING_STORYBOARD.md` remain
+the style/copy authorities for it and for later art.)
+
+| Planned surface | Planning authority | Intended consumer |
+|---|---|---|
+| Canon, tone, terminology, palette roles | `docs/ART_DIRECTION_AND_CANON.md` | FQ-09A prompts, later public/game writing |
+| Scenic backgrounds and backing-wall asset contract | `art/source_templates/BACKGROUND_TEMPLATE.md` | FQ-09W runtime hooks and FQ-09A asset roadmap |
+
+FQ-09W must keep scenic backdrops, natural/constructed backing walls, and
+foreground `cells` as separate planes. No planned wall dictionary or wall
+delta is a live save authority. First-slice natural walls are intended to be
+deterministic/derived; player-placeable walls require a later explicit save
+ownership and migration decision.
 
 ## v0.6 Ownership Boundary
 
@@ -234,6 +257,25 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-09C adds 12 checks (`fq09c_*`, suite total 202) covering: the smoke run
+itself proves the `COHERONIA_SMOKE` bypass (no prologue node in the tree);
+exact scene order and overlay copy walked live scene by scene; the title
+card's three exact engine lines including `By Paul Peck`; completion emits
+`finished(true)` exactly once with no double-advance past the end; skip
+finishes safely mid-sequence with the tick clock stopped and audio silent;
+the profile-level seen flag round-trips through a shell reload, is
+idempotent, and the operator's prior value is restored; a full replay
+touches no characters or worlds; scene durations/cues are data-driven
+(42.0s, every scene declares nontrivial animation cues); the authored
+surface is the locked 640x360 grid at 10 Hz; every scene's draw-command
+fingerprint changes across ticks (a fade-only scene fails); the same
+scene+tick always replots identically (determinism); and the title screen
+renders the exact title/authorship/tagline labels plus the Prologue replay
+button alongside intact Play/Continue/Quit wiring. `validate_repo.py`
+additionally requires `prologue.gd`/`prologue_canvas.gd`, all eight
+`opening_NN_` ids in both the storyboard and the runtime, and the exact
+title lines in the runtime.
 
 FQ-09 adds 4 checks (`fq09_*`, suite total 183) covering: toolbelt slot tiles
 show live counts and the gold selected-slot highlight follows the selected

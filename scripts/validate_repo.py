@@ -15,6 +15,9 @@ REQUIRED_FILES = [
     "docs/VARIABLE_MATRIX.md",
     "docs/HANDOFF.md",
     "docs/PROTOCOL_USAGE.md",
+    "docs/ART_DIRECTION_AND_CANON.md",
+    "docs/OPENING_STORYBOARD.md",
+    "docs/WORK_ORDER_FQ_09C_CANON_ART_PROLOGUE.md",
     "data/blocks.json",
     "data/recipes.json",
     "data/settlement_rules.json",
@@ -24,6 +27,9 @@ REQUIRED_FILES = [
     "data/visual_assets.json",
     "data/items.json",
     "art/source_templates/ASSET_TEMPLATE.md",
+    "art/source_templates/BACKGROUND_TEMPLATE.md",
+    "scripts/shell/prologue.gd",
+    "scripts/shell/prologue_canvas.gd",
     "data/enemies.json",
     "data/ancestries.json",
     "data/progression/player_xp.json",
@@ -38,6 +44,7 @@ REQUIRED_DIRS = [
     "art/generated/items",
     "art/generated/enemies",
     "art/generated/ui",
+    "art/generated/opening",
     ".project/runs",
     ".project/atlas_outbox/imported",
     ".project/atlas_outbox/rejected",
@@ -72,6 +79,45 @@ for rel in JSON_FILES:
     except Exception as exc:
         fail(f"invalid JSON {rel}: {exc}")
     print(f"PASS json: {rel}")
+
+canon_text = (ROOT / "docs/ART_DIRECTION_AND_CANON.md").read_text(encoding="utf-8")
+for required_phrase in [
+    "Mythic Frontier Pixel Diorama",
+    "Coheronia is not yet a kingdom",
+    "Environment Planes",
+]:
+    if required_phrase not in canon_text:
+        fail(f"art/canon authority missing phrase: {required_phrase}")
+print("PASS art direction and canon authority")
+
+storyboard_text = (ROOT / "docs/OPENING_STORYBOARD.md").read_text(encoding="utf-8")
+for panel_index in range(1, 9):
+    panel_key = f"opening_{panel_index:02d}_"
+    if panel_key not in storyboard_text:
+        fail(f"opening storyboard missing panel prefix: {panel_key}")
+if "By Paul Peck" not in storyboard_text:
+    fail("opening storyboard missing exact authorship line: By Paul Peck")
+print("PASS opening storyboard and authorship lock")
+
+# FQ-09C: the prologue runtime must carry all eight storyboard panel ids and
+# the exact engine-rendered title lines (never baked into images).
+prologue_text = (ROOT / "scripts/shell/prologue.gd").read_text(encoding="utf-8")
+for panel_index in range(1, 9):
+    panel_key = f"opening_{panel_index:02d}_"
+    if panel_key not in prologue_text:
+        fail(f"prologue runtime missing panel prefix: {panel_key}")
+for required_phrase in ["COHERONIA", "By Paul Peck", "Where civilization pushes back."]:
+    if required_phrase not in prologue_text:
+        fail(f"prologue runtime missing exact title line: {required_phrase}")
+print("PASS prologue runtime panels and authorship lock")
+
+background_template = (
+    ROOT / "art/source_templates/BACKGROUND_TEMPLATE.md"
+).read_text(encoding="utf-8")
+for required_phrase in ["Scenic backdrop", "Natural backing wall", "Lighting Contract"]:
+    if required_phrase not in background_template:
+        fail(f"background template missing phrase: {required_phrase}")
+print("PASS background and backing-wall template")
 
 blocks = json.loads((ROOT / "data/blocks.json").read_text(encoding="utf-8"))["blocks"]
 for required in ["dirt", "stone", "wood", "ore", "berry_bush", "torch", "lantern", "town_hall_core"]:

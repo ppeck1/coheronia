@@ -36,9 +36,11 @@ and outbox packets.
 | FQ-09R | P0 | Done | Review hardening: unified trees, creation-rule clarity, no new mechanics | Fix current review findings before adding ore/furnace/farming systems. |
 | FQ-09S | P0 | Done | Skill tree visual treatment pass | Improve the existing skill tree presentation without adding new progression mechanics. |
 | FQ-09V | P1 | Done | Visual variant pipeline | Adds deterministic per-id sprite variety without bloating saves or changing mechanics. |
-| FQ-09A | P1 | Ready | Future asset manifest and prompt packs | Gives future art/model agents a concrete asset map before new ore, station, crop, and enemy content expands. |
+| FQ-09C | P0 | Done | Canon lock, art-direction bible, and opening cinematic | Establishes what the game means, how it looks, and `By Paul Peck` before further asset or feature work. |
+| FQ-09W | P0 | Ready - next | Scene backdrops, underground darkness, and backing-wall foundation | Fixes global daylight underground and creates fallback-safe visual planes before final environment art. |
+| FQ-09A | P1 | Ready after FQ-09W | Future asset manifest and prompt packs | Gives future art/model agents a concrete asset map after the opening/background runtime contracts are real. |
 | FQ-09M | P1 | Ready after FQ-09A | Lightweight action animation pass | Makes actions readable while preserving existing timing, saves, and mechanics. |
-| FQ-10 | P1 | Ready | More ores and metallurgy data | Expands mining goals, but should stay data-first before full forge balance. |
+| FQ-10 | P1 | Ready after FQ-09M | More ores and metallurgy data | Expands mining goals after the presentation-foundation sequence closes. |
 | FQ-11 | P1 | Ready after FQ-10 | Workbench, furnace, and anvil station chain | Makes ore useful through buildable progression stations. |
 | FQ-12 | P1 | Ready | Farming and food stability | Current bush support groundwork is ideal for plantable crops and settlement food pressure. |
 | FQ-13 | P2 | Ready after FQ-01 | Enemy variety and combat pressure | Add thornrat, ore tick, and raider torchbearer once health/combat rules are clearer. |
@@ -495,6 +497,105 @@ Acceptance:
 - Missing variants fall back cleanly.
 - Smoke covers deterministic selection and fallback behavior.
 
+## FQ-09C - Canon Lock, Art Direction, And Opening Cinematic (Done)
+
+Goal: make Coheronia's founding identity visible before the title menu and
+lock the narrative/art rules that later image work must follow.
+
+Work order:
+
+- `docs/WORK_ORDER_FQ_09C_CANON_ART_PROLOGUE.md`
+
+Authority docs:
+
+- `docs/ART_DIRECTION_AND_CANON.md`
+- `docs/OPENING_STORYBOARD.md`
+
+Shipped as an eight-scene, ~42s "Coheronia DOS Vector Cinematic": authored
+at 640x360 on a SubViewport, integer-scaled 2x nearest, plotted per tick by
+a deterministic 10 Hz `(scene, tick) -> draw commands` renderer
+(`scripts/shell/prologue_canvas.gd`) driven by a data-driven controller
+(`scripts/shell/prologue.gd`). Every scene genuinely animates (plotting,
+segmented dissolves, palette cycling, stepped pulses/pans/parallax, pose
+shifts, structure assembly); no image files are used or required.
+
+Acceptance (all proven by smoke + waited GUI passes):
+
+- Exact scene order/copy/timing match `docs/OPENING_STORYBOARD.md` (42.0s).
+- Clean-profile autoplay, completion, Escape skip (stops clock and audio),
+  single-step advance, title-menu replay, and seen-flag behavior are proven.
+- `COHERONIA`, `By Paul Peck`, and `Where civilization pushes back.` are
+  engine-rendered on the title card and the persistent title screen.
+- `COHERONIA_SMOKE=1` and `COHERONIA_SHOTS=1` keep deterministic entry;
+  `COHERONIA_PROLOGUE_DEBUG=1` gives shortened review sessions.
+- Placeholder-safe audio cue hooks resolve `res://audio/opening/<cue>.ogg`
+  when present; absent audio never blocks or crashes the cinematic.
+- Validator, capsule doctor, full Godot smoke, and `git diff --check` pass.
+
+## FQ-09W - Scene Backdrops, Underground Darkness, And Backing Walls
+
+Goal: give the side-view world deliberate scenic depth and stop global
+daylight from making mined underground space appear sunlit.
+
+Planning authority:
+
+- `docs/ART_DIRECTION_AND_CANON.md` (Environment Planes)
+- `art/source_templates/BACKGROUND_TEMPLATE.md`
+
+Scope:
+
+- Add a cosmetic scenic-backdrop plane behind the world with code-drawn
+  fallback plus optional surface/parallax image hooks.
+- Add a dedicated non-colliding `BackgroundWalls` TileMapLayer behind the
+  existing foreground Blocks layer.
+- Generate natural dirt/stone backing walls deterministically from seed and
+  terrain so mining foreground blocks reveals a cave wall rather than the
+  default clear viewport.
+- Keep first-slice natural walls immutable and derived; do not add wall drops,
+  placement, removal, `wall_deltas`, or a save-version change yet.
+- Replace day-white underground ambience with roof-aware sunlight if Godot
+  directional shadows are reliable against the existing block occluders.
+  Use a smooth depth-aware ambient fallback only if that path is demonstrably
+  unreliable, and document the approximation.
+- Add fallback-safe planned asset categories/paths for full-scene backgrounds
+  and 16 x 16 backing-wall tiles.
+- Add a midday underground-with-torch verification shot.
+- Do not resurrect retired FQ-02 background flora or `background_cells`.
+
+Likely files:
+
+- `scenes/world/World.tscn`
+- `scripts/world/world.gd`
+- `scripts/world/world_gen.gd`
+- new `scripts/world/world_backdrop.gd`
+- `scenes/main/Main.tscn`
+- `scripts/main/game_root.gd`
+- `data/visual_assets.json`
+- `art/source_templates/BACKGROUND_TEMPLATE.md`
+- `scripts/main/smoke_test.gd`
+- `scripts/main/screenshot_tour.gd`
+- `docs/HANDOFF.md`
+- `docs/VARIABLE_MATRIX.md`
+
+Acceptance:
+
+- Surface view has an intentional fallback backdrop with no blank edges.
+- A mined underground chamber reveals backing walls while foreground
+  `block_at` remains air and collision/mining behavior is unchanged.
+- Underground space is visibly dark at midday; torches and lanterns brighten
+  it locally; an open shaft can admit roof-aware sunlight when supported.
+- Backing walls have no foreground collision, drops, deltas, settlement tags,
+  or shelter/light-score effects.
+- Same seed/config produces the same natural backing-wall map.
+- Old world saves load unchanged; no wall state is falsely persisted.
+- Missing optional images return to code-drawn fallbacks.
+- Existing night/storm, torch, save, smoke, and screenshot behavior remains
+  green.
+
+Deferred follow-on: player-placeable/removable constructed walls with their
+own wall deltas, drops, recipes, save migration, and daylight semantics. Do not
+hide that larger gameplay boundary inside this visual-foundation slice.
+
 ## FQ-09A - Future Asset Manifest And Prompt Packs
 
 Goal: give future human and LLM art passes a concrete asset map covering live
@@ -511,6 +612,11 @@ Scope:
 - List planned near-term ids from the queue and future docs: ore families,
   station blocks, ingots, crops/seeds, enemy variants, tools, armor, UI icons,
   player/ancestry sprites, and action-effect sprites.
+- Include the locked prologue panel ids, scenic background layers, and backing
+  wall ids from `docs/OPENING_STORYBOARD.md` and
+  `art/source_templates/BACKGROUND_TEMPLATE.md`.
+- Treat `docs/ART_DIRECTION_AND_CANON.md` as the style/meaning authority for
+  every prompt pack; do not reinvent tone, palette roles, or magic language.
 - For each entry, record category, data id, intended file path, target size,
   transparency/opacity rule, current fallback behavior, priority, and prompt
   note.
@@ -534,6 +640,8 @@ Acceptance:
   candidates without extra repo archaeology.
 - Future planned items include ore, furnace/anvil/workbench, crops, enemies,
   tools, armor, UI icons, player/ancestry sprites, and action visuals.
+- Opening, scenic-background, and backing-wall entries follow their locked
+  dimensions, transparency, fallback, layering, and no-baked-text rules.
 - Validator remains green; any new manifest schema is validated if introduced.
 
 ## FQ-09M - Lightweight Action Animation Pass
@@ -762,25 +870,14 @@ ahead of FQ-00 through FQ-03 unless the operator explicitly changes priority.
 | Weather readability | Storm danger should be visible before damage lands. | FQ-01 |
 | Balancing dashboard | Speeds tuning for XP, ore, damage, hunger, raids. | Several systems live |
 
-## Suggested First Fable Prompt
+## Current Fable Continuation
 
 ```text
 You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 
 Read README.md, docs/HANDOFF.md, docs/VARIABLE_MATRIX.md, and
-docs/FABLE_TASK_QUEUE.md. Take only FQ-00. Do not start new feature work.
-
-Goal: close the v0.6.1 repair pass. Fix legacy character migration so old
-world inventory does not duplicate role starter items; add smoke coverage for
-that full path; update Atlas/BOH outbox packet metadata with the actual pushed
-closeout commit and public repo profile; remove the EOF whitespace issue.
-
-Validation:
-- python scripts/validate_repo.py
-- python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile public_repo
-- COHERONIA_SMOKE=1 waited Godot run; verify user://smoke_results.json PASS
-- git diff --check
-
-Closeout: update docs only if behavior or evidence changed, write/adjust run
-ledger evidence, and commit only after green validation.
+docs/FABLE_TASK_QUEUE.md. FQ-09C (canon lock and opening cinematic) is done.
+The queue head is FQ-09W (scene backdrops, underground darkness, and
+backing-wall foundation). Take only that item. Do not begin FQ-09A, FQ-09M,
+or later feature work.
 ```

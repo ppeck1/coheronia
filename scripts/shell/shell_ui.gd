@@ -8,6 +8,9 @@ enum Screen { TITLE, CHAR_SELECT, CHAR_CREATE, WORLD_SELECT, WORLD_CREATE }
 const BG_COLOR := Color(0.08, 0.09, 0.12)
 const DIM_COLOR := Color(0.62, 0.65, 0.75)
 const AncestryDetailScript := preload("res://scripts/data/ancestry_detail.gd")
+# FQ-09C: title/authorship/tagline text lives on the prologue script so the
+# title card and the persistent title screen can never drift apart.
+const PrologueScript := preload("res://scripts/shell/prologue.gd")
 
 const PRESET_ORDER := ["peaceful_builder", "folk_kingdom", "tyrants_burden",
 	"dark_frontier", "mythic_survival", "custom"]
@@ -49,6 +52,7 @@ var _built := false
 var _screen: Screen = Screen.TITLE
 var _content: VBoxContainer
 var _selected_char_id: String = ""
+var _prologue: Control = null   # FQ-09C: live prologue overlay, null when idle
 
 # --- character create controls ---
 var _name_edit: LineEdit
@@ -84,9 +88,14 @@ func _ready() -> void:
 		get_tree().change_scene_to_file.call_deferred("res://scenes/main/Main.tscn")
 		return
 	_build_base()
-	_show_title()
 	if OS.get_environment("COHERONIA_SHOTS") == "1":
+		# FQ-09C: the shot tour keeps its exact pre-prologue title behavior.
+		_show_title()
 		_run_shot_tour.call_deferred()
+		return
+	_show_title()
+	if not bool(GameState.profile.get("prologue_seen", false)):
+		_show_prologue()   # clean profile: autoplay before the title
 
 
 ## README media tour (COHERONIA_SHOTS=1): captures the shell screens, then
@@ -110,9 +119,32 @@ func _tour_shot(shot_name: String) -> void:
 	get_viewport().get_texture().get_image().save_png("user://shots/%s.png" % shot_name)
 
 
+# ---------- FQ-09C: opening prologue ----------
+
+## Shows the prologue over the current screen. Used for the clean-profile
+## autoplay and the title-menu replay; both run the same sequence and end at
+## the title screen. Only the profile-level prologue_seen flag is written.
+func _show_prologue() -> void:
+	if _prologue != null:
+		return
+	_prologue = PrologueScript.new()
+	_prologue.finished.connect(_on_prologue_finished)
+	add_child(_prologue)
+
+
+func _on_prologue_finished(_completed: bool) -> void:
+	GameState.mark_prologue_seen()
+	if _prologue != null:
+		_prologue.queue_free()
+		_prologue = null
+	_show_title()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not _built:
 		return
+	if _prologue != null:
+		return   # the prologue consumes advance/skip input itself
 	if event.is_action_pressed("ui_cancel"):
 		match _screen:
 			Screen.CHAR_SELECT:
@@ -162,9 +194,13 @@ func _show_title() -> void:
 	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_theme_constant_override("separation", 10)
 	_content.add_child(box)
-	var title := _label(box, "COHERONIA", 28)
+	var title := _label(box, PrologueScript.TITLE_TEXT, 28)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var subtitle := _label(box, "a settlement of light and pressure", 14)
+	# FQ-09C authorship lock: `By Paul Peck` stays visible on the normal title.
+	var author := _label(box, PrologueScript.AUTHORSHIP_TEXT, 16)
+	author.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	author.add_theme_color_override("font_color", Color(0.95, 0.72, 0.35))
+	var subtitle := _label(box, PrologueScript.TAGLINE_TEXT, 14)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_color_override("font_color", DIM_COLOR)
 	_gap(box, 16)
@@ -176,6 +212,8 @@ func _show_title() -> void:
 		cont.custom_minimum_size = Vector2(220, 0)
 	var play := _button(box, "Play", _show_char_select)
 	play.custom_minimum_size = Vector2(220, 0)
+	var replay := _button(box, "Prologue", _show_prologue)
+	replay.custom_minimum_size = Vector2(220, 0)
 	var quit := _button(box, "Quit", func() -> void: get_tree().quit())
 	quit.custom_minimum_size = Vector2(220, 0)
 	_spacer(_content)
