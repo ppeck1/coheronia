@@ -209,6 +209,22 @@ outside the game and validation; only the final PNG enters the repo.
 > no implied walkable terrain, [strips:] tiles horizontally, transparent
 > above the ridge line.
 
+## Audio Assets (FQ-09U program — planned; authored in M8str0)
+
+Music production has its own authority pair:
+`docs/WORK_ORDER_FQ_09U_ADAPTIVE_MUSIC.md` (architecture, state model,
+gating) and `audio/source_templates/MUSIC_TEMPLATE.md` (production
+contract, mood vocabulary, prompt packs, render checklist), with
+`data/music_manifest.json` as the machine contract. Nothing at runtime
+consumes these until FQ-09U1.
+
+| Family | Ids | Arrives with | Contract |
+|---|---|---|---|
+| Context loops | coheronia_surface_day, coheronia_surface_night, coheronia_underground, coheronia_crisis | FQ-09U1 | one adaptive suite: 72 BPM, 4/4, 16 bars (53.333 s), shared key family and phrase grid, OGG |
+| Stems | stem_foundation, stem_hearth, stem_motion, stem_pressure, stem_attunement, stem_fracture | FQ-09U2 | phase-locked 16-bar layers, any subset musical |
+| Stingers | stinger_dawn, stinger_nightfall, stinger_raid_warning, stinger_attunement, stinger_base_advance | FQ-09U3 | one-shots under 8 s, built from suite material |
+| Opening cues | cue_opening_01_drone_bell … cue_opening_08_title_chord (`audio/opening/<id>.ogg`) | live hooks since FQ-09C (silent-skip) | restrained one-shots per the storyboard's sound direction |
+
 ## Review Gate
 
 Every candidate passes `art/source_templates/ASSET_TEMPLATE.md`'s checklist

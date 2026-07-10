@@ -1,7 +1,7 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09A run `20260710_coheronia_fq09a_asset_roadmap`
-(docs-only increment; runtime surfaces unchanged from FQ-09W).
+State: audited against FQ-09U0 run `20260710_coheronia_fq09u0_music_planning`
+(planning-only increment; runtime surfaces unchanged from FQ-09W).
 
 ## Authority Surfaces
 
@@ -47,6 +47,8 @@ remain the style/copy/asset authorities for them and for later art.)
 |---|---|---|
 | Canon, tone, terminology, palette roles | `docs/ART_DIRECTION_AND_CANON.md` | asset prompt packs, later public/game writing |
 | Asset map: every live/planned id, path, size, priority, prompt pack | `docs/ASSET_ROADMAP.md` (FQ-09A; validator phrase-locked) | human/LLM art passes; no machine manifest exists by decision |
+| Adaptive music program: contexts/stems/stingers, state model, hysteresis, gating | `docs/WORK_ORDER_FQ_09U_ADAPTIVE_MUSIC.md` + `audio/source_templates/MUSIC_TEMPLATE.md` (FQ-09U0; operator-approved) | Codex (Godot spike, M8str0 M8-AUDIO-01..03), music-authoring LLM, FQ-09U1..U3 implementation |
+| Music machine contract: grid, contexts, priority, transitions, pressure norms, thresholds | `data/music_manifest.json` (validator-checked: 72/4/16 grid, 4 contexts, crisis hysteresis) | `scripts/audio/music_manifest.gd` from FQ-09U1; nothing reads it yet |
 | Constructed (player-placeable) backing walls | `art/source_templates/BACKGROUND_TEMPLATE.md` | a later bounded gameplay task — needs wall deltas, drops, recipes, save ownership/migration decisions |
 | Cave/deep background layers (`cave_far`, `deep_cavern_far`) and wall variants beyond dirt/stone | `art/source_templates/BACKGROUND_TEMPLATE.md` | FQ-09A asset roadmap; runtime wiring when those environments exist |
 

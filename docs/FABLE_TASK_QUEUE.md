@@ -40,7 +40,10 @@ and outbox packets.
 | FQ-09W | P0 | Done | Scene backdrops, underground darkness, and backing-wall foundation | Fixes global daylight underground and creates fallback-safe visual planes before final environment art. |
 | FQ-09A | P1 | Done | Future asset manifest and prompt packs | Gives future art/model agents a concrete asset map after the opening/background runtime contracts are real. |
 | FQ-09M | P1 | Ready - next | Lightweight action animation pass | Makes actions readable while preserving existing timing, saves, and mechanics. |
-| FQ-10 | P1 | Ready after FQ-09M | More ores and metallurgy data | Expands mining goals after the presentation-foundation sequence closes. |
+| FQ-09U1 | P1 | Ready after FQ-09M (operator-approved 2026-07-10; gated on Godot audio spike + assets) | Adaptive context music foundation | Seamless bar-quantized day/night/underground/crisis music from existing game truth; the hybrid adaptive score's horizontal layer. |
+| FQ-09U2 | P1 | Ready after FQ-09U1 | Settlement-responsive music layering | Synchronized stems weighted by pressure/Coherence/Resilience/Attunement; the vertical layer. |
+| FQ-09U3 | P2 | Ready after FQ-09U2 | Music stingers, ducking, and audio settings | Event one-shots over brief ducking, volume settings, pause behavior, final asset validation. |
+| FQ-10 | P1 | Ready after FQ-09U3 | More ores and metallurgy data | Expands mining goals after the presentation-foundation sequence closes. |
 | FQ-11 | P1 | Ready after FQ-10 | Workbench, furnace, and anvil station chain | Makes ore useful through buildable progression stations. |
 | FQ-12 | P1 | Ready | Farming and food stability | Current bush support groundwork is ideal for plantable crops and settlement food pressure. |
 | FQ-13 | P2 | Ready after FQ-01 | Enemy variety and combat pressure | Add thornrat, ore tick, and raider torchbearer once health/combat rules are clearer. |
@@ -719,6 +722,42 @@ Acceptance:
 - Any animation state is transient and does not enter world or character saves.
 - Smoke or test hooks prove at least the behavior-preserving paths and any
   exposed visual state that could affect gameplay.
+
+## FQ-09U1 - Adaptive Context Music Foundation
+
+Authority: `docs/WORK_ORDER_FQ_09U_ADAPTIVE_MUSIC.md` (operator-approved
+hybrid adaptive score, placement recorded there) +
+`audio/source_templates/MUSIC_TEMPLATE.md` + `data/music_manifest.json`.
+
+Scope: seamless state-driven context music with full-mix loops only —
+manifest loader, Music bus, AdaptiveMusicDirector scene/script, day/night/
+underground/crisis resolution from existing game truth, bar-quantized
+same-position transitions with crossfades (Godot 4.6
+AudioStreamInteractive, per the accepted spike), data-defined hysteresis and
+minimum context hold, smoke/debug accessors, missing-asset fail-safe,
+placeholder loops honoring the exact asset contract. No stems, stingers,
+or settings UI. Gated on: Codex Godot 4.6 spike evidence, M8-AUDIO-01
+review, and the placeholder policy in the work order.
+
+Acceptance: the smoke-provable list in the work order (context selection,
+hysteresis both directions, no re-request of the current clip, missing
+assets never crash, music state absent from saves, all existing checks
+green).
+
+## FQ-09U2 - Settlement-Responsive Music Layering
+
+Synchronized stems (AudioStreamSynchronized per spike findings) weighted by
+pressure/Coherence/Resilience/Attunement from the existing settlement
+signal; smoothed volume movement; runtime loop-length validation; debug stem
+weights; storm texture layer; no save-state changes. Details in the work
+order.
+
+## FQ-09U3 - Music Stingers, Ducking, And Audio Settings
+
+Dawn/nightfall/raid/Attunement/base-advance stingers over temporary
+music-bus ducking (never stopping the music); music/SFX volume settings;
+pause behavior; final audio asset validation (exact duration and sample
+rate). Details in the work order.
 
 ## FQ-10 - More Ores And Metallurgy Data
 

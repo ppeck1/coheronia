@@ -2,11 +2,49 @@
 
 ## Current State
 
-**FQ-09A (future asset manifest and prompt packs) implemented and closed
-out** (run `20260710_coheronia_fq09a_asset_roadmap`; lineage: v0.1 oneshot
+**FQ-09U0 (adaptive music planning and templates) implemented and closed
+out** (run `20260710_coheronia_fq09u0_music_planning`; lineage: v0.1 oneshot
 -> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
 `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` ->
-FQ-00 through FQ-09V -> FQ-09C -> FQ-09W; Godot 4.6.1 stable).
+FQ-00 through FQ-09V -> FQ-09C -> FQ-09W -> FQ-09A; Godot 4.6.1 stable).
+
+## FQ-09U0 Additions (planning only — no runtime audio code)
+
+- **Operator decision recorded**: the hybrid adaptive score model is
+  approved (horizontal bar-quantized context switching + later vertical
+  stem layering + event stingers, all on native Godot 4.6
+  AudioStreamInteractive/AudioStreamSynchronized — no middleware, no
+  runtime AI generation). Queue placement: FQ-09U1/U2/U3 join after FQ-09M
+  and before FQ-10; no silent queue bypass.
+- **`docs/WORK_ORDER_FQ_09U_ADAPTIVE_MUSIC.md`**: the three bounded
+  runtime increments with the musical state model resolved against
+  verified symbols (`settlement_model.updated(coherence, load_value,
+  resilience, inputs, labels)` on the 5 s tick, `current_threat_severity()`,
+  the cave-spawn underground rule, `world.sky_line`), the anti-thrash
+  hysteresis table, agent division (Paul approves by listening; Codex owns
+  the Godot spike + M8str0 tooling; Claude Code implements; independent
+  review), gating (spike evidence + M8-AUDIO-01 review before U1), the
+  file map, and the risk register. Noted explicitly: game_root emits no
+  signals today, so U1 adds only a narrow nightfall/dawn/storm/raid event
+  surface.
+- **`audio/source_templates/MUSIC_TEMPLATE.md`**: the locked production
+  contract (72 BPM, 4/4, 16 bars = 53.333 s, D Dorian family, shared
+  phrase grid at bars 1/5/9/13, WAV masters -> OGG runtime, exact naming),
+  canon-derived mood vocabulary (palette roles mapped to instrumentation),
+  context and stem briefs, prompt packs for the music-authoring LLM and
+  the three bounded Codex M8str0 increments (M8-AUDIO-01 loop-locked
+  recording, -02 stem buses, -03 Coheronia template), and the render
+  checklist ending in operator approval by ear.
+- **`data/music_manifest.json`**: the machine contract (contexts, priority,
+  transition quantize/fades, pressure normalization, hysteresis
+  thresholds, stem/stinger paths), validator-checked for the musical grid,
+  all four contexts, and crisis_exit < crisis_enter; marked
+  planning-status until the U1 loader consumes it.
+- **Directory skeleton**: `audio/music/source_m8str0/`,
+  `audio/music/rendered/{contexts,stems,stingers}/`, `audio/opening/`
+  (the FQ-09C cue hook target now exists on disk) — all validator-required.
+- Docs-only + data + validator: suite stays 210/210; the asset roadmap
+  gained the audio families table.
 
 ## FQ-09A Additions
 
@@ -298,11 +336,13 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
 increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, FQ-09W,
-and FQ-09A are complete. The queue head is FQ-09M (lightweight action
-animation pass); FQ-10 follows once the presentation foundations close or
-the operator explicitly changes priority. Art production can now proceed in
-parallel with any increment: `docs/ASSET_ROADMAP.md` maps every id, path,
-size, priority, and prompt.
+FQ-09A, and the FQ-09U0 music planning pass are complete. The queue head is
+FQ-09M (lightweight action animation pass), then FQ-09U1 -> U2 -> U3
+(adaptive music, gated on the Codex Godot spike and M8-AUDIO-01 review),
+then FQ-10. Two lanes can run in parallel with any increment: art
+production (`docs/ASSET_ROADMAP.md`) and music authoring/tooling
+(`audio/source_templates/MUSIC_TEMPLATE.md` — Codex in m8str0, operator
+approving by ear).
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

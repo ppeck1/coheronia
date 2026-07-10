@@ -19,6 +19,9 @@ REQUIRED_FILES = [
     "docs/OPENING_STORYBOARD.md",
     "docs/WORK_ORDER_FQ_09C_CANON_ART_PROLOGUE.md",
     "docs/ASSET_ROADMAP.md",
+    "docs/WORK_ORDER_FQ_09U_ADAPTIVE_MUSIC.md",
+    "audio/source_templates/MUSIC_TEMPLATE.md",
+    "data/music_manifest.json",
     "data/blocks.json",
     "data/recipes.json",
     "data/settlement_rules.json",
@@ -50,6 +53,11 @@ REQUIRED_DIRS = [
     "art/generated/opening",
     "art/generated/backgrounds",
     "art/generated/back_walls",
+    "audio/music/source_m8str0",
+    "audio/music/rendered/contexts",
+    "audio/music/rendered/stems",
+    "audio/music/rendered/stingers",
+    "audio/opening",
     ".project/runs",
     ".project/atlas_outbox/imported",
     ".project/atlas_outbox/rejected",
@@ -132,6 +140,28 @@ for required_phrase in ["Live Assets", "Planned Assets", "Prompt Packs",
     if required_phrase not in roadmap_text:
         fail(f"asset roadmap missing phrase: {required_phrase}")
 print("PASS asset roadmap authority")
+
+# FQ-09U0: the adaptive-music planning contract must stay coherent — the
+# manifest's musical grid matches the locked production contract, all four
+# contexts are declared, and thresholds carry hysteresis.
+music_manifest = json.loads((ROOT / "data/music_manifest.json").read_text(encoding="utf-8"))
+if int(music_manifest.get("bpm", 0)) != 72 or int(music_manifest.get("beats_per_bar", 0)) != 4 \
+        or int(music_manifest.get("bars_per_loop", 0)) != 16:
+    fail("music_manifest.json musical grid must be 72 BPM, 4/4, 16 bars")
+for mm_ctx in ["surface_day", "surface_night", "underground", "crisis"]:
+    if mm_ctx not in music_manifest.get("contexts", {}):
+        fail(f"music_manifest.json missing context: {mm_ctx}")
+mm_thresholds = music_manifest.get("thresholds", {})
+for mm_key in ["crisis_enter", "crisis_exit", "crisis_enter_seconds", "crisis_exit_seconds"]:
+    if mm_key not in mm_thresholds:
+        fail(f"music_manifest.json thresholds missing key: {mm_key}")
+if not float(mm_thresholds["crisis_exit"]) < float(mm_thresholds["crisis_enter"]):
+    fail("music_manifest.json crisis_exit must be below crisis_enter (hysteresis)")
+music_template = (ROOT / "audio/source_templates/MUSIC_TEMPLATE.md").read_text(encoding="utf-8")
+for required_phrase in ["one adaptive suite", "Production Contract", "Render Checklist"]:
+    if required_phrase not in music_template:
+        fail(f"music template missing phrase: {required_phrase}")
+print("PASS adaptive music planning contract")
 
 blocks = json.loads((ROOT / "data/blocks.json").read_text(encoding="utf-8"))["blocks"]
 for required in ["dirt", "stone", "wood", "ore", "berry_bush", "torch", "lantern", "town_hall_core"]:

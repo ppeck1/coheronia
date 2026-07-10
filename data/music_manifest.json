@@ -1,0 +1,59 @@
+{
+  "schema_version": "0.1",
+  "status": "planning-contract: consumed by scripts/audio/music_manifest.gd starting FQ-09U1; until then nothing reads this file and no audio asset is required",
+  "bpm": 72,
+  "beats_per_bar": 4,
+  "bars_per_loop": 16,
+  "sample_rate_hz": 48000,
+  "contexts": {
+    "surface_day": {
+      "stream": "res://audio/music/rendered/contexts/coheronia_surface_day.ogg"
+    },
+    "surface_night": {
+      "stream": "res://audio/music/rendered/contexts/coheronia_surface_night.ogg"
+    },
+    "underground": {
+      "stream": "res://audio/music/rendered/contexts/coheronia_underground.ogg"
+    },
+    "crisis": {
+      "stream": "res://audio/music/rendered/contexts/coheronia_crisis.ogg"
+    }
+  },
+  "context_priority": ["crisis", "underground", "surface_night", "surface_day"],
+  "transition": {
+    "quantize": "next_bar",
+    "emergency_quantize": "next_beat",
+    "fade_beats": 4.0,
+    "major_fade_beats": 8.0,
+    "min_context_hold_bars": 1
+  },
+  "pressure": {
+    "threat_severity_norm": 40.0,
+    "load_norm": 100.0,
+    "health_weight": 1.0,
+    "storm_bonus": 0.15
+  },
+  "thresholds": {
+    "crisis_enter": 0.6,
+    "crisis_exit": 0.35,
+    "crisis_enter_seconds": 2.0,
+    "crisis_exit_seconds": 6.0
+  },
+  "stems": {
+    "_status": "FQ-09U2; every stem is 16 bars, phase-locked",
+    "foundation": "res://audio/music/rendered/stems/stem_foundation.ogg",
+    "hearth": "res://audio/music/rendered/stems/stem_hearth.ogg",
+    "motion": "res://audio/music/rendered/stems/stem_motion.ogg",
+    "pressure": "res://audio/music/rendered/stems/stem_pressure.ogg",
+    "attunement": "res://audio/music/rendered/stems/stem_attunement.ogg",
+    "fracture": "res://audio/music/rendered/stems/stem_fracture.ogg"
+  },
+  "stingers": {
+    "_status": "FQ-09U3; one-shots under 8 s over temporary music ducking",
+    "dawn": "res://audio/music/rendered/stingers/stinger_dawn.ogg",
+    "nightfall": "res://audio/music/rendered/stingers/stinger_nightfall.ogg",
+    "raid_warning": "res://audio/music/rendered/stingers/stinger_raid_warning.ogg",
+    "attunement": "res://audio/music/rendered/stingers/stinger_attunement.ogg",
+    "base_advance": "res://audio/music/rendered/stingers/stinger_base_advance.ogg"
+  }
+}
