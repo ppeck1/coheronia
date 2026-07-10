@@ -18,6 +18,7 @@ REQUIRED_FILES = [
     "docs/ART_DIRECTION_AND_CANON.md",
     "docs/OPENING_STORYBOARD.md",
     "docs/WORK_ORDER_FQ_09C_CANON_ART_PROLOGUE.md",
+    "docs/ASSET_ROADMAP.md",
     "data/blocks.json",
     "data/recipes.json",
     "data/settlement_rules.json",
@@ -122,6 +123,15 @@ for required_phrase in ["Scenic backdrop", "Natural backing wall", "Lighting Con
     if required_phrase not in background_template:
         fail(f"background template missing phrase: {required_phrase}")
 print("PASS background and backing-wall template")
+
+# FQ-09A: the asset roadmap must keep live and planned assets separated and
+# carry the prompt packs and the no-baked-text rule.
+roadmap_text = (ROOT / "docs/ASSET_ROADMAP.md").read_text(encoding="utf-8")
+for required_phrase in ["Live Assets", "Planned Assets", "Prompt Packs",
+                        "Never bake words into any image"]:
+    if required_phrase not in roadmap_text:
+        fail(f"asset roadmap missing phrase: {required_phrase}")
+print("PASS asset roadmap authority")
 
 blocks = json.loads((ROOT / "data/blocks.json").read_text(encoding="utf-8"))["blocks"]
 for required in ["dirt", "stone", "wood", "ore", "berry_bush", "torch", "lantern", "town_hall_core"]:

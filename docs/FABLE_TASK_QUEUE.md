@@ -38,8 +38,8 @@ and outbox packets.
 | FQ-09V | P1 | Done | Visual variant pipeline | Adds deterministic per-id sprite variety without bloating saves or changing mechanics. |
 | FQ-09C | P0 | Done | Canon lock, art-direction bible, and opening cinematic | Establishes what the game means, how it looks, and `By Paul Peck` before further asset or feature work. |
 | FQ-09W | P0 | Done | Scene backdrops, underground darkness, and backing-wall foundation | Fixes global daylight underground and creates fallback-safe visual planes before final environment art. |
-| FQ-09A | P1 | Ready - next | Future asset manifest and prompt packs | Gives future art/model agents a concrete asset map after the opening/background runtime contracts are real. |
-| FQ-09M | P1 | Ready after FQ-09A | Lightweight action animation pass | Makes actions readable while preserving existing timing, saves, and mechanics. |
+| FQ-09A | P1 | Done | Future asset manifest and prompt packs | Gives future art/model agents a concrete asset map after the opening/background runtime contracts are real. |
+| FQ-09M | P1 | Ready - next | Lightweight action animation pass | Makes actions readable while preserving existing timing, saves, and mechanics. |
 | FQ-10 | P1 | Ready after FQ-09M | More ores and metallurgy data | Expands mining goals after the presentation-foundation sequence closes. |
 | FQ-11 | P1 | Ready after FQ-10 | Workbench, furnace, and anvil station chain | Makes ore useful through buildable progression stations. |
 | FQ-12 | P1 | Ready | Farming and food stability | Current bush support groundwork is ideal for plantable crops and settlement food pressure. |
@@ -617,10 +617,22 @@ Deferred follow-on: player-placeable/removable constructed walls with their
 own wall deltas, drops, recipes, save migration, and daylight semantics. Do not
 hide that larger gameplay boundary inside this visual-foundation slice.
 
-## FQ-09A - Future Asset Manifest And Prompt Packs
+## FQ-09A - Future Asset Manifest And Prompt Packs (Done)
 
 Goal: give future human and LLM art passes a concrete asset map covering live
 assets and planned near-term content before new systems multiply the art needs.
+
+Shipped as `docs/ASSET_ROADMAP.md` (validator-required, with locked
+live/planned separation and the no-baked-text rule): pipeline facts for any
+art agent, live tables for every renderable id (blocks, items, enemies,
+equipment icons, back walls, backgrounds, opening cel-frame scenes) with
+path/size/transparency/fallback/priority/prompt-note columns, the
+drawn-shape actors that still need a renderer extension (player, town hall,
+pulse), honest planned tables keyed to their queue items, and per-category
+prompt packs under a shared style preamble derived from
+`docs/ART_DIRECTION_AND_CANON.md`. Decision recorded: no
+`data/asset_manifest.json` — nothing consumes one; the roadmap is the
+manifest.
 
 Scope:
 
@@ -897,8 +909,7 @@ ahead of FQ-00 through FQ-03 unless the operator explicitly changes priority.
 You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 
 Read README.md, docs/HANDOFF.md, docs/VARIABLE_MATRIX.md, and
-docs/FABLE_TASK_QUEUE.md. FQ-09C and FQ-09W are done. The queue head is
-FQ-09A (future asset manifest and prompt packs — include the opening's
-cel-frame sprite sheets, scenic backgrounds, and back-wall tiles). Take only
-that item. Do not begin FQ-09M or later feature work.
+docs/FABLE_TASK_QUEUE.md. FQ-09C, FQ-09W, and FQ-09A are done. The queue
+head is FQ-09M (lightweight action animation pass). Take only that item.
+Do not begin FQ-10 or later feature work.
 ```

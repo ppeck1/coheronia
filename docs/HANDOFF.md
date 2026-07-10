@@ -2,12 +2,39 @@
 
 ## Current State
 
-**FQ-09W (scene backdrops, underground darkness, and backing walls)
-implemented and closed out** (run `20260710_coheronia_fq09w_backdrops_walls`;
-lineage: v0.1 oneshot -> input repair -> v0.2 -> v0.3 ->
-`20260702_coheronia_v04_shell` -> `20260703_coheronia_v05_increment` ->
-`20260704_coheronia_v06_increment` -> FQ-00 through FQ-09V -> FQ-09C;
-Godot 4.6.1 stable).
+**FQ-09A (future asset manifest and prompt packs) implemented and closed
+out** (run `20260710_coheronia_fq09a_asset_roadmap`; lineage: v0.1 oneshot
+-> input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
+`20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` ->
+FQ-00 through FQ-09V -> FQ-09C -> FQ-09W; Godot 4.6.1 stable).
+
+## FQ-09A Additions
+
+- **`docs/ASSET_ROADMAP.md`** (validator-required, phrase-locked): the
+  concrete asset map for future human/LLM art passes. Pipeline facts (drop a
+  PNG at the convention path, live next entry, fallback always available,
+  FQ-09V variant pools, INFO-only validator gaps, no baked text ever); live
+  tables for every renderable id — 11 blocks, 16 item icons, 3 live enemies,
+  9 equipment icons, 2 back walls, 3 backdrop layers, 8 opening cel-frame
+  scenes — each with path, size, transparency rule, current fallback,
+  priority (P1 terrain/player/hall visibility wins first), and a per-id
+  prompt note; the drawn-shape actors that need a small renderer extension
+  before art can land (player, town hall, attunement pulse); honest planned
+  tables keyed to their queue items (FQ-10 ores, FQ-11 stations/ingots,
+  FQ-12 farming, FQ-13+ enemies by mvp_expansion_order, FQ-09M action
+  effects, cave walls/backgrounds, phase C-E ancestry sprites, FQ-14/15 UI);
+  and per-category prompt packs (blocks/walls, items, enemies, ancestry
+  sprites, opening cel frames, backgrounds) under one shared style preamble
+  derived from the canon bible's palette roles, production rules, and avoid
+  list.
+- **Decision**: no `data/asset_manifest.json` — the FQ-09A scope adds a
+  machine manifest only if code/validation consumes one, and nothing does;
+  the runtime resolves everything by convention, so the roadmap doc is the
+  manifest. `art/generated/ui/` stays reserved (documented: produce nothing
+  for it until a consumer lands).
+- No code, data, or smoke changes: suite stays 210/210; `validate_repo.py`
+  gains the roadmap as a required file with a live/planned/prompt-pack/
+  no-baked-text phrase lock.
 
 ## FQ-09W Additions
 
@@ -270,13 +297,12 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 ## Next Action
 
 Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
-increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, and
-FQ-09W are complete. The queue head is FQ-09A (future asset manifest and
-prompt packs — it should include the opening's cel-frame sprite sheets, the
-scenic background layers, and the back-wall tiles now that their runtime
-contracts are real), followed by FQ-09M (lightweight action animation).
-FQ-10 should wait until those presentation foundations close or the operator
-explicitly changes priority.
+increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, FQ-09W,
+and FQ-09A are complete. The queue head is FQ-09M (lightweight action
+animation pass); FQ-10 follows once the presentation foundations close or
+the operator explicitly changes priority. Art production can now proceed in
+parallel with any increment: `docs/ASSET_ROADMAP.md` maps every id, path,
+size, priority, and prompt.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

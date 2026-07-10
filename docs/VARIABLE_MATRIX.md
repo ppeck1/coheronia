@@ -1,6 +1,7 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09W run `20260710_coheronia_fq09w_backdrops_walls`.
+State: audited against FQ-09A run `20260710_coheronia_fq09a_asset_roadmap`
+(docs-only increment; runtime surfaces unchanged from FQ-09W).
 
 ## Authority Surfaces
 
@@ -44,7 +45,8 @@ remain the style/copy/asset authorities for them and for later art.)
 
 | Planned surface | Planning authority | Intended consumer |
 |---|---|---|
-| Canon, tone, terminology, palette roles | `docs/ART_DIRECTION_AND_CANON.md` | FQ-09A prompts, later public/game writing |
+| Canon, tone, terminology, palette roles | `docs/ART_DIRECTION_AND_CANON.md` | asset prompt packs, later public/game writing |
+| Asset map: every live/planned id, path, size, priority, prompt pack | `docs/ASSET_ROADMAP.md` (FQ-09A; validator phrase-locked) | human/LLM art passes; no machine manifest exists by decision |
 | Constructed (player-placeable) backing walls | `art/source_templates/BACKGROUND_TEMPLATE.md` | a later bounded gameplay task — needs wall deltas, drops, recipes, save ownership/migration decisions |
 | Cave/deep background layers (`cave_far`, `deep_cavern_far`) and wall variants beyond dirt/stone | `art/source_templates/BACKGROUND_TEMPLATE.md` | FQ-09A asset roadmap; runtime wiring when those environments exist |
 
