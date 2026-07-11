@@ -47,6 +47,12 @@ REQUIRED_FILES = [
     "audio/music/rendered/contexts/coheronia_surface_night.ogg",
     "audio/music/rendered/contexts/coheronia_underground.ogg",
     "audio/music/rendered/contexts/coheronia_crisis.ogg",
+    "audio/music/rendered/stems/stem_foundation.ogg",
+    "audio/music/rendered/stems/stem_hearth.ogg",
+    "audio/music/rendered/stems/stem_motion.ogg",
+    "audio/music/rendered/stems/stem_pressure.ogg",
+    "audio/music/rendered/stems/stem_attunement.ogg",
+    "audio/music/rendered/stems/stem_fracture.ogg",
     "data/enemies.json",
     "data/ancestries.json",
     "data/progression/player_xp.json",
@@ -170,6 +176,19 @@ for mm_key in ["crisis_enter", "crisis_exit", "crisis_enter_seconds", "crisis_ex
         fail(f"music_manifest.json thresholds missing key: {mm_key}")
 if not float(mm_thresholds["crisis_exit"]) < float(mm_thresholds["crisis_enter"]):
     fail("music_manifest.json crisis_exit must be below crisis_enter (hysteresis)")
+# FQ-09U2: the stem mix must cover all six layers with sane dB ranges and a
+# positive smoothing rate (volumes may never snap).
+mm_mix = music_manifest.get("stem_mix", {})
+mm_layers = mm_mix.get("layers", {})
+for mm_stem in ["foundation", "hearth", "motion", "pressure", "attunement", "fracture"]:
+    if mm_stem not in mm_layers:
+        fail(f"music_manifest.json stem_mix.layers missing: {mm_stem}")
+    if not float(mm_layers[mm_stem].get("min_db", 0)) <= float(mm_layers[mm_stem].get("max_db", -99)):
+        fail(f"music_manifest.json stem_mix.{mm_stem}: min_db must be <= max_db")
+    if mm_stem not in music_manifest.get("stems", {}):
+        fail(f"music_manifest.json stems missing path for: {mm_stem}")
+if not float(mm_mix.get("smoothing_db_per_sec", 0)) > 0:
+    fail("music_manifest.json stem_mix.smoothing_db_per_sec must be > 0")
 music_template = (ROOT / "audio/source_templates/MUSIC_TEMPLATE.md").read_text(encoding="utf-8")
 for required_phrase in ["one adaptive suite", "Production Contract", "Render Checklist"]:
     if required_phrase not in music_template:

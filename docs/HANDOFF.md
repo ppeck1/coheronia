@@ -2,13 +2,49 @@
 
 ## Current State
 
-**FQ-09U1 (adaptive context music foundation) implemented and closed out —
-the game now has live adaptive music** (run
-`20260710_coheronia_fq09u1_adaptive_music`; lineage: v0.1 oneshot -> input
+**FQ-09U2 (settlement-responsive stem layering) implemented and closed out
+— the score now breathes with the settlement** (run
+`20260710_coheronia_fq09u2_stem_layering`; lineage: v0.1 oneshot -> input
 repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
 `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` ->
-FQ-00 through FQ-09V -> FQ-09C -> FQ-09W -> FQ-09A -> FQ-09U0 -> FQ-09M;
-Godot 4.6.1 stable).
+FQ-00 through FQ-09V -> FQ-09C -> FQ-09W -> FQ-09A -> FQ-09U0 -> FQ-09M ->
+FQ-09U1; Godot 4.6.1 stable).
+
+## FQ-09U2 Additions
+
+- **Spike finding (recorded, mandated first step)**: an
+  AudioStreamSynchronized group DOES play as a clip inside an
+  AudioStreamInteractive in this exact Godot 4.6.1 binary — proven live in
+  the smoke with generated WAV tones (fq09u2_nesting_spike_recorded).
+  U2 still ships the parallel LayerPlayer design because the suite has ONE
+  shared phase-locked stem set, not per-context sets; nesting is now a
+  proven option for future increments.
+- **The stem bed**: `MusicManifest.load_stem_streams` loads the six stems
+  (runtime OGG load, loop + grid stamped); the director validates every
+  loop against the exact manifest length (53.333 s, ±0.05) and builds an
+  AudioStreamSynchronized on the LayerPlayer, started in the same frame as
+  the context stream — equal-length loops on one mix clock stay
+  phase-aligned for the whole session. Any missing/mismatched stem
+  disables layering with a warning; the context music is untouched
+  (fail-safe by construction).
+- **Data-defined mix** (`stem_mix` in `data/music_manifest.json`,
+  validator-enforced): per-stem {source, min_db, max_db}; volume targets
+  are lerp(min, max, source value) with sources drawn from live truth —
+  settlement resilience (foundation), coherence (hearth), the director's
+  pressure score (pressure stem; a storm lifts it to the
+  storm_pressure_floor_db texture), player attunement ratio (attunement),
+  mining/movement activity (motion), and the collapse edge (fracture wakes
+  only past pressure 0.7). Volumes move smoothly at smoothing_db_per_sec
+  (6 dB/s) and never snap. Debug hooks: `layering_enabled()`,
+  `stem_targets()`, `stem_volumes()`.
+- **Smoke** (8 `fq09u2_*` checks, suite total 234): the nesting spike
+  record; the live stem bed (six loops, exact lengths, playing on the
+  Music bus); targets following settlement coherence/resilience; pressure
+  and collapse-edge fracture behavior; the storm texture floor; smoothing
+  verified to the decimal (-40 -> -37.00 at 6 dB/s x 0.5 s); a
+  deliberately length-mismatched set disabling layering while context
+  music plays on; and save round-trips carrying zero stem/music keys with
+  the layer bed surviving load.
 
 ## FQ-09U1 Additions
 
@@ -400,7 +436,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks and the FQ-09W backgrounds/back_walls categories, dirs, and required backdrop script |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 226/226 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 203 FQ-09C -> 210 FQ-09W -> 217 FQ-09M -> 226 FQ-09U1) |
+| Automated smoke | PASS 234/234 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 203 FQ-09C -> 210 FQ-09W -> 217 FQ-09M -> 226 FQ-09U1 -> 234 FQ-09U2) |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls) |
 
@@ -437,14 +473,14 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
 increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, FQ-09W,
-FQ-09A, FQ-09U0, FQ-09M, and FQ-09U1 are complete — the game plays its
-adaptive score live. The queue head is FQ-09U2 (settlement-responsive
-stem layering); it must OPEN with the deferred spike: prove at runtime
-whether an AudioStreamSynchronized stem group can serve as a clip inside
-AudioStreamInteractive, and design to the finding (fallback: a parallel
-synchronized LayerPlayer mixed alongside the context stream). Then FQ-09U3
--> FQ-10. Art production continues in parallel via
-`docs/ASSET_ROADMAP.md`.
+FQ-09A, FQ-09U0, FQ-09M, FQ-09U1, and FQ-09U2 are complete — the adaptive
+score plays live and its stem layers breathe with the settlement. The
+queue head is FQ-09U3 (stingers over temporary ducking, music/SFX volume
+settings, pause behavior, final asset validation); the five rendered
+stingers are in-repo and the StingerPlayer child is reserved. Then FQ-10
+begins the metallurgy arc. Art production continues in parallel via
+`docs/ASSET_ROADMAP.md`. Note for U3: the nesting spike finding
+(Synchronized-inside-Interactive works) is recorded in the U2 ledger.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

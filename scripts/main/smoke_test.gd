@@ -2242,6 +2242,153 @@ func _run() -> void:
 		_fq09u_music_keys == "" and root.load_game() and _fq09u_dir.enabled(),
 		("music keys: " + _fq09u_music_keys) if _fq09u_music_keys != ""
 		else "no music keys in the world save; director survives load")
+
+	# --- FQ-09U2: settlement-responsive stem layering ---
+	# (the director's _process is still disabled from the fq09u1 section, so
+	# every state/volume assertion below is deterministic)
+
+	# (a) the mandated nesting spike, recorded: can an AudioStreamSynchronized
+	# serve as a clip inside an AudioStreamInteractive? Built from two tiny
+	# generated WAV tones and played live; the finding (either way) is
+	# captured in the check detail and the run ledger — U2's shipped design
+	# uses the parallel LayerPlayer regardless, since the suite has ONE
+	# shared stem set, not per-context sets.
+	var _fq09u2_wav := AudioStreamWAV.new()
+	_fq09u2_wav.format = AudioStreamWAV.FORMAT_16_BITS
+	_fq09u2_wav.mix_rate = 22050
+	var _fq09u2_pcm := PackedByteArray()
+	_fq09u2_pcm.resize(22050)   # 0.5s of quiet buzz
+	for _fq09u2_i in range(0, 22050, 2):
+		var _fq09u2_v: int = 800 if (_fq09u2_i / 50) % 2 == 0 else -800
+		_fq09u2_pcm.encode_s16(_fq09u2_i, _fq09u2_v)
+	_fq09u2_wav.data = _fq09u2_pcm
+	var _fq09u2_nested_sync := AudioStreamSynchronized.new()
+	_fq09u2_nested_sync.stream_count = 2
+	_fq09u2_nested_sync.set_sync_stream(0, _fq09u2_wav)
+	_fq09u2_nested_sync.set_sync_stream(1, _fq09u2_wav)
+	var _fq09u2_nested := AudioStreamInteractive.new()
+	_fq09u2_nested.clip_count = 2
+	_fq09u2_nested.set_clip_name(0, "a")
+	_fq09u2_nested.set_clip_stream(0, _fq09u2_nested_sync)
+	_fq09u2_nested.set_clip_name(1, "b")
+	_fq09u2_nested.set_clip_stream(1, _fq09u2_nested_sync)
+	var _fq09u2_probe := AudioStreamPlayer.new()
+	_fq09u2_probe.stream = _fq09u2_nested
+	_fq09u2_probe.volume_db = -60.0
+	add_child(_fq09u2_probe)
+	_fq09u2_probe.play()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var _fq09u2_nests: bool = _fq09u2_probe.playing \
+		and _fq09u2_probe.get_stream_playback() != null
+	_fq09u2_probe.queue_free()
+	await get_tree().process_frame
+	_check("fq09u2_nesting_spike_recorded", true,
+		"synchronized_inside_interactive_plays=%s (finding recorded; U2 ships the parallel LayerPlayer design either way)" % str(_fq09u2_nests))
+
+	# (b) the stem bed is live: six loops loaded, every length matching the
+	# manifest grid, playing on the Music bus alongside the context stream.
+	var _fq09u2_expected: float = _fq09u_mm.loop_seconds(_fq09u_manifest)
+	var _fq09u2_stems: Dictionary = _fq09u_mm.load_stem_streams(_fq09u_manifest)
+	var _fq09u2_lengths_ok := _fq09u2_stems.size() == 6
+	for _fq09u2_sn in _fq09u2_stems:
+		if absf((_fq09u2_stems[_fq09u2_sn] as AudioStream).get_length() - _fq09u2_expected) > 0.05:
+			_fq09u2_lengths_ok = false
+	_check("fq09u2_stem_bed_live",
+		_fq09u2_lengths_ok and _fq09u_dir.layering_enabled()
+		and _fq09u_dir.get_node("LayerPlayer").playing
+		and _fq09u_dir.get_node("LayerPlayer").bus == "Music"
+		and (_fq09u_dir.get_node("LayerPlayer").stream is AudioStreamSynchronized),
+		"stems=%d lengths_ok=%s layering=%s playing=%s" % [_fq09u2_stems.size(),
+			str(_fq09u2_lengths_ok), str(_fq09u_dir.layering_enabled()),
+			str(_fq09u_dir.get_node("LayerPlayer").playing)])
+
+	# (c) targets follow settlement truth: coherence drives the hearth layer,
+	# resilience steadies the foundation (deterministic evaluate calls).
+	_fq09u_dir.debug_reset("surface_day")
+	_fq09u_dir._settlement_coherence = 90.0
+	_fq09u_dir._settlement_resilience = 80.0
+	_fq09u_dir.evaluate(_fq09u_day, 1.0)
+	var _fq09u2_hearth_high: float = float(_fq09u_dir.stem_targets()["hearth"])
+	var _fq09u2_found_high: float = float(_fq09u_dir.stem_targets()["foundation"])
+	_fq09u_dir._settlement_coherence = 10.0
+	_fq09u_dir._settlement_resilience = 10.0
+	_fq09u_dir.evaluate(_fq09u_day, 1.0)
+	_check("fq09u2_targets_follow_settlement",
+		_fq09u2_hearth_high > float(_fq09u_dir.stem_targets()["hearth"]) + 6.0
+		and _fq09u2_found_high > float(_fq09u_dir.stem_targets()["foundation"]) + 3.0,
+		"hearth %.1f -> %.1f, foundation %.1f -> %.1f" % [_fq09u2_hearth_high,
+			float(_fq09u_dir.stem_targets()["hearth"]), _fq09u2_found_high,
+			float(_fq09u_dir.stem_targets()["foundation"])])
+
+	# (d) pressure raises its layer and the fracture layer wakes only at the
+	# collapse edge.
+	_fq09u_dir.debug_reset("surface_day")
+	_fq09u_dir.evaluate(_fq09u_day, 1.0)
+	var _fq09u2_pressure_low: float = float(_fq09u_dir.stem_targets()["pressure"])
+	var _fq09u2_fracture_low: float = float(_fq09u_dir.stem_targets()["fracture"])
+	_fq09u_dir.evaluate(_fq09u_high, 1.0)
+	_check("fq09u2_pressure_and_fracture_layers",
+		float(_fq09u_dir.stem_targets()["pressure"]) > _fq09u2_pressure_low + 10.0
+		and float(_fq09u_dir.stem_targets()["fracture"]) > _fq09u2_fracture_low + 10.0
+		and _fq09u2_fracture_low <= -59.0,
+		"pressure %.1f -> %.1f, fracture %.1f -> %.1f" % [_fq09u2_pressure_low,
+			float(_fq09u_dir.stem_targets()["pressure"]), _fq09u2_fracture_low,
+			float(_fq09u_dir.stem_targets()["fracture"])])
+
+	# (e) the storm texture: a storm lifts the pressure stem to at least its
+	# data-defined floor even at low pressure.
+	_fq09u_dir.debug_reset("surface_day")
+	var _fq09u2_storm := {"is_night": false, "storm": true, "threat": 0.0,
+		"health_ratio": 1.0, "underground": false}
+	_fq09u_dir.evaluate(_fq09u2_storm, 1.0)
+	_check("fq09u2_storm_texture",
+		float(_fq09u_dir.stem_targets()["pressure"]) >= -16.0,
+		"pressure target %.1f (floor -16)" % float(_fq09u_dir.stem_targets()["pressure"]))
+
+	# (f) volumes move smoothly toward targets — one 0.5 s step moves at most
+	# rate*dt dB and never snaps to the target.
+	_fq09u_dir.debug_reset("surface_day")
+	_fq09u_dir._settlement_coherence = 100.0
+	_fq09u_dir._stem_volumes["hearth"] = -40.0
+	_fq09u_dir.evaluate(_fq09u_day, 0.5)
+	_fq09u_dir._step_stem_volumes(0.5)
+	var _fq09u2_after_step: float = float(_fq09u_dir.stem_volumes()["hearth"])
+	_check("fq09u2_volume_smoothing",
+		is_equal_approx(_fq09u2_after_step, -37.0)
+		and _fq09u2_after_step < float(_fq09u_dir.stem_targets()["hearth"]),
+		"hearth -40.0 -> %.2f (target %.1f, rate 6 dB/s * 0.5 s)" % [
+			_fq09u2_after_step, float(_fq09u_dir.stem_targets()["hearth"])])
+
+	# (g) a length-mismatched stem set disables layering while context music
+	# plays on (a stinger is deliberately the wrong length).
+	var _fq09u2_bad_manifest: Dictionary = _fq09u_manifest.duplicate(true)
+	_fq09u2_bad_manifest["stems"]["motion"] = "res://audio/music/rendered/stingers/stinger_dawn.ogg"
+	var _fq09u2_bad: Node = _fq09u_scene.instantiate()
+	_fq09u2_bad.manifest_override = _fq09u2_bad_manifest
+	add_child(_fq09u2_bad)
+	_check("fq09u2_length_mismatch_fail_safe",
+		_fq09u2_bad.enabled() and not _fq09u2_bad.layering_enabled()
+		and not _fq09u2_bad.get_node("LayerPlayer").playing,
+		"context=%s layering=%s" % [str(_fq09u2_bad.enabled()),
+			str(_fq09u2_bad.layering_enabled())])
+	_fq09u2_bad.queue_free()
+	await get_tree().process_frame
+
+	# (h) layering state is transient too: save round-trip carries no stem
+	# keys and the live layer bed survives the load untouched.
+	root.save_manager.save_game()
+	var _fq09u2_state: Dictionary = GameState.get_current_state()
+	var _fq09u2_keys := ""
+	for _fq09u2_k in _fq09u2_state:
+		if "stem" in str(_fq09u2_k).to_lower() or "music" in str(_fq09u2_k).to_lower():
+			_fq09u2_keys += str(_fq09u2_k) + " "
+	_check("fq09u2_state_not_saved",
+		_fq09u2_keys == "" and root.load_game()
+		and _fq09u_dir.layering_enabled()
+		and _fq09u_dir.get_node("LayerPlayer").playing,
+		("keys: " + _fq09u2_keys) if _fq09u2_keys != ""
+		else "no stem/music keys; layer bed survives load")
 	_fq09u_dir.set_process(true)
 
 	# --- FQ-08: block and enemy damage visuals ---

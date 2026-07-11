@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09U1 run `20260710_coheronia_fq09u1_adaptive_music`.
+State: audited against FQ-09U2 run `20260710_coheronia_fq09u2_stem_layering`.
 
 ## Authority Surfaces
 
@@ -30,6 +30,7 @@ State: audited against FQ-09U1 run `20260710_coheronia_fq09u1_adaptive_music`.
 | Tool swing (FQ-09M) | `player.swing_phase()` — 0/1/2 six pose-steps/s from mining progress, -1 idle; drawn in `player._draw` with pick/axe glyph | presentation only; mining timing/drops pinned by unchanged baselines |
 | Adaptive music runtime (FQ-09U1) | `data/music_manifest.json` via `scripts/audio/music_manifest.gd` -> `scripts/audio/adaptive_music_director.gd` (`scenes/audio/AdaptiveMusicDirector.tscn` in Main); "Music" bus created at runtime | one AudioStreamInteractive, four named context clips, any->clip next-bar same-position crossfades (crisis entry next-beat); reads is_night/storm_active/current_threat_severity/health ratio/cave-spawn underground rule + the settlement `updated` signal; transient — never saved |
 | Music context state machine (FQ-09U1) | `adaptive_music_director.evaluate(state, delta)` — deterministic; priority crisis > underground > surface_night > surface_day; pressure = max(threat/40, load/100, 1-health)+storm 0.15; hysteresis 0.60/2s enter, 0.35/6s exit; 1-bar min hold; no re-requests | 0.5 s poll in _process; smoke drives it directly with synthetic snapshots |
+| Stem layer bed (FQ-09U2) | `music_manifest.json` `stems` + `stem_mix` (per-stem source/min_db/max_db, smoothing_db_per_sec 6, storm_pressure_floor_db -16; validator-enforced) -> `MusicManifest.load_stem_streams` -> AudioStreamSynchronized on the LayerPlayer, same-frame start with the context stream (phase-locked by construction), loop lengths runtime-validated to 53.333 s ±0.05 | volumes lerp toward targets from settlement resilience/coherence (cached `updated` signal), pressure score (+storm floor), player attunement ratio, mining/movement activity, collapse edge (pressure>0.7); any failure disables layering only — context music unaffected; transient, never saved |
 | Scenic backdrop (FQ-09W) | `scripts/world/world_backdrop.gd` — code-drawn sky/far/mid planes, stepped parallax, `light_mask 0`; optional `art/generated/backgrounds/` hooks (`surface_sky`, `surface_far_terrain`, `surface_mid_silhouette`) | world scene (z -10); cosmetic only, never saved/collides |
 | Natural backing walls (FQ-09W) | derived each `world.setup` from pristine `gen.surface` + `generation.dirt_depth` — `dirt_wall` band then `stone_wall`; tileset has 0 physics / 0 occlusion layers; optional `art/generated/back_walls/` tiles else darkened block textures | `BackgroundWalls` TileMapLayer (z -2); `world.wall_at(cell)` visual-only query; never in cells/deltas/saves |
 | Column skylight + cave ambient (FQ-09W) | `world.sky_line(x)` (first solid y in LIVE column, cached, invalidated per column on block change) -> `game_root.ambient_darkness_factor()` / `ambient_target_color()` (`CAVE_TINT`, `CAVE_FADE_CELLS` 6) | the `CanvasModulate` tint lerp in `_advance_time` and the instant set in `apply_time_state`; documented approximation — player-column roof-awareness, no lateral bleed |
@@ -269,6 +270,20 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-09U2 adds 8 checks (`fq09u2_*`, suite total 234) covering: the mandated
+nesting spike executed live and its finding recorded
+(Synchronized-inside-Interactive PLAYS in 4.6.1; the parallel LayerPlayer
+design ships regardless since the suite has one shared stem set); the stem
+bed live — six loops at the exact grid length on the Music bus; targets
+following settlement coherence/resilience; the pressure stem and the
+collapse-edge-only fracture stem; the storm texture floor; smoothing
+verified to the decimal (-40 -> -37.00 dB at 6 dB/s over 0.5 s, never
+snapping); a deliberately length-mismatched stem set disabling layering
+while the context stream plays on; and save round-trips carrying zero
+stem/music keys with the bed surviving load. `validate_repo.py`
+additionally requires the six stem OGGs and the manifest's `stem_mix`
+contract (all six layers, min<=max dB, positive smoothing rate).
 
 FQ-09U1 adds 9 checks (`fq09u1_*`, suite total 226) covering: the manifest
 loads with all four context loops decoded and the 72/4/64 musical grid

@@ -36,10 +36,22 @@ var _crisis_below := 0.0       # seconds pressure has held below the exit thresh
 var _hold_left := 0.0          # minimum-context-hold seconds remaining
 var _pressure := 0.0
 var _settlement_load := 0.0    # cached from the settlement `updated` signal
+var _settlement_coherence := 0.0
+var _settlement_resilience := 0.0
 var _poll_accum := 0.0
 var _switch_requests := 0      # smoke hook: proves no re-request churn
 
+# FQ-09U2: the shared phase-locked stem bed (AudioStreamSynchronized on the
+# LayerPlayer, started in the same frame as the context stream so equal-
+# length loops stay aligned by construction). Volumes move smoothly toward
+# data-defined targets; layering failures never touch the context music.
+var _layer_enabled := false
+var _stem_order: Array = []            # stable stem name order = substream index
+var _stem_targets: Dictionary = {}     # stem name -> target volume db
+var _stem_volumes: Dictionary = {}     # stem name -> current volume db
+
 @onready var _context_player: AudioStreamPlayer = $ContextPlayer
+@onready var _layer_player: AudioStreamPlayer = $LayerPlayer
 
 
 func _ready() -> void:
@@ -62,6 +74,50 @@ func _ready() -> void:
 	_context_player.bus = MUSIC_BUS
 	_context_player.play()
 	_enabled = true
+	_setup_layer_bed()
+
+
+## FQ-09U2: builds the synchronized stem bed. Requires the complete six-stem
+## set with every loop matching the manifest grid's exact length — any
+## shortfall disables layering with a warning while the context music plays
+## on untouched (fail-safe by construction).
+func _setup_layer_bed() -> void:
+	var mix: Dictionary = _manifest.get("stem_mix", {})
+	var layers: Dictionary = mix.get("layers", {})
+	if layers.is_empty():
+		return
+	var stems: Dictionary = MusicManifest.load_stem_streams(_manifest)
+	if stems.size() != layers.size():
+		push_warning("AdaptiveMusicDirector: stems missing (%d/%d); layering disabled."
+			% [stems.size(), layers.size()])
+		return
+	var expected := MusicManifest.loop_seconds(_manifest)
+	for stem_name in stems:
+		var length: float = (stems[stem_name] as AudioStream).get_length()
+		if absf(length - expected) > 0.05:
+			push_warning("AdaptiveMusicDirector: stem '%s' loop length %.3fs != %.3fs; layering disabled."
+				% [stem_name, length, expected])
+			return
+	var floor_db := float(mix.get("floor_db", -60.0))
+	var sync := AudioStreamSynchronized.new()
+	sync.stream_count = stems.size()
+	_stem_order.clear()
+	var idx := 0
+	for stem_name in layers:   # manifest layer order defines substream index
+		if not stems.has(stem_name):
+			return
+		sync.set_sync_stream(idx, stems[stem_name])
+		sync.set_sync_stream_volume(idx, floor_db)
+		_stem_order.append(stem_name)
+		_stem_targets[stem_name] = floor_db
+		_stem_volumes[stem_name] = floor_db
+		idx += 1
+	_layer_player.stream = sync
+	_layer_player.bus = MUSIC_BUS
+	# Same-frame start as the context stream: equal-length loops on the same
+	# mix clock stay phase-aligned for the whole session.
+	_layer_player.play(_context_player.get_playback_position())
+	_layer_enabled = true
 
 
 ## One interactive stream, four named clips, transitions from any clip to
@@ -96,9 +152,11 @@ func _ensure_music_bus() -> void:
 	AudioServer.set_bus_send(idx, "Master")
 
 
-func _on_settlement_updated(_coherence: float, load_value: float, _resilience: float,
+func _on_settlement_updated(coherence: float, load_value: float, resilience: float,
 		_inputs: Dictionary, _labels: Array) -> void:
 	_settlement_load = load_value
+	_settlement_coherence = coherence
+	_settlement_resilience = resilience
 
 
 func _process(delta: float) -> void:
@@ -109,6 +167,7 @@ func _process(delta: float) -> void:
 	_poll_accum = 0.0
 	evaluate(_gather_state(), dt)
 	_settle_pending()
+	_step_stem_volumes(dt)
 
 
 ## Reads existing game truth — never a duplicate simulation. The underground
@@ -118,17 +177,24 @@ func _gather_state() -> Dictionary:
 	var root := get_parent()
 	if root == null or not ("player" in root) or root.player == null or root.world == null:
 		return {"is_night": false, "storm": false, "threat": 0.0,
-			"health_ratio": 1.0, "underground": false}
+			"health_ratio": 1.0, "underground": false,
+			"attunement": 0.0, "activity": 0.0}
 	var world: Node2D = root.world
-	var pcell: Vector2i = world.cell_of(root.player.global_position)
+	var player: CharacterBody2D = root.player
+	var pcell: Vector2i = world.cell_of(player.global_position)
 	var underground: bool = world.surface.has(pcell.x) \
 		and pcell.y > int(world.surface[pcell.x])
 	return {
 		"is_night": root.is_night,
 		"storm": root.storm_active,
 		"threat": root.current_threat_severity(),
-		"health_ratio": root.player.health / maxf(1.0, root.player.max_health),
+		"health_ratio": player.health / maxf(1.0, player.max_health),
 		"underground": underground,
+		# FQ-09U2 stem sources: the attunement layer follows the player's
+		# pool; the work pulse follows mining or real horizontal movement.
+		"attunement": player.attunement / maxf(1.0, player.max_attunement()),
+		"activity": 1.0 if (player.mine_required > 0.0
+			or absf(player.velocity.x) > 10.0) else 0.0,
 	}
 
 
@@ -153,6 +219,7 @@ func evaluate(state: Dictionary, delta: float) -> void:
 				_crisis_above = 0.0
 		else:
 			_crisis_above = 0.0
+	_update_stem_targets(state)
 	_hold_left = maxf(0.0, _hold_left - delta)
 	var requested := _resolve_context(state)
 	if requested == _current or requested == _pending:
@@ -213,7 +280,77 @@ func _settle_pending() -> void:
 		_pending = ""
 
 
+# ---------- FQ-09U2: stem target mixing and smoothing ----------
+
+## Data-defined targets: each stem's volume aims at lerp(min_db, max_db,
+## source value 0..1). Sources read the state snapshot and the cached
+## settlement values — never a duplicate simulation. Storms raise the
+## pressure stem's floor (the storm texture) instead of forcing a fifth
+## context track.
+func _update_stem_targets(state: Dictionary) -> void:
+	if _stem_order.is_empty():
+		return
+	var mix: Dictionary = _manifest.get("stem_mix", {})
+	var layers: Dictionary = mix.get("layers", {})
+	for stem_name in _stem_order:
+		var layer: Dictionary = layers.get(stem_name, {})
+		var value := _source_value(str(layer.get("source", "")), state)
+		var target := lerpf(float(layer.get("min_db", -60.0)),
+			float(layer.get("max_db", -10.0)), clampf(value, 0.0, 1.0))
+		if stem_name == "pressure" and bool(state.get("storm", false)):
+			target = maxf(target, float(mix.get("storm_pressure_floor_db", -16.0)))
+		_stem_targets[stem_name] = target
+
+
+func _source_value(source: String, state: Dictionary) -> float:
+	match source:
+		"resilience":
+			return _settlement_resilience / 100.0
+		"coherence":
+			return _settlement_coherence / 100.0
+		"pressure":
+			return _pressure
+		"attunement":
+			return float(state.get("attunement", 0.0))
+		"activity":
+			return float(state.get("activity", 0.0))
+		"collapse_edge":
+			# The fracture layer wakes only at the settlement's edge:
+			# pressure past 0.7 fades it in, saturating at 1.0.
+			return clampf((_pressure - 0.7) / 0.3, 0.0, 1.0)
+	return 0.0
+
+
+## Volumes move gradually toward their targets (data-defined dB/sec), never
+## snapping — the smoothing half of the anti-thrash contract. Deterministic:
+## driven by the poll's delta and callable directly by tests.
+func _step_stem_volumes(dt: float) -> void:
+	if not _layer_enabled:
+		return
+	var rate := float(_manifest.get("stem_mix", {}).get("smoothing_db_per_sec", 6.0))
+	var sync := _layer_player.stream as AudioStreamSynchronized
+	for i in range(_stem_order.size()):
+		var stem_name: String = _stem_order[i]
+		var current := float(_stem_volumes[stem_name])
+		var target := float(_stem_targets[stem_name])
+		var stepped := current + clampf(target - current, -rate * dt, rate * dt)
+		if not is_equal_approx(stepped, current):
+			_stem_volumes[stem_name] = stepped
+			sync.set_sync_stream_volume(i, stepped)
+
+
 # ---------- debug / smoke hooks ----------
+
+func layering_enabled() -> bool:
+	return _layer_enabled
+
+
+func stem_targets() -> Dictionary:
+	return _stem_targets.duplicate()
+
+
+func stem_volumes() -> Dictionary:
+	return _stem_volumes.duplicate()
 
 func enabled() -> bool:
 	return _enabled

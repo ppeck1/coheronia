@@ -40,13 +40,27 @@
     "crisis_exit_seconds": 6.0
   },
   "stems": {
-    "_status": "FQ-09U2; every stem is 16 bars, phase-locked",
+    "_status": "live since FQ-09U2: one shared phase-locked 16-bar layer bed on the LayerPlayer, mixed additively over the context loops",
     "foundation": "res://audio/music/rendered/stems/stem_foundation.ogg",
     "hearth": "res://audio/music/rendered/stems/stem_hearth.ogg",
     "motion": "res://audio/music/rendered/stems/stem_motion.ogg",
     "pressure": "res://audio/music/rendered/stems/stem_pressure.ogg",
     "attunement": "res://audio/music/rendered/stems/stem_attunement.ogg",
     "fracture": "res://audio/music/rendered/stems/stem_fracture.ogg"
+  },
+  "stem_mix": {
+    "_note": "FQ-09U2: each stem's volume moves smoothly (never snaps) toward lerp(min_db, max_db, source value 0..1). Sources: resilience/coherence (settlement signal, /100), pressure (the director's pressure score), attunement (player attunement ratio), activity (player mining or moving), collapse_edge ((pressure-0.7)/0.3). floor_db is the resting level.",
+    "smoothing_db_per_sec": 6.0,
+    "floor_db": -60.0,
+    "storm_pressure_floor_db": -16.0,
+    "layers": {
+      "foundation": { "source": "resilience", "min_db": -20.0, "max_db": -8.0 },
+      "hearth": { "source": "coherence", "min_db": -40.0, "max_db": -10.0 },
+      "motion": { "source": "activity", "min_db": -40.0, "max_db": -12.0 },
+      "pressure": { "source": "pressure", "min_db": -40.0, "max_db": -8.0 },
+      "attunement": { "source": "attunement", "min_db": -40.0, "max_db": -10.0 },
+      "fracture": { "source": "collapse_edge", "min_db": -60.0, "max_db": -10.0 }
+    }
   },
   "stingers": {
     "_status": "FQ-09U3; one-shots under 8 s over temporary music ducking",

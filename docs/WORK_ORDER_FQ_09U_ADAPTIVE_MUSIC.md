@@ -1,15 +1,20 @@
 # Work Order FQ-09U - Adaptive Music Program (U1/U2/U3)
 
-Status: U1 DONE (2026-07-10) — operator-approved direction ("hybrid
+Status: U1 + U2 DONE (2026-07-10) — operator-approved direction ("hybrid
 adaptive score") and operator listening approval of the rendered suite both
 recorded. This document plus `audio/source_templates/MUSIC_TEMPLATE.md` and
-`data/music_manifest.json` remain the authority for U2/U3. U1's gates were
-cleared as follows: the assets were rendered/verified by the Codex lane
-(offline Python renderer in place of the M8-AUDIO increments; the m8patch
-is source metadata), and the Godot 4.6 spike was executed in-lane — a
-headless ClassDB probe of the real binary plus a live in-smoke behavior
-proof (fq09u1_live_clip_switch). The Synchronized-inside-Interactive
-nesting question is deliberately still open and MUST be U2's first step.
+`data/music_manifest.json` remain the authority for U3. U1's gates were
+cleared: assets rendered/verified by the Codex lane (offline Python
+renderer in place of the M8-AUDIO increments; the m8patch is source
+metadata) and the Godot 4.6 spike executed in-lane (headless ClassDB probe
++ the live fq09u1_live_clip_switch proof). U2 opened with the mandated
+nesting spike, finding RECORDED: an AudioStreamSynchronized group DOES
+play as a clip inside AudioStreamInteractive in 4.6.1
+(fq09u2_nesting_spike_recorded) — U2 nevertheless shipped the parallel
+LayerPlayer design because the suite has one shared stem set; nesting is a
+proven option for future work. Remaining: FQ-09U3 (stingers over temporary
+ducking, music/SFX volume settings, pause behavior, final asset
+validation).
 
 ## Queue Placement (operator decision record)
 

@@ -41,8 +41,8 @@ and outbox packets.
 | FQ-09A | P1 | Done | Future asset manifest and prompt packs | Gives future art/model agents a concrete asset map after the opening/background runtime contracts are real. |
 | FQ-09M | P1 | Done | Lightweight action animation pass | Makes actions readable while preserving existing timing, saves, and mechanics. |
 | FQ-09U1 | P1 | Done (operator listening approval 2026-07-10; spike executed in-lane) | Adaptive context music foundation | Seamless bar-quantized day/night/underground/crisis music from existing game truth; the hybrid adaptive score's horizontal layer. |
-| FQ-09U2 | P1 | Ready - next | Settlement-responsive music layering | Synchronized stems weighted by pressure/Coherence/Resilience/Attunement; the vertical layer. |
-| FQ-09U3 | P2 | Ready after FQ-09U2 | Music stingers, ducking, and audio settings | Event one-shots over brief ducking, volume settings, pause behavior, final asset validation. |
+| FQ-09U2 | P1 | Done | Settlement-responsive music layering | Synchronized stems weighted by pressure/Coherence/Resilience/Attunement; the vertical layer. |
+| FQ-09U3 | P2 | Ready - next | Music stingers, ducking, and audio settings | Event one-shots over brief ducking, volume settings, pause behavior, final asset validation. |
 | FQ-10 | P1 | Ready after FQ-09U3 | More ores and metallurgy data | Expands mining goals after the presentation-foundation sequence closes. |
 | FQ-11 | P1 | Ready after FQ-10 | Workbench, furnace, and anvil station chain | Makes ore useful through buildable progression stations. |
 | FQ-12 | P1 | Ready | Farming and food stability | Current bush support groundwork is ideal for plantable crops and settlement food pressure. |
@@ -765,13 +765,29 @@ delta)` for tests, debug/smoke accessors, and silent-safe missing-asset
 behavior. Music state is transient — save round-trips carry no music keys.
 9 fq09u1_* smoke checks (suite 226).
 
-## FQ-09U2 - Settlement-Responsive Music Layering
+## FQ-09U2 - Settlement-Responsive Music Layering (Done)
 
-Synchronized stems (AudioStreamSynchronized per spike findings) weighted by
-pressure/Coherence/Resilience/Attunement from the existing settlement
-signal; smoothed volume movement; runtime loop-length validation; debug stem
-weights; storm texture layer; no save-state changes. Details in the work
-order.
+Opened with the mandated spike, finding RECORDED: an
+AudioStreamSynchronized group DOES play as a clip inside an
+AudioStreamInteractive in Godot 4.6.1 (fq09u2_nesting_spike_recorded,
+live playback probe). U2 nevertheless ships the parallel design — the
+suite has ONE shared phase-locked stem set, not per-context sets — with
+nesting available to future increments.
+
+Shipped: the LayerPlayer carries an AudioStreamSynchronized of the six
+stems (runtime-validated to the exact 53.333 s grid length; any mismatch
+disables layering with a warning while context music plays on), started in
+the same frame as the context stream so equal-length loops stay
+phase-aligned by construction. Data-defined mix (`stem_mix` in the
+manifest): each stem's volume moves smoothly (6 dB/s, never snapping)
+toward lerp(min_db, max_db, source) where sources are settlement
+resilience (foundation), coherence (hearth), the director's pressure score
+(pressure stem, with a storm floor as the storm texture), player
+attunement ratio (attunement), mining/movement activity (motion), and the
+collapse edge (fracture wakes only past pressure 0.7). Debug hooks:
+layering_enabled / stem_targets / stem_volumes. No save keys.
+8 fq09u2_* smoke checks (suite 234), all deterministic except the live
+nesting probe.
 
 ## FQ-09U3 - Music Stingers, Ducking, And Audio Settings
 
@@ -969,10 +985,9 @@ ahead of FQ-00 through FQ-03 unless the operator explicitly changes priority.
 You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 
 Read README.md, docs/HANDOFF.md, docs/VARIABLE_MATRIX.md, and
-docs/FABLE_TASK_QUEUE.md. FQ-09C, FQ-09W, FQ-09A, FQ-09M, and FQ-09U1 are
-done. The queue head is FQ-09U2 (settlement-responsive music layering) per
-docs/WORK_ORDER_FQ_09U_ADAPTIVE_MUSIC.md: open with the deferred spike —
-prove at runtime whether an AudioStreamSynchronized stem group can serve as
-a clip inside AudioStreamInteractive, and design to the actual finding.
-Take only that item.
+docs/FABLE_TASK_QUEUE.md. FQ-09C, FQ-09W, FQ-09A, FQ-09M, FQ-09U1, and
+FQ-09U2 are done. The queue head is FQ-09U3 (music stingers, ducking, and
+audio settings) per docs/WORK_ORDER_FQ_09U_ADAPTIVE_MUSIC.md — the five
+rendered stingers are in-repo and the StingerPlayer child is reserved.
+Take only that item; FQ-10 follows.
 ```

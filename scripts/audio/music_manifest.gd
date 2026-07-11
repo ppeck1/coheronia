@@ -51,3 +51,35 @@ static func load_context_streams(manifest: Dictionary) -> Dictionary:
 static func bar_seconds(manifest: Dictionary) -> float:
 	var bpm := maxf(1.0, float(manifest.get("bpm", 72.0)))
 	return float(manifest.get("beats_per_bar", 4)) * 60.0 / bpm
+
+
+## Exact seconds one full loop must last under the manifest grid.
+static func loop_seconds(manifest: Dictionary) -> float:
+	return float(manifest.get("bars_per_loop", 16)) * bar_seconds(manifest)
+
+
+## FQ-09U2: loads the six phase-locked stem streams (same rules as context
+## loops — runtime OGG load, loop + grid stamped). Returns stem_name ->
+## AudioStream for every file that loaded; the caller enforces the
+## complete-set and equal-length contracts.
+static func load_stem_streams(manifest: Dictionary) -> Dictionary:
+	var out := {}
+	var stems: Dictionary = manifest.get("stems", {})
+	var bpm := float(manifest.get("bpm", 72.0))
+	var beats_per_bar := int(manifest.get("beats_per_bar", 4))
+	var total_beats := int(manifest.get("bars_per_loop", 16)) * beats_per_bar
+	for stem_name in stems:
+		if str(stem_name).begins_with("_"):
+			continue
+		var path := str(stems[stem_name])
+		if path == "" or not FileAccess.file_exists(path):
+			continue
+		var stream: AudioStream = AudioStreamOggVorbis.load_from_file(path)
+		if stream == null:
+			continue
+		stream.loop = true
+		stream.bpm = bpm
+		stream.bar_beats = beats_per_bar
+		stream.beat_count = total_beats
+		out[stem_name] = stream
+	return out
