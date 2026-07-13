@@ -9,6 +9,7 @@ var world_settings: Dictionary = {}
 var character_data: Dictionary = {}
 var equipment: Dictionary = {}      # FQ-03: data/equipment.json (slots + items)
 var visual_assets: Dictionary = {}  # FQ-07: data/visual_assets.json (image refs)
+var player_visuals: Dictionary = {} # body variants, rig anchors, gear overlays
 var _visual_cache: Dictionary = {}  # resolved path -> Texture2D (or null = missing)
 var items_data: Dictionary = {}     # FQ-09: data/items.json (non-block item metadata)
 var _item_icon_cache: Dictionary = {}  # item_id -> Texture2D (art or fallback swatch)
@@ -28,6 +29,7 @@ func _load_all() -> void:
 	character_data = _load_json("res://data/character_data.json")
 	equipment = _load_json("res://data/equipment.json")
 	visual_assets = _load_json("res://data/visual_assets.json")
+	player_visuals = _load_json("res://data/player_visuals.json")
 	items_data = _load_json("res://data/items.json").get("items", {})
 	if blocks.is_empty():
 		push_error("BlockRegistry: no blocks loaded from data/blocks.json")
@@ -54,6 +56,25 @@ func appearance_def(appearance_id: String) -> Dictionary:
 		if appearance.get("id", "") == appearance_id:
 			return appearance
 	return {"body": "ebd48c", "trim": "59402e"}
+
+
+## Character-owned body variants are intentionally small and stable. Legacy,
+## missing, or invalid values return the configured default.
+func normalize_body_variant(body_variant: String) -> String:
+	var allowed: Array = player_visuals.get("body_variants", ["default", "female"])
+	if body_variant in allowed:
+		return body_variant
+	return str(player_visuals.get("default_body_variant", "default"))
+
+
+## Asset id for a live species/body variant. An unknown species returns "" so
+## presentation uses its procedural fallback rather than another ancestry.
+func player_body_id(species_id: String, body_variant: String) -> String:
+	var live_species: Array = player_visuals.get("live_species", [])
+	if species_id not in live_species:
+		return ""
+	var normalized := normalize_body_variant(body_variant)
+	return species_id if normalized == "default" else "%s_%s" % [species_id, normalized]
 
 
 func _load_json(path: String) -> Dictionary:

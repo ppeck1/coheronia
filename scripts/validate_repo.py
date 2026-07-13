@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import struct
 import sys
 from pathlib import Path
 
@@ -29,6 +31,7 @@ REQUIRED_FILES = [
     "data/character_data.json",
     "data/equipment.json",
     "data/visual_assets.json",
+    "data/player_visuals.json",
     "data/items.json",
     "art/source_templates/ASSET_TEMPLATE.md",
     "art/source_templates/BACKGROUND_TEMPLATE.md",
@@ -37,6 +40,8 @@ REQUIRED_FILES = [
     "scripts/shell/prologue_puppets.gd",
     "scripts/world/world_backdrop.gd",
     "scripts/fx/action_fx.gd",
+    "scripts/player/player_visual.gd",
+    "scenes/player/Player.tscn",
     "scripts/audio/music_manifest.gd",
     "scripts/audio/adaptive_music_director.gd",
     "scenes/audio/AdaptiveMusicDirector.tscn",
@@ -53,6 +58,12 @@ REQUIRED_FILES = [
     "audio/music/rendered/stems/stem_pressure.ogg",
     "audio/music/rendered/stems/stem_attunement.ogg",
     "audio/music/rendered/stems/stem_fracture.ogg",
+    "audio/music/rendered/stingers/stinger_dawn.ogg",
+    "audio/music/rendered/stingers/stinger_nightfall.ogg",
+    "audio/music/rendered/stingers/stinger_raid_warning.ogg",
+    "audio/music/rendered/stingers/stinger_attunement.ogg",
+    "audio/music/rendered/stingers/stinger_base_advance.ogg",
+    "scripts/audio/audio_settings.gd",
     "data/enemies.json",
     "data/ancestries.json",
     "data/progression/player_xp.json",
@@ -66,6 +77,9 @@ REQUIRED_DIRS = [
     "art/generated/blocks",
     "art/generated/items",
     "art/generated/enemies",
+    "art/generated/players",
+    "art/generated/player_gear",
+    "art/generated/structures",
     "art/generated/ui",
     "art/generated/opening",
     "art/generated/backgrounds",
@@ -189,6 +203,31 @@ for mm_stem in ["foundation", "hearth", "motion", "pressure", "attunement", "fra
         fail(f"music_manifest.json stems missing path for: {mm_stem}")
 if not float(mm_mix.get("smoothing_db_per_sec", 0)) > 0:
     fail("music_manifest.json stem_mix.smoothing_db_per_sec must be > 0")
+# FQ-09U3: stinger contract — all five event kinds with paths, and a duck
+# config whose duck is negative (it lowers the music) with positive rates.
+mm_sting_cfg = music_manifest.get("stinger_config", {})
+for mm_key in ["cooldown_seconds", "duck_db", "duck_attack_db_per_sec", "duck_release_db_per_sec"]:
+    if mm_key not in mm_sting_cfg:
+        fail(f"music_manifest.json stinger_config missing key: {mm_key}")
+if not float(mm_sting_cfg["duck_db"]) < 0:
+    fail("music_manifest.json stinger_config.duck_db must be negative")
+for mm_kind in ["dawn", "nightfall", "raid_warning", "attunement", "base_advance"]:
+    if mm_kind not in music_manifest.get("stingers", {}):
+        fail(f"music_manifest.json stingers missing kind: {mm_kind}")
+# FQ-09U3 final audio asset validation: run the Codex mechanical verifier
+# (exact durations/sample rates/headroom) when its optional third-party
+# deps are installed; absence is informational — the tool remains the
+# authoring-machine release gate and the smoke checks durations at runtime.
+import importlib.util as _ilu
+if _ilu.find_spec("numpy") is not None and _ilu.find_spec("imageio_ffmpeg") is not None:
+    import subprocess as _sp
+    _mv = _sp.run([sys.executable, str(ROOT / "scripts/audio/verify_music_assets.py")],
+                  capture_output=True, text=True, cwd=str(ROOT))
+    if _mv.returncode != 0:
+        fail(f"music asset verification failed:\n{_mv.stdout[-1500:]}\n{_mv.stderr[-500:]}")
+    print("PASS music asset verification (durations/sample rates/headroom)")
+else:
+    print("INFO music asset verifier deps (numpy/imageio_ffmpeg) not installed; skipped")
 music_template = (ROOT / "audio/source_templates/MUSIC_TEMPLATE.md").read_text(encoding="utf-8")
 for required_phrase in ["one adaptive suite", "Production Contract", "Render Checklist"]:
     if required_phrase not in music_template:
@@ -235,10 +274,15 @@ for axis in ["enemy", "ruler", "survival", "economy", "social", "impressionabili
 print("PASS world settings")
 
 character_data = json.loads((ROOT / "data/character_data.json").read_text(encoding="utf-8"))
-for section in ["species", "traits", "roles", "appearances"]:
+for section in ["species", "body_variants", "traits", "roles", "appearances"]:
     if section not in character_data:
         fail(f"character_data.json missing section: {section}")
 print("PASS character data")
+
+body_variant_ids = [entry.get("id") for entry in character_data.get("body_variants", [])]
+if body_variant_ids != ["default", "female"]:
+    fail(f"character_data.json body variants mismatch: {body_variant_ids}")
+print("PASS character body variants")
 
 # FQ-01: player_defaults must define the data-driven health/heal/regen tuning keys.
 player_defaults = character_data.get("player_defaults", {})
@@ -308,7 +352,8 @@ visual_assets = json.loads((ROOT / "data/visual_assets.json").read_text(encoding
 va_categories = visual_assets.get("categories")
 if not isinstance(va_categories, dict):
     fail("visual_assets.json missing categories dict")
-for va_cat in ["blocks", "items", "enemies", "ui", "opening", "backgrounds", "back_walls"]:
+for va_cat in ["blocks", "items", "enemies", "players", "player_gear", "structures",
+               "ui", "opening", "backgrounds", "back_walls"]:
     if va_cat not in va_categories:
         fail(f"visual_assets.json categories missing: {va_cat}")
 asset_root = str(visual_assets.get("asset_root", "art/generated"))
@@ -327,6 +372,136 @@ for va_cat, entries in va_categories.items():
             if not (ROOT / str(rel_path)).is_file():
                 fail(f"visual_assets.json {va_cat}/{va_id} maps to missing file: {rel_path}")
 print("PASS visual assets data")
+
+if visual_assets.get("target_sizes", {}).get("structures") != [56, 48]:
+    fail("visual_assets.json structures target must be [56, 48]")
+hall_art_path = ROOT / str(visual_assets.get("asset_root", "art/generated")) \
+    / "structures" / "town_hall.png"
+hall_payload = hall_art_path.read_bytes()
+if len(hall_payload) < 26 or hall_payload[:8] != b"\x89PNG\r\n\x1a\n" \
+        or hall_payload[12:16] != b"IHDR":
+    fail("invalid PNG header: art/generated/structures/town_hall.png")
+hall_width, hall_height, hall_depth, hall_color_type = struct.unpack(
+    ">IIBB", hall_payload[16:26])
+if (hall_width, hall_height, hall_depth, hall_color_type) != (56, 48, 8, 6):
+    fail("town_hall structure must be 56x48 8-bit RGBA, got "
+         f"{hall_width}x{hall_height} depth={hall_depth} color_type={hall_color_type}")
+print("PASS Town Hall structure art contract")
+
+core_art_path = ROOT / asset_root / "blocks" / "town_hall_core.png"
+core_payload = core_art_path.read_bytes()
+if len(core_payload) < 26 or core_payload[:8] != b"\x89PNG\r\n\x1a\n" \
+        or core_payload[12:16] != b"IHDR":
+    fail("invalid PNG header: art/generated/blocks/town_hall_core.png")
+core_width, core_height, core_depth, core_color_type = struct.unpack(
+    ">IIBB", core_payload[16:26])
+if (core_width, core_height, core_depth, core_color_type) != (16, 16, 8, 6):
+    fail("town_hall_core block must be 16x16 8-bit RGBA, got "
+         f"{core_width}x{core_height} depth={core_depth} color_type={core_color_type}")
+print("PASS Town Hall core art contract")
+
+sky_art_path = ROOT / asset_root / "backgrounds" / "surface_sky.png"
+sky_payload = sky_art_path.read_bytes()
+if len(sky_payload) < 26 or sky_payload[:8] != b"\x89PNG\r\n\x1a\n" \
+        or sky_payload[12:16] != b"IHDR":
+    fail("invalid PNG header: art/generated/backgrounds/surface_sky.png")
+sky_width, sky_height, sky_depth, sky_color_type = struct.unpack(
+    ">IIBB", sky_payload[16:26])
+if (sky_width, sky_height, sky_depth, sky_color_type) != (640, 360, 8, 2):
+    fail("surface_sky must be 640x360 8-bit opaque RGB, got "
+         f"{sky_width}x{sky_height} depth={sky_depth} color_type={sky_color_type}")
+print("PASS surface sky art contract")
+
+surface_strip_contracts = {
+    "surface_far_terrain.png": (640, 36),
+    "surface_mid_silhouette.png": (640, 20),
+}
+for strip_name, expected_size in surface_strip_contracts.items():
+    strip_path = ROOT / asset_root / "backgrounds" / strip_name
+    strip_payload = strip_path.read_bytes()
+    if len(strip_payload) < 26 or strip_payload[:8] != b"\x89PNG\r\n\x1a\n" \
+            or strip_payload[12:16] != b"IHDR":
+        fail(f"invalid PNG header: art/generated/backgrounds/{strip_name}")
+    strip_width, strip_height, strip_depth, strip_color_type = struct.unpack(
+        ">IIBB", strip_payload[16:26])
+    if (strip_width, strip_height, strip_depth, strip_color_type) != (
+            expected_size[0], expected_size[1], 8, 6):
+        fail(f"{strip_name} must be {expected_size[0]}x{expected_size[1]} "
+             "8-bit RGBA, got "
+             f"{strip_width}x{strip_height} depth={strip_depth} "
+             f"color_type={strip_color_type}")
+print("PASS surface backdrop strip art contracts")
+
+# Player visual contract: five live species, two body variants, exact 16x32
+# RGBA source art, species-specific rig anchors, and collision kept at 12x28.
+player_visuals = json.loads((ROOT / "data/player_visuals.json").read_text(encoding="utf-8"))
+EXPECTED_PLAYER_SPECIES = ["human", "dwarf", "elf", "goblin", "orc"]
+EXPECTED_BODY_VARIANTS = ["default", "female"]
+if player_visuals.get("body_size") != [16, 32]:
+    fail(f"player_visuals.json body_size must be [16, 32]: {player_visuals.get('body_size')}")
+if player_visuals.get("authored_facing") != "right":
+    fail("player_visuals.json authored_facing must be right")
+if player_visuals.get("appearance_mode") != "palette_skin_until_masks":
+    fail("player_visuals.json appearance_mode must be palette_skin_until_masks")
+if not str(player_visuals.get("tool_swing_asset_convention", "")).strip():
+    fail("player_visuals.json missing tool_swing_asset_convention")
+if player_visuals.get("default_body_variant") != "default" \
+        or player_visuals.get("body_variants") != EXPECTED_BODY_VARIANTS:
+    fail("player_visuals.json body variant contract mismatch")
+if player_visuals.get("live_species") != EXPECTED_PLAYER_SPECIES:
+    fail(f"player_visuals.json live_species mismatch: {player_visuals.get('live_species')}")
+rigs = player_visuals.get("rigs") or {}
+for species_id in EXPECTED_PLAYER_SPECIES:
+    rig = rigs.get(species_id)
+    if not isinstance(rig, dict):
+        fail(f"player_visuals.json missing rig: {species_id}")
+    skin_palette = rig.get("skin_palette")
+    if not isinstance(skin_palette, list) or not skin_palette \
+            or not all(isinstance(entry, str) and len(entry) == 6 for entry in skin_palette):
+        fail(f"player_visuals.json rig {species_id}.skin_palette must contain hex colors")
+    skin_regions = rig.get("skin_regions")
+    if not isinstance(skin_regions, list) or not skin_regions:
+        fail(f"player_visuals.json rig {species_id}.skin_regions must be non-empty")
+    for region in skin_regions:
+        if not isinstance(region, list) or len(region) != 4 \
+                or not all(isinstance(value, (int, float)) for value in region) \
+                or region[2] <= 0 or region[3] <= 0 \
+                or region[0] < 0 or region[1] < 0 \
+                or region[0] + region[2] > 16 or region[1] + region[3] > 32:
+            fail(f"player_visuals.json rig {species_id}.skin_regions invalid: {region}")
+    for point_key in ["shoulder", "helmet", "helmet_size", "torso", "torso_size"]:
+        point = rig.get(point_key)
+        if not isinstance(point, list) or len(point) != 2:
+            fail(f"player_visuals.json rig {species_id}.{point_key} must be [x, y]")
+    for scalar_key in ["feet_y", "feet_width"]:
+        if not isinstance(rig.get(scalar_key), (int, float)):
+            fail(f"player_visuals.json rig {species_id}.{scalar_key} must be numeric")
+
+player_asset_hashes = set()
+for species_id in EXPECTED_PLAYER_SPECIES:
+    for variant_id in EXPECTED_BODY_VARIANTS:
+        body_id = species_id if variant_id == "default" else f"{species_id}_{variant_id}"
+        body_path = ROOT / asset_root / "players" / f"{body_id}.png"
+        if not body_path.is_file():
+            fail(f"missing required player body: {body_path.relative_to(ROOT)}")
+        payload = body_path.read_bytes()
+        if len(payload) < 26 or payload[:8] != b"\x89PNG\r\n\x1a\n" or payload[12:16] != b"IHDR":
+            fail(f"invalid PNG header: {body_path.relative_to(ROOT)}")
+        width, height, bit_depth, color_type = struct.unpack(">IIBB", payload[16:26])
+        if (width, height, bit_depth, color_type) != (16, 32, 8, 6):
+            fail(f"player body {body_id} must be 16x32 8-bit RGBA, got "
+                 f"{width}x{height} depth={bit_depth} color_type={color_type}")
+        player_asset_hashes.add(hashlib.sha256(payload).hexdigest())
+if len(player_asset_hashes) != 10:
+    fail("the ten player body files must be distinct")
+player_scene = (ROOT / "scenes/player/Player.tscn").read_text(encoding="utf-8")
+for scene_contract in [
+        'size = Vector2(12, 28)',
+        '[node name="PlayerVisual" type="Node2D" parent="."]',
+        'path="res://scripts/player/player_visual.gd"']:
+    if scene_contract not in player_scene:
+        fail(f"Player.tscn missing visual/collision contract: {scene_contract}")
+print("PASS player visual bodies, rigs, and collision contract")
 
 # FQ-09: item metadata — the icon grids and display-name fallback read this.
 items_meta = json.loads((ROOT / "data/items.json").read_text(encoding="utf-8"))

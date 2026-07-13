@@ -28,6 +28,9 @@ var _under_py := 640.0   # deepest valley line: sky must reach at least here
 
 func _ready() -> void:
 	name = "Backdrop"
+	# Backdrop masters are authored at world resolution; Camera2D supplies the
+	# sole 2x scale to the 1280x720 viewport.
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	# Distant scenery ignores local 2D lights: a torch must not paint glow
 	# blobs onto mountains kilometres away.
 	light_mask = 0
@@ -104,11 +107,12 @@ func _strip(tex: Texture2D, horizon: float, strip_h: float, parallax: float,
 		col: Color, wavelength: float, seed_val: int) -> void:
 	var off := floorf(_view.position.x * (1.0 - parallax) / STEP_PX) * STEP_PX
 	if tex != null:
-		var w := float(tex.get_width()) * 2.0   # 2x nearest for 16:9 pixel scale
+		var w := float(tex.get_width())
+		var h := float(tex.get_height())
 		var x0 := _view.position.x - fposmod(_view.position.x * parallax + off, w) - w
 		var x := x0
 		while x < _view.end.x + w:
-			draw_texture_rect(tex, Rect2(x, horizon - strip_h, w, strip_h), false)
+			draw_texture_rect(tex, Rect2(x, horizon - h, w, h), false)
 			x += w
 		return
 	# Code fallback: hard silhouette polygon sampled on a fixed world grid so

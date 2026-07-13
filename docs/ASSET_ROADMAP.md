@@ -76,6 +76,18 @@ block-material items may reuse their block texture reading at icon scale;
 
 Engine draws hurt tint and health bar; sprites must leave headroom for both.
 
+### Player bodies - `art/generated/players/<body_id>.png`, 16x32, transparent
+
+Live body ids: `human`, `human_female`, `dwarf`, `dwarf_female`, `elf`,
+`elf_female`, `goblin`, `goblin_female`, `orc`, `orc_female`.
+Runtime path: `data/player_visuals.json`, `scripts/player/player_visual.gd`,
+and `scenes/player/Player.tscn`.
+
+Player art is live now. Appearance palettes recolor only rig-defined skin
+regions, body variant selection is saved with the character, and gameplay
+collision remains 12x28. Base bodies stay in simple clothing with no armor;
+equipment art belongs in `art/generated/player_gear/`.
+
 ### Equipment / UI icons — `art/generated/items/<id>.png` today (16x16)
 
 Live equipment ids that surface in panels: `pick_basic`, `pick_forged`,
@@ -94,13 +106,19 @@ produce ui-category files until a consumer lands.
 Rules: opaque centers (underground air must never read as sky), edge-tiling
 continuity, visually quieter and darker than the matching foreground block.
 
+### Structures - `art/generated/structures/<id>.png`
+
+| Id | Status | Shape | Priority | Prompt note |
+|---|---|---|---|---|
+| town_hall | live | 56x48 transparent sprite | P1 | founding timber hall; damage stays an engine overlay; fallback remains procedural |
+
 ### Scenic backgrounds — `art/generated/backgrounds/<id>.png`
 
 | Id | Status | Shape | Priority | Prompt note |
 |---|---|---|---|---|
 | surface_sky | live | 640x360 full frame, opaque | P3 | day-neutral sky field; engine tints day/night/storm — author neutral, no sun/moon, no baked lighting events |
-| surface_far_terrain | live | tiling strip, transparent top | P3 | distant ridge silhouettes, low contrast/saturation |
-| surface_mid_silhouette | live | tiling strip, transparent top | P3 | nearer tree/hill silhouettes, still below foreground contrast |
+| surface_far_terrain | live | 640x36 tiling RGBA strip, transparent top | P3 | distant ridge silhouettes, low contrast/saturation |
+| surface_mid_silhouette | live | 640x20 tiling RGBA strip, transparent top | P3 | nearer tree/hill silhouettes, still below foreground contrast |
 
 ### Opening cinematic cel frames — `art/generated/opening/<scene_id>_01.png` …
 
@@ -116,16 +134,10 @@ palette per scene are locked in `docs/OPENING_STORYBOARD.md` — frames
 re-draw those beats as hand-authored animation, they do not invent new ones.
 Keep meaningful action above the lower-quarter text band.
 
-## Drawn-Shape Actors (live surfaces with no art path yet)
-
-These render as code-drawn rects/polygons today. They need a small renderer
-extension (an image-capable path like the enemy sprite one) before art can
-land — flag the code change in the same increment that produces the sprites.
+## Remaining Drawn-Shape Actor
 
 | Surface | Today | Planned asset shape |
 |---|---|---|
-| Player | 12x28 body + trim rects colored by appearance (tan/pale/umber/ash) | per-ancestry sprite (human, dwarf, elf, goblin, orc) with appearance recolor masks; side-view, ~16x32 |
-| Town Hall | drawn wall/roof/door/chimney rects + damage overlay | founding timber hall sprite, damage states preserved as overlay |
 | Attunement pulse | radial gradient light | optional star-white ring sprite (structural, no fireball) |
 
 ## Planned Assets (systems not live yet — do not produce early)
@@ -183,13 +195,13 @@ outside the game and validation; only the final PNG enters the repo.
 > note>. Strong silhouette, one accent color from its family palette, no
 > background, leaves 2px headroom for an engine-drawn health bar.
 
-### Player / ancestry sprites (16x32, transparent — needs renderer extension)
+### Player / ancestry sprites (16x32, transparent — live for current five species)
 
 > One 16x32 side-view settler sprite: <ancestry> (<build notes: human
 > balanced/upright; dwarf low/compact/heavy; elf narrow/vertical; orc
 > broad/grounded; goblin small/quick>). Practical frontier work clothes,
-> tool-belt reading, no armor spectacle. Two recolorable regions matching
-> the appearance body/trim masks.
+> tool-belt reading, no armor spectacle. Use rig-defined skin masks only for
+> appearance recolor; clothing must remain stable across tan/pale/umber/ash.
 
 ### Opening cel frames (640x360, wordless)
 

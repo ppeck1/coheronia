@@ -42,8 +42,8 @@ and outbox packets.
 | FQ-09M | P1 | Done | Lightweight action animation pass | Makes actions readable while preserving existing timing, saves, and mechanics. |
 | FQ-09U1 | P1 | Done (operator listening approval 2026-07-10; spike executed in-lane) | Adaptive context music foundation | Seamless bar-quantized day/night/underground/crisis music from existing game truth; the hybrid adaptive score's horizontal layer. |
 | FQ-09U2 | P1 | Done | Settlement-responsive music layering | Synchronized stems weighted by pressure/Coherence/Resilience/Attunement; the vertical layer. |
-| FQ-09U3 | P2 | Ready - next | Music stingers, ducking, and audio settings | Event one-shots over brief ducking, volume settings, pause behavior, final asset validation. |
-| FQ-10 | P1 | Ready after FQ-09U3 | More ores and metallurgy data | Expands mining goals after the presentation-foundation sequence closes. |
+| FQ-09U3 | P2 | Done | Music stingers, ducking, and audio settings | Event one-shots over brief ducking, volume settings, pause behavior, final asset validation. |
+| FQ-10 | P1 | Ready - next | More ores and metallurgy data | Expands mining goals after the presentation-foundation sequence closes. |
 | FQ-11 | P1 | Ready after FQ-10 | Workbench, furnace, and anvil station chain | Makes ore useful through buildable progression stations. |
 | FQ-12 | P1 | Ready | Farming and food stability | Current bush support groundwork is ideal for plantable crops and settlement food pressure. |
 | FQ-13 | P2 | Ready after FQ-01 | Enemy variety and combat pressure | Add thornrat, ore tick, and raider torchbearer once health/combat rules are clearer. |

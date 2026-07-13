@@ -58,7 +58,8 @@ func _run() -> void:
 
 	# --- Shell persistence: characters + worlds as simulation containers ---
 	var test_char: Dictionary = GameState.create_character({
-		"name": "Smoke Tester", "role": "prospector", "traits": ["hardy"], "appearance": "ash"})
+		"name": "Smoke Tester", "species": "dwarf", "body_variant": "female",
+		"role": "prospector", "traits": ["hardy"], "appearance": "ash"})
 	var df_config: Dictionary = WorldConfig.from_preset("dark_frontier")
 	df_config["name"] = "Smoke Frontier"
 	df_config["seed"] = 777
@@ -69,7 +70,15 @@ func _run() -> void:
 	var reloaded_cfg := WorldConfig.new(GameState.load_world_file(test_world_id).get("config", {}))
 	_check("shell_persists_characters", not reloaded_char.is_empty()
 		and str(reloaded_char.get("role", "")) == "prospector"
-		and "hardy" in reloaded_char.get("traits", []))
+		and "hardy" in reloaded_char.get("traits", [])
+		and str(reloaded_char.get("body_variant", "")) == "female")
+	_check("player_visual_body_variant_roundtrip",
+		str(reloaded_char.get("species", "")) == "dwarf"
+		and str(reloaded_char.get("body_variant", "")) == "female")
+	_check("player_visual_invalid_variant_defaults",
+		GameState.normalize_body_variant("") == "default"
+		and GameState.normalize_body_variant("bogus") == "default"
+		and GameState.normalize_body_variant("female") == "female")
 	_check("shell_persists_worlds", reloaded_cfg.difficulty("enemy") == 1.75
 		and reloaded_cfg.seed_value() == 777 and reloaded_cfg.size_id() == "small")
 	_check("presets_apply", not WorldConfig.new(
@@ -1478,22 +1487,22 @@ func _run() -> void:
 			DirAccess.remove_absolute(_fq07_leftover)
 	BlockRegistry.clear_visual_cache()
 
-	# (a) visual_assets.json loads with the four categories.
+	# (a) visual_assets.json loads with the image-first categories.
 	var _fq07_cats: Dictionary = BlockRegistry.visual_assets.get("categories", {})
 	_check("fq07_visual_assets_loads",
 		_fq07_cats.has("blocks") and _fq07_cats.has("items")
-		and _fq07_cats.has("enemies") and _fq07_cats.has("ui"),
+		and _fq07_cats.has("enemies") and _fq07_cats.has("ui")
+		and _fq07_cats.has("players") and _fq07_cats.has("player_gear")
+		and _fq07_cats.has("structures"),
 		"categories=%s" % str(_fq07_cats.keys()))
 
-	# (b) missing images never crash: lookups return null, the generated
-	# color/shape textures still render, and toolbelt slots show the FQ-09
-	# fallback swatch rather than real art.
-	var _fq07_fallback_tex: ImageTexture = world._make_block_texture("dirt", 16)
+	# (b) a deliberately unknown id still returns the generated item swatch;
+	# the real block/enemy art added later does not invalidate fallback safety.
+	var _fq07_fallback_tex: Texture2D = BlockRegistry.item_icon("smoke_tmp_missing")
 	_check("fq07_missing_assets_fall_back",
-		BlockRegistry.visual_texture("blocks", "dirt") == null
-		and BlockRegistry.visual_texture("enemies", "surface_slime") == null
-		and _fq07_fallback_tex != null
-		and not hud.hotbar_icon_is_art(0),
+		BlockRegistry.visual_texture("blocks", "smoke_tmp_missing") == null
+		and BlockRegistry.visual_texture("enemies", "smoke_tmp_missing") == null
+		and _fq07_fallback_tex != null,
 		"fallback_tex_ok=%s" % str(_fq07_fallback_tex != null))
 
 	# (c) a block image wins over the generated texture when present (via an
@@ -1516,7 +1525,7 @@ func _run() -> void:
 		and not _fq07_clean_pixel.is_equal_approx(Color(1.0, 0.0, 1.0)),
 		"with_art=%s after_cleanup=%s" % [str(_fq07_art_pixel), str(_fq07_clean_pixel)])
 
-	# (d) an item image lights up its hotbar icon; removal hides it again.
+	# (d) an explicit item override wins; removal returns to convention art.
 	var _fq07_item_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	_fq07_item_img.fill(Color(0.0, 1.0, 1.0))
 	_fq07_item_img.save_png("res://art/generated/items/smoke_tmp_wood.png")
@@ -1524,16 +1533,181 @@ func _run() -> void:
 		"art/generated/items/smoke_tmp_wood.png"
 	BlockRegistry.clear_visual_cache()
 	hud.update_inventory()
+	var _fq07_item_override_pixel: Color = BlockRegistry.item_icon("wood") \
+		.get_image().get_pixel(4, 4)
 	var _fq07_icon_on: bool = hud.hotbar_icon_is_art(1)    # slot 1 = wood
-	var _fq07_icon_dirt: bool = hud.hotbar_icon_is_art(0)  # dirt has no art
 	DirAccess.remove_absolute("res://art/generated/items/smoke_tmp_wood.png")
 	BlockRegistry.visual_assets["categories"]["items"].erase("wood")
 	BlockRegistry.clear_visual_cache()
 	hud.update_inventory()
+	var _fq07_item_convention_pixel: Color = BlockRegistry.item_icon("wood") \
+		.get_image().get_pixel(4, 4)
 	_check("fq07_item_renders_from_image",
-		_fq07_icon_on and not _fq07_icon_dirt and not hud.hotbar_icon_is_art(1),
-		"art_icon=%s dirt_art=%s after_cleanup=%s" % [
-			str(_fq07_icon_on), str(_fq07_icon_dirt), str(hud.hotbar_icon_is_art(1))])
+		_fq07_icon_on and hud.hotbar_icon_is_art(1)
+		and _fq07_item_override_pixel.is_equal_approx(Color(0.0, 1.0, 1.0))
+		and not _fq07_item_convention_pixel.is_equal_approx(Color(0.0, 1.0, 1.0)),
+		"override=%s convention=%s" % [str(_fq07_item_override_pixel),
+			str(_fq07_item_convention_pixel)])
+
+	# (e) the shipped hall art occupies the exact procedural footprint; an
+	# isolated forced miss still initializes the permanent shape fallback.
+	var _fq07_core_tex: Texture2D = BlockRegistry.visual_texture("blocks", "town_hall_core")
+	var _fq07_core_img: Image = _fq07_core_tex.get_image() if _fq07_core_tex != null else null
+	_check("town_hall_core_image_contract",
+		_fq07_core_img != null and _fq07_core_img.get_size() == Vector2i(16, 16)
+		and _fq07_core_img.get_format() == Image.FORMAT_RGBA8,
+		"size=%s" % str(_fq07_core_img.get_size() if _fq07_core_img != null else Vector2i.ZERO))
+	var _fq07_hall_tex: Texture2D = BlockRegistry.visual_texture("structures", "town_hall")
+	var _fq07_hall_img: Image = _fq07_hall_tex.get_image() if _fq07_hall_tex != null else null
+	_check("town_hall_image_contract",
+		hall.using_structure_art() and _fq07_hall_img != null
+		and _fq07_hall_img.get_size() == Vector2i(56, 48)
+		and _fq07_hall_img.get_format() == Image.FORMAT_RGBA8,
+		"art=%s size=%s" % [str(hall.using_structure_art()),
+			str(_fq07_hall_img.get_size() if _fq07_hall_img != null else Vector2i.ZERO)])
+	var _fq07_structure_entries: Dictionary = _fq07_cats["structures"]
+	_fq07_structure_entries["town_hall"] = \
+		"art/generated/structures/smoke_tmp_missing_town_hall.png"
+	BlockRegistry.clear_visual_cache()
+	var _fq07_hall_probe: Node2D = load("res://scenes/settlement/TownHall.tscn").instantiate()
+	_fq07_hall_probe.visible = false
+	root.add_child(_fq07_hall_probe)
+	var _fq07_hall_fallback: bool = not _fq07_hall_probe.using_structure_art()
+	_fq07_hall_probe.queue_free()
+	_fq07_structure_entries.erase("town_hall")
+	BlockRegistry.clear_visual_cache()
+	_check("town_hall_procedural_fallback", _fq07_hall_fallback)
+	var _fq07_hall_damage_was: float = hall.damage
+	hall.damage = 65.0
+	var _fq07_hall_damage_ok: bool = is_equal_approx(hall.damage_overlay_alpha(), 0.5)
+	hall.damage = _fq07_hall_damage_was
+	hall.queue_redraw()
+	_check("town_hall_damage_overlay_preserved", _fq07_hall_damage_ok,
+		"alpha=%.2f" % hall.damage_overlay_alpha())
+
+	# --- Player visual runtime: bodies, facing, same-species fallback, gear ---
+	var _pv = player.get_node("PlayerVisual")
+	var _pv_saved_character: Dictionary = GameState.current_character.duplicate(true)
+	var _pv_saved_equipment: Dictionary = player.equipment.duplicate(true)
+	var _pv_saved_pick_tier: int = player.tool_tier
+	var _pv_saved_axe_tier: int = player.axe_tier
+	var _pv_resolved: Dictionary = {}
+	var _pv_all_art := true
+	for _pv_species in ["human", "dwarf", "elf", "goblin", "orc"]:
+		for _pv_variant in ["default", "female"]:
+			player.apply_character({
+				"species": _pv_species,
+				"body_variant": _pv_variant,
+				"appearance": "tan",
+				"traits": [],
+				"role": "homesteader",
+			})
+			var _pv_expected: String = _pv_species if _pv_variant == "default" \
+				else "%s_%s" % [_pv_species, _pv_variant]
+			var _pv_snapshot: Dictionary = _pv.presentation_snapshot()
+			_pv_resolved[str(_pv_snapshot.get("resolved_body_id", ""))] = true
+			_pv_all_art = _pv_all_art \
+				and bool(_pv_snapshot.get("using_body_art", false)) \
+				and str(_pv_snapshot.get("resolved_body_id", "")) == _pv_expected
+	_check("player_visual_all_ten_bodies_resolve",
+		_pv_all_art and _pv_resolved.size() == 10,
+		"resolved=%s" % str(_pv_resolved.keys()))
+	player.apply_character({"species": "human", "body_variant": "default",
+		"appearance": "tan"})
+	var _pv_tan_recolored: bool = _pv.appearance_recolored()
+	player.apply_character({"species": "human", "body_variant": "default",
+		"appearance": "pale"})
+	var _pv_pale_recolored: bool = _pv.appearance_recolored()
+	player.apply_character({"species": "human", "body_variant": "default",
+		"appearance": "umber"})
+	var _pv_umber_recolored: bool = _pv.appearance_recolored()
+	player.apply_character({"species": "human", "body_variant": "default",
+		"appearance": "ash"})
+	var _pv_ash_recolored: bool = _pv.appearance_recolored()
+	_check("player_visual_appearance_palette_applies",
+		not _pv_tan_recolored and _pv_pale_recolored
+		and _pv_umber_recolored and _pv_ash_recolored,
+		"tan=%s pale=%s umber=%s ash=%s" % [str(_pv_tan_recolored),
+			str(_pv_pale_recolored), str(_pv_umber_recolored), str(_pv_ash_recolored)])
+
+	# Force the female dwarf miss, then both dwarf misses. Resolution may step
+	# down only within dwarf; it must never substitute human art.
+	var _pv_player_entries: Dictionary = BlockRegistry.visual_assets["categories"]["players"]
+	var _pv_had_dwarf_female := _pv_player_entries.has("dwarf_female")
+	var _pv_old_dwarf_female: Variant = _pv_player_entries.get("dwarf_female")
+	var _pv_had_dwarf := _pv_player_entries.has("dwarf")
+	var _pv_old_dwarf: Variant = _pv_player_entries.get("dwarf")
+	BlockRegistry.visual_assets["categories"]["players"]["dwarf_female"] = \
+		"art/generated/players/smoke_tmp_missing_dwarf_female.png"
+	BlockRegistry.clear_visual_cache()
+	player.apply_character({"species": "dwarf", "body_variant": "female"})
+	var _pv_same_species: String = _pv.resolved_body_id()
+	BlockRegistry.visual_assets["categories"]["players"]["dwarf"] = \
+		"art/generated/players/smoke_tmp_missing_dwarf.png"
+	BlockRegistry.clear_visual_cache()
+	player.apply_character({"species": "dwarf", "body_variant": "female"})
+	var _pv_dwarf_procedural: Dictionary = _pv.presentation_snapshot()
+	player.apply_character({"species": "smoke_unknown", "body_variant": "female"})
+	var _pv_unknown: Dictionary = _pv.presentation_snapshot()
+	if _pv_had_dwarf_female:
+		_pv_player_entries["dwarf_female"] = _pv_old_dwarf_female
+	else:
+		_pv_player_entries.erase("dwarf_female")
+	if _pv_had_dwarf:
+		_pv_player_entries["dwarf"] = _pv_old_dwarf
+	else:
+		_pv_player_entries.erase("dwarf")
+	BlockRegistry.clear_visual_cache()
+	_check("player_visual_same_species_fallback", _pv_same_species == "dwarf",
+		"resolved=%s" % _pv_same_species)
+	_check("player_visual_never_cross_species_fallback",
+		not bool(_pv_dwarf_procedural.get("using_body_art", true))
+		and str(_pv_dwarf_procedural.get("resolved_body_id", "")) == ""
+		and not bool(_pv_unknown.get("using_body_art", true))
+		and str(_pv_unknown.get("resolved_body_id", "")) == "",
+		"dwarf=%s unknown=%s" % [str(_pv_dwarf_procedural), str(_pv_unknown)])
+
+	player.velocity.x = 1.0
+	_pv.refresh_facing()
+	var _pv_right: int = _pv.facing_sign()
+	player.velocity.x = -1.0
+	_pv.refresh_facing()
+	var _pv_left: int = _pv.facing_sign()
+	player.velocity.x = 0.0
+	_check("player_visual_faces_both_directions",
+		_pv_right == 1 and _pv_left == -1
+		and is_equal_approx(_pv.scale.x, -1.0) and is_equal_approx(_pv.scale.y, 1.0),
+		"right=%d left=%d scale=%s" % [_pv_right, _pv_left, str(_pv.scale)])
+
+	player.apply_equipment({})
+	var _pv_empty_gear: Dictionary = _pv.visible_gear_ids()
+	player.apply_equipment({
+		"weapon": "sword_crude",
+		"helmet": "helmet_crude",
+		"torso": "torso_crude",
+		"feet": "feet_crude",
+	})
+	var _pv_gear: Dictionary = _pv.visible_gear_ids()
+	_check("player_visual_empty_slots_show_no_armor", _pv_empty_gear.is_empty(),
+		"gear=%s" % str(_pv_empty_gear))
+	_check("player_visual_equipment_procedural_fallback",
+		str(_pv_gear.get("weapon", "")) == "sword_crude"
+		and str(_pv_gear.get("helmet", "")) == "helmet_crude"
+		and str(_pv_gear.get("torso", "")) == "torso_crude"
+		and str(_pv_gear.get("feet", "")) == "feet_crude"
+		and _pv.gear_uses_procedural_fallback("sword_crude")
+		and _pv.gear_uses_procedural_fallback("helmet_crude")
+		and _pv.gear_uses_procedural_fallback("torso_crude")
+		and _pv.gear_uses_procedural_fallback("feet_crude"),
+		"gear=%s" % str(_pv_gear))
+	var _pv_shape: RectangleShape2D = player.get_node("CollisionShape2D").shape
+	_check("player_visual_collision_unchanged", _pv_shape.size == Vector2(12, 28),
+		"size=%s" % str(_pv_shape.size))
+
+	player.tool_tier = _pv_saved_pick_tier
+	player.axe_tier = _pv_saved_axe_tier
+	player.apply_equipment(_pv_saved_equipment)
+	player.apply_character(_pv_saved_character)
 
 	# --- FQ-09V: visual variant pipeline ---
 
@@ -1946,16 +2120,24 @@ func _run() -> void:
 		_fq09w_shaft_f < 0.2 and _fq09w_sealed_f > 0.95,
 		"shaft=%.2f sealed=%.2f" % [_fq09w_shaft_f, _fq09w_sealed_f])
 
-	# (e) the scenic backdrop sits behind walls, which sit behind blocks; with
-	# no art shipped its image hooks resolve null (code-drawn fallback).
+	# (e) the scenic backdrop sits behind walls, which sit behind blocks. The
+	# shipped sky/far/mid art resolves at exact sizes with nearest filtering.
 	var _fq09w_bd: Node2D = world.get_node("Backdrop")
+	var _fq09w_sky: Texture2D = _fq09w_bd.layer_texture("surface_sky")
+	var _fq09w_far: Texture2D = _fq09w_bd.layer_texture("surface_far_terrain")
+	var _fq09w_mid: Texture2D = _fq09w_bd.layer_texture("surface_mid_silhouette")
 	_check("fq09w_backdrop_behind_world",
 		_fq09w_bd != null and _fq09w_bd.z_index < world._walls.z_index
 		and world._walls.z_index < world._tilemap.z_index
-		and _fq09w_bd.layer_texture("surface_sky") == null
-		and _fq09w_bd.layer_texture("surface_far_terrain") == null,
-		"bd_z=%d walls_z=%d blocks_z=%d" % [_fq09w_bd.z_index,
-			world._walls.z_index, world._tilemap.z_index])
+		and _fq09w_bd.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST
+		and _fq09w_sky != null and _fq09w_sky.get_size() == Vector2(640, 360)
+		and _fq09w_far != null and _fq09w_far.get_size() == Vector2(640, 36)
+		and _fq09w_mid != null and _fq09w_mid.get_size() == Vector2(640, 20),
+		"bd_z=%d walls_z=%d blocks_z=%d sky=%s far=%s mid=%s" % [_fq09w_bd.z_index,
+			world._walls.z_index, world._tilemap.z_index,
+			str(_fq09w_sky.get_size() if _fq09w_sky != null else Vector2i.ZERO),
+			str(_fq09w_far.get_size() if _fq09w_far != null else Vector2i.ZERO),
+			str(_fq09w_mid.get_size() if _fq09w_mid != null else Vector2i.ZERO)])
 
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
 	# registry and removal falls back (fq09v temp discipline; the wall
@@ -2007,6 +2189,38 @@ func _run() -> void:
 		_fq09m_detail = "idle=%d active=%d mid=%d after_reset=%d" % [
 			_fq09m_idle, _fq09m_active, _fq09m_mid, player.swing_phase()]
 	_check("fq09m_swing_tracks_mining", _fq09m_swing_ok, _fq09m_detail)
+
+	# (a2) PlayerVisual consumes all three established phases and chooses the
+	# tool from the targeted block without changing mining timing.
+	var _fq09m_three_poses := false
+	var _fq09m_tool_fallback := false
+	var _fq09m_pick_id := ""
+	var _fq09m_axe_id := ""
+	var _fq09m_old_axe_tier: int = player.axe_tier
+	if _fq09m_swing_cell != null:
+		player.mine_target = _fq09m_swing_cell
+		player.mine_required = 1.0
+		var _fq09m_pose_phases: Array = []
+		for _fq09m_progress in [0.0, 0.2, 0.34]:
+			player.mine_progress = _fq09m_progress
+			_fq09m_pose_phases.append(int(_pv.presentation_snapshot()["swing_phase"]))
+		_fq09m_three_poses = _fq09m_pose_phases == [0, 1, 2]
+		player.axe_tier = 1
+		_fq09m_pick_id = _pv.active_tool_id()
+		_fq09m_tool_fallback = _pv.tool_swing_uses_procedural_fallback()
+		var _fq09m_tree_cell: Variant = _find_block(
+			world, world.hall_info["center_cell"], "tree_trunk")
+		if _fq09m_tree_cell != null:
+			player.mine_target = _fq09m_tree_cell
+			_fq09m_axe_id = _pv.active_tool_id()
+	player._reset_mining()
+	player.axe_tier = _fq09m_old_axe_tier
+	_check("player_visual_three_swing_poses",
+		_fq09m_three_poses and _fq09m_tool_fallback,
+		"expected=[0, 1, 2] procedural_tool=%s" % str(_fq09m_tool_fallback))
+	_check("player_visual_tool_matches_target",
+		_fq09m_pick_id.begins_with("pick_") and _fq09m_axe_id == "axe_crude",
+		"stone=%s tree=%s" % [_fq09m_pick_id, _fq09m_axe_id])
 
 	# (b) placing a block spawns exactly one placement pulse.
 	var _fq09m_placed := false
@@ -2078,8 +2292,13 @@ func _run() -> void:
 
 	# (g) every effect self-frees within its lifetime — transient by
 	# construction, so nothing can leak into scene state or saves.
-	for _fq09m_w in range(50):
-		await get_tree().process_frame
+	# Headless frames can advance with near-zero delta, so drive the same
+	# production lifetime method once with a safely sufficient delta instead
+	# of assuming 50 rendered frames represent half a second.
+	for _fq09m_fx in get_tree().get_nodes_in_group("action_fx"):
+		if is_instance_valid(_fq09m_fx):
+			_fq09m_fx._process(1.0)
+	await get_tree().process_frame
 	_check("fq09m_fx_transient",
 		get_tree().get_nodes_in_group("action_fx").is_empty(),
 		"remaining=%d" % get_tree().get_nodes_in_group("action_fx").size())
@@ -2389,6 +2608,122 @@ func _run() -> void:
 		and _fq09u_dir.get_node("LayerPlayer").playing,
 		("keys: " + _fq09u2_keys) if _fq09u2_keys != ""
 		else "no stem/music keys; layer bed survives load")
+
+	# --- FQ-09U3: stingers, ducking, and audio settings ---
+	# (director _process still disabled: duck/cooldown envelopes are stepped
+	# directly via _tick_audio(dt) for deterministic assertions)
+
+	# (a) all five stinger one-shots load, none loops, every one under 8 s;
+	# pause behavior configured (the score survives any future pause).
+	var _fq09u3_stingers: Dictionary = _fq09u_mm.load_stinger_streams(_fq09u_manifest)
+	var _fq09u3_assets_ok := _fq09u3_stingers.size() == 5
+	for _fq09u3_k in _fq09u3_stingers:
+		var _fq09u3_s: AudioStream = _fq09u3_stingers[_fq09u3_k]
+		if _fq09u3_s.loop or _fq09u3_s.get_length() >= 8.0 or _fq09u3_s.get_length() <= 0.1:
+			_fq09u3_assets_ok = false
+	_check("fq09u3_stinger_assets",
+		_fq09u3_assets_ok and _fq09u_dir.stinger_kinds_loaded() == 5
+		and _fq09u_dir.process_mode == Node.PROCESS_MODE_ALWAYS
+		and _fq09u_dir.get_node("StingerPlayer").bus == "SFX",
+		"loaded=%d director=%d always=%s" % [_fq09u3_stingers.size(),
+			_fq09u_dir.stinger_kinds_loaded(),
+			str(_fq09u_dir.process_mode == Node.PROCESS_MODE_ALWAYS)])
+
+	# (b) a stinger plays over ducking while the music NEVER stops: the duck
+	# attacks toward duck_db while the one-shot plays, and the context and
+	# layer players keep playing throughout. (Real gameplay events earlier in
+	# the run may have fired stingers — settle cooldowns and the duck first.)
+	_fq09u_dir.get_node("StingerPlayer").stop()
+	_fq09u_dir._stinger_cooldowns.clear()
+	_fq09u_dir._tick_audio(2.0)
+	var _fq09u3_fired: bool = _fq09u_dir.play_stinger("dawn")
+	_fq09u_dir._tick_audio(0.1)
+	var _fq09u3_duck_attacking: float = _fq09u_dir.duck_db()
+	_check("fq09u3_stinger_ducks_music",
+		_fq09u3_fired and _fq09u_dir.stinger_playing()
+		and _fq09u3_duck_attacking < -3.0
+		and _fq09u_dir.get_node("ContextPlayer").playing
+		and _fq09u_dir.get_node("LayerPlayer").playing,
+		"fired=%s duck=%.1f context_playing=%s" % [str(_fq09u3_fired),
+			_fq09u3_duck_attacking, str(_fq09u_dir.get_node("ContextPlayer").playing)])
+
+	# (c) the duck releases back to zero once the stinger ends (release rate
+	# 12 dB/s, data-defined), and Music-bus volume returns to the user base.
+	_fq09u_dir.get_node("StingerPlayer").stop()
+	_fq09u_dir._tick_audio(0.5)
+	var _fq09u3_mid_release: float = _fq09u_dir.duck_db()
+	_fq09u_dir._tick_audio(2.0)
+	_check("fq09u3_duck_releases",
+		_fq09u3_mid_release > _fq09u3_duck_attacking
+		and is_equal_approx(_fq09u_dir.duck_db(), 0.0)
+		and absf(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music"))
+			- linear_to_db(1.0)) < 0.01,
+		"attack=%.1f mid=%.1f final=%.2f" % [_fq09u3_duck_attacking,
+			_fq09u3_mid_release, _fq09u_dir.duck_db()])
+
+	# (d) per-kind cooldown: an immediate repeat is refused, another kind is
+	# not, and after the cooldown elapses the kind fires again.
+	var _fq09u3_plays: int = _fq09u_dir.stinger_play_count()
+	var _fq09u3_repeat: bool = _fq09u_dir.play_stinger("dawn")
+	var _fq09u3_other: bool = _fq09u_dir.play_stinger("raid_warning")
+	_fq09u_dir._tick_audio(9.0)
+	var _fq09u3_after_cd: bool = _fq09u_dir.play_stinger("dawn")
+	_check("fq09u3_stinger_cooldown",
+		not _fq09u3_repeat and _fq09u3_other and _fq09u3_after_cd
+		and _fq09u_dir.stinger_play_count() == _fq09u3_plays + 2,
+		"repeat=%s other=%s after_cd=%s" % [str(_fq09u3_repeat),
+			str(_fq09u3_other), str(_fq09u3_after_cd)])
+	_fq09u_dir.get_node("StingerPlayer").stop()
+	_fq09u_dir._tick_audio(2.0)
+
+	# (e) game events reach the director: the narrow music_event surface and
+	# the player's cast signal each fire their stinger.
+	_fq09u_dir._stinger_cooldowns.clear()
+	var _fq09u3_p0: int = _fq09u_dir.stinger_play_count()
+	root.music_event.emit("nightfall")
+	player.attunement = player.max_attunement()
+	player._pulse_cooldown = 0.0
+	player._try_attune_pulse()
+	_check("fq09u3_events_fire_stingers",
+		_fq09u_dir.stinger_play_count() == _fq09u3_p0 + 2,
+		"plays %d -> %d (nightfall + attunement)" % [_fq09u3_p0,
+			_fq09u_dir.stinger_play_count()])
+	_fq09u_dir.get_node("StingerPlayer").stop()
+	_fq09u_dir._tick_audio(2.0)
+
+	# (f) volume settings: profile-level, applied to the buses through the
+	# shared helper, restored afterwards.
+	var _fq09u3_as: GDScript = load("res://scripts/audio/audio_settings.gd")
+	var _fq09u3_prev_music: float = _fq09u3_as.music_volume(GameState.profile)
+	var _fq09u3_prev_sfx: float = _fq09u3_as.sfx_volume(GameState.profile)
+	_fq09u3_as.set_music_volume(GameState.profile, 0.5)
+	_fq09u3_as.set_sfx_volume(GameState.profile, 0.25)
+	_fq09u3_as.apply(GameState.profile)
+	var _fq09u3_music_db: float = AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music"))
+	var _fq09u3_sfx_db: float = AudioServer.get_bus_volume_db(AudioServer.get_bus_index("SFX"))
+	var _fq09u3_vol_ok: bool = absf(_fq09u3_music_db - linear_to_db(0.5)) < 0.01 \
+		and absf(_fq09u3_sfx_db - linear_to_db(0.25)) < 0.01 \
+		and is_equal_approx(float(GameState.profile.get("music_volume", -1.0)), 0.5)
+	_fq09u3_as.set_music_volume(GameState.profile, _fq09u3_prev_music)
+	_fq09u3_as.set_sfx_volume(GameState.profile, _fq09u3_prev_sfx)
+	_fq09u3_as.apply(GameState.profile)
+	_check("fq09u3_volume_settings",
+		_fq09u3_vol_ok,
+		"music_db=%.2f sfx_db=%.2f profile_key=%s" % [_fq09u3_music_db,
+			_fq09u3_sfx_db, str(GameState.profile.has("music_volume"))])
+
+	# (g) audio settings live at the profile level only — the WORLD save
+	# still carries zero audio keys.
+	root.save_manager.save_game()
+	var _fq09u3_state: Dictionary = GameState.get_current_state()
+	var _fq09u3_keys := ""
+	for _fq09u3_sk in _fq09u3_state:
+		var _fq09u3_low := str(_fq09u3_sk).to_lower()
+		if "music" in _fq09u3_low or "volume" in _fq09u3_low or "stinger" in _fq09u3_low:
+			_fq09u3_keys += str(_fq09u3_sk) + " "
+	_check("fq09u3_world_save_clean",
+		_fq09u3_keys == "" and root.load_game(),
+		("keys: " + _fq09u3_keys) if _fq09u3_keys != "" else "no audio keys in the world save")
 	_fq09u_dir.set_process(true)
 
 	# --- FQ-08: block and enemy damage visuals ---

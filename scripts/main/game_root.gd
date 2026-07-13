@@ -2,6 +2,11 @@ extends Node2D
 ## Game root: wires world/player/hall/HUD together, runs the day/night
 ## cycle and the night pressure event, and handles save/load/interact input.
 
+## FQ-09U3: the narrow audio event surface (the only game_root signal by
+## design — this must not grow into a general event bus). Kinds:
+## "nightfall", "dawn", "raid_warning", "base_advance".
+signal music_event(kind: String)
+
 const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
 const ActionFx := preload("res://scripts/fx/action_fx.gd")   # FQ-09M confirmations
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
@@ -436,6 +441,7 @@ func _on_nightfall() -> void:
 	_maybe_spawn_raider()
 	hud.update_time(day_count, true, spawn_count)
 	settlement.compute()
+	music_event.emit("nightfall")
 
 
 ## Threats per night from the world config: darkness rule gates spawns,
@@ -476,6 +482,7 @@ func _on_dawn() -> void:
 	award_xp("night_survived")
 	consume_daily_food()
 	settlement.compute()
+	music_event.emit("dawn")
 
 
 func daily_food_need() -> int:
@@ -564,6 +571,7 @@ func _maybe_spawn_raider() -> void:
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
 	log_event("WARNING: A raider approaches the settlement!")
+	music_event.emit("raid_warning")
 
 
 ## Advance the cave crawler periodic spawn timer; spawn underground when ready.
@@ -959,6 +967,7 @@ func _check_base_level() -> void:
 			base_level = next_lv
 			var name_str: String = _base_level_display_name()
 			log_event("Settlement advanced to %s!" % name_str)
+			music_event.emit("base_advance")
 			_refresh_hud_progression()
 		break
 

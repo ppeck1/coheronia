@@ -2,13 +2,78 @@
 
 ## Current State
 
-**FQ-09U2 (settlement-responsive stem layering) implemented and closed out
-— the score now breathes with the settlement** (run
-`20260710_coheronia_fq09u2_stem_layering`; lineage: v0.1 oneshot -> input
-repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
+**FQ-09U3 (music stingers, ducking, audio settings, pause behavior)
+implemented and closed out — the adaptive-music arc (U0-U3) is complete and
+the concurrent Codex art integration landed in the same closeout** (run
+`20260713_coheronia_fq09u3_stingers_settings`; lineage: v0.1 oneshot ->
+input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
 `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` ->
 FQ-00 through FQ-09V -> FQ-09C -> FQ-09W -> FQ-09A -> FQ-09U0 -> FQ-09M ->
-FQ-09U1; Godot 4.6.1 stable).
+FQ-09U1 -> FQ-09U2; Godot 4.6.1 stable). The workstation was reset
+mid-U3 (token exhaustion); the resume fixed the sole remaining failure —
+`fq09u3_events_fire_stingers` — bringing the suite to 257/257.
+
+## FQ-09U3 Additions
+
+- **Event stingers over temporary ducking** (`scripts/audio/
+  adaptive_music_director.gd`): `play_stinger(kind)` fires a one-shot on the
+  StingerPlayer (routed to the SFX bus) while a per-frame duck envelope
+  lowers the Music bus UNDER it — the bed dips, the stinger never does, and
+  the music is never stopped. Per-kind cooldowns (`stinger_config.
+  cooldown_seconds`, default 8 s) stop event spam; the duck attacks fast and
+  releases slow (`duck_attack_db_per_sec`/`duck_release_db_per_sec`) toward
+  `duck_db` (-9). Five kinds load from the manifest (dawn, nightfall,
+  raid_warning, attunement, base_advance).
+- **The event surface**: `_wire_events` connects game_root's narrow
+  `music_event(kind)` signal (nightfall/dawn/raid_warning/base_advance) and
+  the player's `attunement_pulsed` to the stingers. **Resume fix**: wiring
+  is now `call_deferred` — the director is a child of Main, so its `_ready`
+  runs before game_root assigns its `@onready var player`; connecting at
+  `_ready` saw a null `root.player` and silently dropped the attunement
+  stinger (the check fired +1 instead of +2). Deferring runs the wiring
+  after the full `_ready` cascade, when the player node is live.
+- **Audio settings** (`scripts/audio/audio_settings.gd`, new): the single
+  bus-volume authority. `AudioSettings.apply(profile[, duck_db])` creates
+  the Music and SFX buses at runtime and sets their volumes from
+  profile-level `music_volume`/`sfx_volume` linear keys; the optional
+  `duck_db` is folded into the Music bus. `set_music_volume`/`set_sfx_volume`
+  persist to the profile. Volume state is profile-level, never a world-save
+  key.
+- **Pause behavior**: the director runs `process_mode = ALWAYS`, so the
+  score keeps breathing and the duck/cooldown envelope keeps ticking under
+  any future pause, and settings keep applying.
+- **Final asset validation**: `validate_repo.py` requires the five stinger
+  OGGs; the music asset verifier confirms durations/sample rates/headroom
+  (operator listening approval was granted 2026-07-10).
+- **Smoke** (8 `fq09u3_*` checks, suite total 257): stinger assets loaded as
+  short non-looping one-shots; a fired stinger ducking the Music bus while
+  the context loop plays on; the duck releasing; per-kind cooldowns;
+  **`music_event("nightfall")` + `attunement_pulsed` each firing their
+  stinger** (the deferred-wiring proof); volume settings reaching the buses
+  and round-tripping; and the world save carrying zero music/volume/stinger
+  keys.
+
+## Codex Art Integration (same closeout — see docs/HANDOFF_ART_INTEGRATION_2026-07-12.md)
+
+- **55 generated PNGs** landed under `art/generated/` (11 blocks, 16 item
+  icons, 12 enemy sprites with variants, 10 player bodies default+female,
+  Town Hall + core, 3 backgrounds, 2 back walls) plus their runtime wiring:
+  `data/player_visuals.json` + `scripts/player/player_visual.gd` (16x32 body
+  art with constrained species/appearance recolor, gear-overlay hooks,
+  procedural fallback), the `PlayerVisual` child in `scenes/player/
+  Player.tscn`, Town Hall art (`scripts/settlement/town_hall.gd`, nearest
+  filtering, `Rect2(-28,-48,56,48)`, procedural fallback preserved), and
+  backdrop nearest-filtering/native-strip sizing (`scripts/world/
+  world_backdrop.gd`). Player collision (12x28) and the action/facing/
+  three-phase swing interface are unchanged; base bodies stay unarmored
+  (armor is a future overlay). New validator art-contract checks cover the
+  Town Hall structure/core, surface sky, backdrop strips, and player-visual
+  contracts.
+- This lane was verified independently by Codex (validator, diff-check,
+  capsule doctor, rendered visual QA) and shared the dirty tree with U3;
+  three files (`smoke_test.gd`, `validate_repo.py`, `player.gd`) carry hunks
+  from both lanes, so they could not be split — U3 and art committed
+  together per operator decision.
 
 ## FQ-09U2 Additions
 
@@ -434,9 +499,9 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Check | State | Evidence |
 |---|---|---|
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
-| JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks and the FQ-09W backgrounds/back_walls categories, dirs, and required backdrop script |
+| JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks, the FQ-09W backgrounds/back_walls categories, the FQ-09U3 stinger OGGs, and the Codex art contracts (Town Hall structure/core, surface sky, backdrop strips, player-visual bodies/rigs/collision) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 234/234 | waited Windows Godot process wrote `user://smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 203 FQ-09C -> 210 FQ-09W -> 217 FQ-09M -> 226 FQ-09U1 -> 234 FQ-09U2) |
+| Automated smoke | PASS 257/257 | waited Windows Godot process wrote `smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 203 FQ-09C -> 210 FQ-09W -> 217 FQ-09M -> 226 FQ-09U1 -> 234 FQ-09U2 -> 257 FQ-09U3 + Codex art integration; run 2026-07-13T13:32:02) |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls) |
 
@@ -473,14 +538,20 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
 increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, FQ-09W,
-FQ-09A, FQ-09U0, FQ-09M, FQ-09U1, and FQ-09U2 are complete — the adaptive
-score plays live and its stem layers breathe with the settlement. The
-queue head is FQ-09U3 (stingers over temporary ducking, music/SFX volume
-settings, pause behavior, final asset validation); the five rendered
-stingers are in-repo and the StingerPlayer child is reserved. Then FQ-10
-begins the metallurgy arc. Art production continues in parallel via
-`docs/ASSET_ROADMAP.md`. Note for U3: the nesting spike finding
-(Synchronized-inside-Interactive works) is recorded in the U2 ledger.
+FQ-09A, FQ-09U0, FQ-09M, FQ-09U1, FQ-09U2, and **FQ-09U3** are complete —
+the full adaptive-music arc (context switching, settlement stem layering,
+event stingers over ducking, volume settings, pause behavior) plays live,
+and the Codex art integration (55 generated PNGs + player/Town-Hall/backdrop
+wiring) landed in the same closeout. The queue head is now **FQ-10** (more
+ores and metallurgy data). Art production continues in parallel via
+`docs/ASSET_ROADMAP.md` — the recommended sprite backlog (player gear
+overlays, remaining equipment icons, opening cels) is in
+`docs/HANDOFF_ART_INTEGRATION_2026-07-12.md`.
+
+Note: this closeout committed U3 and the art integration together because
+three shared files (`smoke_test.gd`, `validate_repo.py`, `player.gd`) carry
+hunks from both lanes and could not be cleanly split. Nothing was pushed;
+push is deferred to explicit operator instruction.
 
 Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
 

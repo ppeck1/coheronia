@@ -73,6 +73,10 @@
       "faction_reactions": {}
     }
   ],
+  "body_variants": [
+    { "id": "default", "display_name": "Default" },
+    { "id": "female", "display_name": "Female" }
+  ],
   "traits": [
     { "id": "hardy", "display_name": "Hardy", "description": "+25 max health.", "effects": { "max_health_bonus": 25 } },
     { "id": "miner", "display_name": "Born Miner", "description": "+20% mining speed.", "effects": { "mine_speed_mult": 1.2 } },

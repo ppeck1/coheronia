@@ -58,6 +58,26 @@ static func loop_seconds(manifest: Dictionary) -> float:
 	return float(manifest.get("bars_per_loop", 16)) * bar_seconds(manifest)
 
 
+## FQ-09U3: loads the stinger one-shots (runtime OGG load, NO looping, no
+## grid — they are events, not loops). Returns kind -> AudioStream for every
+## file that loaded; missing files simply leave their kind out.
+static func load_stinger_streams(manifest: Dictionary) -> Dictionary:
+	var out := {}
+	var stingers: Dictionary = manifest.get("stingers", {})
+	for kind in stingers:
+		if str(kind).begins_with("_"):
+			continue
+		var path := str(stingers[kind])
+		if path == "" or not FileAccess.file_exists(path):
+			continue
+		var stream: AudioStream = AudioStreamOggVorbis.load_from_file(path)
+		if stream == null:
+			continue
+		stream.loop = false
+		out[kind] = stream
+	return out
+
+
 ## FQ-09U2: loads the six phase-locked stem streams (same rules as context
 ## loops — runtime OGG load, loop + grid stamped). Returns stem_name ->
 ## AudioStream for every file that loaded; the caller enforces the

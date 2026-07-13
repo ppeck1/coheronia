@@ -5,6 +5,7 @@ extends CharacterBody2D
 signal inventory_changed
 signal health_changed(health: float, max_health: float)
 signal attunement_changed(attunement: float, max_attunement: float)
+signal attunement_pulsed   # FQ-09U3: fires only when a pulse actually casts
 signal mined(block_id: String, drops: Dictionary)
 signal crafted(recipe_id: String)
 signal placed(block_id: String)
@@ -50,6 +51,8 @@ var inventory := InventoryData.new()
 var equipment: Dictionary = {}
 
 # Character-driven modifiers (see data/character_data.json).
+var species_id := "human"
+var body_variant := "default"
 var body_color := Color(0.92, 0.83, 0.55)
 var trim_color := Color(0.35, 0.25, 0.18)
 var trait_mine_mult := 1.0
@@ -114,9 +117,13 @@ var _eat_cooldown := 0.0
 var _regen_active := false     # tracks whether the "feel safe" message already fired
 var _low_health_active := false  # tracks whether the "badly hurt" message already fired
 
+@onready var player_visual = get_node_or_null("PlayerVisual")
+
 
 func _ready() -> void:
 	_load_player_defaults()
+	if player_visual != null:
+		player_visual.sync_from_player()
 
 
 ## Reads data/character_data.json's player_defaults section (same registry
@@ -157,6 +164,9 @@ func apply_character(character: Dictionary) -> void:
 	learning_speed_mult = 1.0
 	ancestry_attunement_bonus = 0.0
 	attunement_regen_mult = 1.0
+	species_id = str(character.get("species", "human"))
+	body_variant = GameState.normalize_body_variant(
+		str(character.get("body_variant", "default")))
 	var appearance: Dictionary = BlockRegistry.appearance_def(str(character.get("appearance", "tan")))
 	body_color = Color.from_string("#" + str(appearance.get("body", "ebd48c")), body_color)
 	trim_color = Color.from_string("#" + str(appearance.get("trim", "59402e")), trim_color)
@@ -174,6 +184,8 @@ func apply_character(character: Dictionary) -> void:
 	bush_bonus_food = int(effects.get("bush_bonus_food", 0))
 	growth_threshold_delta = float(effects.get("growth_threshold_delta", 0.0))
 	_clamp_attunement()
+	if player_visual != null:
+		player_visual.set_character_visual(species_id, body_variant, body_color, trim_color)
 	queue_redraw()
 
 
@@ -357,6 +369,8 @@ func try_place(cell: Vector2i, block_id: String) -> bool:
 func apply_equipment(raw: Dictionary) -> void:
 	equipment = BlockRegistry.normalize_equipment(raw)
 	_clamp_attunement()
+	if player_visual != null:
+		player_visual.queue_redraw()
 
 
 ## FQ-03: the full 12-slot gear picture used by the HUD and save path. The
@@ -393,6 +407,8 @@ func equip_item(slot_id: String, item_id: String) -> bool:
 			equipment[slot_id] = item_id
 	# FQ-05: gear can change max attunement; keep the current value legal.
 	_clamp_attunement()
+	if player_visual != null:
+		player_visual.queue_redraw()
 	inventory_changed.emit()
 	return true
 
@@ -466,6 +482,7 @@ func _try_attune_pulse() -> bool:
 	if world != null:
 		ActionFx.spawn(world, "cast_ring", global_position)
 	attunement_changed.emit(attunement, max_attunement())
+	attunement_pulsed.emit()
 	player_event.emit("You release a soft pulse of light.")
 	return true
 
@@ -697,32 +714,11 @@ func _try_hit_threat(at: Vector2) -> bool:
 
 
 func _draw() -> void:
-	# Placeholder body in the character's appearance colors.
-	draw_rect(Rect2(-6, -14, 12, 28), body_color)
-	draw_rect(Rect2(-4, -12, 8, 6), trim_color)
+	# Body, facing, visible equipment, and the arm/tool pose live on the
+	# PlayerVisual child so mirroring never touches collision or world UI.
 	# FQ-09M: stepped tool swing toward the mining target — an arm plus a
 	# pick or axe glyph cycling raise/mid/strike with mining progress.
 	# Presentation only: reads mining state, never writes it.
-	if world != null and mine_required > 0.0:
-		var swing_t: float = float(world.tile_size())
-		var target_center := to_local(Vector2(mine_target) * swing_t
-			+ Vector2.ONE * (swing_t / 2.0))
-		var side := 1.0 if target_center.x >= 0.0 else -1.0
-		var phase := swing_phase()
-		var hand_offsets := [Vector2(2, -14), Vector2(9, -7), Vector2(12, 0)]
-		var shoulder := Vector2(side * 5.0, -8.0)
-		var swing_hand: Vector2 = shoulder + Vector2(
-			side * (hand_offsets[phase] as Vector2).x, (hand_offsets[phase] as Vector2).y)
-		draw_line(shoulder, swing_hand, body_color.darkened(0.25), 2.0)
-		var tool_dir := (swing_hand - shoulder).normalized()
-		var tip := swing_hand + tool_dir * 6.0
-		draw_line(swing_hand, tip, Color(0.45, 0.30, 0.15), 2.0)
-		if axe_tier > 0 and BlockRegistry.preferred_tool(world.block_at(mine_target)) == "axe":
-			draw_rect(Rect2(tip - Vector2(2, 2), Vector2(4, 4)), Color(0.75, 0.78, 0.82))
-		else:
-			var head_side := Vector2(-tool_dir.y, tool_dir.x)
-			draw_line(tip - head_side * 3.0, tip + head_side * 3.0,
-				Color(0.75, 0.78, 0.82), 2.0)
 	# Mining target highlight with progress fill at the cursor.
 	if world != null and Input.is_action_pressed("mine") and mine_required > 0.0:
 		var t: float = float(world.tile_size())

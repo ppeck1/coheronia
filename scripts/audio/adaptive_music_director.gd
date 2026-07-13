@@ -19,6 +19,7 @@ extends Node
 ## reserved children, unused this increment.
 
 const MusicManifest := preload("res://scripts/audio/music_manifest.gd")
+const AudioSettings := preload("res://scripts/audio/audio_settings.gd")
 const MUSIC_BUS := "Music"
 const POLL_SECONDS := 0.5
 
@@ -50,11 +51,24 @@ var _stem_order: Array = []            # stable stem name order = substream inde
 var _stem_targets: Dictionary = {}     # stem name -> target volume db
 var _stem_volumes: Dictionary = {}     # stem name -> current volume db
 
+# FQ-09U3: event stingers on the StingerPlayer (routed to the SFX bus so
+# the Music-bus duck lowers the bed UNDER the stinger, never the stinger
+# itself). Per-kind cooldowns stop event spam; the duck envelope attacks
+# fast and releases slow, layered on top of the user's music volume.
+var _stingers: Dictionary = {}         # kind -> AudioStream (one-shots)
+var _stinger_cooldowns: Dictionary = {}
+var _stinger_plays := 0
+var _duck_db := 0.0
+
 @onready var _context_player: AudioStreamPlayer = $ContextPlayer
 @onready var _layer_player: AudioStreamPlayer = $LayerPlayer
+@onready var _stinger_player: AudioStreamPlayer = $StingerPlayer
 
 
 func _ready() -> void:
+	# FQ-09U3 pause behavior: the score keeps breathing through any future
+	# pause (children inherit ALWAYS), and settings/ducking keep applying.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_manifest = manifest_override if not manifest_override.is_empty() \
 		else MusicManifest.load_manifest()
 	var settlement := get_node_or_null("../SettlementModel")
@@ -62,6 +76,18 @@ func _ready() -> void:
 		settlement.updated.connect(_on_settlement_updated)
 	if _manifest.is_empty():
 		return
+	# User volumes (profile-level preferences) apply before anything plays.
+	AudioSettings.apply(GameState.profile)
+	# Stingers are independent of the context loops: events still sound even
+	# if a context asset is missing (and vice versa).
+	_stingers = MusicManifest.load_stinger_streams(_manifest)
+	_stinger_player.bus = AudioSettings.SFX_BUS
+	# Deferred: game_root's `player` is an @onready var assigned right before
+	# game_root._ready, which fires AFTER this child's _ready. Wiring now would
+	# see a null root.player and silently drop the attunement_pulsed -> stinger
+	# connection. Deferring runs _wire_events after the full _ready cascade,
+	# when the player node is live.
+	_wire_events.call_deferred()
 	var streams: Dictionary = MusicManifest.load_context_streams(_manifest)
 	if streams.size() != MusicManifest.CONTEXT_ORDER.size():
 		# Missing or broken assets: stay silent-safe. The state machine still
@@ -69,12 +95,29 @@ func _ready() -> void:
 		push_warning("AdaptiveMusicDirector: context loops missing (%d/4); music disabled."
 			% streams.size())
 		return
-	_ensure_music_bus()
 	_context_player.stream = _build_interactive(streams)
 	_context_player.bus = MUSIC_BUS
 	_context_player.play()
 	_enabled = true
 	_setup_layer_bed()
+
+
+## FQ-09U3: the narrow event surface — game_root's music_event signal
+## (nightfall/dawn/raid_warning/base_advance) and the player's
+## attunement_pulsed. Both guarded so the director works in any test tree.
+func _wire_events() -> void:
+	var root := get_parent()
+	if root == null:
+		return
+	if root.has_signal("music_event"):
+		root.music_event.connect(play_stinger)
+	if "player" in root and root.player != null \
+			and root.player.has_signal("attunement_pulsed"):
+		root.player.attunement_pulsed.connect(_on_attunement_pulsed)
+
+
+func _on_attunement_pulsed() -> void:
+	play_stinger("attunement")
 
 
 ## FQ-09U2: builds the synchronized stem bed. Requires the complete six-stem
@@ -143,15 +186,6 @@ func _build_interactive(streams: Dictionary) -> AudioStreamInteractive:
 	return interactive
 
 
-func _ensure_music_bus() -> void:
-	if AudioServer.get_bus_index(MUSIC_BUS) != -1:
-		return
-	AudioServer.add_bus()
-	var idx := AudioServer.bus_count - 1
-	AudioServer.set_bus_name(idx, MUSIC_BUS)
-	AudioServer.set_bus_send(idx, "Master")
-
-
 func _on_settlement_updated(coherence: float, load_value: float, resilience: float,
 		_inputs: Dictionary, _labels: Array) -> void:
 	_settlement_load = load_value
@@ -160,6 +194,7 @@ func _on_settlement_updated(coherence: float, load_value: float, resilience: flo
 
 
 func _process(delta: float) -> void:
+	_tick_audio(delta)   # FQ-09U3: per-frame duck envelope + cooldowns
 	_poll_accum += delta
 	if _poll_accum < POLL_SECONDS:
 		return
@@ -168,6 +203,39 @@ func _process(delta: float) -> void:
 	evaluate(_gather_state(), dt)
 	_settle_pending()
 	_step_stem_volumes(dt)
+
+
+## FQ-09U3: fires a one-shot stinger over temporary music ducking. Returns
+## false (and plays nothing) for unknown kinds, missing assets, or a kind
+## still on cooldown. The music itself is never stopped — only ducked.
+func play_stinger(kind: String) -> bool:
+	if not _stingers.has(kind):
+		return false
+	if float(_stinger_cooldowns.get(kind, 0.0)) > 0.0:
+		return false
+	_stinger_cooldowns[kind] = float(
+		_manifest.get("stinger_config", {}).get("cooldown_seconds", 8.0))
+	_stinger_player.stream = _stingers[kind]
+	_stinger_player.play()
+	_stinger_plays += 1
+	return true
+
+
+## The duck envelope and stinger cooldowns, ticked every frame (also under
+## pause via PROCESS_MODE_ALWAYS). The duck target follows the stinger
+## player's live state; volume moves at data-defined attack/release rates
+## and is applied ON TOP of the user's music volume via AudioSettings.
+func _tick_audio(delta: float) -> void:
+	for kind in _stinger_cooldowns:
+		_stinger_cooldowns[kind] = maxf(0.0, float(_stinger_cooldowns[kind]) - delta)
+	var cfg: Dictionary = _manifest.get("stinger_config", {})
+	var target := float(cfg.get("duck_db", -9.0)) if _stinger_player.playing else 0.0
+	var rate := float(cfg.get("duck_attack_db_per_sec", 60.0)) if target < _duck_db \
+		else float(cfg.get("duck_release_db_per_sec", 12.0))
+	var stepped := _duck_db + clampf(target - _duck_db, -rate * delta, rate * delta)
+	if not is_equal_approx(stepped, _duck_db):
+		_duck_db = stepped
+		AudioSettings.apply(GameState.profile, _duck_db)
 
 
 ## Reads existing game truth — never a duplicate simulation. The underground
@@ -343,6 +411,22 @@ func _step_stem_volumes(dt: float) -> void:
 
 func layering_enabled() -> bool:
 	return _layer_enabled
+
+
+func stinger_kinds_loaded() -> int:
+	return _stingers.size()
+
+
+func stinger_playing() -> bool:
+	return _stinger_player.playing
+
+
+func stinger_play_count() -> int:
+	return _stinger_plays
+
+
+func duck_db() -> float:
+	return _duck_db
 
 
 func stem_targets() -> Dictionary:

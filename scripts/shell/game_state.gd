@@ -30,7 +30,14 @@ func load_shell() -> void:
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(SHELL_PATH))
 	if parsed is Dictionary:
 		profile = parsed.get("profile", profile)
-		characters = parsed.get("characters", [])
+		var loaded_characters: Variant = parsed.get("characters", [])
+		if loaded_characters is Array:
+			for raw_character in loaded_characters:
+				if raw_character is Dictionary:
+					var character: Dictionary = raw_character.duplicate(true)
+					character["body_variant"] = normalize_body_variant(
+						str(character.get("body_variant", "default")))
+					characters.append(character)
 
 
 ## FQ-09C: profile-level flag — the opening prologue has been completed or
@@ -62,6 +69,7 @@ func create_character(char_data: Dictionary) -> Dictionary:
 		"id": _make_id("char"),
 		"name": str(char_data.get("name", "Nameless")),
 		"species": str(char_data.get("species", "human")),
+		"body_variant": normalize_body_variant(str(char_data.get("body_variant", "default"))),
 		"appearance": str(char_data.get("appearance", "tan")),
 		"traits": char_data.get("traits", []),
 		"role": str(char_data.get("role", "homesteader")),
@@ -80,6 +88,10 @@ func create_character(char_data: Dictionary) -> Dictionary:
 	characters.append(character)
 	save_shell()
 	return character
+
+
+func normalize_body_variant(body_variant: String) -> String:
+	return BlockRegistry.normalize_body_variant(body_variant)
 
 
 ## FQ-03: a fresh equipment dict — all slots empty except the starter pickaxe.

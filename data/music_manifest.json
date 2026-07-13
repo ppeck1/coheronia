@@ -62,8 +62,15 @@
       "fracture": { "source": "collapse_edge", "min_db": -60.0, "max_db": -10.0 }
     }
   },
+  "stinger_config": {
+    "_note": "FQ-09U3: one-shots on the StingerPlayer over temporary Music-bus ducking (the music never stops). Per-kind cooldown stops event spam; the duck envelope attacks fast and releases slow, always returning to the user's music volume.",
+    "cooldown_seconds": 8.0,
+    "duck_db": -9.0,
+    "duck_attack_db_per_sec": 60.0,
+    "duck_release_db_per_sec": 12.0
+  },
   "stingers": {
-    "_status": "FQ-09U3; one-shots under 8 s over temporary music ducking",
+    "_status": "live since FQ-09U3: event one-shots over temporary ducking",
     "dawn": "res://audio/music/rendered/stingers/stinger_dawn.ogg",
     "nightfall": "res://audio/music/rendered/stingers/stinger_nightfall.ogg",
     "raid_warning": "res://audio/music/rendered/stingers/stinger_raid_warning.ogg",

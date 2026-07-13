@@ -11,6 +11,8 @@ const AncestryDetailScript := preload("res://scripts/data/ancestry_detail.gd")
 # FQ-09C: title/authorship/tagline text lives on the prologue script so the
 # title card and the persistent title screen can never drift apart.
 const PrologueScript := preload("res://scripts/shell/prologue.gd")
+# FQ-09U3: profile-level audio preferences, applied via the shared helper.
+const AudioSettings := preload("res://scripts/audio/audio_settings.gd")
 
 const PRESET_ORDER := ["peaceful_builder", "folk_kingdom", "tyrants_burden",
 	"dark_frontier", "mythic_survival", "custom"]
@@ -60,6 +62,8 @@ var _species_option: OptionButton
 var _species_ids: Array[String] = []
 var _species_detail: Label          # ancestry detail panel (Wave A)
 var _ancestry_helper              # lazily created AncestryDetailScript instance
+var _body_variant_option: OptionButton
+var _body_variant_ids: Array[String] = []
 var _appearance_option: OptionButton
 var _appearance_ids: Array[String] = []
 var _appearance_swatch: ColorRect
@@ -216,7 +220,40 @@ func _show_title() -> void:
 	replay.custom_minimum_size = Vector2(220, 0)
 	var quit := _button(box, "Quit", func() -> void: get_tree().quit())
 	quit.custom_minimum_size = Vector2(220, 0)
+	# FQ-09U3: Music/Sound volume — profile-level preferences applied live
+	# and saved when the drag ends (buses are global, so they carry into
+	# gameplay and back).
+	_gap(box, 12)
+	AudioSettings.apply(GameState.profile)
+	_volume_row(box, "Music", AudioSettings.music_volume(GameState.profile),
+		func(value: float) -> void: AudioSettings.set_music_volume(GameState.profile, value))
+	_volume_row(box, "Sound", AudioSettings.sfx_volume(GameState.profile),
+		func(value: float) -> void: AudioSettings.set_sfx_volume(GameState.profile, value))
 	_spacer(_content)
+
+
+func _volume_row(parent: Control, label_text: String, initial: float,
+		setter: Callable) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	parent.add_child(row)
+	var label := _label(row, label_text, 12)
+	label.custom_minimum_size = Vector2(50, 0)
+	label.add_theme_color_override("font_color", DIM_COLOR)
+	var slider := HSlider.new()
+	slider.min_value = 0.0
+	slider.max_value = 1.0
+	slider.step = 0.05
+	slider.value = initial
+	slider.custom_minimum_size = Vector2(160, 0)
+	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(slider)
+	slider.value_changed.connect(func(value: float) -> void:
+		setter.call(value)
+		AudioSettings.apply(GameState.profile))
+	slider.drag_ended.connect(func(changed: bool) -> void:
+		if changed:
+			GameState.save_shell())
 
 
 func _can_continue() -> bool:
@@ -315,6 +352,15 @@ func _show_char_create() -> void:
 	_species_detail.custom_minimum_size = Vector2(0, 0)
 	form.add_child(_species_detail)
 	_update_species_detail(0)
+
+	var body_variant_row := _form_row(form, "Body")
+	_body_variant_option = OptionButton.new()
+	_body_variant_ids.clear()
+	var body_variant_list: Array = data.get("body_variants", [])
+	for body_variant_def in body_variant_list:
+		_body_variant_ids.append(str(body_variant_def.get("id", "default")))
+		_body_variant_option.add_item(str(body_variant_def.get("display_name", "Default")))
+	body_variant_row.add_child(_body_variant_option)
 
 	var carried_note := _label(form,
 		"Character rules: backpack, tools, equipment, ancestry, role, and traits follow this character between worlds. Role starter items are granted once. Collapse loses a fraction of carried stacks.",
@@ -429,6 +475,8 @@ func _create_character() -> void:
 	var character: Dictionary = GameState.create_character({
 		"name": char_name,
 		"species": _option_id(_species_option, _species_ids, "human"),
+		"body_variant": _option_id(
+			_body_variant_option, _body_variant_ids, "default"),
 		"appearance": _option_id(_appearance_option, _appearance_ids, "tan"),
 		"role": _option_id(_role_option, _role_ids, "homesteader"),
 		"traits": trait_ids,

@@ -13,10 +13,26 @@ const FORGE_RECIPE_ID := "basic_pick_upgrade"
 const AXE_RECIPE_ID := "craft_axe"
 const SWORD_RECIPE_ID := "craft_sword"
 const ARMOR_RECIPE_ID := "craft_armor_set"
+const ART_RECT := Rect2(-28, -48, 56, 48)
+const WALL_RECT := Rect2(-24, -32, 48, 32)
 
 var stockpile: Dictionary = {}
 var damage := 0.0            # 0 (intact) .. 100 (ruined)
 var population := 4
+var _art: Texture2D = null
+
+
+func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_art = BlockRegistry.visual_texture("structures", "town_hall")
+
+
+func using_structure_art() -> bool:
+	return _art != null
+
+
+func damage_overlay_alpha() -> float:
+	return clampf(damage / 130.0, 0.0, 0.7)
 
 
 func total_stock() -> int:
@@ -43,6 +59,7 @@ func deposit_all(inventory: InventoryData) -> Dictionary:
 
 func take_damage(amount: float) -> void:
 	damage = clampf(damage + amount, 0.0, 100.0)
+	queue_redraw()
 	damaged.emit(amount)
 
 
@@ -56,6 +73,7 @@ func repair() -> bool:
 	for item_id in REPAIR_COST:
 		stockpile[item_id] = int(stockpile[item_id]) - int(REPAIR_COST[item_id])
 	damage = maxf(0.0, damage - REPAIR_AMOUNT)
+	queue_redraw()
 	stockpile_changed.emit()
 	return true
 
@@ -195,19 +213,24 @@ func from_dict(data: Dictionary) -> void:
 		stockpile[str(item_id)] = int(raw[item_id])
 	damage = float(data.get("damage", 0.0))
 	population = int(data.get("population", 4))
+	queue_redraw()
 	stockpile_changed.emit()
 
 
 func _draw() -> void:
-	# Placeholder hall drawn over the core blocks: walls + roof + door + banner.
+	if _art != null:
+		draw_texture_rect(_art, ART_RECT, false)
+	else:
+		_draw_procedural_fallback()
+	if damage > 0.0:
+		draw_rect(WALL_RECT, Color(0, 0, 0, damage_overlay_alpha()))
+
+
+func _draw_procedural_fallback() -> void:
 	var wall := Color(0.42, 0.30, 0.55)
 	var roof := Color(0.30, 0.20, 0.40)
-	draw_rect(Rect2(-24, -32, 48, 32), wall)
+	draw_rect(WALL_RECT, wall)
 	draw_colored_polygon(
 		PackedVector2Array([Vector2(-28, -32), Vector2(28, -32), Vector2(0, -48)]), roof)
 	draw_rect(Rect2(-5, -14, 10, 14), Color(0.25, 0.17, 0.10))
 	draw_rect(Rect2(-2, -46, 2, 10), Color(0.85, 0.75, 0.30))
-	if damage > 0.0:
-		# Cracks darken with damage.
-		var crack := Color(0, 0, 0, clampf(damage / 130.0, 0.0, 0.7))
-		draw_rect(Rect2(-24, -32, 48, 32), crack)

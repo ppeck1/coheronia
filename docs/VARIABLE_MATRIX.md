@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09U2 run `20260710_coheronia_fq09u2_stem_layering`.
+State: audited against FQ-09U3 run `20260713_coheronia_fq09u3_stingers_settings`.
 
 ## Authority Surfaces
 
@@ -270,6 +270,32 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-09U3 adds 8 checks (`fq09u3_*`, suite total 257) covering: the five
+stinger OGGs loading as non-looping one-shots under 8 s with the director
+reporting all five kinds; a fired stinger ducking the Music bus below
+-3 dB while the context loop keeps playing (the stinger itself rides the
+SFX bus, so the duck lowers the bed UNDER it, never the stinger); the duck
+envelope releasing back toward 0 dB after the stinger ends; per-kind
+cooldowns blocking a repeat while allowing a different kind and then the
+same kind after the cooldown; **the game-event surface reaching the
+director — `music_event("nightfall")` and the player's `attunement_pulsed`
+each fire their stinger** (the deferred-wiring fix: the director connects
+these in a `call_deferred` `_wire_events` so game_root's `@onready` player
+is live by then); music/SFX volume settings applying to the runtime buses
+via `AudioSettings` from profile-level keys (`music_volume`/`sfx_volume`)
+and round-tripping; and the world save carrying zero music/volume/stinger
+keys. `AudioSettings.apply(profile[, duck_db])` is the single bus-volume
+authority (Music and SFX buses created at runtime); stinger timing/duck
+numbers live in the manifest's `stinger_config` (`duck_db`,
+`duck_attack_db_per_sec`, `duck_release_db_per_sec`, `cooldown_seconds`).
+The director's `process_mode = ALWAYS` keeps the score breathing and the
+duck/cooldown envelope ticking through pause. This run also landed the
+concurrent Codex art integration (55 generated PNGs: blocks, items,
+enemies with variants, ten player bodies, Town Hall, backgrounds, back
+walls) plus its runtime wiring (`data/player_visuals.json`,
+`scripts/player/player_visual.gd`, Town Hall/backdrop nearest-filtering and
+sizing); those surfaces carry their own validator art-contract checks.
 
 FQ-09U2 adds 8 checks (`fq09u2_*`, suite total 234) covering: the mandated
 nesting spike executed live and its finding recorded
