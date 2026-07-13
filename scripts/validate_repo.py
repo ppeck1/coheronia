@@ -235,10 +235,29 @@ for required_phrase in ["one adaptive suite", "Production Contract", "Render Che
 print("PASS adaptive music planning contract")
 
 blocks = json.loads((ROOT / "data/blocks.json").read_text(encoding="utf-8"))["blocks"]
-for required in ["dirt", "stone", "wood", "ore", "berry_bush", "torch", "lantern", "town_hall_core"]:
+for required in ["dirt", "stone", "wood", "ore", "berry_bush", "torch", "lantern", "town_hall_core",
+                 "coal", "copper_ore", "tin_ore", "iron_ore", "silver_ore", "crystal"]:
     if required not in blocks:
         fail(f"blocks.json missing required block: {required}")
 print("PASS required block ids")
+
+# FQ-10: ore families must each drop themselves, be pick-mined, and stay within
+# the reachable tool-tier gate (no ore needs a pick above the forged tier 2).
+FQ10_ORES = ["coal", "copper_ore", "tin_ore", "iron_ore", "silver_ore", "crystal"]
+for ore_id in FQ10_ORES:
+    ore_def = blocks[ore_id]
+    if ore_def.get("drops", {}).get(ore_id, 0) < 1:
+        fail(f"blocks.json: {ore_id} must drop at least one {ore_id}")
+    if ore_def.get("preferred_tool") != "pick":
+        fail(f"blocks.json: {ore_id} preferred_tool must be 'pick'")
+    tier = int(ore_def.get("required_tool_tier", 0))
+    if tier < 1 or tier > 2:
+        fail(f"blocks.json: {ore_id} required_tool_tier {tier} outside the reachable 1..2 range")
+# Deeper ores keep the tier-2 gate; the shallow starter metals sit at tier 1.
+for ore_id in ["iron_ore", "silver_ore", "crystal"]:
+    if int(blocks[ore_id].get("required_tool_tier", 0)) != 2:
+        fail(f"blocks.json: {ore_id} must stay behind the tier-2 pick gate")
+print("PASS ore family blocks")
 
 # Wave E: berry_bush must have requires_support = true.
 if not blocks.get("berry_bush", {}).get("requires_support", False):
@@ -272,6 +291,34 @@ for axis in ["enemy", "ruler", "survival", "economy", "social", "impressionabili
     if axis not in axis_help:
         fail(f"world_settings.json ui_help.axis_help missing axis: {axis}")
 print("PASS world settings")
+
+# FQ-10: the ore_table drives depth-banded ore-family generation. Every entry
+# must name a real block, keep a sane depth band, a usable threshold, and a
+# unique noise seed offset so families stay independent and deterministic.
+ore_table = world_settings.get("ore_table")
+if not isinstance(ore_table, list) or not ore_table:
+    fail("world_settings.json missing non-empty ore_table")
+seen_offsets = set()
+table_ids = set()
+for entry in ore_table:
+    oid = entry.get("id", "")
+    if oid not in blocks:
+        fail(f"ore_table entry '{oid}' is not a defined block")
+    table_ids.add(oid)
+    if not (0 <= entry.get("min_depth", -1) < entry.get("max_depth", -1)):
+        fail(f"ore_table entry '{oid}' has an invalid depth band")
+    if not (0.0 < entry.get("threshold", -1) < 1.0):
+        fail(f"ore_table entry '{oid}' threshold must be in (0, 1)")
+    if entry.get("frequency", 0) <= 0:
+        fail(f"ore_table entry '{oid}' frequency must be positive")
+    off = entry.get("seed_offset")
+    if off in seen_offsets:
+        fail(f"ore_table entry '{oid}' reuses seed_offset {off}")
+    seen_offsets.add(off)
+for ore_id in FQ10_ORES:
+    if ore_id not in table_ids:
+        fail(f"ore_table is missing the '{ore_id}' family")
+print("PASS ore table generation contract")
 
 character_data = json.loads((ROOT / "data/character_data.json").read_text(encoding="utf-8"))
 for section in ["species", "body_variants", "traits", "roles", "appearances"]:

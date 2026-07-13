@@ -2,16 +2,48 @@
 
 ## Current State
 
-**FQ-09U3 (music stingers, ducking, audio settings, pause behavior)
-implemented and closed out — the adaptive-music arc (U0-U3) is complete and
-the concurrent Codex art integration landed in the same closeout** (run
-`20260713_coheronia_fq09u3_stingers_settings`; lineage: v0.1 oneshot ->
-input repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
+**FQ-10 (more ores and metallurgy data) implemented and closed out — the
+underground now has six depth-banded ore families** (run
+`20260713_coheronia_fq10_ore_families`; lineage: v0.1 oneshot -> input
+repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
 `20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` ->
 FQ-00 through FQ-09V -> FQ-09C -> FQ-09W -> FQ-09A -> FQ-09U0 -> FQ-09M ->
-FQ-09U1 -> FQ-09U2; Godot 4.6.1 stable). The workstation was reset
-mid-U3 (token exhaustion); the resume fixed the sole remaining failure —
-`fq09u3_events_fire_stingers` — bringing the suite to 257/257.
+FQ-09U1 -> FQ-09U2 -> FQ-09U3; Godot 4.6.1 stable). Suite at 262/262.
+
+## FQ-10 Additions
+
+- **Six ore families** in `data/blocks.json`: `coal`, `copper_ore`,
+  `tin_ore` (shallow, tier-1 pick), `iron_ore`, `silver_ore`, `crystal`
+  (deeper, tier-2 pick gate). Each drops itself, is pick-preferred, blocks
+  light, and is non-placeable. The generic `ore` block is unchanged — it
+  stays the tier-2 starter vein. New ores are raw materials with no consumer
+  yet (FQ-11 furnace/ingots will use them); "avoid making every ore
+  immediately useful" is respected.
+- **Data-defined generation** (`data/world_settings.json` `ore_table`,
+  validator-enforced): per-family `min_depth`/`max_depth` band, `frequency`,
+  `threshold`, and a unique `seed_offset`. `WorldGen._build_ore_families`
+  builds one FastNoiseLite per family (seeded `world_seed + seed_offset`);
+  `_ore_family_at` returns the first family whose depth band contains the
+  cell and whose channel clears its threshold, else `stone`. Families are
+  applied **only to cells that would be stone** — the generic `ore` decision
+  runs first and is byte-identical, so every prior ore check still passes.
+  `ore_abundance` lowers all thresholds (richer worlds expose more) and 0
+  disables all ore. Thresholds were calibrated to FastNoiseLite's real
+  output range (0.58-0.72; values above ~0.75 almost never occur — the first
+  pass used 0.78-0.87 and produced near-zero deeper ore).
+- **Fallback rendering**: distinct `BLOCK_COLORS` in `world.gd` (coal near-
+  black, copper orange, tin pale, iron brown-gray, silver light, crystal
+  cyan) and `data/items.json` icon swatches so the ores read distinctly
+  before art lands; the image-first pipeline picks up
+  `art/generated/blocks/<id>.png` when authored (roadmap-tracked).
+- **Smoke** (5 `fq10_*` checks, suite total 262): all six families generate
+  at meaningful counts in a large rich world; the generic vein survives
+  alongside them; deterministic ore-family layout across two same-seed
+  setups; the tier gate (iron behind tier-2, coal at tier-1); and
+  `ore_abundance` 0 clearing every ore. Ore families are terrain cells like
+  any block — regenerated from seed, mined cells persist as normal air
+  deltas, and no save-schema change (all existing save round-trips stay
+  green).
 
 ## FQ-09U3 Additions
 
@@ -501,7 +533,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks, the FQ-09W backgrounds/back_walls categories, the FQ-09U3 stinger OGGs, and the Codex art contracts (Town Hall structure/core, surface sky, backdrop strips, player-visual bodies/rigs/collision) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 257/257 | waited Windows Godot process wrote `smoke_results.json` (122 v0.6 -> 134 FQ-01 -> 142 FQ-02 -> 149 FQ-03 -> 157 FQ-04 -> 163 FQ-05 -> 169 FQ-06 -> 173 FQ-07 -> 179 FQ-08 -> 183 FQ-09 -> 183 FQ-09R -> 184 crack mask -> 185 FQ-09S -> 190 FQ-09V -> 203 FQ-09C -> 210 FQ-09W -> 217 FQ-09M -> 226 FQ-09U1 -> 234 FQ-09U2 -> 257 FQ-09U3 + Codex art integration; run 2026-07-13T13:32:02) |
+| Automated smoke | PASS 262/262 | waited Windows Godot process wrote `smoke_results.json` (… -> 234 FQ-09U2 -> 257 FQ-09U3 + Codex art integration -> 262 FQ-10 ore families) |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls) |
 
@@ -515,6 +547,13 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - The inventory panel is read-only; hotbar contents remain the fixed block set.
 - Axe tiers stop at 1; only the pick has a tier-2 upgrade path.
 - Raider pressure, XP pacing, and base-level thresholds remain untested by human play.
+- FQ-10 changes underground composition on regenerated terrain: worlds saved
+  before FQ-10 regenerate with the six new ore families where plain stone used
+  to sit (deterministic from seed+config; terrain deltas still overlay cleanly).
+  Cosmetic/economy only, no data loss. The new ores have no recipe consumer
+  yet (FQ-11), drop themselves as raw items, and are gated to the reachable
+  tier-1/tier-2 pick range. Ore density feel at the default `ore_abundance` is
+  data-tunable in `world_settings.json` `ore_table` and untested by human play.
 - FQ-09R changes the tree layout of regenerated terrain (as FQ-02 did before it): worlds saved earlier regenerate with unified `tree_trunk`/`tree_leaves` trees where solid wood columns or background flora used to stand. Terrain deltas still apply cleanly (they overlay regenerated cells); an old "air" delta where a tree used to stand may sit oddly next to new trees. Cosmetic only; no data loss. Old world configs may still carry a stored `tree_foreground_ratio` key; it is simply ignored.
 - Generated trees no longer contribute to shelter/roof/occlusion math (trunk and leaves are non-solid and do not block light); only placed solid blocks such as `wood` do. Wood supply per tree site rose slightly (every tree is now harvestable), untested by human play.
 - Mining a low trunk cell leaves the upper trunk/canopy cells floating (no support rule on trees, mirroring the old floating wood columns). Cosmetic; each floating cell remains harvestable.
@@ -538,12 +577,12 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
 increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, FQ-09W,
-FQ-09A, FQ-09U0, FQ-09M, FQ-09U1, FQ-09U2, and **FQ-09U3** are complete —
-the full adaptive-music arc (context switching, settlement stem layering,
-event stingers over ducking, volume settings, pause behavior) plays live,
-and the Codex art integration (55 generated PNGs + player/Town-Hall/backdrop
-wiring) landed in the same closeout. The queue head is now **FQ-10** (more
-ores and metallurgy data). Art production continues in parallel via
+FQ-09A, FQ-09U0, FQ-09M, FQ-09U1, FQ-09U2, FQ-09U3, and **FQ-10** are
+complete — the full adaptive-music arc plays live, the Codex art integration
+landed, and the underground now carries six depth-banded ore families. The
+queue head is now **FQ-11** (workbench / furnace / anvil station chain —
+which will give the new ores their first consumer via smelting and ingots).
+Art production continues in parallel via
 `docs/ASSET_ROADMAP.md` — the recommended sprite backlog (player gear
 overlays, remaining equipment icons, opening cels) is in
 `docs/HANDOFF_ART_INTEGRATION_2026-07-12.md`.

@@ -377,6 +377,65 @@ func _run() -> void:
 		and ore_cells_default.size() > 0 and ore_cells_alt != ore_cells_default,
 		"offset-9999 veins=%d default veins=%d (layouts differ)" % [
 			ore_cells_alt.size(), ore_cells_default.size()])
+
+	# --- FQ-10: data-defined ore families by depth band (generic `ore` above
+	# is untouched; families only claim cells that would be stone) ---
+	GameState.current_config = WorldConfig.new(
+		{"size": "large", "generation": {"ore_abundance": 2.0}})
+	world.setup(4242)
+	var _fq10_coal: int = _count_blocks(world, "coal")
+	var _fq10_copper: int = _count_blocks(world, "copper_ore")
+	var _fq10_tin: int = _count_blocks(world, "tin_ore")
+	var _fq10_iron: int = _count_blocks(world, "iron_ore")
+	var _fq10_deep: int = _count_blocks(world, "silver_ore") + _count_blocks(world, "crystal")
+	_check("fq10_ore_families_generate",
+		_fq10_coal > 0 and _fq10_copper > 0 and _fq10_tin > 0
+		and _fq10_iron > 0 and _fq10_deep > 0,
+		"coal=%d copper=%d tin=%d iron=%d deep(silver+crystal)=%d" % [
+			_fq10_coal, _fq10_copper, _fq10_tin, _fq10_iron, _fq10_deep])
+	# The generic starter ore still generates alongside the families.
+	_check("fq10_generic_ore_preserved", _count_blocks(world, "ore") > 0,
+		"generic ore veins=%d" % _count_blocks(world, "ore"))
+
+	# Same seed + size -> identical ore-family layout (deterministic, never saved).
+	var _fq10_layout_a: Array = _block_cells(world, "coal")
+	world.setup(4242)
+	var _fq10_layout_b: Array = _block_cells(world, "coal")
+	_check("fq10_ore_families_deterministic",
+		_fq10_layout_a.size() > 0 and _fq10_layout_a == _fq10_layout_b,
+		"coal cells=%d stable=%s" % [
+			_fq10_layout_a.size(), str(_fq10_layout_a == _fq10_layout_b)])
+
+	# Deeper ores stay behind the tier-2 pick gate; shallow starter metals do not.
+	var _fq10_iron_cell: Variant = null
+	var _fq10_coal_cell: Variant = null
+	for _fq10_c: Vector2i in world.cells:
+		var _fq10_b: String = world.cells[_fq10_c]
+		if _fq10_b == "iron_ore" and _fq10_iron_cell == null:
+			_fq10_iron_cell = _fq10_c
+		elif _fq10_b == "coal" and _fq10_coal_cell == null:
+			_fq10_coal_cell = _fq10_c
+		if _fq10_iron_cell != null and _fq10_coal_cell != null:
+			break
+	_check("fq10_ore_tier_gate",
+		_fq10_iron_cell != null and _fq10_coal_cell != null
+		and not world.can_mine(_fq10_iron_cell, 1) and world.can_mine(_fq10_iron_cell, 2)
+		and world.can_mine(_fq10_coal_cell, 1),
+		"iron@t1=%s iron@t2=%s coal@t1=%s" % [
+			str(_fq10_iron_cell != null and world.can_mine(_fq10_iron_cell, 1)),
+			str(_fq10_iron_cell != null and world.can_mine(_fq10_iron_cell, 2)),
+			str(_fq10_coal_cell != null and world.can_mine(_fq10_coal_cell, 1))])
+
+	# Abundance 0 clears every ore — families and the generic vein alike.
+	GameState.current_config = WorldConfig.new(
+		{"size": "large", "generation": {"ore_abundance": 0.0}})
+	world.setup(4242)
+	var _fq10_zero := 0
+	for _fq10_ore_id in ["ore", "coal", "copper_ore", "tin_ore", "iron_ore", "silver_ore", "crystal"]:
+		_fq10_zero += _count_blocks(world, _fq10_ore_id)
+	_check("fq10_ore_abundance_zero_clears_all", _fq10_zero == 0,
+		"total ore cells at abundance 0 = %d" % _fq10_zero)
+
 	GameState.current_config = WorldConfig.new(
 		{"generation": {"tree_density": 0.0, "bush_density": 0.0}})
 	world.setup(777)

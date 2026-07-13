@@ -88,6 +88,14 @@
       "generation": {}
     }
   },
+  "ore_table": [
+    { "id": "coal",       "min_depth": 6,  "max_depth": 60,  "frequency": 0.085, "threshold": 0.58, "seed_offset": 101 },
+    { "id": "copper_ore", "min_depth": 8,  "max_depth": 50,  "frequency": 0.090, "threshold": 0.60, "seed_offset": 211 },
+    { "id": "tin_ore",    "min_depth": 10, "max_depth": 55,  "frequency": 0.090, "threshold": 0.62, "seed_offset": 307 },
+    { "id": "iron_ore",   "min_depth": 16, "max_depth": 90,  "frequency": 0.080, "threshold": 0.64, "seed_offset": 419 },
+    { "id": "silver_ore", "min_depth": 26, "max_depth": 100, "frequency": 0.075, "threshold": 0.68, "seed_offset": 523 },
+    { "id": "crystal",    "min_depth": 34, "max_depth": 120, "frequency": 0.070, "threshold": 0.72, "seed_offset": 631 }
+  ],
   "ui_help": {
     "axis_help": {
       "enemy": "Threat count, HP, and spawn pressure. High = more and tougher enemies.",

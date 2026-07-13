@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-09U3 run `20260713_coheronia_fq09u3_stingers_settings`.
+State: audited against FQ-10 run `20260713_coheronia_fq10_ore_families`.
 
 ## Authority Surfaces
 
@@ -15,6 +15,7 @@ State: audited against FQ-09U3 run `20260713_coheronia_fq09u3_stingers_settings`
 | Visual assets (FQ-07) | `data/visual_assets.json` + `art/generated/<category>/<id>.png` convention | `BlockRegistry.visual_texture` -> `world._make_block_texture` (blocks), `simple_threat._draw` (enemies), `hud` toolbelt/grids (items via `item_icon`); missing images always fall back to generated colors/shapes; loaded via `Image.load_from_file` (no editor import pass needed); explicit json entries validator-fail when broken, convention gaps are INFO-only |
 | Variant pools (FQ-09V) | `<id>_01.png` … convention (consecutive, max 8) or explicit array entries in `data/visual_assets.json` | `BlockRegistry.visual_variant_textures` -> `world._build_tileset` (one atlas source per variant, identical physics/occlusion); `world._set_tile` picks `posmod(hash(Vector3i(cell.x, cell.y, world_seed)), n)` — deterministic per seed+cell, never saved; empty pool = unchanged single-image/fallback path; an explicit array's first entry is the id's canonical single image for `visual_texture` consumers; validator fails broken/empty pool entries |
 | Item metadata (FQ-09) | `data/items.json` | `BlockRegistry.display_name` fallback chain (blocks -> items.json -> id), `item_description` (tooltips), `item_fallback_color` -> `item_icon` swatches for the FQ-09 icon grids; unknown ids get a stable hash-derived hue |
+| Ore families (FQ-10) | ore-family blocks in `data/blocks.json` (coal/copper_ore/tin_ore/iron_ore/silver_ore/crystal — each drops itself, pick-preferred, tier 1 or 2) + `data/world_settings.json` `ore_table` (per-family min/max depth, frequency, threshold, unique seed_offset; validator-enforced) | `WorldGen._build_ore_families`/`_ore_family_at` place families by depth band on independent noise channels, claiming only cells that would be stone (the generic `ore` vein is untouched); `ore_abundance` scales all thresholds and 0 disables every ore; deterministic per seed+cell, never saved; fallback colors in `world.gd` BLOCK_COLORS and `data/items.json` swatches until art lands |
 | Enemies | `data/enemies.json` | `enemy_registry.gd` -> `game_root` spawn paths, `simple_threat` drops |
 | Ancestries | `data/ancestries.json` | `ancestry_registry.gd` -> `player.apply_ancestry_effects`, shell create form |
 | Progression | `data/progression/*.json` | `progression_registry.gd` -> XP awards, base levels, HUD |
@@ -274,6 +275,17 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-10 adds 5 checks (`fq10_*`, suite total 262) covering: the six ore
+families all generating at meaningful counts in a large rich world (coal/
+copper/tin shallow, iron mid, silver+crystal deep); the generic starter
+`ore` vein surviving alongside them; deterministic ore-family layout across
+two same-seed setups (never saved); the tier gate (iron behind the tier-2
+pick, coal minable at tier 1); and `ore_abundance` 0 clearing every ore —
+families and generic vein alike. `validate_repo.py` additionally requires
+the six ore blocks (self-drop, pick-preferred, tier 1..2, deeper ores held
+at tier 2) and the `ore_table` contract (each entry a real block, valid
+depth band, threshold in (0,1), positive frequency, unique seed_offset).
 
 FQ-09U3 adds 8 checks (`fq09u3_*`, suite total 257) covering: the five
 stinger OGGs loading as non-looping one-shots under 8 s with the director

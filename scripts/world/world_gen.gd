@@ -31,6 +31,10 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 	# Higher abundance lowers the noise threshold -> more ore veins.
 	var ore_abundance := config.gen("ore_abundance")
 	var ore_threshold := 0.75 - 0.13 * ore_abundance
+	# FQ-10: data-defined ore families placed by depth band on independent noise
+	# channels (data/world_settings.json `ore_table`). The generic `ore` vein
+	# above is untouched — families only claim cells that would be stone.
+	var ore_families := _build_ore_families(world_seed, ore_abundance)
 
 	var cells: Dictionary = {}
 	var surface: Dictionary = {}
@@ -46,11 +50,12 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 			elif y <= surf_y + dirt_depth:
 				cells[pos] = "dirt"
 			else:
-				if ore_abundance > 0.0 and y > surf_y + 8 \
+				var depth := y - surf_y
+				if ore_abundance > 0.0 and depth > 8 \
 						and ore_noise.get_noise_2d(float(x), float(y)) > ore_threshold:
 					cells[pos] = "ore"
 				else:
-					cells[pos] = "stone"
+					cells[pos] = _ore_family_at(ore_families, x, y, depth)
 
 	# Trees, on their own seed channel. FQ-09R: one unified tree rule — every
 	# tree site grows a tree_trunk column topped by a tree_leaves canopy. Both
@@ -79,6 +84,41 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 
 	return {"cells": cells, "surface": surface,
 		"width": width, "height": height}
+
+
+## FQ-10: builds the per-family noise generators for this seed from the
+## `ore_table` authority. Returns [] when ore_abundance is 0 (no ore at all,
+## matching the generic-vein rule). Higher abundance lowers each family's
+## threshold, so richer worlds expose more of every ore.
+static func _build_ore_families(world_seed: int, ore_abundance: float) -> Array:
+	if ore_abundance <= 0.0:
+		return []
+	var out: Array = []
+	for entry in WorldConfig.settings().get("ore_table", []):
+		var fam_noise := FastNoiseLite.new()
+		fam_noise.seed = world_seed + int(entry.get("seed_offset", 0))
+		fam_noise.frequency = float(entry.get("frequency", 0.09))
+		out.append({
+			"id": str(entry.get("id", "")),
+			"min_depth": int(entry.get("min_depth", 0)),
+			"max_depth": int(entry.get("max_depth", 9999)),
+			"threshold": clampf(float(entry.get("threshold", 0.8))
+				- 0.10 * (ore_abundance - 1.0), 0.05, 0.99),
+			"noise": fam_noise,
+		})
+	return out
+
+
+## FQ-10: first ore family (in table order) whose depth band contains this cell
+## and whose channel clears its threshold; "stone" when none match. Deterministic
+## from seed+cell, so the same world always yields the same ore layout.
+static func _ore_family_at(families: Array, x: int, y: int, depth: int) -> String:
+	for fam in families:
+		if depth >= int(fam["min_depth"]) and depth <= int(fam["max_depth"]) \
+				and (fam["noise"] as FastNoiseLite).get_noise_2d(float(x), float(y)) \
+					> float(fam["threshold"]):
+			return str(fam["id"])
+	return "stone"
 
 
 ## Stamps one tree: a tree_trunk column topped by a small tree_leaves canopy.

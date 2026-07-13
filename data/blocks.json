@@ -99,6 +99,109 @@
         "progression"
       ]
     },
+    "coal": {
+      "display_name": "Coal Seam",
+      "hardness": 0.9,
+      "required_tool_tier": 1,
+      "drops": {
+        "coal": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "pick",
+      "settlement_tags": [
+        "progression",
+        "fuel"
+      ]
+    },
+    "copper_ore": {
+      "display_name": "Copper Ore",
+      "hardness": 1.2,
+      "required_tool_tier": 1,
+      "drops": {
+        "copper_ore": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "pick",
+      "settlement_tags": [
+        "progression"
+      ]
+    },
+    "tin_ore": {
+      "display_name": "Tin Ore",
+      "hardness": 1.2,
+      "required_tool_tier": 1,
+      "drops": {
+        "tin_ore": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "pick",
+      "settlement_tags": [
+        "progression"
+      ]
+    },
+    "iron_ore": {
+      "display_name": "Iron Ore",
+      "hardness": 1.7,
+      "required_tool_tier": 2,
+      "drops": {
+        "iron_ore": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "pick",
+      "settlement_tags": [
+        "progression"
+      ]
+    },
+    "silver_ore": {
+      "display_name": "Silver Ore",
+      "hardness": 1.9,
+      "required_tool_tier": 2,
+      "drops": {
+        "silver_ore": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "pick",
+      "settlement_tags": [
+        "progression"
+      ]
+    },
+    "crystal": {
+      "display_name": "Raw Crystal",
+      "hardness": 2.2,
+      "required_tool_tier": 2,
+      "drops": {
+        "crystal": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "pick",
+      "settlement_tags": [
+        "progression"
+      ]
+    },
     "tree_trunk": {
       "display_name": "Tree Trunk",
       "hardness": 0.55,
