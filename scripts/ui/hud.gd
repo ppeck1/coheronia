@@ -10,6 +10,8 @@ signal forge_axe_requested
 signal forge_sword_requested
 signal forge_armor_requested
 signal lantern_requested
+signal build_station_requested(station_id: String)
+signal craft_station_requested(recipe_id: String)
 
 ## Low-health fraction mirrors player._low_health_fraction (data-driven
 ## default 0.25); the HUD does not read player state directly so it keeps a
@@ -41,6 +43,7 @@ var _forge_sword_button: Button
 var _forge_armor_button: Button
 var _repair_button: Button
 var _lantern_button: Button
+var _station_box: VBoxContainer   # FQ-11: dynamic build/craft section
 var _stock_empty_label: Label
 var _save_label: Label
 var _debug_label: Label
@@ -201,13 +204,19 @@ func _build_town_panel() -> void:
 	_town_panel.anchor_right = 0.5
 	_town_panel.anchor_top = 0.5
 	_town_panel.anchor_bottom = 0.5
-	_town_panel.offset_left = -150
-	_town_panel.offset_top = -110
-	_town_panel.custom_minimum_size = Vector2(300, 200)
+	_town_panel.offset_left = -160
+	_town_panel.offset_top = -180
+	_town_panel.custom_minimum_size = Vector2(320, 360)
 	_town_panel.visible = false
 	add_child(_town_panel)
+	# FQ-11: the station chain grows the panel past a fixed height — scroll it.
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_town_panel.add_child(scroll)
 	var box := VBoxContainer.new()
-	_town_panel.add_child(box)
+	box.custom_minimum_size = Vector2(300, 0)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(box)
 	var title := _label(box, "TOWN HALL")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_town_info = _label(box, "")
@@ -248,6 +257,10 @@ func _build_town_panel() -> void:
 	_lantern_button.text = "Craft lantern (2 ore + 1 wood)"
 	_lantern_button.pressed.connect(func() -> void: lantern_requested.emit())
 	box.add_child(_lantern_button)
+	# FQ-11: build/craft the station chain (workbench -> furnace -> anvil),
+	# rebuilt from data + built-state on every panel refresh.
+	_station_box = VBoxContainer.new()
+	box.add_child(_station_box)
 	_refresh_station_icons()
 	_label(box, "Press E to close")
 
@@ -577,6 +590,69 @@ func refresh_town_panel() -> void:
 			_forge_armor_button.disabled = armored
 			_forge_armor_button.text = "Armor forged" if armored \
 				else "Forge crude armor set (6 wood + 4 stone)"
+	_rebuild_station_section()
+
+
+## FQ-11: rebuilds the station chain from data + built-state each refresh.
+## Each unbuilt station shows a Build button (disabled/annotated when its
+## prerequisite is missing or the stockpile is short); each built station
+## lists its recipes as craft buttons (disabled when unaffordable or, for
+## gear, when the target slot is already filled).
+func _rebuild_station_section() -> void:
+	if _station_box == null:
+		return
+	for child in _station_box.get_children():
+		child.queue_free()
+	var header := _label(_station_box, "— Craft Stations —")
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	for station in BlockRegistry.station_defs():
+		var sid := str(station.get("id", ""))
+		var sname := str(station.get("display_name", sid))
+		if not town_hall.station_built(sid):
+			var btn := Button.new()
+			if not town_hall.station_prereq_met(sid):
+				var prereq := str(station.get("prereq", ""))
+				btn.text = "Build %s — needs %s first" % [sname, prereq.capitalize()]
+				btn.disabled = true
+			else:
+				btn.text = "Build %s (%s)" % [sname, _cost_text(station.get("build_cost", {}))]
+				btn.disabled = not _stock_has(station.get("build_cost", {}))
+				btn.pressed.connect(func() -> void: build_station_requested.emit(sid))
+			_station_box.add_child(btn)
+			continue
+		_label(_station_box, "%s:" % sname)
+		for recipe in BlockRegistry.recipes_for_station(sid):
+			var rid := str(recipe.get("recipe_id", ""))
+			var rname := str(recipe.get("display_name", rid))
+			var rbtn := Button.new()
+			rbtn.text = "  %s (%s)" % [rname, _cost_text(recipe.get("inputs", {}))]
+			var slot_blocked := false
+			for slot in recipe.get("equip_slots", {}):
+				if player != null and str(player.equipped_dict().get(slot, "")) != "":
+					slot_blocked = true
+			rbtn.disabled = not _stock_has(recipe.get("inputs", {})) or slot_blocked
+			if slot_blocked:
+				rbtn.text = "  %s (already equipped)" % rname
+			rbtn.pressed.connect(func() -> void: craft_station_requested.emit(rid))
+			_station_box.add_child(rbtn)
+
+
+## FQ-11: "2 Stone, 1 Coal" style cost string from an inputs/cost dict.
+func _cost_text(cost: Dictionary) -> String:
+	var parts: Array[String] = []
+	for item_id in cost:
+		parts.append("%d %s" % [int(cost[item_id]), BlockRegistry.display_name(item_id)])
+	return ", ".join(parts)
+
+
+## FQ-11: true when the stockpile can cover every item in a cost dict.
+func _stock_has(cost: Dictionary) -> bool:
+	if town_hall == null:
+		return false
+	for item_id in cost:
+		if int(town_hall.stockpile.get(item_id, 0)) < int(cost[item_id]):
+			return false
+	return true
 
 
 func _refresh_stock() -> void:

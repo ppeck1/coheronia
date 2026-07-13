@@ -68,6 +68,30 @@
       "slot_type": "amulet",
       "description": "A crystal pendant that deepens attunement.",
       "effects": { "attunement_bonus": 10 }
+    },
+    "sword_iron": {
+      "display_name": "Iron Sword",
+      "slot_type": "weapon",
+      "description": "Anvil-forged from iron ingots. Bites deeper than crude steel.",
+      "effects": { "attack_damage": 5 }
+    },
+    "helmet_iron": {
+      "display_name": "Iron Helm",
+      "slot_type": "helmet",
+      "description": "Anvil-forged iron plate for the head.",
+      "effects": { "armor": 2 }
+    },
+    "torso_iron": {
+      "display_name": "Iron Cuirass",
+      "slot_type": "torso",
+      "description": "Anvil-forged iron chestplate.",
+      "effects": { "armor": 4 }
+    },
+    "feet_iron": {
+      "display_name": "Iron Boots",
+      "slot_type": "feet",
+      "description": "Anvil-forged iron greaves.",
+      "effects": { "armor": 2 }
     }
   }
 }

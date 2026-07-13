@@ -4,6 +4,7 @@ extends Node
 var tile_size: int = 16
 var blocks: Dictionary = {}
 var recipes: Array = []
+var stations: Array = []             # FQ-11: craft-station defs (workbench/furnace/anvil)
 var settlement_rules: Dictionary = {}
 var world_settings: Dictionary = {}
 var character_data: Dictionary = {}
@@ -23,7 +24,9 @@ func _load_all() -> void:
 	var block_data: Dictionary = _load_json("res://data/blocks.json")
 	tile_size = int(block_data.get("tile_size", 16))
 	blocks = block_data.get("blocks", {})
-	recipes = _load_json("res://data/recipes.json").get("recipes", [])
+	var recipe_file: Dictionary = _load_json("res://data/recipes.json")
+	recipes = recipe_file.get("recipes", [])
+	stations = recipe_file.get("stations", [])
 	settlement_rules = _load_json("res://data/settlement_rules.json")
 	world_settings = _load_json("res://data/world_settings.json")
 	character_data = _load_json("res://data/character_data.json")
@@ -147,6 +150,28 @@ func get_recipe(recipe_id: String) -> Dictionary:
 		if recipe.get("recipe_id", "") == recipe_id:
 			return recipe
 	return {}
+
+
+## FQ-11: the ordered craft-station definitions [{id, display_name, prereq,
+## build_cost}, ...].
+func station_defs() -> Array:
+	return stations
+
+
+func station_def(station_id: String) -> Dictionary:
+	for station in stations:
+		if str(station.get("id", "")) == station_id:
+			return station
+	return {}
+
+
+## FQ-11: recipes hosted at a given station, in file order.
+func recipes_for_station(station_id: String) -> Array:
+	var out: Array = []
+	for recipe in recipes:
+		if str(recipe.get("station", "")) == station_id:
+			out.append(recipe)
+	return out
 
 
 ## Wave F: returns the preferred tool kind for this block ("pick", "axe", or "").

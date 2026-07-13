@@ -278,6 +278,8 @@ func _wire_signals() -> void:
 	hud.forge_sword_requested.connect(_on_forge_sword_requested)
 	hud.forge_armor_requested.connect(_on_forge_armor_requested)
 	hud.lantern_requested.connect(_on_lantern_requested)
+	hud.build_station_requested.connect(_on_build_station_requested)
+	hud.craft_station_requested.connect(_on_craft_station_requested)
 
 
 func _position_actors() -> void:
@@ -765,6 +767,32 @@ func _on_lantern_requested() -> void:
 		log_event("Crafted a lantern. It shines farther than a torch (slot 5).")
 	else:
 		log_event("Cannot craft lantern (stockpile lacks 2 ore + 1 wood).")
+	hud.refresh_town_panel()
+
+
+## FQ-11: builds a craft station (workbench/furnace/anvil) from the stockpile.
+func _on_build_station_requested(station_id: String) -> void:
+	var station_name := str(BlockRegistry.station_def(station_id).get("display_name", station_id))
+	if town_hall.build_station(station_id):
+		log_event("Built the %s." % station_name)
+		award_xp("tool_crafted")
+		_craft_confirm_fx(town_hall.global_position)
+	else:
+		log_event("Cannot build the %s (already built, prerequisite missing, or stockpile short)." % station_name)
+	hud.refresh_town_panel()
+
+
+## FQ-11: crafts a workbench/furnace/anvil recipe (smelt ore -> ingot, alloy,
+## or anvil metal gear). Requires the station built; ore never becomes metal
+## gear directly — smelt at the furnace, then forge at the anvil.
+func _on_craft_station_requested(recipe_id: String) -> void:
+	var recipe_name := str(BlockRegistry.get_recipe(recipe_id).get("display_name", recipe_id))
+	if town_hall.craft_station(recipe_id, player):
+		log_event("Crafted: %s." % recipe_name)
+		award_xp("tool_crafted")
+		_craft_confirm_fx(town_hall.global_position)
+	else:
+		log_event("Cannot craft %s (station not built, slot occupied, or stockpile short)." % recipe_name)
 	hud.refresh_town_panel()
 
 

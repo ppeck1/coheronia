@@ -1362,6 +1362,102 @@ func _run() -> void:
 	player.equip_item("feet", "")
 	player.health = player.max_health
 
+	# --- FQ-11: workbench/furnace/anvil station chain ---
+	hall.stockpile = {"wood": 40, "stone": 80, "coal": 40,
+		"copper_ore": 12, "tin_ore": 12, "iron_ore": 60, "silver_ore": 6}
+	hall.stations_built = {"workbench": false, "furnace": false, "anvil": false}
+
+	# (a) gating: station recipes are locked until their station is built, and a
+	# station cannot be built before its prerequisite is standing.
+	var _fq11_smelt_locked: bool = hall.craft_station("smelt_iron", player)
+	var _fq11_furnace_early: bool = hall.build_station("furnace")
+	var _fq11_anvil_early: bool = hall.build_station("anvil")
+	_check("fq11_station_gating",
+		not _fq11_smelt_locked and not _fq11_furnace_early and not _fq11_anvil_early
+		and not hall.station_built("furnace"),
+		"smelt_locked=%s furnace_early=%s anvil_early=%s" % [
+			str(_fq11_smelt_locked), str(_fq11_furnace_early), str(_fq11_anvil_early)])
+
+	# (b) build workbench -> furnace, spending build costs from the stockpile.
+	var _fq11_wood0: int = int(hall.stockpile.get("wood", 0))
+	var _fq11_stone0: int = int(hall.stockpile.get("stone", 0))
+	var _fq11_wb: bool = hall.build_station("workbench")
+	var _fq11_fn: bool = hall.build_station("furnace")
+	_check("fq11_build_chain",
+		_fq11_wb and _fq11_fn and hall.station_built("workbench")
+		and hall.station_built("furnace")
+		and int(hall.stockpile.get("wood", 0)) == _fq11_wood0 - 12
+		and int(hall.stockpile.get("stone", 0)) == _fq11_stone0 - 6 - 16,
+		"wb=%s fn=%s wood %d->%d stone %d->%d" % [str(_fq11_wb), str(_fq11_fn),
+			_fq11_wood0, int(hall.stockpile.get("wood", 0)),
+			_fq11_stone0, int(hall.stockpile.get("stone", 0))])
+
+	# (c) the furnace smelts raw ore + coal into an ingot placed in the stockpile
+	# (never the player's inventory).
+	var _fq11_ore0: int = int(hall.stockpile.get("iron_ore", 0))
+	var _fq11_coal0: int = int(hall.stockpile.get("coal", 0))
+	var _fq11_smelt: bool = hall.craft_station("smelt_iron", player)
+	_check("fq11_furnace_smelts_ore",
+		_fq11_smelt and int(hall.stockpile.get("iron_ingot", 0)) == 1
+		and int(hall.stockpile.get("iron_ore", 0)) == _fq11_ore0 - 2
+		and int(hall.stockpile.get("coal", 0)) == _fq11_coal0 - 1
+		and player.inventory.count("iron_ingot") == 0,
+		"ingots=%d ore %d->%d coal %d->%d" % [int(hall.stockpile.get("iron_ingot", 0)),
+			_fq11_ore0, int(hall.stockpile.get("iron_ore", 0)),
+			_fq11_coal0, int(hall.stockpile.get("coal", 0))])
+
+	# (d) the anvil forges iron gear from ingots. Build it (costs 3 iron_ingot),
+	# top up ingots, then forge the iron sword into the weapon slot.
+	for _fq11_i in range(8):
+		hall.craft_station("smelt_iron", player)
+	var _fq11_av: bool = hall.build_station("anvil")
+	var _fq11_forge: bool = hall.craft_station("anvil_iron_sword", player)
+	_check("fq11_anvil_forges_iron_gear",
+		_fq11_av and _fq11_forge
+		and str(player.equipped_dict().get("weapon", "")) == "sword_iron"
+		and player.attack_damage() == 5,
+		"anvil=%s forge=%s weapon=%s atk=%d" % [str(_fq11_av), str(_fq11_forge),
+			str(player.equipped_dict().get("weapon", "")), player.attack_damage()])
+
+	# (e) metal gate: clear the weapon, drain ingots, leave only raw ore — the
+	# anvil cannot conjure the sword from ore.
+	player.equip_item("weapon", "")
+	hall.stockpile.erase("iron_ingot")
+	hall.stockpile["iron_ore"] = 20
+	var _fq11_ore_only: bool = hall.craft_station("anvil_iron_sword", player)
+	_check("fq11_metal_gate_no_ore_shortcut",
+		not _fq11_ore_only and str(player.equipped_dict().get("weapon", "")) == "",
+		"forged_from_ore=%s" % str(_fq11_ore_only))
+
+	# (f) bronze alloy: smelt copper + tin, then alloy them at the furnace.
+	hall.craft_station("smelt_copper", player)
+	hall.craft_station("smelt_tin", player)
+	var _fq11_bronze: bool = hall.craft_station("alloy_bronze", player)
+	_check("fq11_bronze_alloy",
+		_fq11_bronze and int(hall.stockpile.get("bronze_ingot", 0)) == 2
+		and int(hall.stockpile.get("copper_ingot", 0)) == 0
+		and int(hall.stockpile.get("tin_ingot", 0)) == 0,
+		"bronze=%d copper=%d tin=%d" % [int(hall.stockpile.get("bronze_ingot", 0)),
+			int(hall.stockpile.get("copper_ingot", 0)), int(hall.stockpile.get("tin_ingot", 0))])
+
+	# (g) built stations round-trip through save/load (pre-FQ-11 saves default
+	# to nothing built).
+	root.save_manager.save_game()
+	hall.stations_built = {"workbench": false, "furnace": false, "anvil": false}
+	root.load_game()
+	_check("fq11_stations_persist",
+		hall.station_built("workbench") and hall.station_built("furnace")
+		and hall.station_built("anvil"),
+		"wb=%s fn=%s av=%s" % [str(hall.station_built("workbench")),
+			str(hall.station_built("furnace")), str(hall.station_built("anvil"))])
+
+	# Clear any forged gear so later FQ-01/FQ-05 checks see an unarmored player.
+	player.equip_item("weapon", "")
+	player.equip_item("helmet", "")
+	player.equip_item("torso", "")
+	player.equip_item("feet", "")
+	player.health = player.max_health
+
 	# --- FQ-05: attunement resource, hooks, pulse, save/load ---
 
 	# (a) data-driven defaults: base max 50, current within bounds.

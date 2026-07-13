@@ -392,6 +392,60 @@ for required_recipe in ["craft_sword", "craft_armor_set"]:
         fail(f"recipes.json missing required recipe: {required_recipe}")
 print("PASS equipment data")
 
+# FQ-11: the workbench -> furnace -> anvil station chain and its metal gate.
+stations = recipes_data.get("stations") or []
+station_by_id = {s.get("id"): s for s in stations}
+for req_station in ["workbench", "furnace", "anvil"]:
+    if req_station not in station_by_id:
+        fail(f"recipes.json missing station: {req_station}")
+    if not station_by_id[req_station].get("build_cost"):
+        fail(f"recipes.json station {req_station} missing build_cost")
+for sid, s in station_by_id.items():
+    prereq = s.get("prereq", "")
+    if prereq and prereq not in station_by_id:
+        fail(f"recipes.json station {sid} prereq '{prereq}' is not a station")
+if station_by_id["furnace"].get("prereq") != "workbench":
+    fail("recipes.json furnace must require the workbench")
+if station_by_id["anvil"].get("prereq") != "furnace":
+    fail("recipes.json anvil must require the furnace")
+
+all_recipes = recipes_data.get("recipes") or []
+slot_accept_by_id = {s["id"]: s["accepts"] for s in equipment_data["slots"]}
+ORE_IDS = {"ore", "coal", "copper_ore", "tin_ore", "iron_ore", "silver_ore", "crystal"}
+# Furnace smelt recipes consume raw ore and produce an ingot into the stockpile.
+furnace_ingots = set()
+for r in all_recipes:
+    if r.get("station") == "furnace" and str(r.get("recipe_id", "")).startswith("smelt_"):
+        if not (set(r.get("inputs", {})) & ORE_IDS):
+            fail(f"recipes.json {r.get('recipe_id')} must consume a raw ore")
+        if r.get("output_to") != "stockpile":
+            fail(f"recipes.json {r.get('recipe_id')} must output_to stockpile")
+        furnace_ingots.update(r.get("outputs", {}).keys())
+if not furnace_ingots:
+    fail("recipes.json defines no furnace ingot outputs")
+# Anvil recipes create gear from ingots only — never from raw ore (the FQ-11 gate).
+anvil_recipes = [r for r in all_recipes if r.get("station") == "anvil"]
+if not anvil_recipes:
+    fail("recipes.json defines no anvil recipes")
+for r in anvil_recipes:
+    if set(r.get("inputs", {})) & ORE_IDS:
+        fail(f"recipes.json anvil recipe {r.get('recipe_id')} must not consume raw ore "
+             "(metal gear is gated behind smelting)")
+    if not r.get("equip_slots"):
+        fail(f"recipes.json anvil recipe {r.get('recipe_id')} must equip a gear item")
+    for slot, item_id in r.get("equip_slots", {}).items():
+        if item_id not in items:
+            fail(f"recipes.json anvil recipe {r.get('recipe_id')} equips unknown item {item_id}")
+        elif items[item_id].get("slot_type") != slot_accept_by_id.get(slot):
+            fail(f"recipes.json anvil recipe {r.get('recipe_id')} equips {item_id} into wrong slot {slot}")
+for iron_item in ["sword_iron", "helmet_iron", "torso_iron", "feet_iron"]:
+    if iron_item not in items:
+        fail(f"equipment.json missing iron gear: {iron_item}")
+if int(items["sword_iron"]["effects"].get("attack_damage", 0)) \
+        <= int(items["sword_crude"]["effects"].get("attack_damage", 0)):
+    fail("equipment.json sword_iron must hit harder than sword_crude")
+print("PASS station chain and metal gate")
+
 # FQ-07: visual asset surface — explicit references must exist (a broken
 # mapping is a data bug); convention-path gaps are informational only, art
 # arrives one asset at a time and missing images always fall back safely.

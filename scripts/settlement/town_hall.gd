@@ -6,7 +6,8 @@ extends Node2D
 signal stockpile_changed
 signal damaged(amount: float)
 
-const DEPOSITABLE := ["dirt", "stone", "wood", "ore", "food"]
+const DEPOSITABLE := ["dirt", "stone", "wood", "ore", "food",
+	"coal", "copper_ore", "tin_ore", "iron_ore", "silver_ore", "crystal"]
 const REPAIR_COST := {"stone": 2}
 const REPAIR_AMOUNT := 25.0
 const FORGE_RECIPE_ID := "basic_pick_upgrade"
@@ -19,6 +20,10 @@ const WALL_RECT := Rect2(-24, -32, 48, 32)
 var stockpile: Dictionary = {}
 var damage := 0.0            # 0 (intact) .. 100 (ruined)
 var population := 4
+# FQ-11: which craft stations the settlement has built. Built state is
+# settlement-owned and saved; recipes hosted at a station only unlock once
+# it is built. Keys come from data/recipes.json `stations`.
+var stations_built: Dictionary = {"workbench": false, "furnace": false, "anvil": false}
 var _art: Texture2D = null
 
 
@@ -94,6 +99,72 @@ func craft_from_stockpile(recipe_id: String, player: CharacterBody2D) -> bool:
 			stockpile.erase(item_id)
 	player.inventory.add_many(recipe.get("outputs", {}))
 	player.inventory_changed.emit()
+	stockpile_changed.emit()
+	return true
+
+
+## FQ-11: true when the settlement has built this craft station.
+func station_built(station_id: String) -> bool:
+	return bool(stations_built.get(station_id, false))
+
+
+## FQ-11: true when this station's prerequisite station (if any) is built.
+func station_prereq_met(station_id: String) -> bool:
+	var prereq := str(BlockRegistry.station_def(station_id).get("prereq", ""))
+	return prereq == "" or station_built(prereq)
+
+
+## FQ-11: builds a craft station, spending its build_cost from the stockpile.
+## Fails (spending nothing) if unknown, already built, prerequisite missing,
+## or the stockpile is short. Built state is saved via to_dict.
+func build_station(station_id: String) -> bool:
+	var station: Dictionary = BlockRegistry.station_def(station_id)
+	if station.is_empty() or station_built(station_id):
+		return false
+	if not station_prereq_met(station_id):
+		return false
+	var cost: Dictionary = station.get("build_cost", {})
+	for item_id in cost:
+		if int(stockpile.get(item_id, 0)) < int(cost[item_id]):
+			return false
+	for item_id in cost:
+		stockpile[item_id] = int(stockpile[item_id]) - int(cost[item_id])
+		if int(stockpile[item_id]) <= 0:
+			stockpile.erase(item_id)
+	stations_built[station_id] = true
+	stockpile_changed.emit()
+	return true
+
+
+## FQ-11: crafts a station recipe (workbench/furnace/anvil). Inputs come from
+## the stockpile; the station must be built. Outputs route by recipe: gear
+## `equip_slots` equip onto the player (empty-slot + fit checked BEFORE inputs
+## are consumed, so a full slot or data regression cannot eat the stockpile),
+## `output_to: stockpile` (smelted ingots) stay in the stockpile, everything
+## else goes to the player's inventory. Returns true on success.
+func craft_station(recipe_id: String, player: CharacterBody2D) -> bool:
+	var recipe: Dictionary = BlockRegistry.get_recipe(recipe_id)
+	if recipe.is_empty():
+		return false
+	if not station_built(str(recipe.get("station", ""))):
+		return false
+	var equip_slots: Dictionary = recipe.get("equip_slots", {})
+	for slot in equip_slots:
+		if str(player.equipped_dict().get(slot, "")) != "":
+			return false
+		if not BlockRegistry.item_fits_slot(str(equip_slots[slot]), str(slot)):
+			return false
+	if not _consume_recipe_inputs(recipe_id):
+		return false
+	if not equip_slots.is_empty():
+		for slot in equip_slots:
+			player.equip_item(str(slot), str(equip_slots[slot]))
+	elif str(recipe.get("output_to", "inventory")) == "stockpile":
+		for out_id in recipe.get("outputs", {}):
+			stockpile[out_id] = int(stockpile.get(out_id, 0)) + int(recipe["outputs"][out_id])
+	else:
+		player.inventory.add_many(recipe.get("outputs", {}))
+		player.inventory_changed.emit()
 	stockpile_changed.emit()
 	return true
 
@@ -203,6 +274,7 @@ func to_dict() -> Dictionary:
 		"stockpile": stockpile.duplicate(),
 		"damage": damage,
 		"population": population,
+		"stations_built": stations_built.duplicate(),
 	}
 
 
@@ -213,6 +285,11 @@ func from_dict(data: Dictionary) -> void:
 		stockpile[str(item_id)] = int(raw[item_id])
 	damage = float(data.get("damage", 0.0))
 	population = int(data.get("population", 4))
+	# FQ-11: pre-FQ-11 saves have no stations key -> nothing built (default).
+	stations_built = {"workbench": false, "furnace": false, "anvil": false}
+	var saved_stations: Dictionary = data.get("stations_built", {})
+	for station_id in stations_built:
+		stations_built[station_id] = bool(saved_stations.get(station_id, false))
 	queue_redraw()
 	stockpile_changed.emit()
 

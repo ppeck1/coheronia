@@ -2,13 +2,48 @@
 
 ## Current State
 
-**FQ-10 (more ores and metallurgy data) implemented and closed out — the
-underground now has six depth-banded ore families** (run
-`20260713_coheronia_fq10_ore_families`; lineage: v0.1 oneshot -> input
-repair -> v0.2 -> v0.3 -> `20260702_coheronia_v04_shell` ->
-`20260703_coheronia_v05_increment` -> `20260704_coheronia_v06_increment` ->
-FQ-00 through FQ-09V -> FQ-09C -> FQ-09W -> FQ-09A -> FQ-09U0 -> FQ-09M ->
-FQ-09U1 -> FQ-09U2 -> FQ-09U3; Godot 4.6.1 stable). Suite at 262/262.
+**FQ-11 (workbench / furnace / anvil station chain) implemented and closed
+out — the FQ-10 ores now have a real consumer: smelt to ingots, forge metal
+gear** (run `20260713_coheronia_fq11_station_chain`; lineage: … -> FQ-09U3
+-> FQ-10; Godot 4.6.1 stable). Suite at 269/269.
+
+## FQ-11 Additions
+
+- **Three buildable craft stations** (`data/recipes.json` `stations`):
+  `workbench` -> `furnace` -> `anvil`, each with a `prereq` and a
+  `build_cost` spent from the stockpile. Built state (`stations_built`) is
+  settlement-owned on the Town Hall and saved in `to_dict`/`from_dict`
+  (pre-FQ-11 saves default to nothing built). `town_hall.build_station`
+  gates on prerequisite + affordability; a station's recipes stay locked
+  until it is built.
+- **Unified station crafting** (`town_hall.craft_station`): inputs come from
+  the stockpile; outputs route by recipe — smelted ingots (`output_to:
+  stockpile`) stay in the stockpile, anvil gear (`equip_slots`) equips onto
+  the player with an empty-slot + fit check BEFORE inputs are consumed (a
+  full slot or data regression cannot eat the stockpile), everything else
+  goes to inventory. `BlockRegistry` gained `station_defs`/`station_def`/
+  `recipes_for_station`.
+- **The metallurgy chain**: the furnace smelts raw ore + coal into ingots
+  (`smelt_copper`/`smelt_tin`/`smelt_iron`/`smelt_silver`) and alloys bronze
+  (`alloy_bronze`: copper + tin ingots); the anvil forges iron gear from
+  ingots (`anvil_iron_sword` -> `sword_iron` attack 5; `anvil_iron_armor` ->
+  the iron helm/cuirass/boots). **Metal gate**: no recipe turns raw ore into
+  gear — you must smelt first, then forge. The crude wood/stone gear
+  (town_hall) is unchanged; iron is the anvil-gated upgrade. New ores + coal
+  are now depositable; ingots are new `items.json` entries; iron gear is new
+  in `equipment.json`. The workbench hosts a basic `workbench_torch_bundle`
+  (wood + coal -> torches).
+- **UI** (`hud.gd`): the Town Hall panel gained a data-driven, scrollable
+  station section rebuilt on every refresh — Build buttons (annotated when a
+  prerequisite is missing or the stockpile is short) and, once built, each
+  station's recipes as craft buttons (disabled when unaffordable or, for
+  gear, when the slot is filled). Wired through `game_root`
+  (`build_station_requested`/`craft_station_requested`).
+- **Smoke** (7 `fq11_*` checks, suite total 269): station gating, the build
+  chain, furnace smelting (ore + coal -> ingot in the stockpile), anvil
+  forging iron gear from ingots, the metal gate (raw ore alone cannot forge
+  the sword), the bronze alloy, and `stations_built` round-tripping through
+  save/load.
 
 ## FQ-10 Additions
 
@@ -533,7 +568,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks, the FQ-09W backgrounds/back_walls categories, the FQ-09U3 stinger OGGs, and the Codex art contracts (Town Hall structure/core, surface sky, backdrop strips, player-visual bodies/rigs/collision) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 262/262 | waited Windows Godot process wrote `smoke_results.json` (… -> 234 FQ-09U2 -> 257 FQ-09U3 + Codex art integration -> 262 FQ-10 ore families) |
+| Automated smoke | PASS 269/269 | waited Windows Godot process wrote `smoke_results.json` (… -> 257 FQ-09U3 + Codex art integration -> 262 FQ-10 ore families -> 269 FQ-11 station chain) |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls) |
 
@@ -547,6 +582,17 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - The inventory panel is read-only; hotbar contents remain the fixed block set.
 - Axe tiers stop at 1; only the pick has a tier-2 upgrade path.
 - Raider pressure, XP pacing, and base-level thresholds remain untested by human play.
+- FQ-11 stations are surfaced in the Town Hall panel's scrollable station
+  section (below the existing forge buttons), so build/craft buttons can sit
+  below the fold and need scrolling — a future UI pass could tab or reorganize
+  the panel. The station chain, ingot economy, and iron gear balance
+  (sword_iron attack 5 vs crude 3; iron armor 2/4/2) are data-tunable in
+  `recipes.json`/`equipment.json` and untested by human play. The metal gate
+  (no raw-ore -> gear recipe) is validator- and smoke-enforced. Ingots and
+  built stations live in settlement/save state only; no new world-gen or
+  block placement. The visual review of the built-station buttons was limited
+  to confirming the panel renders without layout breakage (the shots tour
+  captures the panel unscrolled).
 - FQ-10 changes underground composition on regenerated terrain: worlds saved
   before FQ-10 regenerate with the six new ore families where plain stone used
   to sit (deterministic from seed+config; terrain deltas still overlay cleanly).
@@ -577,12 +623,13 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
 increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, FQ-09W,
-FQ-09A, FQ-09U0, FQ-09M, FQ-09U1, FQ-09U2, FQ-09U3, and **FQ-10** are
+FQ-09A, FQ-09U0, FQ-09M, FQ-09U1, FQ-09U2, FQ-09U3, FQ-10, and **FQ-11** are
 complete — the full adaptive-music arc plays live, the Codex art integration
-landed, and the underground now carries six depth-banded ore families. The
-queue head is now **FQ-11** (workbench / furnace / anvil station chain —
-which will give the new ores their first consumer via smelting and ingots).
-Art production continues in parallel via
+landed, the underground carries six depth-banded ore families, and those
+ores now feed a workbench/furnace/anvil station chain (smelt ingots, alloy
+bronze, forge iron gear). The queue head is now **FQ-12** (farming and food
+stability — plantable crops on the `requires_support` groundwork). Art
+production continues in parallel via
 `docs/ASSET_ROADMAP.md` — the recommended sprite backlog (player gear
 overlays, remaining equipment icons, opening cels) is in
 `docs/HANDOFF_ART_INTEGRATION_2026-07-12.md`.

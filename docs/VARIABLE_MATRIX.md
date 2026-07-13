@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-10 run `20260713_coheronia_fq10_ore_families`.
+State: audited against FQ-11 run `20260713_coheronia_fq11_station_chain`.
 
 ## Authority Surfaces
 
@@ -8,6 +8,7 @@ State: audited against FQ-10 run `20260713_coheronia_fq10_ore_families`.
 |---|---|---|
 | Blocks | `data/blocks.json` | `BlockRegistry`, `world`, `player`, `settlement_model`, `hud` |
 | Recipes | `data/recipes.json` | `player`, `town_hall` |
+| Craft stations (FQ-11) | `data/recipes.json` `stations` (workbench/furnace/anvil: prereq + build_cost) + station recipes (`station`, `output_to`, `equip_slots`) | `BlockRegistry.station_defs/station_def/recipes_for_station`; `town_hall.build_station` (spends stockpile, prereq-gated, `stations_built` saved in to_dict) and `town_hall.craft_station` (inputs from stockpile; smelted ingots `output_to` stockpile, anvil gear equips with empty-slot+fit guard before consuming); `hud` rebuilds the town-panel station section from data each refresh; metal gear is gated ore -> furnace ingot -> anvil (validator-enforced: no anvil recipe consumes raw ore) |
 | Settlement formulas | `data/settlement_rules.json` | `settlement_model.gd` via Godot `Expression` |
 | World settings | `data/world_settings.json` | `WorldConfig`, shell UI, world generation, gameplay systems |
 | Character data | `data/character_data.json` | shell UI, `player.apply_character`, role item grant |
@@ -275,6 +276,20 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 `coherence`, `load_value`, and `resilience` are formula outputs from `data/settlement_rules.json`, clamped to 0-100.
 
 ## Validation Hooks
+
+FQ-11 adds 7 checks (`fq11_*`, suite total 269) covering: station gating (a
+station recipe is locked until its station is built, and a station cannot be
+built before its prerequisite); the workbench -> furnace build chain spending
+build costs from the stockpile; the furnace smelting raw ore + coal into an
+ingot placed in the stockpile (not the player's inventory); the anvil forging
+the iron sword from ingots (equipped, attack 5); the metal gate (with only
+raw ore and no ingots, the anvil cannot produce the sword); the bronze alloy
+(copper + tin ingots -> bronze at the furnace); and `stations_built`
+round-tripping through save/load. `validate_repo.py` additionally enforces
+the workbench->furnace->anvil prereq chain, that furnace smelt recipes
+consume ore and output ingots to the stockpile, that no anvil recipe consumes
+raw ore (the metal gate) and each equips a real gear item into the right
+slot, and that the iron gear exists and out-damages the crude tier.
 
 FQ-10 adds 5 checks (`fq10_*`, suite total 262) covering: the six ore
 families all generating at meaningful counts in a large rich world (coal/

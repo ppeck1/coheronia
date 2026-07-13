@@ -1,5 +1,10 @@
 {
-  "schema_version": "0.1",
+  "schema_version": "0.2",
+  "stations": [
+    { "id": "workbench", "display_name": "Workbench", "prereq": "", "build_cost": { "wood": 12, "stone": 6 } },
+    { "id": "furnace", "display_name": "Furnace", "prereq": "workbench", "build_cost": { "stone": 16, "coal": 4 } },
+    { "id": "anvil", "display_name": "Anvil", "prereq": "furnace", "build_cost": { "stone": 10, "iron_ingot": 3 } }
+  ],
   "recipes": [
     {
       "recipe_id": "craft_torch",
@@ -88,6 +93,70 @@
       },
       "outputs": {},
       "station": "town_hall"
+    },
+    {
+      "recipe_id": "workbench_torch_bundle",
+      "display_name": "Torch Bundle",
+      "inputs": { "wood": 2, "coal": 1 },
+      "outputs": { "torch": 6 },
+      "station": "workbench",
+      "output_to": "inventory"
+    },
+    {
+      "recipe_id": "smelt_copper",
+      "display_name": "Smelt Copper",
+      "inputs": { "copper_ore": 2, "coal": 1 },
+      "outputs": { "copper_ingot": 1 },
+      "station": "furnace",
+      "output_to": "stockpile"
+    },
+    {
+      "recipe_id": "smelt_tin",
+      "display_name": "Smelt Tin",
+      "inputs": { "tin_ore": 2, "coal": 1 },
+      "outputs": { "tin_ingot": 1 },
+      "station": "furnace",
+      "output_to": "stockpile"
+    },
+    {
+      "recipe_id": "smelt_iron",
+      "display_name": "Smelt Iron",
+      "inputs": { "iron_ore": 2, "coal": 1 },
+      "outputs": { "iron_ingot": 1 },
+      "station": "furnace",
+      "output_to": "stockpile"
+    },
+    {
+      "recipe_id": "smelt_silver",
+      "display_name": "Smelt Silver",
+      "inputs": { "silver_ore": 2, "coal": 1 },
+      "outputs": { "silver_ingot": 1 },
+      "station": "furnace",
+      "output_to": "stockpile"
+    },
+    {
+      "recipe_id": "alloy_bronze",
+      "display_name": "Alloy Bronze",
+      "inputs": { "copper_ingot": 1, "tin_ingot": 1, "coal": 1 },
+      "outputs": { "bronze_ingot": 2 },
+      "station": "furnace",
+      "output_to": "stockpile"
+    },
+    {
+      "recipe_id": "anvil_iron_sword",
+      "display_name": "Iron Sword",
+      "inputs": { "iron_ingot": 3 },
+      "outputs": {},
+      "equip_slots": { "weapon": "sword_iron" },
+      "station": "anvil"
+    },
+    {
+      "recipe_id": "anvil_iron_armor",
+      "display_name": "Iron Armor Set",
+      "inputs": { "iron_ingot": 5 },
+      "outputs": {},
+      "equip_slots": { "helmet": "helmet_iron", "torso": "torso_iron", "feet": "feet_iron" },
+      "station": "anvil"
     }
   ]
 }
