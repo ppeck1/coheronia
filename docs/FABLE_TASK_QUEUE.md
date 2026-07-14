@@ -51,7 +51,7 @@ and outbox packets.
 | FQ-13P1 | P2 | Done | Consume enemy variant pools | Deterministic, lifetime-stable per-enemy sprite variants via `simple_threat._select_sprite`; audit now 0 findings. |
 | FQ-13P2 | P2 | Done | UI placeholder art + slot hook | 15 generated UI placeholders (`gen_ui_placeholders.py`); hotbar slot frames consume `slot_inventory*`; audit UI-aware. |
 | FQ-13P3 | P2 | Done | Player full-body cosmetic pool | Character-owned `visual_variant` (never world-saved); `player_visual` variant selection; demo `human` pool; creation "Look" control. |
-| FQ-13P4 | P2 | Ready - next | Opening/block variation follow-through | Opening variant-vs-animation-frame distinction; block/item variation notes; close the arc. |
+| FQ-13P4 | P2 | Done | Opening/block variation follow-through | Opening variant-vs-animation-frame distinction (`frame_semantics`); item-icon stability; audit animation-aware. Closes the FQ-13P arc. |
 | FQ-14 | P2 | Ready | Goal panel, tutorial prompts, and playtest checklist | Raises playability by telling players what to do next. |
 | FQ-15 | P2 | Ready after several systems | Map, scouting, and navigation | Larger worlds will need player orientation and exploration goals. |
 

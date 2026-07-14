@@ -799,6 +799,29 @@ func _run() -> void:
 			str(BlockRegistry.visual_texture("ui", "no_such_ui_hook") == null),
 			str(_p2_fallback is StyleBoxFlat)])
 
+	# --- FQ-13P4: item-icon stability + variant/animation frame semantics ---
+	# an inventory stack's icon never changes between refreshes: item_icon is
+	# cached (art or swatch), and items carry no variant pool that could vary it.
+	var _p4_dirt_a: Texture2D = BlockRegistry.item_icon("dirt")
+	var _p4_dirt_b: Texture2D = BlockRegistry.item_icon("dirt")
+	var _p4_meat_a: Texture2D = BlockRegistry.item_icon("meat")   # swatch-only
+	var _p4_meat_b: Texture2D = BlockRegistry.item_icon("meat")
+	_check("fq13p4_item_icon_stable",
+		_p4_dirt_a != null and _p4_dirt_a == _p4_dirt_b
+		and _p4_meat_a != null and _p4_meat_a == _p4_meat_b
+		and BlockRegistry.visual_variant_textures("items", "dirt").is_empty(),
+		"dirt_same=%s swatch_same=%s no_item_pool=%s" % [
+			str(_p4_dirt_a == _p4_dirt_b), str(_p4_meat_a == _p4_meat_b),
+			str(BlockRegistry.visual_variant_textures("items", "dirt").is_empty())])
+
+	# the shared <id>_NN convention is consumed two DISTINCT ways; the manifest
+	# documents variant (pick-one) vs animation (ordered opening frames).
+	var _p4_fs: String = str(BlockRegistry.visual_assets.get("frame_semantics", ""))
+	_check("fq13p4_frame_semantics_documented",
+		BlockRegistry.visual_assets.has("frame_semantics")
+		and "opening" in _p4_fs and "VARIANT" in _p4_fs and "ANIMATION" in _p4_fs,
+		"has=%s" % str(BlockRegistry.visual_assets.has("frame_semantics")))
+
 	# --- Progression MVP: XP, player level, base levels, population cap ---
 
 	# Fix 16: use root's shared registry instance.

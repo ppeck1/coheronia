@@ -56,6 +56,11 @@ RESERVED_UI_IDS = [
 # Categories that are intentionally code-drawn for now.
 DEFERRED_CATEGORIES = {"opening"}
 
+# FQ-13P4: categories whose _NN pool is an ANIMATION SEQUENCE (frames played in
+# order), NOT a pick-one variant. Reported distinctly so the two concepts (an
+# alternate form vs a moment in time) are never conflated.
+ANIMATION_CATEGORIES = {"opening"}
+
 # Full-frame / horizontally-tiling categories: the target size is the WIDTH;
 # height is intentionally variable (full sky frame vs thin parallax strips).
 WIDTH_ONLY_CATEGORIES = {"backgrounds", "opening"}
@@ -148,14 +153,18 @@ def main() -> int:
             # Variant pool consumption.
             vnote = ""
             if variants:
-                consumed = cat in VARIANT_CONSUMERS
-                vnote = " | variants=%d %s" % (
-                    len(variants), "LIVE" if consumed else "AVAILABLE_NOT_CONSUMED")
-                if not consumed:
-                    findings.append(
-                        f"{cat}/{aid}: {len(variants)} variant file(s) present but "
-                        f"'{cat}' does not consume variant pools at runtime")
-                # Sequence-gap detection (a real data bug).
+                if cat in ANIMATION_CATEGORIES:
+                    # An ordered animation sequence, not a pick-one variant.
+                    vnote = " | frames=%d ANIMATION" % len(variants)
+                else:
+                    consumed = cat in VARIANT_CONSUMERS
+                    vnote = " | variants=%d %s" % (
+                        len(variants), "LIVE" if consumed else "AVAILABLE_NOT_CONSUMED")
+                    if not consumed:
+                        findings.append(
+                            f"{cat}/{aid}: {len(variants)} variant file(s) present but "
+                            f"'{cat}' does not consume variant pools at runtime")
+                # Sequence-gap detection (a real data bug for both variants and frames).
                 idxs = [variant_index(v) for v in variants]
                 expected = list(range(1, len(idxs) + 1))
                 if idxs != expected:

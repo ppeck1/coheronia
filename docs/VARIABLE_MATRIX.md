@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-13P3 run `20260714_coheronia_fq13p3_player_cosmetics`.
+State: audited against FQ-13P4 run `20260714_coheronia_fq13p4_frame_semantics`.
 
 ## Authority Surfaces
 

@@ -1,7 +1,8 @@
 # Coheronia — Runtime Asset & Variant Audit (FQ-13P0)
 
-State: audited against the working tree at FQ-13P3 (player cosmetic variant pool
-consumed). Regenerate the machine portion any time with
+State: audited against the working tree at FQ-13P4 (variant-vs-animation frame
+semantics formalized — the FQ-13P arc is complete). Regenerate the machine
+portion any time with
 `python scripts/asset_audit.py` (add `--strict` to fail on data bugs); the UI
 placeholders are (re)built with `python scripts/gen_ui_placeholders.py` and the
 demo player cosmetic variants with `python scripts/gen_player_variants.py`.
@@ -53,7 +54,7 @@ single `<id>.png` path is read; "Variants live" = the `_NN` pool is read.
 | backgrounds | `world_backdrop.layer_texture` → `visual_texture("backgrounds", id)` | ✅ | ❌ | canonical only | gradient/silhouette |
 | back_walls | `world._make_wall_texture` → `visual_texture("back_walls", id)` | ✅ | ❌ | canonical only | darkened block texture |
 | ui | `hud._make_slot_style` → `visual_texture("ui", id)` (slot frames); rest reserved | ✅ (slots) | n/a | placeholder id per surface | code-drawn `StyleBoxFlat` |
-| opening | (none — code-plotted) | ❌ | ❌ | — | `prologue_canvas` plot |
+| opening | (none — code-plotted; cel hook `prologue.gd`) | ❌ | frames = **animation** | ordered `(tick*8/TICK_HZ) % n` @ 8fps | `prologue_canvas` plot |
 
 ### HUD sub-surfaces (all currently code-drawn — no asset category yet)
 
@@ -163,6 +164,22 @@ world saves**, and legacy characters get a stable default from
 "Look" prev/next control (`shell_ui.gd`). Other bodies have empty pools and draw
 canonical (legal per spec).
 
+## Variant vs animation frame semantics (FQ-13P4)
+
+The `<id>_NN.png` convention is shared for **file discovery**, but the runtime
+consumes it two ways that must never be conflated (`visual_assets.json`
+`frame_semantics`):
+
+- **Variant** (an alternate visual *form* — pick one, hold it): `blocks` (per
+  cell `posmod(hash(x,y,seed))`), `enemies` (per instance at spawn), `players`
+  (character-owned `visual_variant`). `VARIANT_CONSUMERS` in `asset_audit.py`.
+- **Animation** (a *moment in time* — play frames in order): `opening`, whose
+  `prologue.gd` cel hook advances `(tick*8/TICK_HZ) % n` at 8fps.
+  `ANIMATION_CATEGORIES` in `asset_audit.py` reports these as `frames=N ANIMATION`.
+
+Item icons are intentionally **canonical-only** (no pool): `item_icon` is cached,
+so an inventory stack never shows a different icon between refreshes.
+
 ## Audit tool
 
 `python scripts/asset_audit.py` prints the per-category status table, the
@@ -184,4 +201,11 @@ Current state: **0 findings, 0 data bugs** (enemy pools consumed as of FQ-13P1).
 | HUD orbs / nav buttons / dock / cursors | `PLACEHOLDER_AUTHORED` | authored (FQ-13P2); consumed by the future HUD redesign |
 | Player cosmetic variants | ✅ LIVE | done — FQ-13P3 (full-body pool; demo `human` pool; creation "Look" control) |
 | Block variant pools | mechanism live, no files | art backlog (drop-in, no code) |
-| Opening cel shots | `DEFERRED` | optional per `opening_convention` |
+| Item icons | ✅ stable by design | canonical-only, cached (FQ-13P4) |
+| Opening cel shots | `DEFERRED` (animation semantics) | optional per `opening_convention` / `frame_semantics` |
+
+**FQ-13P arc status: complete (P0–P4).** The audit + tooling, enemy variant
+consumption, deliberate UI placeholders, player cosmetics, and the
+variant-vs-animation formalization are all live. Remaining items above are art
+backlog (drop-in) or the deferred HUD-redesign consumption of the authored UI
+placeholders — no further FQ-13P code is required.
