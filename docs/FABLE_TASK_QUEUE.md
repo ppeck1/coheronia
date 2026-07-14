@@ -49,7 +49,8 @@ and outbox packets.
 | FQ-13 | P2 | Done | Enemy variety and combat pressure | Add thornrat, ore tick, and raider torchbearer once health/combat rules are clearer. |
 | FQ-13P0 | P2 | Done | Visual asset & variant audit | Runtime audit (`docs/UI_ASSET_GAPS.md` + `scripts/asset_audit.py`) + player-variation decision. Gates P1–P4. |
 | FQ-13P1 | P2 | Done | Consume enemy variant pools | Deterministic, lifetime-stable per-enemy sprite variants via `simple_threat._select_sprite`; audit now 0 findings. |
-| FQ-13P2–P4 | P2 | Ready - next | Placeholders, player cosmetics, HUD hooks | Generated UI/orb/slot placeholders, player full-body cosmetic pool (design locked), opening/animation distinctions. |
+| FQ-13P2 | P2 | Done | UI placeholder art + slot hook | 15 generated UI placeholders (`gen_ui_placeholders.py`); hotbar slot frames consume `slot_inventory*`; audit UI-aware. |
+| FQ-13P3–P4 | P2 | Ready - next | Player cosmetics, opening/block variation | Player full-body cosmetic pool (design locked); opening variant-vs-frame distinction; block/item variation follow-through. |
 | FQ-14 | P2 | Ready | Goal panel, tutorial prompts, and playtest checklist | Raises playability by telling players what to do next. |
 | FQ-15 | P2 | Ready after several systems | Map, scouting, and navigation | Larger worlds will need player orientation and exploration goals. |
 

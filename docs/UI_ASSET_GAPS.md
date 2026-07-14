@@ -1,8 +1,9 @@
 # Coheronia — Runtime Asset & Variant Audit (FQ-13P0)
 
-State: audited against the working tree at FQ-13P1 (enemy variant pools now
-consumed). Regenerate the machine portion any time with
-`python scripts/asset_audit.py` (add `--strict` to fail on data bugs).
+State: audited against the working tree at FQ-13P2 (UI placeholders authored;
+hotbar slot frames consumed). Regenerate the machine portion any time with
+`python scripts/asset_audit.py` (add `--strict` to fail on data bugs); the UI
+placeholders are (re)built with `python scripts/gen_ui_placeholders.py`.
 
 This document is the human authority for the FQ-13P visual-consolidation arc: it
 records, per category, what art exists, what the runtime actually consumes, and
@@ -50,7 +51,7 @@ single `<id>.png` path is read; "Variants live" = the `_NN` pool is read.
 | structures | `visual_texture("structures", "town_hall")` | ✅ | ❌ | canonical only | drawn hall |
 | backgrounds | `world_backdrop.layer_texture` → `visual_texture("backgrounds", id)` | ✅ | ❌ | canonical only | gradient/silhouette |
 | back_walls | `world._make_wall_texture` → `visual_texture("back_walls", id)` | ✅ | ❌ | canonical only | darkened block texture |
-| ui | (none) | ❌ | ❌ | — | code-drawn HUD |
+| ui | `hud._make_slot_style` → `visual_texture("ui", id)` (slot frames); rest reserved | ✅ (slots) | n/a | placeholder id per surface | code-drawn `StyleBoxFlat` |
 | opening | (none — code-plotted) | ❌ | ❌ | — | `prologue_canvas` plot |
 
 ### HUD sub-surfaces (all currently code-drawn — no asset category yet)
@@ -61,20 +62,24 @@ redesigned HUD:
 
 | Surface | Today | Reserved hook id(s) |
 |---|---|---|
-| HUD ornament / dock | code-drawn bars | `dock_backplate` |
-| Health orb | code-drawn | `orb_health_frame`, `orb_fill_mask` |
-| Attunement orb | code-drawn | `orb_attunement_frame`, `orb_fill_mask` |
-| Inventory slots | code-drawn cells | `slot_inventory`, `slot_inventory_selected`, `slot_inventory_invalid` |
+| HUD ornament / dock | code-drawn bars | `dock_backplate` (authored, reserved) |
+| Health orb | code-drawn | `orb_health_frame`, `orb_fill_mask` (authored, reserved) |
+| Attunement orb | code-drawn | `orb_attunement_frame`, `orb_fill_mask` (authored, reserved) |
+| Inventory slots | **placeholder frame consumed (FQ-13P2)** | `slot_inventory` ✅, `slot_inventory_selected` ✅, `slot_inventory_invalid` (authored, reserved) |
 | Equipment slots | code-drawn cells | (reuse `slot_inventory*`) |
-| Panel / nav buttons | text buttons + item-icon glyphs | `button_inventory`, `button_character`, `button_town_hall`, `button_skills`, `button_goals`, `button_settings` |
-| Drag cursors | none (panels read-only) | `cursor_drag_valid`, `cursor_drag_invalid` |
+| Panel / nav buttons | text buttons + item-icon glyphs | `button_inventory`, `button_character`, `button_town_hall`, `button_skills`, `button_goals`, `button_settings` (authored, reserved) |
+| Drag cursors | none (panels read-only) | `cursor_drag_valid`, `cursor_drag_invalid` (authored, reserved) |
 | Status icons | none | (deferred — enumerate when statuses land) |
 
-The reserved UI-hook ids are the centralized authority in
-`scripts/asset_audit.py` (`RESERVED_UI_IDS`); they are intentionally **not** yet
-added to `visual_assets.json`, because the manifest validator requires every
-entry to map to an existing file. They are added to the manifest the moment the
-first placeholder PNG for each is authored (FQ-13P1+).
+All fifteen reserved UI ids are now **authored deliberate placeholders**
+(`scripts/gen_ui_placeholders.py` → `art/generated/ui/*.png`, 32×32, one shared
+palette + 1px border language, nearest-friendly). The centralized authority is
+`RESERVED_UI_IDS` in `scripts/asset_audit.py`; the files are picked up by the
+`ui` category convention (no `visual_assets.json` entry needed). The hotbar
+slots consume `slot_inventory`/`slot_inventory_selected` now
+(`hud._make_slot_style`, `StyleBoxTexture` with a `StyleBoxFlat` fallback); the
+orb/button/dock/cursor placeholders are `PLACEHOLDER_AUTHORED` — reserved for the
+HUD redesign, replaceable without touching gameplay code.
 
 ## Findings (informational — do not fail the build)
 
@@ -105,7 +110,9 @@ safe, but is the natural authored-art backlog:
 ## Placeholder hooks (`PLACEHOLDER_REQUIRED`)
 
 - `art/generated/ui/*` — the fifteen reserved HUD/orb/slot/button/cursor ids
-  above. Empty category today (`.gitkeep` only).
+  are now **authored** deliberate placeholders (FQ-13P2). Two are consumed
+  (`slot_inventory*`); the rest are `PLACEHOLDER_AUTHORED`, reserved for the HUD
+  redesign.
 - `art/generated/player_gear/*` — empty; gear is drawn procedurally.
 - `art/generated/opening/*` — `DEFERRED` (the cinematic is code-plotted by
   design; cel-shot upgrade is optional per `opening_convention`).
@@ -161,7 +168,8 @@ Current state: **0 findings, 0 data bugs** (enemy pools consumed as of FQ-13P1).
 |---|---|---|
 | Enemy sprite variety | ✅ LIVE | done — FQ-13P1 wired the enemy variant pools |
 | New FQ-10/11/12/13 sprites | `FALLBACK_ONLY` | authored-art backlog (`docs/ASSET_ROADMAP.md`) |
-| HUD orbs / slots / buttons / dock | `PLACEHOLDER_REQUIRED` | FQ-13P (HUD redesign + generated placeholders) |
+| HUD slot frames | ✅ LIVE | done — FQ-13P2 (consumed `slot_inventory*`) |
+| HUD orbs / nav buttons / dock / cursors | `PLACEHOLDER_AUTHORED` | authored (FQ-13P2); consumed by the future HUD redesign |
 | Player cosmetic variants | not built (design locked: full-body pool) | FQ-13P-player |
 | Block variant pools | mechanism live, no files | art backlog (drop-in, no code) |
 | Opening cel shots | `DEFERRED` | optional per `opening_convention` |

@@ -59,8 +59,10 @@ var _hotbar_icons: Array[TextureRect] = []
 var _hotbar_slots: Array[PanelContainer] = []
 var _hotbar_counts: Array[Label] = []
 var _hotbar_selected := -1
-var _slot_normal_sb: StyleBoxFlat
-var _slot_selected_sb: StyleBoxFlat
+# FQ-13P2: StyleBox (texture placeholder when art/generated/ui art exists, else
+# the code-drawn flat fallback) — either subclass assigns to a slot panel.
+var _slot_normal_sb: StyleBox
+var _slot_selected_sb: StyleBox
 # FQ-09: inventory panel item grid and town stockpile grid.
 var _inv_grid: GridContainer
 var _inv_grid_counts: Dictionary = {}    # item_id -> displayed count
@@ -125,8 +127,8 @@ func _build_bottom_left() -> void:
 	# text line below keeps the tool/extras summary.
 	# Intentionally SHARED StyleBox instances across all five slots (Godot
 	# reads them without mutating) — clone before mutating per slot.
-	_slot_normal_sb = _make_slot_style(Color(0.35, 0.35, 0.4))
-	_slot_selected_sb = _make_slot_style(Color(0.95, 0.8, 0.25))
+	_slot_normal_sb = _make_slot_style("slot_inventory", Color(0.35, 0.35, 0.4))
+	_slot_selected_sb = _make_slot_style("slot_inventory_selected", Color(0.95, 0.8, 0.25))
 	var slot_row := HBoxContainer.new()
 	box.add_child(slot_row)
 	for i in range(5):
@@ -152,7 +154,18 @@ func _build_bottom_left() -> void:
 	_save_label = _label(box, "No save yet — press F5 to save.")
 
 
-func _make_slot_style(border: Color) -> StyleBoxFlat:
+## FQ-13P2: a slot frame from the reserved UI placeholder
+## (art/generated/ui/<id>.png) when it exists, else the original code-drawn flat
+## fallback. The deliberate placeholder is replaceable without touching this
+## logic, and a missing image is never an error.
+func _make_slot_style(ui_id: String, border: Color) -> StyleBox:
+	var tex := BlockRegistry.visual_texture("ui", ui_id)
+	if tex != null:
+		var sbt := StyleBoxTexture.new()
+		sbt.texture = tex
+		sbt.set_texture_margin_all(6)   # 9-slice the frame corners
+		sbt.set_content_margin_all(3)
+		return sbt
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.1, 0.1, 0.14, 0.85)
 	sb.border_color = border

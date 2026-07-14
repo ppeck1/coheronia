@@ -568,7 +568,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks, the FQ-09W backgrounds/back_walls categories, the FQ-09U3 stinger OGGs, and the Codex art contracts (Town Hall structure/core, surface sky, backdrop strips, player-visual bodies/rigs/collision) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 288/288 | waited Windows Godot process wrote `smoke_results.json` (… -> 269 FQ-11 station chain -> 276 FQ-12 farming -> 283 FQ-13 enemy variety -> 288 FQ-13P1 enemy variant pools) |
+| Automated smoke | PASS 291/291 | waited Windows Godot process wrote `smoke_results.json` (… -> 276 FQ-12 farming -> 283 FQ-13 enemy variety -> 288 FQ-13P1 enemy variant pools -> 291 FQ-13P2 UI placeholders) |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls) |
 

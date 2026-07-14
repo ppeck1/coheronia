@@ -38,6 +38,11 @@ CANONICAL_CONSUMERS = {
     "backgrounds", "back_walls",
 }
 
+# FQ-13P2: reserved UI placeholders that a live HUD surface already consumes.
+# The rest are authored deliberate placeholders reserved for the HUD redesign
+# (PLACEHOLDER_AUTHORED) — present and validated, not orphans.
+UI_CONSUMED = {"slot_inventory", "slot_inventory_selected"}
+
 # Reserved UI hook ids (FQ-13P). Absence => PLACEHOLDER_REQUIRED, not an error.
 RESERVED_UI_IDS = [
     "orb_health_frame", "orb_attunement_frame", "orb_fill_mask", "dock_backplate",
@@ -132,6 +137,8 @@ def main() -> int:
             # Status for the canonical image.
             if canon is None:
                 status = "AVAILABLE_NOT_CONSUMED" if variants else "PLACEHOLDER_REQUIRED"
+            elif cat == "ui":
+                status = "LIVE" if aid in UI_CONSUMED else "PLACEHOLDER_AUTHORED"
             elif cat in CANONICAL_CONSUMERS:
                 status = "LIVE"
             else:
@@ -175,12 +182,17 @@ def main() -> int:
         if missing:
             print(f"  {cat}: {', '.join(missing)}")
 
-    # Reserved UI hooks not yet authored.
-    print("\n## PLACEHOLDER_REQUIRED (reserved UI hooks, not yet authored)")
+    # Reserved UI hooks: authored (deliberate placeholder present) vs missing.
     ui_present = set(scan_category(ASSET_ROOT / "ui").keys())
-    for uid in RESERVED_UI_IDS:
-        if uid not in ui_present:
-            print(f"  ui/{uid}")
+    reserved_authored = [u for u in RESERVED_UI_IDS if u in ui_present]
+    reserved_missing = [u for u in RESERVED_UI_IDS if u not in ui_present]
+    print("\n## Reserved UI hooks — %d authored, %d still PLACEHOLDER_REQUIRED"
+          % (len(reserved_authored), len(reserved_missing)))
+    for uid in reserved_authored:
+        tag = "LIVE" if uid in UI_CONSUMED else "PLACEHOLDER_AUTHORED (reserved)"
+        print(f"  ui/{uid:24s} {tag}")
+    for uid in reserved_missing:
+        print(f"  ui/{uid:24s} PLACEHOLDER_REQUIRED")
 
     print("\n" + "=" * 70)
     if findings:

@@ -767,6 +767,38 @@ func _run() -> void:
 			_pn.queue_free()
 	await get_tree().process_frame
 
+	# --- FQ-13P2: deliberate UI placeholders + hooks ---
+	# the authored UI placeholders load through the "ui" category convention.
+	_check("fq13p2_ui_placeholders_present",
+		BlockRegistry.visual_texture("ui", "slot_inventory") != null
+		and BlockRegistry.visual_texture("ui", "button_settings") != null
+		and BlockRegistry.visual_texture("ui", "orb_health_frame") != null,
+		"slot=%s button=%s orb=%s" % [
+			str(BlockRegistry.visual_texture("ui", "slot_inventory") != null),
+			str(BlockRegistry.visual_texture("ui", "button_settings") != null),
+			str(BlockRegistry.visual_texture("ui", "orb_health_frame") != null)])
+
+	# the live hotbar slot consumes the placeholder frame (StyleBoxTexture).
+	var _p2_slot0 = hud._hotbar_slots[0].get_theme_stylebox("panel")
+	_check("fq13p2_slot_frame_consumed",
+		hud._slot_normal_sb is StyleBoxTexture
+		and hud._slot_selected_sb is StyleBoxTexture
+		and _p2_slot0 is StyleBoxTexture,
+		"normal=%s selected=%s slot0=%s" % [
+			str(hud._slot_normal_sb is StyleBoxTexture),
+			str(hud._slot_selected_sb is StyleBoxTexture),
+			str(_p2_slot0 is StyleBoxTexture)])
+
+	# a missing UI id is never an error: visual_texture null, slot style falls
+	# back to the code-drawn flat box.
+	var _p2_fallback = hud._make_slot_style("no_such_ui_hook", Color(0.4, 0.4, 0.4))
+	_check("fq13p2_missing_ui_falls_back",
+		BlockRegistry.visual_texture("ui", "no_such_ui_hook") == null
+		and _p2_fallback is StyleBoxFlat,
+		"missing_null=%s fallback_flat=%s" % [
+			str(BlockRegistry.visual_texture("ui", "no_such_ui_hook") == null),
+			str(_p2_fallback is StyleBoxFlat)])
+
 	# --- Progression MVP: XP, player level, base levels, population cap ---
 
 	# Fix 16: use root's shared registry instance.
