@@ -12,6 +12,7 @@ const ActionFx := preload("res://scripts/fx/action_fx.gd")   # FQ-09M confirmati
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
 const ProgressionRegistryClass := preload("res://scripts/data/progression_registry.gd")
 const AncestryRegistryClass := preload("res://scripts/data/ancestry_registry.gd")
+const GoalTrackerScript := preload("res://scripts/main/goal_tracker.gd")
 
 const DAY_LENGTH_SECONDS := 100.0
 const NIGHT_START := 0.65          # time_of_day fraction where night begins
@@ -57,6 +58,11 @@ var _storm_rolled_today := false
 
 var _enemy_registry = null          # EnemyRegistryClass instance
 var _cave_spawn_timer := 0.0
+# FQ-14: state-driven current-goal model + a cached light score fed from the
+# settlement update signal (so the goal snapshot never recomputes lighting).
+var _goal_tracker = null
+var _goals_initialized := false
+var _last_light_score := 0.0
 
 var _progression_registry = null    # ProgressionRegistryClass instance
 var _ancestry_registry = null       # AncestryRegistryClass instance
@@ -79,6 +85,7 @@ func _ready() -> void:
 	_enemy_registry = EnemyRegistryClass.new()
 	_progression_registry = ProgressionRegistryClass.new()
 	_ancestry_registry = AncestryRegistryClass.new()
+	_goal_tracker = GoalTrackerScript.new()
 	# Initialise XP totals to 0.0 (float) for every known type.
 	for t: Dictionary in _progression_registry.xp_types():
 		xp_totals[str(t.get("id", ""))] = 0.0
@@ -106,6 +113,7 @@ func _ready() -> void:
 	log_event("Welcome to Coheronia. Shelter and light the Town Hall.")
 	hud.set_save_hint(save_manager.has_save())
 	settlement.compute()
+	_refresh_goals()   # FQ-14: seed the goal panel from the (possibly loaded) state
 	if OS.get_environment("COHERONIA_SMOKE") == "1":
 		var smoke := preload("res://scripts/main/smoke_test.gd").new()
 		smoke.name = "SmokeTest"
@@ -243,6 +251,42 @@ func summary() -> Dictionary:
 	}
 
 
+## FQ-14: boolean conditions per early objective, all derived from real state so
+## a loaded game resolves correctly (prefix-latching in goal_tracker covers the
+## transient "gather" once resources have been deposited).
+func _goal_snapshot() -> Dictionary:
+	return {
+		"gather": player.inventory.count("wood") > 0 and player.inventory.count("stone") > 0,
+		"light": _last_light_score > 0.0,
+		"deposit": town_hall.total_stock() > 0,
+		"craft": player.tool_tier > 1 or player.axe_tier > 0 or _any_station_built(),
+		"survive": day_count >= 2,
+	}
+
+
+func _any_station_built() -> bool:
+	for built in town_hall.stations_built.values():
+		if bool(built):
+			return true
+	return false
+
+
+## FQ-14: latch objectives from the current snapshot; refresh the panel only when
+## something newly latched (or on first run), and announce a completed goal once.
+func _refresh_goals() -> void:
+	if _goal_tracker == null:
+		return
+	var newly: bool = _goal_tracker.note(_goal_snapshot())
+	if newly or not _goals_initialized:
+		_goals_initialized = true
+		var goal: Dictionary = _goal_tracker.current()
+		hud.update_goal(goal)
+		if newly and not bool(goal.get("all_done", false)):
+			log_event("Goal: %s" % str(goal.get("text", "")))
+		elif newly:
+			log_event("All starting goals complete — the settlement stands.")
+
+
 func _wire_references() -> void:
 	player.world = world
 	settlement.world = world
@@ -273,6 +317,13 @@ func _wire_signals() -> void:
 	settlement.updated.connect(
 		func(_c: float, _l: float, _r: float, _i: Dictionary, _lb: Array) -> void:
 			_check_base_level())
+	# FQ-14: cache the light score and re-evaluate goals whenever the settlement
+	# recomputes (covers lighting, deposits, nightfall/dawn, base-level changes).
+	settlement.updated.connect(
+		func(_c: float, _l: float, _r: float, inputs: Dictionary, _lb: Array) -> void:
+			_last_light_score = float(inputs.get("light_score", 0.0))
+			_refresh_goals())
+	player.inventory_changed.connect(_refresh_goals)   # FQ-14: gather progress
 	hud.deposit_requested.connect(_on_deposit_requested)
 	hud.repair_requested.connect(_on_repair_requested)
 	hud.forge_requested.connect(_on_forge_requested)
@@ -804,6 +855,7 @@ func _on_forge_requested() -> void:
 	else:
 		log_event("Cannot forge pick (already forged, or stockpile lacks 3 wood + 5 stone).")
 	hud.refresh_town_panel()
+	_refresh_goals()   # FQ-14: forging a tool completes the craft objective
 
 
 func _on_forge_axe_requested() -> void:
@@ -814,6 +866,7 @@ func _on_forge_axe_requested() -> void:
 	else:
 		log_event("Cannot craft axe (already crafted, or stockpile lacks 4 wood + 2 stone).")
 	hud.refresh_town_panel()
+	_refresh_goals()   # FQ-14: crafting the axe completes the craft objective
 
 
 func _on_forge_sword_requested() -> void:
@@ -854,6 +907,7 @@ func _on_build_station_requested(station_id: String) -> void:
 	else:
 		log_event("Cannot build the %s (already built, prerequisite missing, or stockpile short)." % station_name)
 	hud.refresh_town_panel()
+	_refresh_goals()   # FQ-14: building a station completes the craft objective
 
 
 ## FQ-11: crafts a workbench/furnace/anvil recipe (smelt ore -> ingot, alloy,

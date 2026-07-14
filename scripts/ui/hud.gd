@@ -47,6 +47,11 @@ var _station_box: VBoxContainer   # FQ-11: dynamic build/craft section
 var _stock_empty_label: Label
 var _save_label: Label
 var _debug_label: Label
+# FQ-14: compact, state-driven current-goal panel (top-center; toggle_goals hides it).
+var _goal_panel: PanelContainer
+var _goal_label: Label
+var _goal_hint: Label
+var _goal_visible := true
 # Wave C: openable full inventory panel.
 var _inv_panel: PanelContainer
 var _inv_content: Label
@@ -78,6 +83,7 @@ func _ready() -> void:
 	_build_inventory_panel()
 	_skill_panel = SkillTreePanelScript.new()
 	add_child(_skill_panel)
+	_build_goal_panel()
 	_build_debug_overlay()
 
 
@@ -87,6 +93,9 @@ func _process(_delta: float) -> void:
 		_mine_bar.value = player.mine_progress_ratio() * 100.0
 	if Input.is_action_just_pressed("debug_overlay"):
 		_debug_label.visible = not _debug_label.visible
+	if Input.is_action_just_pressed("toggle_goals"):
+		_goal_visible = not _goal_visible
+		_goal_panel.visible = _goal_visible
 
 
 func _build_top_left() -> void:
@@ -108,6 +117,58 @@ func _build_top_left() -> void:
 	_time_label = _label(box, "Day 1 — Day")
 	_stock_label = _label(box, "Town Hall: empty")
 	_progression_label = _label(box, "Lv.1 Camp  XP: 0/100")
+
+
+## FQ-14: a small top-center panel showing the current objective and a one-line
+## hint. Unobtrusive (compact, semi-transparent) and hideable with toggle_goals.
+func _build_goal_panel() -> void:
+	_goal_panel = PanelContainer.new()
+	_goal_panel.anchor_left = 0.5
+	_goal_panel.anchor_right = 0.5
+	_goal_panel.offset_left = -180.0
+	_goal_panel.offset_right = 180.0
+	_goal_panel.offset_top = 8.0
+	_goal_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.09, 0.13, 0.72)
+	sb.border_color = Color(0.85, 0.72, 0.35, 0.8)
+	sb.set_border_width_all(1)
+	sb.set_content_margin_all(6)
+	sb.set_corner_radius_all(4)
+	_goal_panel.add_theme_stylebox_override("panel", sb)
+	add_child(_goal_panel)
+	var col := VBoxContainer.new()
+	_goal_panel.add_child(col)
+	_goal_label = Label.new()
+	_goal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_goal_label.add_theme_font_size_override("font_size", 14)
+	col.add_child(_goal_label)
+	_goal_hint = Label.new()
+	_goal_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_goal_hint.add_theme_font_size_override("font_size", 11)
+	_goal_hint.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
+	_goal_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(_goal_hint)
+
+
+## FQ-14: reflect the goal model. `goal` is the goal_tracker.current() dict.
+func update_goal(goal: Dictionary) -> void:
+	if _goal_label == null:
+		return
+	if bool(goal.get("all_done", false)):
+		_goal_label.text = "✓ " + str(goal.get("text", "All goals complete."))
+		_goal_hint.text = ""
+		_goal_hint.visible = false
+	else:
+		var idx := int(goal.get("index", 0)) + 1
+		var total := int(goal.get("total", 5))
+		_goal_label.text = "Goal %d/%d: %s" % [idx, total, str(goal.get("text", ""))]
+		_goal_hint.text = str(goal.get("hint", ""))
+		_goal_hint.visible = true
+
+
+func goal_panel_visible() -> bool:
+	return _goal_panel != null and _goal_panel.visible
 
 
 func _build_bottom_left() -> void:
@@ -150,7 +211,7 @@ func _build_bottom_left() -> void:
 		_hotbar_icons.append(icon)
 		_hotbar_counts.append(count)
 	_hotbar_label = _label(box, "")
-	_label(box, "LMB mine · RMB place · E town hall · C craft torch · F5 save · F9 load")
+	_label(box, "LMB mine · RMB place · E town hall · C craft torch · O goals · F5 save · F9 load")
 	_save_label = _label(box, "No save yet — press F5 to save.")
 
 

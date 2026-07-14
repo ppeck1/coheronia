@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-13P4 run `20260714_coheronia_fq13p4_frame_semantics`.
+State: audited against FQ-14 run `20260714_coheronia_fq14_goal_panel`.
 
 ## Authority Surfaces
 
@@ -10,6 +10,7 @@ State: audited against FQ-13P4 run `20260714_coheronia_fq13p4_frame_semantics`.
 | Recipes | `data/recipes.json` | `player`, `town_hall` |
 | Craft stations (FQ-11) | `data/recipes.json` `stations` (workbench/furnace/anvil: prereq + build_cost) + station recipes (`station`, `output_to`, `equip_slots`) | `BlockRegistry.station_defs/station_def/recipes_for_station`; `town_hall.build_station` (spends stockpile, prereq-gated, `stations_built` saved in to_dict) and `town_hall.craft_station` (inputs from stockpile; smelted ingots `output_to` stockpile, anvil gear equips with empty-slot+fit guard before consuming); `hud` rebuilds the town-panel station section from data each refresh; metal gear is gated ore -> furnace ingot -> anvil (validator-enforced: no anvil recipe consumes raw ore) |
 | Farming (FQ-12) | `farm_soil`/`crop_seedling`/`crop_ripe` blocks in `data/blocks.json` (crops `requires_support`, non-solid, non-placeable; `crop_ripe` drops food + a seed) + `craft_seeds` recipe (`data/recipes.json`, food -> seeds) | `player.try_farm` (one key `farm_action`/G: tills dirt/grass via `world.till_soil`, plants a seed on `farm_soil` via `world.plant_crop`, consuming one `crop_seeds`); `world._tick_crop_growth` ripens seedling -> ripe after `CROP_GROW_SECONDS` on tilled soil, removes unsupported crops (never floats, never regrows into invalid cells), timers in `crop_growth` persist via `serialize_crop_growth`/`parse_crop_growth` in `save_manager`; `world.farm_tile_count()` -> `game_root.summary()` food-yard score |
+| Goal panel (FQ-14) | objective list in `scripts/main/goal_tracker.gd` `GOALS` (id/text/hint) — no JSON authority | `game_root._goal_snapshot` derives per-objective booleans from live state (inventory wood/stone, cached `light_score`, `town_hall.total_stock`, `tool_tier`/`axe_tier`/`stations_built`, `day_count`); `goal_tracker.note` prefix-latches and `current()` feeds `hud.update_goal`; `toggle_goals` (O) hides the panel. Presentation-only — no save state (re-derived on load) |
 | Settlement formulas | `data/settlement_rules.json` | `settlement_model.gd` via Godot `Expression` |
 | World settings | `data/world_settings.json` | `WorldConfig`, shell UI, world generation, gameplay systems |
 | Character data | `data/character_data.json` | shell UI, `player.apply_character`, role item grant |
@@ -544,6 +545,7 @@ The v0.4 smoke suite verifies:
 - rule toggles for food, weather, darkness
 - enemy difficulty and impressionability scaling
 - enemy variety (FQ-13): thornrat crop-eating, ore tick near ore, torchbearer hall burn, per-def hp/dps profiles, drops
+- goal panel (FQ-14): state-derived objectives, prefix-latch (no regress), toggle, no save state
 - C/L/R reaction to light and threats
 - storm pressure, damage, and roof mitigation
 - save/load of player, terrain, stockpile, lights, threats, tool tier, regrow timer, storm state
