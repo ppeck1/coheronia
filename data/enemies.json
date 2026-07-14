@@ -35,7 +35,16 @@
       "id": "thornrat",
       "display_name": "Thornrat",
       "family": "surface",
-      "status": "planned",
+      "status": "live",
+      "contact_damage": 4,
+      "speed": 66,
+      "hp": 2,
+      "hp_mult": 0.7,
+      "targets_crops": true,
+      "spawn_rule": {
+        "day_threshold": 2,
+        "base_chance": 0.5
+      },
       "location": "Grasslands, farms",
       "density": {
         "count_min": 1,
@@ -173,7 +182,11 @@
       "id": "ore_tick",
       "display_name": "Ore Tick",
       "family": "underground",
-      "status": "planned",
+      "status": "live",
+      "contact_damage": 3,
+      "speed": 30,
+      "hp": 2,
+      "hp_mult": 0.7,
       "location": "Ore veins",
       "density": {
         "count_min": 1,
@@ -315,7 +328,12 @@
       "id": "raider_torchbearer",
       "display_name": "Raider Torchbearer",
       "family": "raider",
-      "status": "planned",
+      "status": "live",
+      "contact_damage": 10,
+      "speed": 34,
+      "hp": 4,
+      "hp_mult": 1.5,
+      "hall_dps_mult": 2.5,
       "location": "Raider camps and raid waves",
       "density": {
         "count_min": 1,
@@ -332,7 +350,12 @@
           "chance": 0.4
         }
       ],
-      "role": "Raider with fire attacks, supplies raid consumables"
+      "role": "Raider with fire attacks, supplies raid consumables",
+      "spawn_rule": {
+        "day_threshold": 8,
+        "stockpile_threshold": 40,
+        "base_chance": 0.2
+      }
     },
     {
       "id": "raider_sapper",

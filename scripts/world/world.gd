@@ -11,6 +11,9 @@ const BUSH_RETRY_SECONDS := 10.0
 const CROP_GROW_SECONDS := 60.0
 const CROP_RETRY_SECONDS := 5.0
 const CROP_IDS := ["crop_seedling", "crop_ripe"]
+# FQ-13: ore-family blocks (FQ-10) the ore tick keys off when choosing a spawn.
+const ORE_IDS := ["ore", "coal", "copper_ore", "tin_ore", "iron_ore",
+	"silver_ore", "crystal"]
 
 var width := 240
 var height := 80
@@ -315,6 +318,48 @@ func farm_tile_count() -> int:
 		if id == "farm_soil" or id in CROP_IDS:
 			count += 1
 	return count
+
+
+## FQ-13: nearest growing/ripe crop cell within `radius` (Chebyshev) of `from`,
+## or Vector2i(-1, -1) if none. Used by the crop-eating thornrat to pick a
+## target. Cheap scan of the crop_growth timers plus any ripe cells.
+func nearest_crop(from: Vector2i, radius: int) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_d := radius + 1
+	for cell in cells:
+		if not (cells[cell] in CROP_IDS):
+			continue
+		var d: int = maxi(absi(cell.x - from.x), absi(cell.y - from.y))
+		if d <= radius and d < best_d:
+			best_d = d
+			best = cell
+	return best
+
+
+## FQ-13: a thornrat eating a crop — clears the crop cell to air with no drops
+## (the player gets nothing; the loss IS the pressure). Mirrors the crop-removal
+## bookkeeping in break_block without the harvest yield. Returns true if a crop
+## was actually removed.
+func eat_crop(cell: Vector2i) -> bool:
+	if not (block_at(cell) in CROP_IDS):
+		return false
+	cells.erase(cell)
+	deltas[cell] = "air"
+	_set_tile(cell, "air")
+	crop_growth.erase(cell)
+	block_changed.emit(cell, "air")
+	return true
+
+
+## FQ-13: true if any ore-family block sits within `radius` (Chebyshev) of
+## `cell`. The ore tick spawns only where the underground actually carries ore,
+## so it reads as an ore-pocket nuisance rather than a generic crawler.
+func has_ore_within(cell: Vector2i, radius: int) -> bool:
+	for dy in range(-radius, radius + 1):
+		for dx in range(-radius, radius + 1):
+			if block_at(cell + Vector2i(dx, dy)) in ORE_IDS:
+				return true
+	return false
 
 
 func has_light_at(cell: Vector2i) -> bool:

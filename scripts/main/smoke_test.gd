@@ -553,7 +553,7 @@ func _run() -> void:
 
 	# Fix 16: use root's shared registry instances instead of creating duplicates.
 	var enemy_reg = root._enemy_registry
-	_check("enemies_json_loads", enemy_reg.live_defs().size() == 3,
+	_check("enemies_json_loads", enemy_reg.live_defs().size() == 6,
 		"%d live defs" % enemy_reg.live_defs().size())
 
 	var slime_node: Node = root.spawn_enemy_for_test("surface_slime")
@@ -605,6 +605,115 @@ func _run() -> void:
 			break
 	_check("raider_save_load_hall_dps_and_max_hp", raider_hall_dps_ok and raider_max_hp_ok,
 		"hall_dps_ok=%s max_hp_ok=%s" % [raider_hall_dps_ok, raider_max_hp_ok])
+
+	# --- FQ-13: enemy variety (thornrat crop-eating, ore tick, torchbearer) ---
+	# Capture-and-restore every world cell touched so later global scans
+	# (e.g. the FQ-12 farm count) see the untouched world.
+	var _fq13_crop := Vector2i(70, 40)
+	var _fq13_soil := Vector2i(70, 41)
+	var _fq13_ore := Vector2i(72, 45)
+	var _fq13_plain := Vector2i(90, 45)
+	var _fq13_touched: Array = [_fq13_crop, _fq13_soil, _fq13_ore]
+	for _px in [-1, 0, 1]:
+		_fq13_touched.append(Vector2i(_fq13_plain.x + _px, _fq13_plain.y))
+	var _fq13_saved := {}
+	for _c in _fq13_touched:
+		_fq13_saved[_c] = [world.cells.get(_c), world.deltas.get(_c)]
+
+	# (a) all three MVP-expansion enemies are live.
+	var _fq13_thorn: Dictionary = enemy_reg.get_def("thornrat")
+	var _fq13_tick: Dictionary = enemy_reg.get_def("ore_tick")
+	var _fq13_torch: Dictionary = enemy_reg.get_def("raider_torchbearer")
+	_check("fq13_new_enemies_live",
+		_fq13_thorn.get("status", "") == "live"
+		and _fq13_tick.get("status", "") == "live"
+		and _fq13_torch.get("status", "") == "live",
+		"thornrat=%s ore_tick=%s torchbearer=%s" % [
+			_fq13_thorn.get("status", "?"), _fq13_tick.get("status", "?"),
+			_fq13_torch.get("status", "?")])
+
+	# (b) the thornrat's crop-eating mechanism: world.eat_crop clears a crop with
+	# no player yield (the lost harvest IS the pressure); nearest_crop locates it.
+	world.cells[_fq13_soil] = "farm_soil"; world.deltas[_fq13_soil] = "farm_soil"
+	world.cells.erase(_fq13_crop); world.deltas[_fq13_crop] = "air"
+	world.plant_crop(_fq13_crop)
+	var _fq13_found: Vector2i = world.nearest_crop(_fq13_crop, 3)
+	var _fq13_food_before: int = player.inventory.count("food")
+	var _fq13_ate: bool = world.eat_crop(_fq13_crop)
+	_check("fq13_thornrat_eats_crop",
+		bool(_fq13_thorn.get("targets_crops", false))
+		and _fq13_found == _fq13_crop and _fq13_ate
+		and world.block_at(_fq13_crop) == "air"
+		and player.inventory.count("food") == _fq13_food_before,
+		"targets=%s found=%s ate=%s food_delta=%d" % [
+			str(_fq13_thorn.get("targets_crops", false)), str(_fq13_found),
+			str(_fq13_ate), player.inventory.count("food") - _fq13_food_before])
+
+	# (c) a spawned thornrat carries the crop-eating flag and its fast profile.
+	var _fq13_thorn_node: Node = root.spawn_enemy_for_test("thornrat")
+	_check("fq13_thornrat_profile",
+		_fq13_thorn_node != null and _fq13_thorn_node.targets_crops
+		and _fq13_thorn_node.move_speed >= 60.0,
+		"targets=%s speed=%.0f" % [
+			str(_fq13_thorn_node != null and _fq13_thorn_node.targets_crops),
+			(_fq13_thorn_node.move_speed if _fq13_thorn_node != null else -1.0)])
+
+	# (d) the ore tick keys off ore: has_ore_within is true beside an ore vein
+	# and false in a scrubbed patch of plain stone.
+	world.cells[_fq13_ore] = "iron_ore"; world.deltas[_fq13_ore] = "iron_ore"
+	for _px in [-1, 0, 1]:
+		var _pc := Vector2i(_fq13_plain.x + _px, _fq13_plain.y)
+		world.cells[_pc] = "stone"; world.deltas[_pc] = "stone"
+	_check("fq13_ore_tick_near_ore",
+		world.has_ore_within(_fq13_ore + Vector2i(1, 0), 2)
+		and not world.has_ore_within(_fq13_plain, 1),
+		"near_ore=%s plain=%s" % [
+			str(world.has_ore_within(_fq13_ore + Vector2i(1, 0), 2)),
+			str(world.has_ore_within(_fq13_plain, 1))])
+
+	# (e) the torchbearer burns the hall faster and hits harder than a basic
+	# raider (hall_dps_mult + higher contact_damage), and is tankier than the
+	# frail thornrat (hp_mult).
+	var _fq13_torch_node: Node = root.spawn_enemy_for_test("raider_torchbearer")
+	var _fq13_basic_node: Node = root.spawn_enemy_for_test("raider_basic")
+	_check("fq13_torchbearer_burns_faster",
+		_fq13_torch_node != null and _fq13_basic_node != null
+		and _fq13_torch_node.hall_dps > _fq13_basic_node.hall_dps
+		and _fq13_torch_node.contact_damage > _fq13_basic_node.contact_damage,
+		"torch_dps=%.1f basic_dps=%.1f torch_atk=%.1f basic_atk=%.1f" % [
+			_fq13_torch_node.hall_dps, _fq13_basic_node.hall_dps,
+			_fq13_torch_node.contact_damage, _fq13_basic_node.contact_damage])
+	_check("fq13_enemy_hp_profile",
+		_fq13_torch_node != null and _fq13_thorn_node != null
+		and _fq13_torch_node.hp > _fq13_thorn_node.hp,
+		"torch_hp=%d thorn_hp=%d" % [
+			_fq13_torch_node.hp, _fq13_thorn_node.hp])
+
+	# (f) a new enemy's drops enter the inventory on death.
+	var _fq13_inv_before: int = player.inventory.total()
+	if _fq13_thorn_node != null and is_instance_valid(_fq13_thorn_node):
+		_fq13_thorn_node.drop_chance_override = 1.0
+		_fq13_thorn_node.take_hit(99)
+	await get_tree().process_frame
+	_check("fq13_new_enemy_drops", player.inventory.total() > _fq13_inv_before,
+		"inventory total %d→%d" % [_fq13_inv_before, player.inventory.total()])
+
+	# Clean up the FQ-13 test threats and restore every touched world cell.
+	for _n in [_fq13_torch_node, _fq13_basic_node]:
+		if _n != null and is_instance_valid(_n):
+			_n.queue_free()
+	for _c in _fq13_saved:
+		var _sv: Array = _fq13_saved[_c]
+		if _sv[0] == null:
+			world.cells.erase(_c)
+		else:
+			world.cells[_c] = _sv[0]
+		if _sv[1] == null:
+			world.deltas.erase(_c)
+		else:
+			world.deltas[_c] = _sv[1]
+	world.crop_growth.erase(_fq13_crop)
+	await get_tree().process_frame
 
 	# --- Progression MVP: XP, player level, base levels, population cap ---
 

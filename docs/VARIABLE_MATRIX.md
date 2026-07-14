@@ -1,6 +1,6 @@
 # Coheronia - Variable Matrix
 
-State: audited against FQ-12 run `20260714_coheronia_fq12_farming`.
+State: audited against FQ-13 run `20260714_coheronia_fq13_enemy_variety`.
 
 ## Authority Surfaces
 
@@ -18,7 +18,7 @@ State: audited against FQ-12 run `20260714_coheronia_fq12_farming`.
 | Variant pools (FQ-09V) | `<id>_01.png` … convention (consecutive, max 8) or explicit array entries in `data/visual_assets.json` | `BlockRegistry.visual_variant_textures` -> `world._build_tileset` (one atlas source per variant, identical physics/occlusion); `world._set_tile` picks `posmod(hash(Vector3i(cell.x, cell.y, world_seed)), n)` — deterministic per seed+cell, never saved; empty pool = unchanged single-image/fallback path; an explicit array's first entry is the id's canonical single image for `visual_texture` consumers; validator fails broken/empty pool entries |
 | Item metadata (FQ-09) | `data/items.json` | `BlockRegistry.display_name` fallback chain (blocks -> items.json -> id), `item_description` (tooltips), `item_fallback_color` -> `item_icon` swatches for the FQ-09 icon grids; unknown ids get a stable hash-derived hue |
 | Ore families (FQ-10) | ore-family blocks in `data/blocks.json` (coal/copper_ore/tin_ore/iron_ore/silver_ore/crystal — each drops itself, pick-preferred, tier 1 or 2) + `data/world_settings.json` `ore_table` (per-family min/max depth, frequency, threshold, unique seed_offset; validator-enforced) | `WorldGen._build_ore_families`/`_ore_family_at` place families by depth band on independent noise channels, claiming only cells that would be stone (the generic `ore` vein is untouched); `ore_abundance` scales all thresholds and 0 disables every ore; deterministic per seed+cell, never saved; fallback colors in `world.gd` BLOCK_COLORS and `data/items.json` swatches until art lands |
-| Enemies | `data/enemies.json` | `enemy_registry.gd` -> `game_root` spawn paths, `simple_threat` drops |
+| Enemies | `data/enemies.json` (FQ-13: six live enemies; per-def `contact_damage`/`speed`/`hp`, optional `hp_mult`/`hall_dps_mult`/`targets_crops`/`spawn_rule`) | `enemy_registry.gd` (`live_defs`/`get_def`) -> `game_root` spawn paths (`_spawn_enemy_at` applies hp_mult/hall_dps_mult/targets_crops; `_maybe_spawn_thornrat`/`_maybe_spawn_torchbearer`; `_advance_cave_spawns` picks `ore_tick` when `world.has_ore_within`), `simple_threat` (`targets_crops` -> `world.nearest_crop`/`world.eat_crop` crop harasser; family tint; drops) |
 | Ancestries | `data/ancestries.json` | `ancestry_registry.gd` -> `player.apply_ancestry_effects`, shell create form |
 | Progression | `data/progression/*.json` | `progression_registry.gd` -> XP awards, base levels, HUD |
 | Shell profile + character-carried state | `user://shell.json` | `GameState`, `game_root` carried-state load/apply |
@@ -541,6 +541,7 @@ The v0.4 smoke suite verifies:
 - deposit, population food use, population floor/cap/growth
 - rule toggles for food, weather, darkness
 - enemy difficulty and impressionability scaling
+- enemy variety (FQ-13): thornrat crop-eating, ore tick near ore, torchbearer hall burn, per-def hp/dps profiles, drops
 - C/L/R reaction to light and threats
 - storm pressure, damage, and roof mitigation
 - save/load of player, terrain, stockpile, lights, threats, tool tier, regrow timer, storm state

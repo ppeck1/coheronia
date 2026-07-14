@@ -674,6 +674,26 @@ for e in enemies_data["enemies"]:
             fail(f"enemies.json live enemy {e['id']} missing field: {field}")
 print("PASS live enemy contact_damage/speed/hp fields")
 
+# FQ-13: enemy variety — the three MVP-expansion enemies must be live with
+# their distinct hooks (thornrat eats crops; the torchbearer burns faster).
+enemy_by_id = {e["id"]: e for e in enemies_data["enemies"]}
+for required in ["thornrat", "ore_tick", "raider_torchbearer"]:
+    if required not in enemy_by_id:
+        fail(f"enemies.json missing FQ-13 enemy: {required}")
+    if enemy_by_id[required].get("status") != "live":
+        fail(f"enemies.json FQ-13 enemy not marked live: {required}")
+if enemy_by_id["thornrat"]["family"] != "surface":
+    fail("enemies.json thornrat must be a surface enemy")
+if not enemy_by_id["thornrat"].get("targets_crops", False):
+    fail("enemies.json thornrat must set targets_crops so it pressures farms")
+if enemy_by_id["ore_tick"]["family"] != "underground":
+    fail("enemies.json ore_tick must be an underground enemy")
+if enemy_by_id["raider_torchbearer"]["family"] != "raider":
+    fail("enemies.json raider_torchbearer must be a raider")
+if float(enemy_by_id["raider_torchbearer"].get("hall_dps_mult", 1.0)) <= 1.0:
+    fail("enemies.json raider_torchbearer must burn faster (hall_dps_mult > 1)")
+print("PASS FQ-13 enemy variety")
+
 ancestries_data = json.loads((ROOT / "data/ancestries.json").read_text(encoding="utf-8"))
 ancestry_ids = {a["id"] for a in ancestries_data["ancestries"]}
 expected_ancestries = {"human", "dwarf", "deep_dwarf", "elf", "deep_elf", "orc", "goblin", "deep_goblin", "gnome", "deep_gnome", "lizardfolk", "dragonkin"}

@@ -44,6 +44,14 @@ var drop_chance_override: float = -1.0
 var contact_damage := PLAYER_DAMAGE
 var move_speed := SPEED
 
+## FQ-13: the thornrat's distinct pressure. When true, the threat hunts the
+## nearest crop within CROP_SEEK_CELLS and eats it (removing it, no drop) before
+## falling back to the hall — so it pressures early agriculture, not just the
+## player. Set by the spawner from the def's "targets_crops" flag.
+var targets_crops := false
+const CROP_SEEK_CELLS := 12
+const CROP_EAT_DIST := 22.0
+
 ## FQ-07: optional sprite from art/generated/enemies/<enemy_id>.png; null
 ## keeps the drawn-rect fallback below.
 var _art: Texture2D = null
@@ -59,7 +67,11 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y += GRAVITY * delta
 	var at_hall := false
-	if town_hall != null:
+	# FQ-13: crop hunters steer to the nearest crop first; eating it clears the
+	# cell (the player gets nothing — the lost harvest is the pressure).
+	if _seek_and_eat_crop():
+		pass
+	elif town_hall != null:
 		var dx := town_hall.global_position.x - global_position.x
 		var near := absf(dx) < 26.0 and absf(town_hall.global_position.y - global_position.y) < 40.0
 		if near:
@@ -74,6 +86,26 @@ func _physics_process(delta: float) -> void:
 	if player != null and global_position.distance_to(player.global_position) < 18.0:
 		player.take_damage(contact_damage)
 	queue_redraw()
+
+
+## FQ-13: if this threat eats crops and one is in range, steer toward it and eat
+## it on contact. Returns true while a crop is being targeted (so the caller
+## skips hall-seeking this frame). Returns false when there is nothing to hunt,
+## letting the normal hall behavior run.
+func _seek_and_eat_crop() -> bool:
+	if not targets_crops or world == null:
+		return false
+	var crop: Vector2i = world.nearest_crop(world.cell_of(global_position), CROP_SEEK_CELLS)
+	if crop.x < 0:
+		return false
+	var target: Vector2 = world.cell_center(crop)
+	if global_position.distance_to(target) <= CROP_EAT_DIST:
+		if world.eat_crop(crop):
+			SimpleThreatFx.spawn(get_parent(), "dust_puff", target)
+		velocity.x = 0.0
+	else:
+		velocity.x = signf(target.x - global_position.x) * move_speed
+	return true
 
 
 func take_hit(amount: int) -> void:

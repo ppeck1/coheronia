@@ -442,7 +442,9 @@ func _on_nightfall() -> void:
 		log_event("Night falls.")
 	for i in range(spawn_count):
 		_spawn_surface_slime(i)
+	_maybe_spawn_thornrat()
 	_maybe_spawn_raider()
+	_maybe_spawn_torchbearer()
 	hud.update_time(day_count, true, spawn_count)
 	settlement.compute()
 	music_event.emit("nightfall")
@@ -578,6 +580,63 @@ func _maybe_spawn_raider() -> void:
 	music_event.emit("raid_warning")
 
 
+## FQ-13: a thornrat may appear at night once past its day_threshold. It is a
+## fast, frail surface harasser that eats crops (see simple_threat), so it is a
+## distinct agricultural pressure rather than another slime. Conservative: at
+## most one per night, difficulty-gated like the other surface spawns.
+func _maybe_spawn_thornrat() -> void:
+	if _enemy_registry == null:
+		return
+	if not config().rule("darkness_increases_enemies"):
+		return
+	var def: Dictionary = _enemy_registry.get_def("thornrat")
+	if def.is_empty():
+		return
+	var rule: Dictionary = def.get("spawn_rule", {})
+	if day_count < int(rule.get("day_threshold", 2)):
+		return
+	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
+	var chance: float = float(rule.get("base_chance", 0.5)) * float(scaling.get("density_mult", 1.0))
+	if randf() > chance * config().difficulty("enemy"):
+		return
+	var hall_cell: Vector2i = world.hall_info["center_cell"]
+	var side := 1 if randi() % 2 == 0 else -1
+	var spawn_x: int = hall_cell.x + side * 18
+	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
+	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
+	log_event("A Thornrat skitters toward the crops.")
+
+
+## FQ-13: a torchbearer raider joins later raids (its own, later spawn_rule). It
+## burns the Town Hall faster (hall_dps_mult) and hits harder than a basic
+## raider — a distinct base-pressure escalation. Rolled independently so a night
+## can bring a basic raider, a torchbearer, or both.
+func _maybe_spawn_torchbearer() -> void:
+	if _enemy_registry == null:
+		return
+	if not config().rule("darkness_increases_enemies"):
+		return
+	var def: Dictionary = _enemy_registry.get_def("raider_torchbearer")
+	if def.is_empty():
+		return
+	var rule: Dictionary = def.get("spawn_rule", {})
+	var day_thresh: int = int(rule.get("day_threshold", 8))
+	var stock_thresh: int = int(rule.get("stockpile_threshold", 40))
+	if day_count < day_thresh and town_hall.total_stock() < stock_thresh:
+		return
+	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
+	var chance: float = float(rule.get("base_chance", 0.2)) * float(scaling.get("density_mult", 1.0))
+	if randf() > chance * config().difficulty("enemy"):
+		return
+	var hall_cell: Vector2i = world.hall_info["center_cell"]
+	var side := 1 if randi() % 2 == 0 else -1
+	var spawn_x: int = hall_cell.x + side * 38
+	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
+	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
+	log_event("WARNING: A Torchbearer moves to burn the Town Hall!")
+	music_event.emit("raid_warning")
+
+
 ## Advance the cave crawler periodic spawn timer; spawn underground when ready.
 func _advance_cave_spawns(delta: float) -> void:
 	if _enemy_registry == null:
@@ -613,11 +672,18 @@ func _advance_cave_spawns(delta: float) -> void:
 		tries += 1
 	if world.block_at(spawn_cell) != "air":
 		return
-	var def: Dictionary = _enemy_registry.get_def("cave_crawler")
+	# FQ-13: near an ore vein the underground spawn is an ore tick (ore-pocket
+	# nuisance); otherwise the usual cave crawler.
+	var eid := "cave_crawler"
+	var event := "A Cave Crawler lurks in the dark below."
+	if world.has_ore_within(spawn_cell, 2) and not _enemy_registry.get_def("ore_tick").is_empty():
+		eid = "ore_tick"
+		event = "An Ore Tick clings to the ore nearby."
+	var def: Dictionary = _enemy_registry.get_def(eid)
 	if def.is_empty():
 		return
 	_spawn_enemy_at(def, world.cell_center(spawn_cell))
-	log_event("A Cave Crawler lurks in the dark below.")
+	log_event(event)
 
 
 ## Generic enemy spawner configured from a def dict.
@@ -634,8 +700,14 @@ func _spawn_enemy_at(def: Dictionary, pos: Vector2) -> Node:
 	threat.family = str(def.get("family", "surface"))
 	threat.drops = def.get("drops", [])
 	threat.loot_mult = float(scaling.get("loot_mult", 1.0))
-	threat.hp = threat_hp()
-	threat.hall_dps = 4.0 * config().difficulty("enemy")
+	# FQ-13: per-def hp_mult scales the shared threat_hp baseline (frail thornrat/
+	# ore tick <1.0, tanky torchbearer >1.0); default 1.0 leaves the original
+	# three enemies unchanged.
+	threat.hp = maxi(1, int(round(float(threat_hp()) * float(def.get("hp_mult", 1.0)))))
+	# FQ-13: hall_dps_mult lets the torchbearer burn structures faster than a
+	# basic raider without changing the shared base rate.
+	threat.hall_dps = 4.0 * config().difficulty("enemy") * float(def.get("hall_dps_mult", 1.0))
+	threat.targets_crops = bool(def.get("targets_crops", false))
 	# FQ-01: data-driven contact damage/speed from the def, falling back to
 	# the simple_threat.gd consts when the def omits them. contact_damage
 	# scales with enemy difficulty like hall_dps.
