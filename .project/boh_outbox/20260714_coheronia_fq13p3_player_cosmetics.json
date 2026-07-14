@@ -1,0 +1,60 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260714_coheronia_fq13p3_player_cosmetics",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "2e9ffc7",
+  "end_commit": "35bc21f",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-13P3: player full-body cosmetic pool - character-owned persistent visual_variant, deterministic legacy default, variant selection with a canonical/default/drawn fallback chain, a demo human pool, and a creation-screen prev/next control. No world-save schema change, no gameplay math.",
+  "summary": "FQ-13P3 gives players optional cosmetic body variation using the operator-confirmed full-body-pool approach, reusing the FQ-09V <id>_NN.png convention rather than a new layer compositor. Each character owns a visual_variant integer stored on its shell record: create_character writes it, legacy characters that predate the field get a stable default derived from their id (posmod(hash(id),3)) so they never shuffle appearance between loads, and it is strictly presentation-only - it is never added to the world save, so it travels with the character between worlds without bloating per-world state. player.apply_character threads it into player.visual_variant and on to player_visual, whose new _select_body_texture returns art/generated/players/<body_id>_NN.png for variant k>0 (wrapping by pool size) and the canonical <body_id>.png for variant 0 or an empty/short pool, then degrades to the same-species default and finally the drawn 16x32 rig. Masculine and Feminine remain semantic presentation choices, not a variant axis. A small generator, gen_player_variants.py, ships a two-entry demo pool for human by recoloring only the darker garment pixels in HSV - a blue outfit and a green outfit that leave the skin untouched - while every other body keeps an empty pool and simply draws canonical, which the spec explicitly permits. The character-creation screen gains a 'Look' prev/next SpinBox that feeds the chosen variant into the new character. The audit tool now counts players among the variant consumers, so the human pool reports LIVE with zero findings and zero data bugs. Five smoke checks confirm that variants 0/1/2 resolve to three different textures, that variant 0 is the canonical body and an out-of-range index wraps into the pool, that a body with no pool falls back to canonical, that the variant is stored on the character and is absent from the world save with a deterministic legacy default, and that the creation UI script compiles. Suite 291 -> 296.",
+  "acceptance": [
+    "Distinct sprite per variant where a pool exists; variant 0 is canonical (fq13p3_variant_selects_distinct_sprite, fq13p3_variant0_canonical_and_wrap)",
+    "An out-of-range index wraps within the pool (fq13p3_variant0_canonical_and_wrap)",
+    "A body with no pool falls back to its canonical sprite (fq13p3_no_pool_falls_back)",
+    "The variant is character-owned, has a deterministic legacy default, and is NEVER a world-save key (fq13p3_character_owns_variant_not_saved)",
+    "Masculine/Feminine stay semantic presentation, not a variant axis",
+    "Creation screen exposes prev/next variant controls (Look SpinBox); creation UI compiles (fq13p3_shell_ui_compiles)",
+    "Suite 296/296; validator and capsule doctor green; asset_audit --strict 0/0"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> PASS (exit 0)",
+    "python scripts/asset_audit.py --strict -> exit 0 (0 findings, 0 data bugs)",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited headless run -> 296/296 PASS, 5 new fq13p3_* checks green",
+    "git diff --check -> 0 whitespace errors (LF->CRLF notices only)"
+  ],
+  "docs_updated": ["docs/UI_ASSET_GAPS.md", "docs/VARIABLE_MATRIX.md", "docs/HANDOFF.md", "docs/FABLE_TASK_QUEUE.md"],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Use the full-body pool (operator-confirmed) reusing visual_variant_textures, not a layered compositor",
+    "Store visual_variant on the shell character record only - presentation-only, never in world saves - so it persists across worlds without per-world bloat",
+    "Legacy characters get a deterministic default from their id so appearance is stable across loads (not random)",
+    "Ship a demo human pool via an HSV garment recolor that preserves skin; leave other bodies canonical (one valid asset + fallback is legal)",
+    "Add a compile-time smoke check (preload shell_ui.gd) because the headless smoke boots game_root, not the shell scene",
+    "Self-review only (no agent spawned) for a presentation-only change covered by the validator + 5 smoke checks"
+  ],
+  "risks": [
+    "Only human has a demo pool; the recolor is a deliberate placeholder, replaceable one PNG at a time",
+    "The creation Look control is compile-checked and value-path-tested but not exercised as a live widget by the headless smoke",
+    "Legacy default_visual_variant assigns 0-2 by id, so an existing character may pick a demo variant where art exists (intended, stable per id)"
+  ],
+  "next_action": "FQ-13P4: opening variant-vs-animation distinction + block/item variation follow-through, closing the arc.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260714_coheronia_fq13p3_player_cosmetics.md",
+    "scripts/player/player_visual.gd",
+    "scripts/shell/game_state.gd",
+    "scripts/gen_player_variants.py",
+    "docs/UI_ASSET_GAPS.md"
+  ],
+  "ledger_path": ".project/runs/20260714_coheronia_fq13p3_player_cosmetics.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-14T10:15:00-04:00"
+}
