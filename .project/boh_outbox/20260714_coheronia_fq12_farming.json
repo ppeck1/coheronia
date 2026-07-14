@@ -1,0 +1,59 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260714_coheronia_fq12_farming",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "aa0ce5d",
+  "end_commit": "3f916dd",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-12: farming and food stability - plantable/growable/harvestable crops on the requires_support groundwork, a food->seeds bootstrap recipe, crop-timer persistence, and a food-yard score. No new world-gen, combat change, or NPC labor.",
+  "summary": "Coheronia now has a reliable food loop beyond foraged berry bushes. A single context key (farm_action = G) drives player.try_farm: aim at dirt or grass and it tills into farm_soil (world.till_soil); aim at an air cell sitting directly on farm_soil and it plants a crop_seedling (world.plant_crop), spending one crop_seeds from the backpack. Growth is world-owned: world._tick_crop_growth runs each _process and ripens a seedling to crop_ripe after CROP_GROW_SECONDS (60s), but only while it sits on tilled soil. The guardrails are the heart of the acceptance: an unsupported crop is removed rather than left floating, a crop whose cell was mined or replaced simply drops its growth timer (so crops never regrow into invalid cells), and crops never reschedule the way berry bushes do. Harvesting (mining) a crop_ripe yields 3 food plus 1 seed, and the whole loop bootstraps from a single bush because craft_seeds turns 1 food into 2 seeds at hand. Supporting data: farm_soil/crop_seedling/crop_ripe are new blocks (the two crops are requires_support, non-solid, and non-placeable so they are planted via farming, never from the hotbar; crop_ripe drops food + a seed), and crop_seeds plus the crop/soil display entries are new items. Crop growth timers persist exactly like bush regrowth (serialize_crop_growth/parse_crop_growth wired through save_manager and world.setup), break_block and the load-time support sweep clear them, and world.farm_tile_count() (tilled soil + crop cells) is a food-yard score surfaced in game_root.summary() for future base levels. This run also root-caused and fixed an uncommitted parse-error hang: var target := world.block_at(cell) could not infer its type because player.world is typed Node2D, which broke player.gd loading and hung the headless smoke in a per-frame error loop; annotating var target: String restored a clean 276/276 run. Suite 269 -> 276.",
+  "acceptance": [
+    "Till dirt/grass into farm_soil; stone and other blocks are not tillable (fq12_till_soil)",
+    "Crops plant only on an air cell directly above tilled soil - floating planting is refused (fq12_plant_on_soil_only)",
+    "A seedling on tilled soil ripens to crop_ripe once its timer elapses (fq12_crop_ripens)",
+    "Harvesting a ripe crop yields food + a seed (fq12_harvest_yields_food)",
+    "Removing the tilled soil under a crop removes the crop - it never floats and never enters bush_regrow (fq12_no_float_no_regrow)",
+    "Crop and its growth timer round-trip through save/load (fq12_crop_saves)",
+    "Food-yard score counts tilled soil + crops and is exposed in game_root.summary (fq12_farm_score)",
+    "Suite 276/276; validator (farming blocks + seeds) and capsule doctor green"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> PASS (exit 0), incl. 'farming blocks and seeds'",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited headless run -> 276/276 PASS, 7 new fq12_* checks green",
+    "git diff --check -> 0 whitespace errors (LF->CRLF notices only)"
+  ],
+  "docs_updated": ["docs/HANDOFF.md", "docs/VARIABLE_MATRIX.md", "docs/FABLE_TASK_QUEUE.md"],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "One context key (G) tills OR plants based on the target, rather than separate till/plant keys or a hotbar-placed soil block - farm_soil and crops are non-placeable and only farming creates them",
+    "Crop growth is world-owned state on a timer dictionary mirroring bush_regrow, so it persists and ticks identically; crops explicitly do NOT reuse the berry-bush auto-regrow path",
+    "No-float/no-invalid-regrow made structural: requires_support data + _tick_crop_growth/break_block/setup-sweep guards, all validator- and smoke-enforced",
+    "Seed economy bootstraps from food (craft_seeds: 1 food -> 2 seeds) so a player with a single bush can start farming; no free seed grant",
+    "Food-yard score (farm_tile_count) is informational in summary() for future base levels; no base level consumes it yet",
+    "Self-review only (no agent spawned) for a change fully covered by the validator + 7 smoke checks"
+  ],
+  "risks": [
+    "Crop art is procedural (sprout/golden-stalk drawings); real sprites for farm_soil/crop_seedling/crop_ripe are optional assets pending in docs/ASSET_ROADMAP.md (validator INFO, fallbacks active)",
+    "Growth pacing (CROP_GROW_SECONDS 60s) and yields (3 food + 1 seed) are code/data-tunable and untested by human play",
+    "The food-yard score is informational only; no base level consumes it yet"
+  ],
+  "next_action": "FQ-13: enemy variety and combat pressure (thornrat, ore tick, raider torchbearer).",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260714_coheronia_fq12_farming.md",
+    "docs/FABLE_TASK_QUEUE.md",
+    "docs/HANDOFF.md",
+    "docs/VARIABLE_MATRIX.md"
+  ],
+  "ledger_path": ".project/runs/20260714_coheronia_fq12_farming.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-14T07:40:00-04:00"
+}
