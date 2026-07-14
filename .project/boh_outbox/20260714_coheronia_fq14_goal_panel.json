@@ -1,0 +1,59 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260714_coheronia_fq14_goal_panel",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "7b51eb4",
+  "end_commit": "7f87659",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-14: a state-driven current-goal panel for the early loop, an unobtrusive toggle, and an operator playtest checklist. No gameplay math or save-schema change.",
+  "summary": "Coheronia now teaches its own first loop. A compact goal panel sits top-center and walks the player through gather wood and stone, light the Town Hall, deposit resources, forge a tool or build a station, and survive the first night - and it does so from real game state rather than scripted tutorial text. The logic lives in a pure, scene-free model (scripts/main/goal_tracker.gd) that latches objectives prefix-monotonically: finishing a later step implies the earlier ones, which means the panel never regresses when a transient condition clears - for instance, depositing empties the backpack, but 'gather' stays done - and a loaded game snaps to the correct objective on the first update without persisting any tutorial flag. game_root._goal_snapshot computes each objective's boolean from live state (inventory wood and stone, a cached settlement light score, the Town Hall stockpile total, pick/axe tiers and built stations, and the day count), and _refresh_goals latches and pushes the current goal to the HUD; it is wired to the settlement update signal (which also caches the light score), inventory changes, and the forge and build handlers, and is seeded once at startup. The HUD panel is deliberately unobtrusive - semi-transparent, ignoring mouse input, and hideable with the O key (toggle_goals) - and shows the numbered goal plus a one-line hint, with a founded-settlement sentinel once everything is done. An operator playtest checklist (docs/PLAYTEST_CHECKLIST.md) follows the same five goals so the first loop can be validated without reading the handoff. Four smoke checks prove the objectives advance in order to completion, that prefix-latching prevents regression after a transient clear, that the game_root snapshot exposes all five conditions and drives a populated, mouse-ignoring panel, and that the survive objective derives from the day count while the panel hides and shows. Suite 298 -> 302. Per the request, the public docs were fully refreshed: the README suite count moved to 302 with a new goal-panel highlight and the roadmap advanced to FQ-15, and HANDOFF, VARIABLE_MATRIX, and FABLE_TASK_QUEUE were updated.",
+  "acceptance": [
+    "Compact current-goal panel surfaces the early objectives (hud goal panel)",
+    "Prompts are driven by actual game state, not static text (_goal_snapshot derives from live inventory/light/stock/tools/day)",
+    "Goal panel advances from real state changes (fq14_goals_advance_in_order; wired to settlement/inventory/forge signals)",
+    "Prefix-latch: a later objective latches earlier ones and the panel never regresses (fq14_goals_prefix_latch)",
+    "Prompts can be hidden / are unobtrusive (O toggle; mouse-ignoring, semi-transparent) (fq14_goal_survive_and_toggle)",
+    "Operator can play the first loop without the handoff (docs/PLAYTEST_CHECKLIST.md)",
+    "Suite 302/302; validator and capsule doctor green"
+  ],
+  "validation": [
+    "python scripts/validate_repo.py -> PASS (exit 0)",
+    "python scripts/asset_audit.py --strict -> exit 0",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "COHERONIA_SMOKE=1 waited headless run -> 302/302 PASS, 4 new fq14_* checks green",
+    "git diff --check -> 0 whitespace errors (LF->CRLF notices only)"
+  ],
+  "docs_updated": ["README.md", "docs/HANDOFF.md", "docs/VARIABLE_MATRIX.md", "docs/FABLE_TASK_QUEUE.md", "docs/PLAYTEST_CHECKLIST.md"],
+  "readme_state": "updated",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Keep the goal logic in a pure, scene-free RefCounted model fed a plain snapshot dict, so it is trivially testable and cannot desync from real state",
+    "Latch objectives prefix-monotonically so the panel never regresses on transient state and a loaded game resolves correctly without persisting tutorial state",
+    "Derive objectives from live state (inventory/light/stock/tools/day) rather than static tutorial text, per the acceptance",
+    "Make the panel unobtrusive by construction (semi-transparent, mouse-ignoring, top-center) and hideable with O",
+    "Read the craft objective as pick/axe/station (the guided first tools) and refresh explicitly from those handlers; ship an operator checklist keyed to the same goals",
+    "Self-review only (no agent spawned); logic covered by 4 smoke checks"
+  ],
+  "risks": [
+    "Live advance depends on settlement/inventory signals; the forge/axe/build handlers refresh explicitly, but a future craft path bypassing them would latch only on the next settlement recompute",
+    "Goal copy and the tool/station reading of the craft objective are tunable in goal_tracker.gd",
+    "The panel is not exercised as a live widget by the headless smoke (toggle simulated via visibility); the logic path is covered"
+  ],
+  "next_action": "FQ-15: map, scouting, and navigation.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "none",
+  "source_paths": [
+    ".project/runs/20260714_coheronia_fq14_goal_panel.md",
+    "scripts/main/goal_tracker.gd",
+    "scripts/main/game_root.gd",
+    "docs/PLAYTEST_CHECKLIST.md"
+  ],
+  "ledger_path": ".project/runs/20260714_coheronia_fq14_goal_panel.md",
+  "sensitivity": "public",
+  "overrides": [],
+  "created_at": "2026-07-14T12:35:00-04:00"
+}
