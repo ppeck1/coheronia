@@ -249,6 +249,8 @@ func _physics_process(delta: float) -> void:
 		try_place(world.cell_of(get_global_mouse_position()), selected_item())
 	if Input.is_action_just_pressed("craft"):
 		craft("craft_torch")
+	if Input.is_action_just_pressed("farm_action"):
+		try_farm(world.cell_of(get_global_mouse_position()))
 	queue_redraw()
 
 
@@ -361,6 +363,35 @@ func try_place(cell: Vector2i, block_id: String) -> bool:
 	placed.emit(block_id)
 	ActionFx.spawn(world, "place_pulse", world.cell_center(cell))
 	return true
+
+
+## FQ-12: context farming on one key (G). Targeting dirt/grass tills it into
+## farm_soil; targeting an air cell that sits on tilled soil plants a seed
+## (consuming one from the backpack). Returns true if something happened.
+func try_farm(cell: Vector2i) -> bool:
+	if not _in_reach(cell):
+		player_event.emit("That is out of reach.")
+		return false
+	var target: String = world.block_at(cell)
+	if target == "dirt" or target == "grass":
+		if world.till_soil(cell):
+			ActionFx.spawn(world, "dust_puff", world.cell_center(cell))
+			player_event.emit("Tilled the soil. Plant seeds (G) on it.")
+			return true
+		return false
+	if target == "air" and world.block_at(cell + Vector2i(0, 1)) == "farm_soil":
+		if inventory.count("crop_seeds") <= 0:
+			player_event.emit("No seeds to plant — craft some from food.")
+			return false
+		if world.plant_crop(cell):
+			inventory.remove("crop_seeds")
+			inventory_changed.emit()
+			ActionFx.spawn(world, "place_pulse", world.cell_center(cell))
+			player_event.emit("Planted a crop. Give it time to ripen, then harvest it.")
+			return true
+		return false
+	player_event.emit("Till dirt or grass first, then plant seeds on the tilled soil.")
+	return false
 
 
 ## FQ-03: stores a normalized character equipment dict (every slot present,

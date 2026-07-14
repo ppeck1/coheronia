@@ -238,6 +238,8 @@ func summary() -> Dictionary:
 		"population": town_hall.population,
 		"coherence": int(round(settlement.coherence)),
 		"damage": int(round(town_hall.damage)),
+		# FQ-12: simple food-yard score (tilled soil + crops) for future base levels.
+		"farm": world.farm_tile_count(),
 	}
 
 

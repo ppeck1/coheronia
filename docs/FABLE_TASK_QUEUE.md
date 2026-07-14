@@ -45,7 +45,7 @@ and outbox packets.
 | FQ-09U3 | P2 | Done | Music stingers, ducking, and audio settings | Event one-shots over brief ducking, volume settings, pause behavior, final asset validation. |
 | FQ-10 | P1 | Done | More ores and metallurgy data | Expands mining goals after the presentation-foundation sequence closes. |
 | FQ-11 | P1 | Done | Workbench, furnace, and anvil station chain | Makes ore useful through buildable progression stations. |
-| FQ-12 | P1 | Ready - next | Farming and food stability | Current bush support groundwork is ideal for plantable crops and settlement food pressure. |
+| FQ-12 | P1 | Done | Farming and food stability | Current bush support groundwork is ideal for plantable crops and settlement food pressure. |
 | FQ-13 | P2 | Ready after FQ-01 | Enemy variety and combat pressure | Add thornrat, ore tick, and raider torchbearer once health/combat rules are clearer. |
 | FQ-14 | P2 | Ready | Goal panel, tutorial prompts, and playtest checklist | Raises playability by telling players what to do next. |
 | FQ-15 | P2 | Ready after several systems | Map, scouting, and navigation | Larger worlds will need player orientation and exploration goals. |

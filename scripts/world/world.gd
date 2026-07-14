@@ -6,6 +6,11 @@ signal block_changed(cell: Vector2i, block_id: String)
 
 const BUSH_REGROW_SECONDS := 90.0
 const BUSH_RETRY_SECONDS := 10.0
+# FQ-12: a planted crop ripens after this many seconds; if it is not sitting on
+# tilled soil yet (e.g. player mid-edit) it waits this retry interval.
+const CROP_GROW_SECONDS := 60.0
+const CROP_RETRY_SECONDS := 5.0
+const CROP_IDS := ["crop_seedling", "crop_ripe"]
 
 var width := 240
 var height := 80
@@ -16,6 +21,7 @@ var deltas: Dictionary = {}         # Vector2i -> block_id ("air" = mined out)
 var surface: Dictionary = {}        # int x -> int y of surface
 var hall_info: Dictionary = {}
 var bush_regrow: Dictionary = {}    # Vector2i -> float seconds until regrowth
+var crop_growth: Dictionary = {}    # FQ-12: Vector2i -> float seconds until a seedling ripens
 
 var _tilemap: TileMapLayer
 var _source_ids: Dictionary = {}    # block_id -> Array of tileset source ids (FQ-09V: one per variant)
@@ -51,6 +57,9 @@ const BLOCK_COLORS := {
 	"torch": Color(1.0, 0.75, 0.25),
 	"lantern": Color(0.95, 0.90, 0.55),
 	"berry_bush": Color(0.20, 0.45, 0.18),
+	"farm_soil": Color(0.35, 0.24, 0.14),
+	"crop_seedling": Color(0.48, 0.65, 0.30),
+	"crop_ripe": Color(0.85, 0.72, 0.25),
 	"tree_trunk": Color(0.48, 0.35, 0.20),
 	"tree_leaves": Color(0.22, 0.44, 0.19),
 	"town_hall_core": Color(0.42, 0.30, 0.55),
@@ -77,6 +86,34 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_tick_bush_regrowth(delta)
+	_tick_crop_growth(delta)
+
+
+## FQ-12: ripens planted seedlings after their timer. A seedling only ripens on
+## tilled soil; if its support is gone it is removed (crops never float), and if
+## the cell was mined/replaced the timer is simply dropped — crops never regrow
+## into invalid cells.
+func _tick_crop_growth(delta: float) -> void:
+	for cell in crop_growth.keys():
+		crop_growth[cell] -= delta
+		if crop_growth[cell] > 0.0:
+			continue
+		if block_at(cell) != "crop_seedling":
+			crop_growth.erase(cell)
+		elif block_at(cell + Vector2i(0, 1)) == "farm_soil":
+			cells[cell] = "crop_ripe"
+			deltas[cell] = "crop_ripe"
+			_set_tile(cell, "crop_ripe")
+			block_changed.emit(cell, "crop_ripe")
+			crop_growth.erase(cell)
+		elif not _is_supported(cell):
+			cells.erase(cell)
+			deltas[cell] = "air"
+			_set_tile(cell, "air")
+			block_changed.emit(cell, "air")
+			crop_growth.erase(cell)
+		else:
+			crop_growth[cell] = CROP_RETRY_SECONDS
 
 
 func _tick_bush_regrowth(delta: float) -> void:
@@ -99,10 +136,12 @@ func _tick_bush_regrowth(delta: float) -> void:
 			bush_regrow[cell] = BUSH_RETRY_SECONDS
 
 
-func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionary = {}) -> void:
+func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionary = {},
+		saved_crop: Dictionary = {}) -> void:
 	world_seed = new_seed
 	deltas = saved_deltas.duplicate()
 	bush_regrow = saved_regrow.duplicate()
+	crop_growth = saved_crop.duplicate()
 	for cell in _lights.keys():
 		_lights[cell].queue_free()
 	_lights.clear()
@@ -127,13 +166,15 @@ func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionar
 		else:
 			cells[cell] = block_id
 	# Wave E: sweep for requires_support blocks that lost their support via deltas.
-	# No drops during load-time cleanup; just convert to scheduled regrowth.
+	# No drops during load-time cleanup. Berry bushes reschedule regrowth; FQ-12
+	# crops are simply removed (they never auto-regrow or float).
 	for sweep_cell in cells.keys():
 		var sbid: String = cells[sweep_cell]
 		if BlockRegistry.requires_support(sbid) and not _is_supported(sweep_cell):
 			cells.erase(sweep_cell)
 			deltas[sweep_cell] = "air"
-			if not bush_regrow.has(sweep_cell):
+			crop_growth.erase(sweep_cell)
+			if sbid == "berry_bush" and not bush_regrow.has(sweep_cell):
 				bush_regrow[sweep_cell] = BUSH_REGROW_SECONDS
 	_redraw_all()
 
@@ -205,6 +246,7 @@ func break_block(cell: Vector2i) -> Dictionary:
 	_set_tile(cell, "air")
 	if block_id == "berry_bush":
 		bush_regrow[cell] = BUSH_REGROW_SECONDS
+	crop_growth.erase(cell)   # FQ-12: harvesting/removing a crop clears its timer
 	block_changed.emit(cell, "air")
 	# Wave E: check the cell directly above; if it requires support it's now floating.
 	var above := Vector2i(cell.x, cell.y - 1)
@@ -214,7 +256,10 @@ func break_block(cell: Vector2i) -> Dictionary:
 		cells.erase(above)
 		deltas[above] = "air"
 		_set_tile(above, "air")
-		bush_regrow[above] = BUSH_REGROW_SECONDS
+		crop_growth.erase(above)
+		# Only berry bushes reschedule; FQ-12 crops just fall (no auto-regrow).
+		if above_id == "berry_bush":
+			bush_regrow[above] = BUSH_REGROW_SECONDS
 		block_changed.emit(above, "air")
 		for item_id in above_drops:
 			block_drops[item_id] = int(block_drops.get(item_id, 0)) + int(above_drops[item_id])
@@ -231,6 +276,45 @@ func place_block(cell: Vector2i, block_id: String) -> bool:
 	_set_tile(cell, block_id)
 	block_changed.emit(cell, block_id)
 	return true
+
+
+## FQ-12: tills a dirt/grass cell into farm_soil (a delta, saved). Returns true
+## on success. Only natural earth can be tilled — not stone, ore, or structures.
+func till_soil(cell: Vector2i) -> bool:
+	if block_at(cell) not in ["dirt", "grass"]:
+		return false
+	cells[cell] = "farm_soil"
+	deltas[cell] = "farm_soil"
+	_set_tile(cell, "farm_soil")
+	block_changed.emit(cell, "farm_soil")
+	return true
+
+
+## FQ-12: plants a seedling in an air cell sitting directly on tilled soil, and
+## schedules its growth. Returns false if the target is occupied or not on
+## farm_soil (so crops can never be planted floating).
+func plant_crop(cell: Vector2i) -> bool:
+	if block_at(cell) != "air":
+		return false
+	if block_at(cell + Vector2i(0, 1)) != "farm_soil":
+		return false
+	cells[cell] = "crop_seedling"
+	deltas[cell] = "crop_seedling"
+	_set_tile(cell, "crop_seedling")
+	crop_growth[cell] = CROP_GROW_SECONDS
+	block_changed.emit(cell, "crop_seedling")
+	return true
+
+
+## FQ-12: a simple food-yard score for future base levels — tilled soil plus any
+## growing/ripe crop cell.
+func farm_tile_count() -> int:
+	var count := 0
+	for cell in cells:
+		var id: String = cells[cell]
+		if id == "farm_soil" or id in CROP_IDS:
+			count += 1
+	return count
 
 
 func has_light_at(cell: Vector2i) -> bool:
@@ -485,6 +569,26 @@ func _make_block_texture(block_id: String, t: int) -> ImageTexture:
 		for y in range(t / 4, t / 2):
 			for x in range(t / 2 - 2, t / 2 + 2):
 				img.set_pixel(x, y, color)
+	elif block_id == "crop_seedling":
+		# FQ-12: a small green sprout in the lower half of the tile.
+		img.fill(Color(0, 0, 0, 0))
+		var stem := color.darkened(0.15)
+		for y in range(t / 2, t):
+			img.set_pixel(t / 2, y, stem)
+			img.set_pixel(t / 2 - 1, y, stem)
+		for leaf in [Vector2i(t / 2 - 3, t / 2 + 1), Vector2i(t / 2 + 2, t / 2 + 1),
+				Vector2i(t / 2 - 2, t / 2 + 3), Vector2i(t / 2 + 1, t / 2 + 3)]:
+			img.set_pixel(leaf.x, leaf.y, color)
+	elif block_id == "crop_ripe":
+		# FQ-12: taller golden stalks with grain heads — visibly ready to harvest.
+		img.fill(Color(0, 0, 0, 0))
+		var stalk := Color(0.55, 0.45, 0.18)
+		for sx in [t / 2 - 3, t / 2, t / 2 + 3]:
+			for y in range(3, t):
+				img.set_pixel(sx, y, stalk)
+			for hy in range(3, 8):
+				img.set_pixel(sx - 1, hy, color)
+				img.set_pixel(sx + 1, hy, color)
 	else:
 		img.fill(color)
 		# Slight edge shading for tile readability.
@@ -534,6 +638,23 @@ func serialize_bush_regrow() -> Dictionary:
 
 
 static func parse_bush_regrow(raw: Dictionary) -> Dictionary:
+	var out := {}
+	for key in raw:
+		var parts: PackedStringArray = str(key).split(",")
+		if parts.size() == 2:
+			out[Vector2i(int(parts[0]), int(parts[1]))] = float(raw[key])
+	return out
+
+
+## FQ-12: crop growth timers persist exactly like bush regrowth.
+func serialize_crop_growth() -> Dictionary:
+	var out := {}
+	for cell in crop_growth:
+		out["%d,%d" % [cell.x, cell.y]] = crop_growth[cell]
+	return out
+
+
+static func parse_crop_growth(raw: Dictionary) -> Dictionary:
 	var out := {}
 	for key in raw:
 		var parts: PackedStringArray = str(key).split(",")

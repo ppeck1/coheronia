@@ -202,6 +202,58 @@
         "progression"
       ]
     },
+    "farm_soil": {
+      "display_name": "Tilled Soil",
+      "hardness": 0.35,
+      "required_tool_tier": 0,
+      "drops": {
+        "dirt": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "settlement_tags": [
+        "farmland"
+      ]
+    },
+    "crop_seedling": {
+      "display_name": "Sprouting Crop",
+      "hardness": 0.1,
+      "required_tool_tier": 0,
+      "drops": {
+        "crop_seeds": 1
+      },
+      "is_placeable": false,
+      "is_solid": false,
+      "blocks_light": false,
+      "emits_light": false,
+      "light_radius": 0,
+      "requires_support": true,
+      "settlement_tags": [
+        "crop"
+      ]
+    },
+    "crop_ripe": {
+      "display_name": "Ripe Crop",
+      "hardness": 0.1,
+      "required_tool_tier": 0,
+      "drops": {
+        "food": 3,
+        "crop_seeds": 1
+      },
+      "is_placeable": false,
+      "is_solid": false,
+      "blocks_light": false,
+      "emits_light": false,
+      "light_radius": 0,
+      "requires_support": true,
+      "settlement_tags": [
+        "crop",
+        "food_source"
+      ]
+    },
     "tree_trunk": {
       "display_name": "Tree Trunk",
       "hardness": 0.55,

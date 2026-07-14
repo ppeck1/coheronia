@@ -446,6 +446,25 @@ if int(items["sword_iron"]["effects"].get("attack_damage", 0)) \
     fail("equipment.json sword_iron must hit harder than sword_crude")
 print("PASS station chain and metal gate")
 
+# FQ-12: farming — tilled soil, crops, and the seed bootstrap.
+for farm_block in ["farm_soil", "crop_seedling", "crop_ripe"]:
+    if farm_block not in blocks:
+        fail(f"blocks.json missing farm block: {farm_block}")
+if int(blocks["crop_ripe"].get("drops", {}).get("food", 0)) < 1:
+    fail("blocks.json crop_ripe must drop food")
+for crop in ["crop_seedling", "crop_ripe"]:
+    if not blocks[crop].get("requires_support", False):
+        fail(f"blocks.json {crop} must require_support so crops cannot float")
+    if blocks[crop].get("is_solid", True):
+        fail(f"blocks.json {crop} must be non-solid (walk-through crop)")
+    if blocks[crop].get("is_placeable", True):
+        fail(f"blocks.json {crop} must not be hotbar-placeable (planted via farming)")
+if blocks["farm_soil"].get("is_placeable", True):
+    fail("blocks.json farm_soil must not be hotbar-placeable (created by tilling)")
+if "craft_seeds" not in recipe_ids:
+    fail("recipes.json missing craft_seeds recipe")
+print("PASS farming blocks and seeds")
+
 # FQ-07: visual asset surface — explicit references must exist (a broken
 # mapping is a data bug); convention-path gaps are informational only, art
 # arrives one asset at a time and missing images always fall back safely.

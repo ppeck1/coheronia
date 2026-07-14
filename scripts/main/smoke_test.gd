@@ -1458,6 +1458,84 @@ func _run() -> void:
 	player.equip_item("feet", "")
 	player.health = player.max_health
 
+	# --- FQ-12: farming (till, plant, grow, harvest, no-float, save/load) ---
+	var _fq12_soil := Vector2i(40, 40)
+	var _fq12_crop := Vector2i(40, 39)
+	var _fq12_stone := Vector2i(42, 40)
+	var _fq12_float := Vector2i(42, 39)
+	world.cells[_fq12_soil] = "dirt"; world.deltas[_fq12_soil] = "dirt"
+	world.cells[_fq12_stone] = "stone"; world.deltas[_fq12_stone] = "stone"
+	world.cells.erase(_fq12_crop); world.deltas[_fq12_crop] = "air"
+	world.cells.erase(_fq12_float); world.deltas[_fq12_float] = "air"
+	world.crop_growth.clear()
+
+	# (a) till: dirt -> farm_soil; stone cannot be tilled.
+	var _fq12_till: bool = world.till_soil(_fq12_soil)
+	var _fq12_till_stone: bool = world.till_soil(_fq12_stone)
+	_check("fq12_till_soil",
+		_fq12_till and world.block_at(_fq12_soil) == "farm_soil"
+		and not _fq12_till_stone and world.block_at(_fq12_stone) == "stone",
+		"tilled=%s now=%s stone_tillable=%s" % [str(_fq12_till),
+			world.block_at(_fq12_soil), str(_fq12_till_stone)])
+
+	# (b) planting needs tilled soil directly below — crops never float.
+	var _fq12_plant_float: bool = world.plant_crop(_fq12_float)   # below is stone
+	var _fq12_plant: bool = world.plant_crop(_fq12_crop)          # below is farm_soil
+	_check("fq12_plant_on_soil_only",
+		_fq12_plant and world.block_at(_fq12_crop) == "crop_seedling"
+		and world.crop_growth.has(_fq12_crop) and not _fq12_plant_float
+		and world.block_at(_fq12_float) == "air",
+		"planted=%s floating_allowed=%s" % [str(_fq12_plant), str(_fq12_plant_float)])
+
+	# (c) a seedling on tilled soil ripens once its timer elapses.
+	world.crop_growth[_fq12_crop] = 0.01
+	world._tick_crop_growth(0.02)
+	_check("fq12_crop_ripens",
+		world.block_at(_fq12_crop) == "crop_ripe"
+		and not world.crop_growth.has(_fq12_crop),
+		"crop=%s" % world.block_at(_fq12_crop))
+
+	# (d) harvest: breaking the ripe crop yields food + a seed.
+	var _fq12_drops: Dictionary = world.break_block(_fq12_crop)
+	_check("fq12_harvest_yields_food",
+		int(_fq12_drops.get("food", 0)) >= 1
+		and int(_fq12_drops.get("crop_seeds", 0)) >= 1
+		and world.block_at(_fq12_crop) == "air",
+		"drops=%s" % str(_fq12_drops))
+
+	# (e) no float / no wrong regrow: removing the tilled soil under a seedling
+	# removes the crop — it never floats and never becomes a berry bush.
+	world.plant_crop(_fq12_crop)
+	world.break_block(_fq12_soil)
+	world._tick_crop_growth(0.0)
+	_check("fq12_no_float_no_regrow",
+		world.block_at(_fq12_crop) == "air"
+		and not world.crop_growth.has(_fq12_crop)
+		and not world.bush_regrow.has(_fq12_crop),
+		"crop=%s in_bush_regrow=%s" % [world.block_at(_fq12_crop),
+			str(world.bush_regrow.has(_fq12_crop))])
+
+	# (f) crops + their growth timers round-trip through save/load.
+	world.cells[_fq12_soil] = "dirt"; world.deltas[_fq12_soil] = "dirt"
+	world.till_soil(_fq12_soil)
+	world.cells.erase(_fq12_crop); world.deltas[_fq12_crop] = "air"
+	world.plant_crop(_fq12_crop)
+	world.crop_growth[_fq12_crop] = 42.0
+	root.save_manager.save_game()
+	world.crop_growth.clear()
+	root.load_game()
+	_check("fq12_crop_saves",
+		world.block_at(_fq12_crop) == "crop_seedling"
+		and world.crop_growth.has(_fq12_crop),
+		"crop=%s timer_restored=%s" % [world.block_at(_fq12_crop),
+			str(world.crop_growth.has(_fq12_crop))])
+
+	# (g) the food-yard score counts tilled soil + crops and is exposed to UI.
+	var _fq12_farm: int = world.farm_tile_count()
+	_check("fq12_farm_score",
+		_fq12_farm >= 2 and "farm" in root.summary(),
+		"farm_tiles=%d summary_has_farm=%s" % [_fq12_farm, str("farm" in root.summary())])
+
 	# --- FQ-05: attunement resource, hooks, pulse, save/load ---
 
 	# (a) data-driven defaults: base max 50, current within bounds.

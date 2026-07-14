@@ -30,6 +30,7 @@ func collect_state() -> Dictionary:
 		"time": game_root.time_state(),
 		"threats": game_root.serialize_threats(),
 		"bush_regrow": world.serialize_bush_regrow(),
+		"crop_growth": world.serialize_crop_growth(),
 		"progression": game_root.progression_state(),
 	}
 
@@ -84,7 +85,8 @@ func apply_state(state: Dictionary) -> bool:
 
 	world.setup(int(state.get("world_seed", 0)),
 		world.parse_deltas(state.get("terrain_deltas", {})),
-		world.parse_bush_regrow(state.get("bush_regrow", {})))
+		world.parse_bush_regrow(state.get("bush_regrow", {})),
+		world.parse_crop_growth(state.get("crop_growth", {})))
 
 	var p: Dictionary = state.get("player", {})
 	player.health = float(p.get("health", 100.0))

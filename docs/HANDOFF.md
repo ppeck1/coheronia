@@ -568,7 +568,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks, the FQ-09W backgrounds/back_walls categories, the FQ-09U3 stinger OGGs, and the Codex art contracts (Town Hall structure/core, surface sky, backdrop strips, player-visual bodies/rigs/collision) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 269/269 | waited Windows Godot process wrote `smoke_results.json` (… -> 257 FQ-09U3 + Codex art integration -> 262 FQ-10 ore families -> 269 FQ-11 station chain) |
+| Automated smoke | PASS 276/276 | waited Windows Godot process wrote `smoke_results.json` (… -> 257 FQ-09U3 + Codex art integration -> 262 FQ-10 ore families -> 269 FQ-11 station chain -> 276 FQ-12 farming) |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls) |
 
@@ -623,12 +623,17 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
 increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, FQ-09W,
-FQ-09A, FQ-09U0, FQ-09M, FQ-09U1, FQ-09U2, FQ-09U3, FQ-10, and **FQ-11** are
-complete — the full adaptive-music arc plays live, the Codex art integration
-landed, the underground carries six depth-banded ore families, and those
-ores now feed a workbench/furnace/anvil station chain (smelt ingots, alloy
-bronze, forge iron gear). The queue head is now **FQ-12** (farming and food
-stability — plantable crops on the `requires_support` groundwork). Art
+FQ-09A, FQ-09U0, FQ-09M, FQ-09U1, FQ-09U2, FQ-09U3, FQ-10, FQ-11, and
+**FQ-12** are complete — the full adaptive-music arc plays live, the Codex art
+integration landed, the underground carries six depth-banded ore families,
+those ores feed a workbench/furnace/anvil station chain (smelt ingots, alloy
+bronze, forge iron gear), and farming now closes a reliable food loop: press
+`G` to till dirt/grass into `farm_soil`, plant `crop_seeds` (crafted from food)
+on it, wait for the seedling to ripen, then harvest the ripe crop for food +
+a seed. Crops require support (never float), never auto-regrow like berry
+bushes, and their growth timers persist through save/load; `farm_tile_count()`
+feeds a food-yard score exposed in `game_root.summary()`. The queue head is
+now **FQ-13** (enemy variety and combat pressure). Art
 production continues in parallel via
 `docs/ASSET_ROADMAP.md` — the recommended sprite backlog (player gear
 overlays, remaining equipment icons, opening cels) is in
