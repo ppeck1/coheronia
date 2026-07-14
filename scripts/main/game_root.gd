@@ -13,6 +13,7 @@ const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
 const ProgressionRegistryClass := preload("res://scripts/data/progression_registry.gd")
 const AncestryRegistryClass := preload("res://scripts/data/ancestry_registry.gd")
 const GoalTrackerScript := preload("res://scripts/main/goal_tracker.gd")
+const MapStateScript := preload("res://scripts/world/map_state.gd")
 
 const DAY_LENGTH_SECONDS := 100.0
 const NIGHT_START := 0.65          # time_of_day fraction where night begins
@@ -63,6 +64,9 @@ var _cave_spawn_timer := 0.0
 var _goal_tracker = null
 var _goals_initialized := false
 var _last_light_score := 0.0
+# FQ-15: discovered-region tracker for the map panel + open-map refresh throttle.
+var _map_state = null
+var _map_refresh_timer := 0.0
 
 var _progression_registry = null    # ProgressionRegistryClass instance
 var _ancestry_registry = null       # AncestryRegistryClass instance
@@ -86,6 +90,7 @@ func _ready() -> void:
 	_progression_registry = ProgressionRegistryClass.new()
 	_ancestry_registry = AncestryRegistryClass.new()
 	_goal_tracker = GoalTrackerScript.new()
+	_map_state = MapStateScript.new()
 	# Initialise XP totals to 0.0 (float) for every known type.
 	for t: Dictionary in _progression_registry.xp_types():
 		xp_totals[str(t.get("id", ""))] = 0.0
@@ -287,6 +292,79 @@ func _refresh_goals() -> void:
 			log_event("All starting goals complete — the settlement stands.")
 
 
+## FQ-15: everything the map panel needs, computed on demand (when the panel is
+## open) so exploring costs nothing. Ore/threat markers are limited to revealed
+## bands — the map only shows what has been scouted.
+func map_snapshot() -> Dictionary:
+	var hall: Vector2i = world.hall_info.get("center_cell", Vector2i(world.width / 2, 0))
+	return {
+		"width": world.width,
+		"height": world.height,
+		"region": MapStateScript.REGION,
+		"hall": hall,
+		"player": world.cell_of(player.global_position),
+		"revealed": _map_state.revealed_regions() if _map_state != null else [],
+		"ore": _discovered_ore_markers(),
+		"threats": _revealed_threat_cells(),
+	}
+
+
+## One ore marker per revealed band that actually contains an ore-family block —
+## a coarse "there is ore near here" hint, never an X-ray of the whole map.
+func _discovered_ore_markers() -> Array:
+	var markers: Array = []
+	if _map_state == null:
+		return markers
+	var region: int = MapStateScript.REGION
+	for reg in _map_state.revealed_regions():
+		var found := false
+		for dy in range(region):
+			if found:
+				break
+			for dx in range(region):
+				var cell := Vector2i(reg.x * region + dx, reg.y * region + dy)
+				if world.block_at(cell) in world.ORE_IDS:
+					markers.append(cell)
+					found = true
+					break
+	return markers
+
+
+## Live threats that sit in a revealed band (enemy pressure "if known").
+func _revealed_threat_cells() -> Array:
+	var cells: Array = []
+	for t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(t) and not t.is_queued_for_deletion():
+			var cell: Vector2i = world.cell_of(t.global_position)
+			if _map_state != null and _map_state.cell_revealed(cell):
+				cells.append(cell)
+	return cells
+
+
+## FQ-15: the scouting hook for exploration perks. The explorer lane's
+## "biome_reveal" perk (effect_key `map_discovery_speed`) widens the band the
+## player scouts each step; future exploration perks plug in here the same way.
+func _scout_reveal_radius() -> int:
+	if _progression_registry != null:
+		for pid in purchased_perks:
+			var perk: Dictionary = _progression_registry.get_perk(str(pid))
+			if str(perk.get("effect_key", "")) == "map_discovery_speed" \
+					and float(perk.get("effect_value", 1.0)) > 1.0:
+				return 2
+	return 1
+
+
+## FQ-15: compact discovered-band list for the world save.
+func map_revealed_serialized() -> Array:
+	return _map_state.serialize() if _map_state != null else []
+
+
+func apply_map_revealed(data) -> void:
+	if _map_state == null:
+		_map_state = MapStateScript.new()
+	_map_state._revealed = MapStateScript.parse(data)
+
+
 func _wire_references() -> void:
 	player.world = world
 	settlement.world = world
@@ -356,6 +434,19 @@ func _process(delta: float) -> void:
 	if _depth_check_timer >= _DEPTH_CHECK_INTERVAL:
 		_depth_check_timer = 0.0
 		_check_depth_xp()
+	# FQ-15: reveal the map band around the player as they explore, and drive the
+	# map panel (open on toggle_map, then refresh a few times a second while open).
+	if _map_state != null:
+		_map_state.reveal_around(world.cell_of(player.global_position), _scout_reveal_radius())
+	if Input.is_action_just_pressed("toggle_map"):
+		if hud.toggle_map():
+			_map_refresh_timer = 0.0
+			hud.update_map(map_snapshot())
+	if hud.map_open():
+		_map_refresh_timer += delta
+		if _map_refresh_timer >= 0.3:
+			_map_refresh_timer = 0.0
+			hud.update_map(map_snapshot())
 
 
 func _unhandled_input(event: InputEvent) -> void:

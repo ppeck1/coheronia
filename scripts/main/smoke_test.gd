@@ -879,6 +879,67 @@ func _run() -> void:
 		"survive_day2=%s shown=%s hidden=%s" % [
 			str(_g14_survive), str(_g14_shown), str(_g14_hidden)])
 
+	# --- FQ-15: map / scouting / navigation ---
+	# pure map_state: revealing a cell marks its 3x3 band, not the far world, and
+	# the compact save form round-trips.
+	var _m15_script = preload("res://scripts/world/map_state.gd")
+	var _m15 = _m15_script.new()
+	var _m15_newly: bool = _m15.reveal_around(Vector2i(50, 30), 1)
+	var _m15_ser: Array = _m15.serialize()
+	var _m15_round = _m15_script.parse(_m15_ser)
+	_check("fq15_reveal_bands",
+		_m15_newly and _m15.revealed_count() == 9
+		and _m15.cell_revealed(Vector2i(50, 30))
+		and not _m15.cell_revealed(Vector2i(200, 30))
+		and _m15_round.size() == 9,
+		"count=%d here=%s far=%s round=%d" % [_m15.revealed_count(),
+			str(_m15.cell_revealed(Vector2i(50, 30))),
+			str(_m15.cell_revealed(Vector2i(200, 30))), _m15_round.size()])
+
+	# game_root snapshot: has all fields, and the hall/player markers are real
+	# cells; revealing under the player exposes them on the map.
+	root._map_state.reveal_around(world.cell_of(player.global_position), 1)
+	var _m15_snap: Dictionary = root.map_snapshot()
+	var _m15_hall: Vector2i = world.hall_info.get("center_cell", Vector2i(-1, -1))
+	_check("fq15_map_snapshot_markers",
+		_m15_snap.has("width") and _m15_snap.has("height") and _m15_snap.has("region")
+		and _m15_snap.has("revealed") and _m15_snap.has("ore") and _m15_snap.has("threats")
+		and _m15_snap.get("hall") == _m15_hall
+		and int(_m15_snap.get("width", 0)) == world.width,
+		"hall=%s width=%d revealed=%d" % [str(_m15_snap.get("hall")),
+			int(_m15_snap.get("width", 0)), (_m15_snap.get("revealed") as Array).size()])
+
+	# discovered bands persist: the compact list round-trips through game_root.
+	root._map_state.clear()
+	root._map_state.reveal_around(Vector2i(100, 20), 1)
+	var _m15_g_ser: Array = root.map_revealed_serialized()
+	root._map_state.clear()
+	root.apply_map_revealed(_m15_g_ser)
+	_check("fq15_map_persists",
+		root._map_state.revealed_count() == 9
+		and root._map_state.cell_revealed(Vector2i(100, 20)),
+		"restored=%d has_cell=%s" % [root._map_state.revealed_count(),
+			str(root._map_state.cell_revealed(Vector2i(100, 20)))])
+
+	# the map panel opens/closes, and the biome_reveal perk widens the scouted
+	# band (the scouting hook for exploration perks).
+	var _m15_open0: bool = hud.map_open()
+	var _m15_toggled: bool = hud.toggle_map()
+	var _m15_open1: bool = hud.map_open()
+	hud.toggle_map()
+	var _m15_had_perk: bool = "biome_reveal" in root.purchased_perks
+	if _m15_had_perk:
+		root.purchased_perks.erase("biome_reveal")
+	var _m15_r0: int = root._scout_reveal_radius()
+	root.purchased_perks.append("biome_reveal")
+	var _m15_r1: int = root._scout_reveal_radius()
+	if not _m15_had_perk:
+		root.purchased_perks.erase("biome_reveal")
+	_check("fq15_map_toggle_and_scout_hook",
+		not _m15_open0 and _m15_toggled and _m15_open1 and not hud.map_open()
+		and _m15_r0 == 1 and _m15_r1 == 2,
+		"toggle=%s->%s r0=%d r1=%d" % [str(_m15_open0), str(_m15_open1), _m15_r0, _m15_r1])
+
 	# --- Progression MVP: XP, player level, base levels, population cap ---
 
 	# Fix 16: use root's shared registry instance.

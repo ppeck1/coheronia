@@ -58,6 +58,10 @@ var _inv_content: Label
 # FQ-06: skill tree panel (K); preloaded script, no class_name (cache-safe).
 const SkillTreePanelScript := preload("res://scripts/ui/skill_tree_panel.gd")
 var _skill_panel: PanelContainer
+# FQ-15: map/minimap panel (M); hidden until opened, fed a snapshot by game_root.
+const MapPanelScript := preload("res://scripts/ui/map_panel.gd")
+var _map_panel: Control
+var _map_open := false
 # FQ-07/FQ-09: toolbelt slot tiles — always-visible item icons (real art or
 # the FQ-07 fallback swatch), per-slot counts, and a selected-slot highlight.
 var _hotbar_icons: Array[TextureRect] = []
@@ -84,6 +88,7 @@ func _ready() -> void:
 	_skill_panel = SkillTreePanelScript.new()
 	add_child(_skill_panel)
 	_build_goal_panel()
+	_build_map_panel()
 	_build_debug_overlay()
 
 
@@ -171,6 +176,37 @@ func goal_panel_visible() -> bool:
 	return _goal_panel != null and _goal_panel.visible
 
 
+## FQ-15: a centered, hidden-by-default schematic map panel.
+func _build_map_panel() -> void:
+	_map_panel = MapPanelScript.new()
+	_map_panel.custom_minimum_size = Vector2(460, 210)
+	_map_panel.size = Vector2(460, 210)
+	_map_panel.anchor_left = 0.5
+	_map_panel.anchor_top = 0.5
+	_map_panel.offset_left = -230.0
+	_map_panel.offset_top = -105.0
+	_map_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_panel.visible = false
+	add_child(_map_panel)
+
+
+## FQ-15: flip the map panel; returns the new visibility so game_root can decide
+## whether to push a fresh snapshot.
+func toggle_map() -> bool:
+	_map_open = not _map_open
+	_map_panel.visible = _map_open
+	return _map_open
+
+
+func update_map(snapshot: Dictionary) -> void:
+	if _map_panel != null:
+		_map_panel.set_snapshot(snapshot)
+
+
+func map_open() -> bool:
+	return _map_open and _map_panel != null and _map_panel.visible
+
+
 func _build_bottom_left() -> void:
 	var box := VBoxContainer.new()
 	box.anchor_top = 1.0
@@ -211,7 +247,7 @@ func _build_bottom_left() -> void:
 		_hotbar_icons.append(icon)
 		_hotbar_counts.append(count)
 	_hotbar_label = _label(box, "")
-	_label(box, "LMB mine · RMB place · E town hall · C craft torch · O goals · F5 save · F9 load")
+	_label(box, "LMB mine · RMB place · E town hall · C craft · O goals · M map · F5 save · F9 load")
 	_save_label = _label(box, "No save yet — press F5 to save.")
 
 

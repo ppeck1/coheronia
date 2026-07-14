@@ -31,6 +31,7 @@ func collect_state() -> Dictionary:
 		"threats": game_root.serialize_threats(),
 		"bush_regrow": world.serialize_bush_regrow(),
 		"crop_growth": world.serialize_crop_growth(),
+		"map_revealed": game_root.map_revealed_serialized(),
 		"progression": game_root.progression_state(),
 	}
 
@@ -87,6 +88,9 @@ func apply_state(state: Dictionary) -> bool:
 		world.parse_deltas(state.get("terrain_deltas", {})),
 		world.parse_bush_regrow(state.get("bush_regrow", {})),
 		world.parse_crop_growth(state.get("crop_growth", {})))
+
+	# FQ-15: restore the discovered map bands (compact, presentation/nav only).
+	game_root.apply_map_revealed(state.get("map_revealed", []))
 
 	var p: Dictionary = state.get("player", {})
 	player.health = float(p.get("health", 100.0))

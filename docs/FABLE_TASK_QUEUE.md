@@ -53,7 +53,7 @@ and outbox packets.
 | FQ-13P3 | P2 | Done | Player full-body cosmetic pool | Character-owned `visual_variant` (never world-saved); `player_visual` variant selection; demo `human` pool; creation "Look" control. |
 | FQ-13P4 | P2 | Done | Opening/block variation follow-through | Opening variant-vs-animation-frame distinction (`frame_semantics`); item-icon stability; audit animation-aware. Closes the FQ-13P arc. |
 | FQ-14 | P2 | Done | Goal panel, tutorial prompts, and playtest checklist | State-driven current-goal panel (prefix-latching), toggle_goals (O), docs/PLAYTEST_CHECKLIST.md. |
-| FQ-15 | P2 | Ready after several systems | Map, scouting, and navigation | Larger worlds will need player orientation and exploration goals. |
+| FQ-15 | P2 | Done | Map, scouting, and navigation | Schematic map panel (M), discovered bands persisted, hall/player/ore/threat markers, biome_reveal scouting hook. |
 
 ## FQ-00 - v0.6.1 Closeout Repair
 
@@ -942,7 +942,7 @@ Acceptance:
 - Prompts can be hidden or are unobtrusive.
 - Operator can play the first loop without reading the handoff doc.
 
-## FQ-15 - Map, Scouting, And Navigation
+## FQ-15 - Map, Scouting, And Navigation  [DONE]
 
 Goal: prepare larger worlds for exploration.
 

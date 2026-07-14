@@ -568,7 +568,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks, the FQ-09W backgrounds/back_walls categories, the FQ-09U3 stinger OGGs, and the Codex art contracts (Town Hall structure/core, surface sky, backdrop strips, player-visual bodies/rigs/collision) |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 302/302 | waited Windows Godot process wrote `smoke_results.json` (… -> 291 FQ-13P2 UI placeholders -> 296 FQ-13P3 player cosmetics -> 298 FQ-13P4 frame semantics -> 302 FQ-14 goal panel) |
+| Automated smoke | PASS 306/306 | waited Windows Godot process wrote `smoke_results.json` (… -> 296 FQ-13P3 player cosmetics -> 298 FQ-13P4 frame semantics -> 302 FQ-14 goal panel -> 306 FQ-15 map/scouting) |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls) |
 
@@ -624,7 +624,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
 increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, FQ-09W,
 FQ-09A, FQ-09U0, FQ-09M, FQ-09U1, FQ-09U2, FQ-09U3, FQ-10, FQ-11, FQ-12,
-FQ-13, the **FQ-13P** visual-consolidation arc (P0–P4), and **FQ-14** are
+FQ-13, the **FQ-13P** visual-consolidation arc (P0–P4), FQ-14, and **FQ-15** are
 complete — the full adaptive-music arc plays live, the underground carries six
 depth-banded ore families that feed a workbench/furnace/anvil station chain,
 farming closes a reliable food loop, three new live enemies add distinct combat
@@ -638,8 +638,17 @@ gather → light the hall → deposit → forge a tool/build a station → survi
 night, latching prefix-monotonically from real state (`goal_tracker.gd` +
 `game_root._goal_snapshot`), so it never regresses and re-derives the right step
 after a reload without any saved tutorial flag. The operator playtest pass is
-`docs/PLAYTEST_CHECKLIST.md`. The queue head is now **FQ-15** (map, scouting,
-and navigation). Art production continues in parallel via
+`docs/PLAYTEST_CHECKLIST.md`. **FQ-15** adds a scoutable map: a schematic panel
+(**M**) that reveals the world band by band *as the player explores* (never
+X-rayed), marking the Town Hall, player, ore pockets, and live enemy pressure
+inside scouted bands only; discovered regions persist compactly in the world
+save (`map_state.gd` + `save_manager`), and the explorer `biome_reveal` perk
+(`map_discovery_speed`) widens each step's scouted band — the scouting hook for
+future exploration perks. The queue no longer has a strict head; the next moves
+are the big-ticket playability items in `docs/FABLE_TASK_QUEUE.md` (pause/
+settings/keybinds, save-slot management, build-preview tint, a quest/contracts
+layer on the goal system, a subject/NPC labor MVP). Art production continues in
+parallel via
 `docs/ASSET_ROADMAP.md` — the recommended sprite backlog (player gear
 overlays, remaining equipment icons, opening cels) is in
 `docs/HANDOFF_ART_INTEGRATION_2026-07-12.md`.
