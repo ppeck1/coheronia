@@ -6,13 +6,13 @@ Dig, build, and light a frontier settlement Terraria-style — then keep it aliv
 
 ![Daytime settlement with the Town Hall, torch line, and live HUD](docs/screenshots/01_settlement_day.png)
 
-`Godot 4.6 · GDScript · data-driven design · 257-check self-verifying test suite · adaptive music · image-first art pipeline`
+`Godot 4.6 · GDScript · data-driven design · 283-check self-verifying test suite · adaptive music · image-first art pipeline`
 
 ## What it is
 
 Coheronia sits between a survival sandbox and a civilization pressure sim. Minute to minute you mine tunnels, roof the hall, place torches, and haul food home. The settlement model turns those physical acts into three live pressures — **Coherence, Load, and Resilience** — computed from real world state (shelter blocks, light sources, stockpile, threats), never faked. A coherent, fed, lit settlement attracts settlers and ratchets from Camp to Hamlet to Village; a neglected one starves, empties, and cracks under night raids and storms.
 
-It is also a **portfolio project in AI-orchestrated software engineering**: every increment was planned from a task queue, implemented, reviewed by an independent agent pass, verified by an automated in-engine test suite that has grown from 62 to 257 checks, and shipped with a signed evidence ledger. The full audit trail lives in this repo.
+It is also a **portfolio project in AI-orchestrated software engineering**: every increment was planned from a task queue, implemented, reviewed by an independent agent pass, verified by an automated in-engine test suite that has grown from 62 to 283 checks, and shipped with a signed evidence ledger. The full audit trail lives in this repo.
 
 ## Screenshots
 
@@ -29,8 +29,8 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 
 - **Persistent shell** — characters and worlds are separate persistent objects. Characters own their backpack, hotbar, tools, and 12 gear slots and carry them between worlds; each world file owns its terrain history, settlement, threats, and progression.
 - **Deterministic, configurable world generation** — seed + settings always produce the same world: terrain amplitude/frequency, ore/tree/bush density on independent seed channels, three world sizes, and unified leafy trees the player walks in front of and harvests for wood, so the surface stays walkable.
-- **Survival loop with teeth** — hardness-timed mining with crack-stage feedback, tool tiers (forged pick, axe, crude sword and armor with flat mitigation), berry bushes that need soil and regrow, food, health, i-frames, collapse penalties, and passive recovery near the hall.
-- **A settlement that reacts** — day/night cycle, night threats scaled by six difficulty axes, raiders drawn to fat stockpiles, cave crawlers underground, storms mitigated by real roof coverage, population 1–8 that eats, leaves, and arrives based on computed Coherence.
+- **Survival loop with teeth** — hardness-timed mining with crack-stage feedback, tool tiers (forged pick, axe, crude sword and armor with flat mitigation), a metallurgy chain that smelts depth-banded ores into ingots at the furnace and forges iron gear at the anvil, berry bushes that need soil and regrow, plantable farming (till soil, sow seeds, ripen, harvest food) as a reliable food path, food, health, i-frames, collapse penalties, and passive recovery near the hall.
+- **A settlement that reacts** — day/night cycle, night threats scaled by six difficulty axes, raiders drawn to fat stockpiles (plus torchbearers that burn the hall faster), crop-eating thornrats that pressure your farms and ore ticks that cling to the veins, cave crawlers underground, storms mitigated by real roof coverage, population 1–8 that eats, leaves, and arrives based on computed Coherence.
 - **A world with depth** — a parallax scenic backdrop behind everything, natural backing walls revealed by mining (deterministic from the seed, provably unable to affect collision or lighting), and roof-aware cave darkness at any hour: dig deep and the daylight stays behind you unless you open a shaft to the sky, while your torches hold the dark off locally.
 - **An adaptive score** — one original suite composed as a single piece in four states (day, night, underground, crisis) plus six phase-locked stems, switching seamlessly at the next musical bar from real game state: pressure builds it toward crisis with hysteresis so the music never thrashes, the hearth harmony swells with settlement Coherence, the work pulse follows your pick, the fracture layer wakes only at the collapse edge — and it all crossfades home when the settlement holds. Event stingers (dawn, nightfall, raid, attunement, base advance) ring out over a brief music-bus duck without ever stopping the score, Music/Sound sliders on the title screen set the runtime buses, and the whole director keeps breathing through pause. Native Godot `AudioStreamInteractive` + `AudioStreamSynchronized` — no middleware.
 - **Progression stack** — six XP types feed player levels; levels grant perk points spent in a visual skill tree; base levels gate population; Attunement (the magic resource) regenerates and powers a first light-pulse ability, with ancestry/equipment/perk hooks already live.
@@ -85,7 +85,7 @@ terrain history, settlement, and progression. Persistence lives in
 
 This repo doubles as an experiment in disciplined AI-driven development:
 
-- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 257 checks: mining frame counts, save/load round-trips, legacy-save migrations, UI panel contents, a player physically walking past a tree, armor math to the decimal, a next-bar music crossfade actually reaching the requested clip, a game event firing its stinger. Every feature lands with new checks; the suite has never been allowed to stay red.
+- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 283 checks: mining frame counts, save/load round-trips, legacy-save migrations, UI panel contents, a player physically walking past a tree, armor math to the decimal, a next-bar music crossfade actually reaching the requested clip, a game event firing its stinger. Every feature lands with new checks; the suite has never been allowed to stay red.
 - **Evidence over claims.** Every increment ships with a run ledger in [`.project/runs/`](.project/runs/) recording scope, decisions, review findings and their resolutions, and validation output — plus machine-readable packets in `.project/atlas_outbox/` and `.project/boh_outbox/`.
 - **Independent review loop.** Each change was reviewed by a separate agent pass before commit; findings (from save-corruption edge cases to invisible-tint rendering bugs) are documented and fixed in the ledgers.
 - **Task queue discipline.** Work follows [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) one bounded increment at a time — FQ-00 through FQ-09 plus the FQ-09R/S/V/C/W/A/M and U0–U3 refinements (skill-tree star map, variant art pools, the opening cinematic, backdrops and cave darkness, the asset roadmap, action effects, and the full adaptive-music arc) on top of the v0.1–v0.6 foundation, each documented in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md).
@@ -113,7 +113,7 @@ Or open the folder in the Godot editor and press Play.
 | Save / Load | F5 / F9 |
 | Save & exit to shell | Esc |
 
-**Verify the build** (validators + the 257-check in-engine suite):
+**Verify the build** (validators + the 283-check in-engine suite):
 
 ```powershell
 python scripts/validate_repo.py
@@ -158,10 +158,10 @@ The full adaptive-music arc, the opening cinematic, and the first real art pass
 are done; the active queue ([`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md))
 continues in bounded increments:
 
-- **Next up — FQ-10: ore families and metallurgy** (copper/iron/coal/tin/silver/crystal as data, depth-banded generation), then the **station chain** (workbench, furnace, anvil, ingots).
-- **Farming** on the bush-support groundwork (plantable, regrowable crops), and a **consolidated crafting menu**.
-- **More enemies** from a 16-entry design roster (thornrat, ore_tick, raider_torchbearer … up to the hollow_king and world_worm bosses), each landing with its gameplay consumer.
-- **Art backlog** (parallel, one PNG at a time via [`docs/ASSET_ROADMAP.md`](docs/ASSET_ROADMAP.md)): player-gear overlays, the remaining equipment icons, and the eight opening-cinematic cels.
+- **Shipped since the last art pass** — **FQ-10** depth-banded ore families (copper/iron/coal/tin/silver/crystal as data on independent seed channels), **FQ-11** the workbench → furnace → anvil station chain (smelt ingots, alloy bronze, forge iron gear behind an ore → ingot → gear gate), **FQ-12** farming (till → sow → ripen → harvest food, crops that never float or auto-regrow, a food-yard score), and **FQ-13** three new live enemies with distinct pressure (crop-eating thornrat, ore-vein ore tick, hall-burning raider torchbearer).
+- **Next up — FQ-14: goal panel and tutorial prompts** — a compact, state-driven current-goal panel and early objectives (gather, light the hall, deposit, craft, survive the night), plus a playtest checklist.
+- **More enemies** from a 16-entry design roster (mini-bosses and the hollow_king / world_worm bosses remain), each landing with its gameplay consumer, and a **consolidated crafting menu**.
+- **Art backlog** (parallel, one PNG at a time via [`docs/ASSET_ROADMAP.md`](docs/ASSET_ROADMAP.md)): player-gear overlays, the remaining equipment and enemy icons, and the eight opening-cinematic cels.
 - **Deeper systems** sketched in [`docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`](docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md): the research bench MVP, perk-spending across more lanes, maps and scouting, underground-start generation for deep ancestries, and the civic layer (laws, districts, factions, legitimacy). Ancestries beyond the five playable ones exist as validated data awaiting their phases.
 
 ## Known limitations
