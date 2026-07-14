@@ -1,8 +1,8 @@
 # Coheronia — Runtime Asset & Variant Audit (FQ-13P0)
 
-State: audited against the working tree at FQ-13 (run
-`20260714_coheronia_fq13_enemy_variety`). Regenerate the machine portion any
-time with `python scripts/asset_audit.py` (add `--strict` to fail on data bugs).
+State: audited against the working tree at FQ-13P1 (enemy variant pools now
+consumed). Regenerate the machine portion any time with
+`python scripts/asset_audit.py` (add `--strict` to fail on data bugs).
 
 This document is the human authority for the FQ-13P visual-consolidation arc: it
 records, per category, what art exists, what the runtime actually consumes, and
@@ -44,7 +44,7 @@ single `<id>.png` path is read; "Variants live" = the `_NN` pool is read.
 |---|---|---|---|---|---|
 | blocks | `world._build_tileset` / `_set_tile` (tileset source per variant) | ✅ | ✅ (mechanism) | per-cell `posmod(hash(x,y,seed))` | code-drawn `_make_block_texture` |
 | items | `hud.item_icon` / `visual_texture("items", …)` | ✅ | ❌ (none authored) | canonical only | `item_fallback_color` swatch |
-| enemies | `simple_threat._draw` → `visual_texture("enemies", id)` | ✅ | **❌ NOT CONSUMED** | canonical only | family-tinted drawn rect |
+| enemies | `simple_threat._select_sprite` (once at creation) → variant pool, else `visual_texture` | ✅ | ✅ (FQ-13P1) | per-instance `posmod(hash(id:cell:seed))`, fixed for life | canonical → family-tinted drawn rect |
 | players | `player_visual.sync_from_player` → `visual_texture("players", body_id)` | ✅ | ❌ (none authored) | species+presentation body id | drawn 16×32 body rig |
 | player_gear | (none — overlays are drawn) | ❌ | ❌ | — | procedural gear overlay |
 | structures | `visual_texture("structures", "town_hall")` | ✅ | ❌ | canonical only | drawn hall |
@@ -78,12 +78,12 @@ first placeholder PNG for each is authored (FQ-13P1+).
 
 ## Findings (informational — do not fail the build)
 
-- **`AVAILABLE_NOT_CONSUMED`: enemy variant pools.** `cave_crawler_01..03`,
-  `raider_basic_01..03`, `surface_slime_01..03` (nine 16×16 PNGs) exist and are
-  valid, but `simple_threat._draw` reads only the canonical `<id>.png`. This is
-  the headline gap: **FQ-13P1** wires `visual_variant_textures("enemies", id)`
-  with a lifetime-stable, deterministic per-enemy selection (add `"enemies"` to
-  `VARIANT_CONSUMERS` in `asset_audit.py` when done).
+- **RESOLVED (FQ-13P1): enemy variant pools now consumed.** `cave_crawler_01..03`,
+  `raider_basic_01..03`, `surface_slime_01..03` are read by
+  `simple_threat._select_sprite`, which picks one variant per instance at
+  creation via `variant_for(id, spawn_cell, world_seed, pool_size)` and holds it
+  for the enemy's life (recomputed identically on load, so nothing is saved).
+  `"enemies"` is now in `VARIANT_CONSUMERS`; the audit reports zero findings.
 - **Blocks: variant mechanism live but no pools authored.** The per-cell
   selection path is fully live; there are simply no `<block>_NN.png` files yet.
   Dropping in e.g. `stone_01.png`/`stone_02.png` activates variety with zero
@@ -139,9 +139,10 @@ The layered cosmetic-pool approach (base + hair/beard/trim layers) is recorded
 as the **documented future upgrade** if mix-and-match cosmetics are wanted; it is
 explicitly out of scope for this bounded slice.
 
-**Operator review requested:** confirm the full-body-pool direction (vs.
-layered) before FQ-13P wires player variation, since it sets the sprite-authoring
-shape for every species×presentation.
+**Operator-confirmed (2026-07-14): full-body pool.** The operator selected the
+full-body-pool direction over layered composition; that is the authority for the
+player-variation slice. Layered composition remains the documented future
+upgrade only.
 
 ## Audit tool
 
@@ -152,15 +153,15 @@ shape for every species×presentation.
   `--strict` exits non-zero on these. (Manifest-entry→missing-file is also hard-
   failed by `scripts/validate_repo.py`.)
 
-Current state: **3 findings** (the enemy pools), **0 data bugs**.
+Current state: **0 findings, 0 data bugs** (enemy pools consumed as of FQ-13P1).
 
 ## What remains temporary (tracked)
 
 | Surface | State | Resolved by |
 |---|---|---|
-| Enemy sprite variety | `AVAILABLE_NOT_CONSUMED` | FQ-13P1 (wire enemy variant pools) |
+| Enemy sprite variety | ✅ LIVE | done — FQ-13P1 wired the enemy variant pools |
 | New FQ-10/11/12/13 sprites | `FALLBACK_ONLY` | authored-art backlog (`docs/ASSET_ROADMAP.md`) |
 | HUD orbs / slots / buttons / dock | `PLACEHOLDER_REQUIRED` | FQ-13P (HUD redesign + generated placeholders) |
-| Player cosmetic variants | not built | FQ-13P-player (full-body pool, pending operator OK) |
+| Player cosmetic variants | not built (design locked: full-body pool) | FQ-13P-player |
 | Block variant pools | mechanism live, no files | art backlog (drop-in, no code) |
 | Opening cel shots | `DEFERRED` | optional per `opening_convention` |

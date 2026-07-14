@@ -25,11 +25,12 @@ ROOT = Path(__file__).resolve().parent.parent
 ASSET_ROOT = ROOT / "art" / "generated"
 MAX_VARIANTS = 8
 
-# Categories whose *variant pools* are actually selected at runtime today.
+# Categories whose *variant pools* are actually selected at runtime.
 # blocks: world._set_tile picks one source per cell (posmod(hash(x,y,seed))).
-# Everything else that has _NN files but is not here is AVAILABLE_NOT_CONSUMED.
-# FQ-13P1 is expected to add "enemies".
-VARIANT_CONSUMERS = {"blocks"}
+# enemies: simple_threat._select_sprite picks one variant per instance at
+#   creation (FQ-13P1), fixed for the enemy's lifetime.
+# Anything else with _NN files but not listed here is AVAILABLE_NOT_CONSUMED.
+VARIANT_CONSUMERS = {"blocks", "enemies"}
 
 # Categories whose *canonical* single image is consumed at runtime.
 CANONICAL_CONSUMERS = {

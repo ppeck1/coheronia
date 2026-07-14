@@ -55,12 +55,45 @@ const CROP_EAT_DIST := 22.0
 ## FQ-07: optional sprite from art/generated/enemies/<enemy_id>.png; null
 ## keeps the drawn-rect fallback below.
 var _art: Texture2D = null
+## FQ-13P1: which variant of the enemy pool this instance drew (-1 = no pool,
+## canonical or code-drawn). Chosen once at creation, fixed for life.
+var variant_index := -1
 
 
 func _ready() -> void:
 	add_to_group("threats")
 	max_hp = maxi(max_hp, hp)
-	_art = BlockRegistry.visual_texture("enemies", enemy_id)
+	_select_sprite()
+
+
+## FQ-13P1: pick this enemy's sprite once at creation and keep it for life.
+## Prefers a deterministic variant from the FQ-09V enemies pool (so two enemies
+## of the same kind can visibly differ), else the canonical single image, else
+## the code-drawn body in _draw. Presentation-only: the choice is recomputed
+## from the same enemy_id + spawn cell + world seed on load, so it is never saved
+## and never changes during damage, movement, pause, or redraw.
+func _select_sprite() -> void:
+	var pool: Array = BlockRegistry.visual_variant_textures("enemies", enemy_id)
+	if not pool.is_empty():
+		var cell: Vector2i = Vector2i.ZERO
+		var seed_val: int = 0
+		if world != null:
+			cell = world.cell_of(global_position)
+			seed_val = world.world_seed
+		variant_index = variant_for(enemy_id, cell, seed_val, pool.size())
+		_art = pool[variant_index]
+	else:
+		variant_index = -1
+		_art = BlockRegistry.visual_texture("enemies", enemy_id)
+
+
+## FQ-13P1: deterministic variant index for an enemy pool (mirrors the block
+## variant rule). enemy_id salts the hash so different kinds sharing a cell can
+## differ; posmod keeps it in range. Returns -1 for an empty pool.
+static func variant_for(id: String, cell: Vector2i, seed_val: int, pool_size: int) -> int:
+	if pool_size <= 0:
+		return -1
+	return posmod(hash("%s:%d:%d:%d" % [id, cell.x, cell.y, seed_val]), pool_size)
 
 
 func _physics_process(delta: float) -> void:

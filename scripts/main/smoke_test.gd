@@ -715,6 +715,58 @@ func _run() -> void:
 	world.crop_growth.erase(_fq13_crop)
 	await get_tree().process_frame
 
+	# --- FQ-13P1: enemy sprite variant pools (deterministic, lifetime-stable) ---
+	var _p1_script = preload("res://scripts/entities/simple_threat.gd")
+	var _p1_pool: Array = BlockRegistry.visual_variant_textures("enemies", "cave_crawler")
+	_check("fq13p1_enemy_pool_discovered", _p1_pool.size() >= 2,
+		"cave_crawler pool=%d" % _p1_pool.size())
+
+	# more than one variant is selectable across different deterministic inputs.
+	var _p1_seen := {}
+	for _pi in range(40):
+		_p1_seen[_p1_script.variant_for("cave_crawler", Vector2i(_pi, 0), 4242, _p1_pool.size())] = true
+	_check("fq13p1_variants_differ", _p1_seen.size() >= 2,
+		"distinct=%d over 40 cells" % _p1_seen.size())
+
+	# same inputs always yield the same choice.
+	_check("fq13p1_selection_deterministic",
+		_p1_script.variant_for("cave_crawler", Vector2i(7, 3), 4242, _p1_pool.size())
+		== _p1_script.variant_for("cave_crawler", Vector2i(7, 3), 4242, _p1_pool.size()),
+		"repeatable")
+
+	# a spawned enemy picks a valid pool variant and keeps it through damage,
+	# redraw, and physics frames (no per-frame reselection).
+	var _p1_node: Node = root.spawn_enemy_for_test("cave_crawler")
+	var _p1_idx0: int = _p1_node.variant_index
+	var _p1_art0: Texture2D = _p1_node._art
+	_p1_node.hp = 5
+	_p1_node.max_hp = 5
+	_p1_node.take_hit(1)
+	await get_tree().physics_frame
+	_p1_node.queue_redraw()
+	await get_tree().process_frame
+	_check("fq13p1_selection_stable",
+		_p1_node.variant_index == _p1_idx0 and _p1_node._art == _p1_art0
+		and _p1_art0 != null and _p1_idx0 >= 0 and _p1_idx0 < _p1_pool.size(),
+		"idx %d->%d art_stable=%s in_pool=%s" % [_p1_idx0, _p1_node.variant_index,
+			str(_p1_node._art == _p1_art0),
+			str(_p1_idx0 >= 0 and _p1_idx0 < _p1_pool.size())])
+
+	# fallback chain: an enemy with no pool and no canonical art draws the
+	# code-drawn body (_art null, variant_index -1); the pooled enemy has art.
+	var _p1_thorn: Node = root.spawn_enemy_for_test("thornrat")
+	_check("fq13p1_fallback_code_drawn",
+		BlockRegistry.visual_variant_textures("enemies", "thornrat").is_empty()
+		and _p1_thorn._art == null and _p1_thorn.variant_index == -1
+		and _p1_node._art != null,
+		"thorn_art=%s thorn_idx=%d crawler_has_art=%s" % [str(_p1_thorn._art),
+			_p1_thorn.variant_index, str(_p1_node._art != null)])
+
+	for _pn in [_p1_node, _p1_thorn]:
+		if _pn != null and is_instance_valid(_pn):
+			_pn.queue_free()
+	await get_tree().process_frame
+
 	# --- Progression MVP: XP, player level, base levels, population cap ---
 
 	# Fix 16: use root's shared registry instance.
