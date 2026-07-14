@@ -53,6 +53,9 @@ var equipment: Dictionary = {}
 # Character-driven modifiers (see data/character_data.json).
 var species_id := "human"
 var body_variant := "default"
+## FQ-13P3: character-owned cosmetic body variant index (presentation-only,
+## never in world saves — it rides with the character record in the shell).
+var visual_variant := 0
 var body_color := Color(0.92, 0.83, 0.55)
 var trim_color := Color(0.35, 0.25, 0.18)
 var trait_mine_mult := 1.0
@@ -167,6 +170,7 @@ func apply_character(character: Dictionary) -> void:
 	species_id = str(character.get("species", "human"))
 	body_variant = GameState.normalize_body_variant(
 		str(character.get("body_variant", "default")))
+	visual_variant = maxi(0, int(character.get("visual_variant", 0)))
 	var appearance: Dictionary = BlockRegistry.appearance_def(str(character.get("appearance", "tan")))
 	body_color = Color.from_string("#" + str(appearance.get("body", "ebd48c")), body_color)
 	trim_color = Color.from_string("#" + str(appearance.get("trim", "59402e")), trim_color)
@@ -185,7 +189,8 @@ func apply_character(character: Dictionary) -> void:
 	growth_threshold_delta = float(effects.get("growth_threshold_delta", 0.0))
 	_clamp_attunement()
 	if player_visual != null:
-		player_visual.set_character_visual(species_id, body_variant, body_color, trim_color)
+		player_visual.set_character_visual(species_id, body_variant, body_color,
+			trim_color, visual_variant)
 	queue_redraw()
 
 

@@ -1,9 +1,10 @@
 # Coheronia — Runtime Asset & Variant Audit (FQ-13P0)
 
-State: audited against the working tree at FQ-13P2 (UI placeholders authored;
-hotbar slot frames consumed). Regenerate the machine portion any time with
+State: audited against the working tree at FQ-13P3 (player cosmetic variant pool
+consumed). Regenerate the machine portion any time with
 `python scripts/asset_audit.py` (add `--strict` to fail on data bugs); the UI
-placeholders are (re)built with `python scripts/gen_ui_placeholders.py`.
+placeholders are (re)built with `python scripts/gen_ui_placeholders.py` and the
+demo player cosmetic variants with `python scripts/gen_player_variants.py`.
 
 This document is the human authority for the FQ-13P visual-consolidation arc: it
 records, per category, what art exists, what the runtime actually consumes, and
@@ -46,7 +47,7 @@ single `<id>.png` path is read; "Variants live" = the `_NN` pool is read.
 | blocks | `world._build_tileset` / `_set_tile` (tileset source per variant) | ✅ | ✅ (mechanism) | per-cell `posmod(hash(x,y,seed))` | code-drawn `_make_block_texture` |
 | items | `hud.item_icon` / `visual_texture("items", …)` | ✅ | ❌ (none authored) | canonical only | `item_fallback_color` swatch |
 | enemies | `simple_threat._select_sprite` (once at creation) → variant pool, else `visual_texture` | ✅ | ✅ (FQ-13P1) | per-instance `posmod(hash(id:cell:seed))`, fixed for life | canonical → family-tinted drawn rect |
-| players | `player_visual.sync_from_player` → `visual_texture("players", body_id)` | ✅ | ❌ (none authored) | species+presentation body id | drawn 16×32 body rig |
+| players | `player_visual._select_body_texture` → variant pool, else `visual_texture("players", body_id)` | ✅ | ✅ (FQ-13P3) | character-owned `visual_variant` (0 = canonical, k>0 = pool[k-1] wrapped) | canonical → same-species default → drawn 16×32 rig |
 | player_gear | (none — overlays are drawn) | ❌ | ❌ | — | procedural gear overlay |
 | structures | `visual_texture("structures", "town_hall")` | ✅ | ❌ | canonical only | drawn hall |
 | backgrounds | `world_backdrop.layer_texture` → `visual_texture("backgrounds", id)` | ✅ | ❌ | canonical only | gradient/silhouette |
@@ -151,6 +152,17 @@ full-body-pool direction over layered composition; that is the authority for the
 player-variation slice. Layered composition remains the documented future
 upgrade only.
 
+**Built (FQ-13P3).** `player_visual._select_body_texture` reads the character's
+`visual_variant` (0 = canonical `<body_id>.png`; k>0 = the k-th
+`<body_id>_NN.png` pool entry, wrapped by pool size, falling back to canonical).
+The index is character-owned (`game_state.create_character` /
+`player.apply_character`), persisted in the shell character record, **never in
+world saves**, and legacy characters get a stable default from
+`default_visual_variant(id)`. `scripts/gen_player_variants.py` ships a demo
+2-entry pool for `human` (alternate outfits). The creation screen exposes a
+"Look" prev/next control (`shell_ui.gd`). Other bodies have empty pools and draw
+canonical (legal per spec).
+
 ## Audit tool
 
 `python scripts/asset_audit.py` prints the per-category status table, the
@@ -170,6 +182,6 @@ Current state: **0 findings, 0 data bugs** (enemy pools consumed as of FQ-13P1).
 | New FQ-10/11/12/13 sprites | `FALLBACK_ONLY` | authored-art backlog (`docs/ASSET_ROADMAP.md`) |
 | HUD slot frames | ✅ LIVE | done — FQ-13P2 (consumed `slot_inventory*`) |
 | HUD orbs / nav buttons / dock / cursors | `PLACEHOLDER_AUTHORED` | authored (FQ-13P2); consumed by the future HUD redesign |
-| Player cosmetic variants | not built (design locked: full-body pool) | FQ-13P-player |
+| Player cosmetic variants | ✅ LIVE | done — FQ-13P3 (full-body pool; demo `human` pool; creation "Look" control) |
 | Block variant pools | mechanism live, no files | art backlog (drop-in, no code) |
 | Opening cel shots | `DEFERRED` | optional per `opening_convention` |

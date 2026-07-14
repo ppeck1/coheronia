@@ -29,8 +29,10 @@ MAX_VARIANTS = 8
 # blocks: world._set_tile picks one source per cell (posmod(hash(x,y,seed))).
 # enemies: simple_threat._select_sprite picks one variant per instance at
 #   creation (FQ-13P1), fixed for the enemy's lifetime.
+# players: player_visual._select_body_texture picks the character-owned cosmetic
+#   variant (FQ-13P3).
 # Anything else with _NN files but not listed here is AVAILABLE_NOT_CONSUMED.
-VARIANT_CONSUMERS = {"blocks", "enemies"}
+VARIANT_CONSUMERS = {"blocks", "enemies", "players"}
 
 # Categories whose *canonical* single image is consumed at runtime.
 CANONICAL_CONSUMERS = {

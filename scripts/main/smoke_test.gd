@@ -2130,6 +2130,67 @@ func _run() -> void:
 	_check("player_visual_collision_unchanged", _pv_shape.size == Vector2(12, 28),
 		"size=%s" % str(_pv_shape.size))
 
+	# --- FQ-13P3: player cosmetic body variants (full-body pool) ---
+	# distinct sprite per variant (human has a 2-entry pool); variant 0 canonical.
+	player.apply_character({"species": "human", "body_variant": "default",
+		"appearance": "tan", "visual_variant": 0})
+	var _p3_v0 = _pv._body_texture
+	var _p3_snap0: Dictionary = _pv.presentation_snapshot()
+	player.apply_character({"species": "human", "body_variant": "default",
+		"appearance": "tan", "visual_variant": 1})
+	var _p3_v1 = _pv._body_texture
+	player.apply_character({"species": "human", "body_variant": "default",
+		"appearance": "tan", "visual_variant": 2})
+	var _p3_v2 = _pv._body_texture
+	_check("fq13p3_variant_selects_distinct_sprite",
+		_p3_v0 != null and _p3_v1 != null and _p3_v2 != null
+		and _p3_v0 != _p3_v1 and _p3_v1 != _p3_v2 and _p3_v0 != _p3_v2
+		and int(_p3_snap0.get("visual_variant", -1)) == 0,
+		"distinct=%s snap0=%d" % [
+			str(_p3_v0 != _p3_v1 and _p3_v1 != _p3_v2),
+			int(_p3_snap0.get("visual_variant", -1))])
+
+	# variant 0 is the canonical body; an out-of-range index wraps within the pool.
+	player.apply_character({"species": "human", "body_variant": "default",
+		"appearance": "tan", "visual_variant": 0})
+	var _p3_canon = _pv._body_texture
+	player.apply_character({"species": "human", "body_variant": "default",
+		"appearance": "tan", "visual_variant": 3})   # pool size 2 -> wraps to variant 1
+	_check("fq13p3_variant0_canonical_and_wrap",
+		_p3_canon == BlockRegistry.visual_texture("players", "human")
+		and _pv._body_texture == _p3_v1,
+		"canon=%s wrap=%s" % [
+			str(_p3_canon == BlockRegistry.visual_texture("players", "human")),
+			str(_pv._body_texture == _p3_v1)])
+
+	# a body with no variant pool falls back to its canonical sprite.
+	player.apply_character({"species": "dwarf", "body_variant": "default",
+		"appearance": "tan", "visual_variant": 2})
+	_check("fq13p3_no_pool_falls_back",
+		BlockRegistry.visual_variant_textures("players", "dwarf").is_empty()
+		and _pv._body_texture == BlockRegistry.visual_texture("players", "dwarf")
+		and _pv.using_body_art(),
+		"dwarf_canonical=%s" % str(
+			_pv._body_texture == BlockRegistry.visual_texture("players", "dwarf")))
+
+	# character owns the variant (stored on create; deterministic legacy default);
+	# it is presentation-only — never a world-save key.
+	var _p3_made: Dictionary = GameState.create_character({"name": "P3 Test",
+		"species": "human", "visual_variant": 2})
+	var _p3_state: Dictionary = root.save_manager.collect_state()
+	_check("fq13p3_character_owns_variant_not_saved",
+		int(_p3_made.get("visual_variant", -1)) == 2
+		and GameState.default_visual_variant("charX") == GameState.default_visual_variant("charX")
+		and not ("visual_variant" in _p3_state)
+		and not ("visual_variant" in _p3_state.get("player", {})),
+		"made=%d in_save=%s" % [int(_p3_made.get("visual_variant", -1)),
+			str("visual_variant" in _p3_state or "visual_variant" in _p3_state.get("player", {}))])
+	GameState.delete_character(str(_p3_made.get("id", "")))
+
+	# the creation UI script compiles (smoke bypasses the shell scene).
+	_check("fq13p3_shell_ui_compiles",
+		preload("res://scripts/shell/shell_ui.gd") != null, "shell_ui preloaded")
+
 	player.tool_tier = _pv_saved_pick_tier
 	player.axe_tier = _pv_saved_axe_tier
 	player.apply_equipment(_pv_saved_equipment)

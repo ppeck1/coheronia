@@ -11,6 +11,9 @@ const DEFAULT_APPEARANCE_BODY := Color(0.92156863, 0.83137255, 0.54901961)
 var _player
 var _species_id := "human"
 var _body_variant := "default"
+## FQ-13P3: character-owned cosmetic index. 0 = canonical body; k>0 selects the
+## k-th full-body pool entry (art/generated/players/<body_id>_NN.png).
+var _visual_variant := 0
 var _resolved_body_id := ""
 var _body_texture: Texture2D = null
 var _body_color := Color(0.92, 0.83, 0.55)
@@ -35,9 +38,10 @@ func _process(_delta: float) -> void:
 ## Called by Player after character application and available to focused smoke
 ## tests. Missing/invalid variants are normalized before body resolution.
 func set_character_visual(species_id: String, body_variant: String,
-		body_color: Color, trim_color: Color) -> void:
+		body_color: Color, trim_color: Color, visual_variant: int = 0) -> void:
 	_species_id = species_id
 	_body_variant = BlockRegistry.normalize_body_variant(body_variant)
+	_visual_variant = maxi(0, visual_variant)
 	_body_color = body_color
 	_trim_color = trim_color
 	_resolve_body_texture()
@@ -48,8 +52,12 @@ func sync_from_player() -> void:
 	if _player == null:
 		return
 	set_character_visual(str(_player.species_id), str(_player.body_variant),
-		_player.body_color, _player.trim_color)
+		_player.body_color, _player.trim_color, int(_player.visual_variant))
 	refresh_facing()
+
+
+func visual_variant() -> int:
+	return _visual_variant
 
 
 ## Active mining target wins, then horizontal movement; idle retains the last
@@ -124,6 +132,7 @@ func presentation_snapshot() -> Dictionary:
 	return {
 		"species": _species_id,
 		"body_variant": _body_variant,
+		"visual_variant": _visual_variant,
 		"requested_body_id": requested_body_id(),
 		"resolved_body_id": _resolved_body_id,
 		"using_body_art": using_body_art(),
@@ -141,16 +150,28 @@ func _resolve_body_texture() -> void:
 	_appearance_recolored = false
 	var requested := requested_body_id()
 	if requested != "":
-		var requested_texture := BlockRegistry.visual_texture("players", requested)
+		var requested_texture := _select_body_texture(requested)
 		if requested_texture != null:
 			_set_resolved_body(requested, requested_texture)
 			return
 	# A missing variant may fall back only to the same species' default body.
 	var species_default := BlockRegistry.player_body_id(_species_id, "default")
 	if species_default != "" and species_default != requested:
-		var default_texture := BlockRegistry.visual_texture("players", species_default)
+		var default_texture := _select_body_texture(species_default)
 		if default_texture != null:
 			_set_resolved_body(species_default, default_texture)
+
+
+## FQ-13P3: pick the character's cosmetic body variant. visual_variant 0 (or an
+## empty pool) uses the canonical <body_id>.png; variant k>0 uses the k-th
+## full-body pool entry, wrapping by pool size so any stored index resolves.
+## Presentation-only; the appearance recolor is applied later in _set_resolved_body.
+func _select_body_texture(body_id: String) -> Texture2D:
+	if _visual_variant > 0:
+		var pool: Array = BlockRegistry.visual_variant_textures("players", body_id)
+		if not pool.is_empty():
+			return pool[(_visual_variant - 1) % pool.size()]
+	return BlockRegistry.visual_texture("players", body_id)
 
 
 func _set_resolved_body(body_id: String, source: Texture2D) -> void:

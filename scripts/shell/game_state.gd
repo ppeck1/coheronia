@@ -37,6 +37,12 @@ func load_shell() -> void:
 					var character: Dictionary = raw_character.duplicate(true)
 					character["body_variant"] = normalize_body_variant(
 						str(character.get("body_variant", "default")))
+					# FQ-13P3: legacy characters (saved before cosmetic variants)
+					# get a deterministic default from their id, so they never
+					# change appearance across loads.
+					if not character.has("visual_variant"):
+						character["visual_variant"] = default_visual_variant(
+							str(character.get("id", "")))
 					characters.append(character)
 
 
@@ -70,6 +76,8 @@ func create_character(char_data: Dictionary) -> Dictionary:
 		"name": str(char_data.get("name", "Nameless")),
 		"species": str(char_data.get("species", "human")),
 		"body_variant": normalize_body_variant(str(char_data.get("body_variant", "default"))),
+		# FQ-13P3: character-owned cosmetic body variant (presentation-only).
+		"visual_variant": maxi(0, int(char_data.get("visual_variant", 0))),
 		"appearance": str(char_data.get("appearance", "tan")),
 		"traits": char_data.get("traits", []),
 		"role": str(char_data.get("role", "homesteader")),
@@ -92,6 +100,14 @@ func create_character(char_data: Dictionary) -> Dictionary:
 
 func normalize_body_variant(body_variant: String) -> String:
 	return BlockRegistry.normalize_body_variant(body_variant)
+
+
+## FQ-13P3: a stable cosmetic-variant default for a character id (0..2). Legacy
+## characters get the same value every load; presentation-only, never random.
+func default_visual_variant(char_id: String) -> int:
+	if char_id == "":
+		return 0
+	return posmod(hash(char_id), 3)
 
 
 ## FQ-03: a fresh equipment dict — all slots empty except the starter pickaxe.

@@ -64,6 +64,8 @@ var _species_detail: Label          # ancestry detail panel (Wave A)
 var _ancestry_helper              # lazily created AncestryDetailScript instance
 var _body_variant_option: OptionButton
 var _body_variant_ids: Array[String] = []
+# FQ-13P3: cosmetic body-variant picker (0 = default; up/down = prev/next look).
+var _visual_variant_spin: SpinBox
 var _appearance_option: OptionButton
 var _appearance_ids: Array[String] = []
 var _appearance_swatch: ColorRect
@@ -362,6 +364,21 @@ func _show_char_create() -> void:
 		_body_variant_option.add_item(str(body_variant_def.get("display_name", "Default")))
 	body_variant_row.add_child(_body_variant_option)
 
+	# FQ-13P3: cosmetic body variant. The SpinBox up/down arrows are the
+	# previous/next look controls; 0 is the default body. Alternate looks show
+	# only where variant art exists, otherwise the default body is drawn.
+	var look_row := _form_row(form, "Look")
+	_visual_variant_spin = SpinBox.new()
+	_visual_variant_spin.min_value = 0
+	_visual_variant_spin.max_value = 7
+	_visual_variant_spin.step = 1
+	_visual_variant_spin.value = 0
+	_visual_variant_spin.tooltip_text = "Cosmetic body variant (0 = default look). Prev/next choose an alternate outfit where art exists."
+	look_row.add_child(_visual_variant_spin)
+	var look_note := _label(form,
+		"Cosmetic only — alternate looks where art exists, else the default body.", 12)
+	look_note.add_theme_color_override("font_color", DIM_COLOR)
+
 	var carried_note := _label(form,
 		"Character rules: backpack, tools, equipment, ancestry, role, and traits follow this character between worlds. Role starter items are granted once. Collapse loses a fraction of carried stacks.",
 		12)
@@ -477,6 +494,7 @@ func _create_character() -> void:
 		"species": _option_id(_species_option, _species_ids, "human"),
 		"body_variant": _option_id(
 			_body_variant_option, _body_variant_ids, "default"),
+		"visual_variant": int(_visual_variant_spin.value) if _visual_variant_spin != null else 0,
 		"appearance": _option_id(_appearance_option, _appearance_ids, "tan"),
 		"role": _option_id(_role_option, _role_ids, "homesteader"),
 		"traits": trait_ids,
