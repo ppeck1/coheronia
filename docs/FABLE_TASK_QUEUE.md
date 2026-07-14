@@ -47,6 +47,9 @@ and outbox packets.
 | FQ-11 | P1 | Done | Workbench, furnace, and anvil station chain | Makes ore useful through buildable progression stations. |
 | FQ-12 | P1 | Done | Farming and food stability | Current bush support groundwork is ideal for plantable crops and settlement food pressure. |
 | FQ-13 | P2 | Done | Enemy variety and combat pressure | Add thornrat, ore tick, and raider torchbearer once health/combat rules are clearer. |
+| FQ-13P0 | P2 | Done | Visual asset & variant audit | Runtime audit (`docs/UI_ASSET_GAPS.md` + `scripts/asset_audit.py`) + player-variation decision. Gates P1–P4. |
+| FQ-13P1 | P2 | Ready - next | Consume enemy variant pools | Wire deterministic, lifetime-stable enemy sprite variants (files already exist, AVAILABLE_NOT_CONSUMED). |
+| FQ-13P2–P4 | P2 | Ready after P1 | Placeholders, player cosmetics, HUD hooks | Generated UI/orb/slot placeholders, player full-body cosmetic pool, opening/animation distinctions. |
 | FQ-14 | P2 | Ready | Goal panel, tutorial prompts, and playtest checklist | Raises playability by telling players what to do next. |
 | FQ-15 | P2 | Ready after several systems | Map, scouting, and navigation | Larger worlds will need player orientation and exploration goals. |
 
