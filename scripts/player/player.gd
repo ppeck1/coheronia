@@ -224,6 +224,9 @@ func apply_ancestry_effects(effects: Dictionary) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if GameState.hud_edit_mode:
+		velocity = Vector2.ZERO
+		return
 	if not is_on_floor():
 		velocity.y += GRAVITY * delta
 	if Input.is_action_just_pressed("jump") and is_on_floor():

@@ -370,13 +370,16 @@ func _show_char_create() -> void:
 	var look_row := _form_row(form, "Look")
 	_visual_variant_spin = SpinBox.new()
 	_visual_variant_spin.min_value = 0
-	_visual_variant_spin.max_value = 7
+	_visual_variant_spin.max_value = 0
 	_visual_variant_spin.step = 1
 	_visual_variant_spin.value = 0
-	_visual_variant_spin.tooltip_text = "Cosmetic body variant (0 = default look). Prev/next choose an alternate outfit where art exists."
+	_visual_variant_spin.tooltip_text = "Cosmetic body variant (0 = default look)."
 	look_row.add_child(_visual_variant_spin)
+	_species_option.item_selected.connect(_refresh_look_range)
+	_body_variant_option.item_selected.connect(_refresh_look_range)
+	_refresh_look_range()
 	var look_note := _label(form,
-		"Cosmetic only — alternate looks where art exists, else the default body.", 12)
+		"Cosmetic only — the selector is limited to authored looks for this body.", 12)
 	look_note.add_theme_color_override("font_color", DIM_COLOR)
 
 	var carried_note := _label(form,
@@ -439,6 +442,30 @@ func _update_swatch(index: int) -> void:
 	if index >= 0 and index < appearance_list.size():
 		var body_hex: String = str(appearance_list[index].get("body", "ebd48c"))
 		_appearance_swatch.color = Color.from_string(body_hex, Color(0.9, 0.83, 0.55))
+
+
+## FQ-13P3 follow-through: expose only the canonical look plus the authored
+## full-body pool for the currently selected species/presentation. This keeps
+## the creation UI from offering repeated or no-op values when a pool is short
+## or absent.
+func _refresh_look_range(_index: int = -1) -> void:
+	if _visual_variant_spin == null or _species_option == null \
+			or _body_variant_option == null:
+		return
+	var species_id := _option_id(_species_option, _species_ids, "human")
+	var body_variant := _option_id(
+		_body_variant_option, _body_variant_ids, "default")
+	var body_id := BlockRegistry.player_body_id(species_id, body_variant)
+	var pool_size := BlockRegistry.visual_variant_textures("players", body_id).size()
+	_visual_variant_spin.max_value = pool_size
+	_visual_variant_spin.value = mini(int(_visual_variant_spin.value), pool_size)
+	_visual_variant_spin.editable = pool_size > 0
+	_visual_variant_spin.tooltip_text = (
+		"%d authored look%s plus the default body." % [
+			pool_size, "" if pool_size == 1 else "s"]
+		if pool_size > 0 else
+		"No alternate looks are authored for this body yet."
+	)
 
 
 func _update_role_desc(index: int) -> void:

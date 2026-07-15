@@ -54,6 +54,10 @@ and outbox packets.
 | FQ-13P4 | P2 | Done | Opening/block variation follow-through | Opening variant-vs-animation-frame distinction (`frame_semantics`); item-icon stability; audit animation-aware. Closes the FQ-13P arc. |
 | FQ-14 | P2 | Done | Goal panel, tutorial prompts, and playtest checklist | State-driven current-goal panel (prefix-latching), toggle_goals (O), docs/PLAYTEST_CHECKLIST.md. |
 | FQ-15 | P2 | Done | Map, scouting, and navigation | Schematic map panel (M), discovered bands persisted, hall/player/ore/threat markers, biome_reveal scouting hook. |
+| FQ-16 | P1 | Done | Blueprint player-state dock | Single bottom dock with live health/attunement vessels, five-slot toolbelt, safe margins, and modal dock hiding. |
+| FQ-17 | P1 | Done | Configurable nonmodal HUD layout | Default-locked Crest/Goal/Events/Map/Edit profile with bounded move, discrete scale, lock, reset, and visibility persistence. |
+| FQ-18 | P1 | Done | HUD navigation and Character summary | Dock action buttons for Inventory/Character/Skills/Town Hall, centered read-only Character panel, modal exclusion, and smoke coverage. |
+| FQ-19 | P1 | Done | Blueprint art-consumer and contextual information pass | Final dock/orb/slot/button art consumed (`gen_hud_final_art.py`); masked liquid vessels with damage/recovery/low/regen/use/core effects; framed Crest/Goal/Events with the exact clock; contextual right-band stack (item/save/interact); `canvas_items` stretch renders the same composition at 640×360 and 1280×720. Mini-map stays schematic (final art deferred). |
 
 ## FQ-00 - v0.6.1 Closeout Repair
 

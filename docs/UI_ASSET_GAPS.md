@@ -1,11 +1,12 @@
 # Coheronia — Runtime Asset & Variant Audit (FQ-13P0)
 
-State: audited against the working tree at FQ-13P4 (variant-vs-animation frame
-semantics formalized — the FQ-13P arc is complete). Regenerate the machine
-portion any time with
+State: refreshed by the post-FQ-15 authored-art run on 2026-07-14. Regenerate
+the machine portion any time with
 `python scripts/asset_audit.py` (add `--strict` to fail on data bugs); the UI
 placeholders are (re)built with `python scripts/gen_ui_placeholders.py` and the
-demo player cosmetic variants with `python scripts/gen_player_variants.py`.
+legacy demo player variants can be inspected with
+`python scripts/gen_player_variants.py` (it preserves reviewed files unless
+`--force-demo` is explicitly passed).
 
 This document is the human authority for the FQ-13P visual-consolidation arc: it
 records, per category, what art exists, what the runtime actually consumes, and
@@ -45,69 +46,61 @@ single `<id>.png` path is read; "Variants live" = the `_NN` pool is read.
 
 | Category | Runtime consumer | Canonical live | Variants live | Selection rule | Fallback rule |
 |---|---|---|---|---|---|
-| blocks | `world._build_tileset` / `_set_tile` (tileset source per variant) | ✅ | ✅ (mechanism) | per-cell `posmod(hash(x,y,seed))` | code-drawn `_make_block_texture` |
+| blocks | `world._build_tileset` / `_set_tile` (tileset source per variant) | ✅ (all live ids) | ✅ (17 pools) | per-cell `posmod(hash(x,y,seed))` | code-drawn `_make_block_texture` |
 | items | `hud.item_icon` / `visual_texture("items", …)` | ✅ | ❌ (none authored) | canonical only | `item_fallback_color` swatch |
-| enemies | `simple_threat._select_sprite` (once at creation) → variant pool, else `visual_texture` | ✅ | ✅ (FQ-13P1) | per-instance `posmod(hash(id:cell:seed))`, fixed for life | canonical → family-tinted drawn rect |
-| players | `player_visual._select_body_texture` → variant pool, else `visual_texture("players", body_id)` | ✅ | ✅ (FQ-13P3) | character-owned `visual_variant` (0 = canonical, k>0 = pool[k-1] wrapped) | canonical → same-species default → drawn 16×32 rig |
-| player_gear | (none — overlays are drawn) | ❌ | ❌ | — | procedural gear overlay |
+| enemies | `simple_threat._select_sprite` (once at creation) → variant pool, else `visual_texture` | ✅ (all 6 live ids) | ✅ (6 pools) | per-instance `posmod(hash(id:cell:seed))`, fixed for life | canonical → family-tinted drawn rect |
+| players | `player_visual._select_body_texture` → variant pool, else `visual_texture("players", body_id)` | ✅ (all 10 body ids) | ✅ (10 pools) | character-owned `visual_variant` (0 = canonical, k>0 = pool[k-1] wrapped) | canonical → same-species default → drawn 16×32 rig |
+| player_gear | `player_visual._gear_texture` / `_tool_swing_texture` (body-specific → generic) | ❌ (hook only; no art yet) | ❌ | equipped item/body id and swing phase | procedural gear overlay |
 | structures | `visual_texture("structures", "town_hall")` | ✅ | ❌ | canonical only | drawn hall |
 | backgrounds | `world_backdrop.layer_texture` → `visual_texture("backgrounds", id)` | ✅ | ❌ | canonical only | gradient/silhouette |
 | back_walls | `world._make_wall_texture` → `visual_texture("back_walls", id)` | ✅ | ❌ | canonical only | darkened block texture |
-| ui | `hud._make_slot_style` → `visual_texture("ui", id)` (slot frames); rest reserved | ✅ (slots) | n/a | placeholder id per surface | code-drawn `StyleBoxFlat` |
+| ui | `hud._make_slot_style` + bottom dock vessel frames + module toolbar | ✅ (slots, vessels) | n/a | resource values mirrored from game state | procedural fallback when art is absent |
 | opening | (none — code-plotted; cel hook `prologue.gd`) | ❌ | frames = **animation** | ordered `(tick*8/TICK_HZ) % n` @ 8fps | `prologue_canvas` plot |
 
-### HUD sub-surfaces (all currently code-drawn — no asset category yet)
+### HUD sub-surfaces
 
-The spec calls these out individually; today the HUD (`scripts/ui/hud.gd`) draws
-them procedurally with no image hook, so each is `PLACEHOLDER_REQUIRED` for the
-redesigned HUD:
+The HUD now has one primary bottom player-state dock. Settlement, goal, event,
+and map modules remain independently toggleable:
 
 | Surface | Today | Reserved hook id(s) |
 |---|---|---|
-| HUD ornament / dock | code-drawn bars | `dock_backplate` (authored, reserved) |
-| Health orb | code-drawn | `orb_health_frame`, `orb_fill_mask` (authored, reserved) |
-| Attunement orb | code-drawn | `orb_attunement_frame`, `orb_fill_mask` (authored, reserved) |
-| Inventory slots | **placeholder frame consumed (FQ-13P2)** | `slot_inventory` ✅, `slot_inventory_selected` ✅, `slot_inventory_invalid` (authored, reserved) |
+| HUD ornament / dock | **final 9-sliced metal backplate consumed (FQ-19)**; same frame reused by crest/goal/events modules | `dock_backplate` ✅ |
+| Health orb | masked bottom-up liquid + damage flash / recovery glow / low pulse (FQ-19) | `orb_health_frame` ✅, `orb_fill_mask` ✅ |
+| Attunement orb | masked liquid + regen shimmer, outward use-pulse, rotating full-charge core (FQ-19) | `orb_attunement_frame` ✅, `orb_fill_mask` ✅ |
+| Events / time | framed top-right panel with the exact settlement clock (`Day N • Phase HH:MM`) | future event glyphs |
+| Inventory slots | final slot frames consumed; key number + raised selected slot (FQ-19) | `slot_inventory` ✅, `slot_inventory_selected` ✅, `slot_inventory_invalid` (authored, reserved) |
 | Equipment slots | code-drawn cells | (reuse `slot_inventory*`) |
-| Panel / nav buttons | text buttons + item-icon glyphs | `button_inventory`, `button_character`, `button_town_hall`, `button_skills`, `button_goals`, `button_settings` (authored, reserved) |
+| Panel / nav buttons | **four dock glyph buttons consumed (FQ-19)**, text fallback kept | `button_inventory` ✅, `button_character` ✅, `button_town_hall` ✅, `button_skills` ✅; `button_goals`, `button_settings` (authored, reserved) |
 | Drag cursors | none (panels read-only) | `cursor_drag_valid`, `cursor_drag_invalid` (authored, reserved) |
 | Status icons | none | (deferred — enumerate when statuses land) |
+| Contextual stack | code-drawn framed entries: selected item, save toast, interaction prompt (FQ-19) | (none needed — text surfaces) |
 
-All fifteen reserved UI ids are now **authored deliberate placeholders**
-(`scripts/gen_ui_placeholders.py` → `art/generated/ui/*.png`, 32×32, one shared
-palette + 1px border language, nearest-friendly). The centralized authority is
-`RESERVED_UI_IDS` in `scripts/asset_audit.py`; the files are picked up by the
-`ui` category convention (no `visual_assets.json` entry needed). The hotbar
-slots consume `slot_inventory`/`slot_inventory_selected` now
-(`hud._make_slot_style`, `StyleBoxTexture` with a `StyleBoxFlat` fallback); the
-orb/button/dock/cursor placeholders are `PLACEHOLDER_AUTHORED` — reserved for the
-HUD redesign, replaceable without touching gameplay code.
+FQ-19 replaced the placeholder look with final art for the ten consumed ids:
+`scripts/art/gen_hud_final_art.py` is the deterministic authority (one shared
+iron/brass material language, 32×32, ≤16 colors, stretch-safe 9-slice edges).
+`scripts/gen_ui_placeholders.py` now preserves existing files by default and
+only rewrites the placeholder look with an explicit `--force-placeholder`.
+The centralized status authority remains `RESERVED_UI_IDS`/`UI_CONSUMED` in
+`scripts/asset_audit.py`. Every consumer keeps its code-drawn fallback, so a
+missing PNG is never an error. Still `PLACEHOLDER_AUTHORED` (reserved, not
+consumed): `slot_inventory_invalid`, `button_goals`, `button_settings`, and
+both drag cursors.
 
-## Findings (informational — do not fail the build)
+## Authored coverage result
 
-- **RESOLVED (FQ-13P1): enemy variant pools now consumed.** `cave_crawler_01..03`,
-  `raider_basic_01..03`, `surface_slime_01..03` are read by
-  `simple_threat._select_sprite`, which picks one variant per instance at
-  creation via `variant_for(id, spawn_cell, world_seed, pool_size)` and holds it
-  for the enemy's life (recomputed identically on load, so nothing is saved).
-  `"enemies"` is now in `VARIANT_CONSUMERS`; the audit reports zero findings.
-- **Blocks: variant mechanism live but no pools authored.** The per-cell
-  selection path is fully live; there are simply no `<block>_NN.png` files yet.
-  Dropping in e.g. `stone_01.png`/`stone_02.png` activates variety with zero
-  code change — a low-risk future art task, not a gap to fix in code.
-
-## FALLBACK_ONLY (referenced in data, no canonical art — code-drawn, acceptable)
-
-Everything added since the first art pass renders from code fallbacks and is
-safe, but is the natural authored-art backlog:
-
-- **blocks**: `coal`, `copper_ore`, `tin_ore`, `iron_ore`, `silver_ore`,
-  `crystal` (FQ-10 ores); `farm_soil`, `crop_seedling`, `crop_ripe` (FQ-12).
-- **items**: the five ingots (FQ-11); `crop_seeds` and the crop/soil display
-  items (FQ-12); `meat`, `thorn_quill`, `hide_scrap`, `ore_flecks`, `shell`,
-  `oil_rags`, `torch_heads` (FQ-13 drops).
-- **enemies**: `thornrat`, `ore_tick`, `raider_torchbearer` (FQ-13) — no
-  canonical or variant art; family-tinted drawn-rect fallback only.
+- All 20 rendered block ids have canonical PNGs. Seventeen material/flora ids
+  also have three deterministic variants; only `torch`, `lantern`, and
+  `town_hall_core` remain intentionally canonical-only.
+- All 43 inventory/live-drop ids have canonical icons. The five formerly
+  metadata-less live drops (`chitin`, `silk`, `eyes`, `coins`,
+  `scrap_weapons`) now have `items.json` names/colors/descriptions;
+  `asset_audit.py` also derives ids from live enemy drops so future omissions
+  remain visible even before metadata is backfilled.
+- All six live enemies have a canonical sprite and three variants.
+- All ten player body ids have a canonical body and two selectable Look
+  alternatives. Every Look preserves its rig's exact skin-palette entries, so
+  the live appearance recolor works for canonical and alternate art. No
+  data-referenced block/item/live-enemy fallback remains.
 
 ## Placeholder hooks (`PLACEHOLDER_REQUIRED`)
 
@@ -159,10 +152,10 @@ upgrade only.
 The index is character-owned (`game_state.create_character` /
 `player.apply_character`), persisted in the shell character record, **never in
 world saves**, and legacy characters get a stable default from
-`default_visual_variant(id)`. `scripts/gen_player_variants.py` ships a demo
-2-entry pool for `human` (alternate outfits). The creation screen exposes a
-"Look" prev/next control (`shell_ui.gd`). Other bodies have empty pools and draw
-canonical (legal per spec).
+`default_visual_variant(id)`. All ten body ids now ship two authored
+alternatives. The creation screen's Look control (`shell_ui.gd`) reads the real
+pool length and disables itself if a future body has no alternates, so the UI
+cannot offer absent/no-op values.
 
 ## Variant vs animation frame semantics (FQ-13P4)
 
@@ -174,7 +167,7 @@ consumes it two ways that must never be conflated (`visual_assets.json`
   cell `posmod(hash(x,y,seed))`), `enemies` (per instance at spawn), `players`
   (character-owned `visual_variant`). `VARIANT_CONSUMERS` in `asset_audit.py`.
 - **Animation** (a *moment in time* — play frames in order): `opening`, whose
-  `prologue.gd` cel hook advances `(tick*8/TICK_HZ) % n` at 8fps.
+  `prologue.gd` cel hook loops `(tick*8/TICK_HZ) % n` at 8fps for the scene.
   `ANIMATION_CATEGORIES` in `asset_audit.py` reports these as `frames=N ANIMATION`.
 
 Item icons are intentionally **canonical-only** (no pool): `item_icon` is cached,
@@ -185,7 +178,8 @@ so an inventory stack never shows a different icon between refreshes.
 `python scripts/asset_audit.py` prints the per-category status table, the
 `FALLBACK_ONLY` list, the reserved UI hooks, and two note classes:
 - **FINDINGS** — informational gaps (e.g. `AVAILABLE_NOT_CONSUMED`); never fail.
-- **DATA BUGS** — variant sequence gaps, wrong dimensions, unreadable PNGs;
+- **DATA BUGS** — variant sequence gaps, pools above the runtime maximum of
+  eight, wrong dimensions, unreadable PNGs;
   `--strict` exits non-zero on these. (Manifest-entry→missing-file is also hard-
   failed by `scripts/validate_repo.py`.)
 
@@ -196,16 +190,17 @@ Current state: **0 findings, 0 data bugs** (enemy pools consumed as of FQ-13P1).
 | Surface | State | Resolved by |
 |---|---|---|
 | Enemy sprite variety | ✅ LIVE | done — FQ-13P1 wired the enemy variant pools |
-| New FQ-10/11/12/13 sprites | `FALLBACK_ONLY` | authored-art backlog (`docs/ASSET_ROADMAP.md`) |
+| Current block/item/live-enemy canonicals | ✅ LIVE | all data-referenced ids authored in the 2026-07-14 art run |
 | HUD slot frames | ✅ LIVE | done — FQ-13P2 (consumed `slot_inventory*`) |
-| HUD orbs / nav buttons / dock / cursors | `PLACEHOLDER_AUTHORED` | authored (FQ-13P2); consumed by the future HUD redesign |
-| Player cosmetic variants | ✅ LIVE | done — FQ-13P3 (full-body pool; demo `human` pool; creation "Look" control) |
-| Block variant pools | mechanism live, no files | art backlog (drop-in, no code) |
+| HUD orbs / nav buttons / dock / cursors | `PLACEHOLDER_AUTHORED` | orb frames are LIVE in the bottom dock; dock art, fill mask, buttons, and cursors remain replaceable hooks |
+| Player cosmetic variants | ✅ LIVE | two alternatives for every current body; dynamic creation Look range |
+| Block variant pools | ✅ LIVE | three variants for 17 high-repetition block ids |
 | Item icons | ✅ stable by design | canonical-only, cached (FQ-13P4) |
 | Opening cel shots | `DEFERRED` (animation semantics) | optional per `opening_convention` / `frame_semantics` |
 
 **FQ-13P arc status: complete (P0–P4).** The audit + tooling, enemy variant
 consumption, deliberate UI placeholders, player cosmetics, and the
-variant-vs-animation formalization are all live. Remaining items above are art
-backlog (drop-in) or the deferred HUD-redesign consumption of the authored UI
-placeholders — no further FQ-13P code is required.
+variant-vs-animation formalization are all live. The 2026-07-14 art run closes
+the current canonical and high-repetition variation backlog. Remaining image
+work is deliberately gated: body-specific player gear, replacement UI art once
+those hooks are consumed, optional opening cels, and assets for future systems.

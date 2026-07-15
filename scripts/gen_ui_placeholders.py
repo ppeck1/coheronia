@@ -157,13 +157,25 @@ BUILDERS = {
 
 
 def main() -> int:
+    # FQ-19: scripts/art/gen_hud_final_art.py now owns the final versions of
+    # most of these ids. Like gen_player_variants.py, this placeholder
+    # generator preserves existing files by default and only overwrites with
+    # the placeholder look when --force-placeholder is explicit.
+    import sys
+    force = "--force-placeholder" in sys.argv
     OUT.mkdir(parents=True, exist_ok=True)
+    written = 0
     for name, build in BUILDERS.items():
+        target = OUT / f"{name}.png"
+        if target.exists() and not force:
+            print(f"kept  art/generated/ui/{name}.png (exists; --force-placeholder to overwrite)")
+            continue
         img = build()
         assert img.size == (S, S), name
-        img.save(OUT / f"{name}.png")
+        img.save(target)
+        written += 1
         print(f"wrote art/generated/ui/{name}.png")
-    print(f"{len(BUILDERS)} UI placeholders generated.")
+    print(f"{written} UI placeholders generated, {len(BUILDERS) - written} preserved.")
     return 0
 
 

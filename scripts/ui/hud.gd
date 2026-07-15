@@ -28,12 +28,18 @@ var _attunement_bar: ProgressBar
 var _low_health_active := false
 var _bars: Dictionary = {}       # "coherence"/"load"/"resilience" -> ProgressBar
 var _status_label: Label
+# FQ-19: framed crest — title row plus per-bar numeric value labels.
+var _crest_title: Label
+var _bar_values: Dictionary = {}  # "coherence"/"load"/"resilience" -> Label
 var _time_label: Label
 var _stock_label: Label
 var _progression_label: Label
 var _hotbar_label: Label
 var _mine_bar: ProgressBar
 var _log_label: Label
+var _event_panel: PanelContainer
+var _event_time_label: Label
+var _event_visible_before_map := true
 var _log_lines: Array[String] = []
 var _town_panel: PanelContainer
 var _town_info: Label
@@ -45,16 +51,45 @@ var _repair_button: Button
 var _lantern_button: Button
 var _station_box: VBoxContainer   # FQ-11: dynamic build/craft section
 var _stock_empty_label: Label
-var _save_label: Label
+var _save_label: Label   # no longer built (FQ-19); kept for the null-guarded setter
+var _has_save_hint := false
 var _debug_label: Label
+var _top_left_box: Control
+# FQ-19: the movable "dock" widget is a band of three siblings — health orb,
+# central hotbar/nav panel, attunement orb (Photo 1/2: the orbs are their own
+# objects flanking the panel, not decorations inside one wide plate).
+var _bottom_dock: Control          # the whole band (registered HUD widget)
+var _dock_panel: PanelContainer    # the central backplate panel
+# FQ-19: Range covers both fill implementations — the masked liquid
+# TextureProgressBar when orb_fill_mask art exists, else the code-drawn
+# ProgressBar fallback.
+var _health_vessel_fill: Range
+var _attunement_vessel_fill: Range
+var _health_vessel_label: Label
+var _attunement_vessel_label: Label
+# FQ-19: vessel effect state — flash/glow overlays, the attunement frame for
+# the outward use-pulse, the rotating geometric core, and last-seen values so
+# damage/recovery/regeneration transitions can be detected.
+var _health_fx: TextureRect
+var _attunement_fx: TextureRect
+var _attunement_frame: Control
+var _attunement_core: ColorRect
+var _last_health := -1.0
+var _last_attunement := -1.0
+var _vessel_fx_tweens: Dictionary = {}   # TextureRect -> Tween
+var _vessel_pulse_tween: Tween
+var _module_toolbar: HBoxContainer
 # FQ-14: compact, state-driven current-goal panel (top-center; toggle_goals hides it).
 var _goal_panel: PanelContainer
 var _goal_label: Label
 var _goal_hint: Label
+var _goal_progress: ProgressBar   # FQ-19: milestone strip (index/total)
 var _goal_visible := true
 # Wave C: openable full inventory panel.
 var _inv_panel: PanelContainer
 var _inv_content: Label
+var _character_panel: PanelContainer
+var _character_info: Label
 # FQ-06: skill tree panel (K); preloaded script, no class_name (cache-safe).
 const SkillTreePanelScript := preload("res://scripts/ui/skill_tree_panel.gd")
 var _skill_panel: PanelContainer
@@ -67,6 +102,9 @@ var _map_open := false
 var _hotbar_icons: Array[TextureRect] = []
 var _hotbar_slots: Array[PanelContainer] = []
 var _hotbar_counts: Array[Label] = []
+# FQ-19: per-slot wrapper margins — the selected slot rides 3px higher than
+# its neighbors (blueprint "raised selected slot" treatment).
+var _hotbar_cells: Array[MarginContainer] = []
 var _hotbar_selected := -1
 # FQ-13P2: StyleBox (texture placeholder when art/generated/ui art exists, else
 # the code-drawn flat fallback) — either subclass assigns to a slot panel.
@@ -77,56 +115,464 @@ var _inv_grid: GridContainer
 var _inv_grid_counts: Dictionary = {}    # item_id -> displayed count
 var _stock_grid: GridContainer
 var _stock_grid_counts: Dictionary = {}  # item_id -> displayed count
+# FQ-19: contextual right-band stack — entries appear only when relevant
+# (blueprint: selected item, save toast, interaction prompt), auto-hide, and
+# stack in fixed priority order so they can never overlap each other.
+var _context_stack: VBoxContainer
+var _ctx_item_panel: PanelContainer
+var _ctx_item_label: Label
+var _ctx_save_panel: PanelContainer
+var _ctx_interact_panel: PanelContainer
+var _ctx_interact_label: Label
+var _ctx_tweens: Dictionary = {}   # PanelContainer -> Tween
+var _ctx_last_item := ""
+var _hud_widgets: Dictionary = {}
+var _hud_default_positions: Dictionary = {}
+var _hud_widget_locked: Dictionary = {}
+var _hud_edit_panel: PanelContainer
+var _hud_edit_select: OptionButton
+var _hud_edit_status: Label
+var _hud_edit_mode := false
+var _hud_edit_selected := "crest"
+var _hud_drag_widget := ""
+var _hud_drag_pointer := Vector2.ZERO
+var _hud_drag_origin := Vector2.ZERO
+const HUD_WIDGET_IDS := ["crest", "goal", "events", "map", "dock"]
+const HUD_MIN_SCALE := 0.75
+const HUD_MAX_SCALE := 1.50
+const HUD_SCALE_STEP := 0.25
+const HUD_SAFE_MARGIN := 12.0
+# FQ-19: layouts saved before the canvas_items stretch + split dock band were
+# recorded against a different coordinate space and geometry; loading them
+# lands widgets off-screen/off-center. A version mismatch falls back to the
+# blueprint defaults (one-time reset; new edits re-save under this version).
+const HUD_LAYOUT_VERSION := 2
 
 
 func _ready() -> void:
 	_build_top_left()
 	_build_bottom_left()
 	_build_log()
+	_build_context_stack()
+	_build_module_toolbar()
 	_build_town_panel()
 	_build_inventory_panel()
+	_build_character_panel()
 	_skill_panel = SkillTreePanelScript.new()
 	add_child(_skill_panel)
 	_build_goal_panel()
 	_build_map_panel()
 	_build_debug_overlay()
+	_register_hud_widgets()
+	_build_hud_edit_panel()
+	_load_hud_layout()
 
 
 func _process(_delta: float) -> void:
 	if player != null:
 		_mine_bar.visible = player.mine_progress_ratio() > 0.0
 		_mine_bar.value = player.mine_progress_ratio() * 100.0
+	# FQ-19: low-health heartbeat pulse on the vessel overlay (only when no
+	# one-shot flash/glow tween owns it) and the slow core rotation.
+	if _low_health_active and _health_fx != null and not _vessel_fx_active(_health_fx):
+		var wave := 0.28 + 0.18 * sin(Time.get_ticks_msec() / 160.0)
+		_health_fx.self_modulate = Color(1.0, 0.25, 0.2, wave)
+	if _attunement_core != null:
+		_attunement_core.rotation += _delta * 0.8
+	if _hud_edit_mode:
+		return
 	if Input.is_action_just_pressed("debug_overlay"):
 		_debug_label.visible = not _debug_label.visible
 	if Input.is_action_just_pressed("toggle_goals"):
-		_goal_visible = not _goal_visible
+		_toggle_goal_module()
+
+
+func _build_module_toolbar() -> void:
+	_module_toolbar = HBoxContainer.new()
+	_module_toolbar.anchor_left = 1.0
+	_module_toolbar.anchor_right = 1.0
+	_module_toolbar.offset_left = -380
+	_module_toolbar.offset_right = -12
+	_module_toolbar.offset_top = 62
+	_module_toolbar.offset_bottom = 90
+	_module_toolbar.alignment = BoxContainer.ALIGNMENT_END
+	_module_toolbar.add_theme_constant_override("separation", 4)
+	add_child(_module_toolbar)
+	_add_module_button("Crest", func(): _toggle_top_left_module())
+	_add_module_button("Goal", func(): _toggle_goal_module())
+	_add_module_button("Events", func(): _toggle_event_module())
+	_add_module_button("Map", func(): toggle_map())
+	_add_module_button("Edit", func(): toggle_hud_edit_mode())
+
+
+func _add_module_button(text: String, action: Callable) -> void:
+	var button := Button.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(64, 24)
+	button.focus_mode = Control.FOCUS_ALL
+	button.pressed.connect(action)
+	_module_toolbar.add_child(button)
+
+
+func _register_hud_widgets() -> void:
+	_hud_widgets = {
+		"crest": _top_left_box,
+		"goal": _goal_panel,
+		"events": _event_panel if _event_panel != null else _log_label,
+		"map": _map_panel,
+		"dock": _bottom_dock,
+	}
+	for widget_id in HUD_WIDGET_IDS:
+		var control: Control = _hud_widgets.get(widget_id)
+		if control == null:
+			continue
+		_hud_default_positions[widget_id] = control.position
+		_hud_widget_locked[widget_id] = true
+		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+func _build_hud_edit_panel() -> void:
+	_hud_edit_panel = PanelContainer.new()
+	_hud_edit_panel.anchor_left = 1.0
+	_hud_edit_panel.anchor_right = 1.0
+	_hud_edit_panel.anchor_top = 1.0
+	_hud_edit_panel.anchor_bottom = 1.0
+	_hud_edit_panel.offset_left = -300.0
+	_hud_edit_panel.offset_right = -12.0
+	_hud_edit_panel.offset_top = -168.0
+	_hud_edit_panel.offset_bottom = -12.0
+	_hud_edit_panel.visible = false
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	_hud_edit_panel.add_child(box)
+	var title := _label(box, "HUD EDIT (locked by default)")
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hud_edit_select = OptionButton.new()
+	for widget_id in HUD_WIDGET_IDS:
+		_hud_edit_select.add_item(widget_id.capitalize())
+		_hud_edit_select.set_item_metadata(_hud_edit_select.item_count - 1, widget_id)
+	_hud_edit_select.item_selected.connect(func(index: int):
+		_hud_edit_selected = str(_hud_edit_select.get_item_metadata(index))
+		_update_hud_edit_status())
+	box.add_child(_hud_edit_select)
+	var move_row := HBoxContainer.new()
+	_add_edit_button(move_row, "←", func(): _nudge_hud_widget(Vector2(-8, 0)))
+	_add_edit_button(move_row, "→", func(): _nudge_hud_widget(Vector2(8, 0)))
+	_add_edit_button(move_row, "↑", func(): _nudge_hud_widget(Vector2(0, -8)))
+	_add_edit_button(move_row, "↓", func(): _nudge_hud_widget(Vector2(0, 8)))
+	box.add_child(move_row)
+	var scale_row := HBoxContainer.new()
+	_add_edit_button(scale_row, "Scale −", func(): _scale_hud_widget(-HUD_SCALE_STEP))
+	_add_edit_button(scale_row, "Scale +", func(): _scale_hud_widget(HUD_SCALE_STEP))
+	_add_edit_button(scale_row, "Lock", func(): _toggle_hud_widget_lock())
+	box.add_child(scale_row)
+	var action_row := HBoxContainer.new()
+	_add_edit_button(action_row, "Reset", func(): reset_hud_layout())
+	_add_edit_button(action_row, "Done", func(): toggle_hud_edit_mode())
+	box.add_child(action_row)
+	_hud_edit_status = _label(box, "")
+	_hud_edit_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(_hud_edit_panel)
+
+
+func _add_edit_button(row: HBoxContainer, text: String, action: Callable) -> void:
+	var button := Button.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(64, 24)
+	button.pressed.connect(action)
+	row.add_child(button)
+
+
+func toggle_hud_edit_mode() -> void:
+	_hud_edit_mode = not _hud_edit_mode
+	GameState.hud_edit_mode = _hud_edit_mode
+	if _hud_edit_panel != null:
+		_hud_edit_panel.visible = _hud_edit_mode
+	for widget_id in HUD_WIDGET_IDS:
+		var control: Control = _hud_widgets.get(widget_id)
+		if control != null:
+			control.mouse_filter = Control.MOUSE_FILTER_STOP if _hud_edit_mode else Control.MOUSE_FILTER_IGNORE
+	if _hud_edit_mode:
+		_hud_edit_selected = "crest"
+		_hud_edit_select.select(0)
+		_update_hud_edit_status()
+	else:
+		_hud_drag_widget = ""
+		_save_hud_layout()
+
+
+func is_hud_edit_mode() -> bool:
+	return _hud_edit_mode
+
+
+func _update_hud_edit_status() -> void:
+	if _hud_edit_status == null:
+		return
+	var locked: bool = bool(_hud_widget_locked.get(_hud_edit_selected, true))
+	var control: Control = _hud_widgets.get(_hud_edit_selected)
+	var scale := 1.0 if control == null else control.scale.x
+	_hud_edit_status.text = "%s · %s · %.2fx\nDrag the selected module or use arrows." % [
+		_hud_edit_selected.capitalize(), "Locked" if locked else "Unlocked", scale]
+
+
+func _toggle_hud_widget_lock() -> void:
+	_hud_widget_locked[_hud_edit_selected] = not bool(_hud_widget_locked.get(_hud_edit_selected, true))
+	_update_hud_edit_status()
+
+
+func _nudge_hud_widget(delta: Vector2) -> void:
+	if bool(_hud_widget_locked.get(_hud_edit_selected, true)):
+		return
+	var control: Control = _hud_widgets.get(_hud_edit_selected)
+	if control == null:
+		return
+	control.position += delta
+	_clamp_hud_widget(control)
+	_update_hud_edit_status()
+
+
+func _scale_hud_widget(delta: float) -> void:
+	if bool(_hud_widget_locked.get(_hud_edit_selected, true)):
+		return
+	var control: Control = _hud_widgets.get(_hud_edit_selected)
+	if control == null:
+		return
+	var next_scale := clampf(control.scale.x + delta, HUD_MIN_SCALE, HUD_MAX_SCALE)
+	control.scale = Vector2.ONE * next_scale
+	_clamp_hud_widget(control)
+	_update_hud_edit_status()
+
+
+func _clamp_hud_widget(control: Control) -> void:
+	var viewport_size := get_viewport().get_visible_rect().size
+	var scaled_size := control.size * control.scale
+	var max_position := viewport_size - scaled_size - Vector2.ONE * HUD_SAFE_MARGIN
+	control.position.x = clampf(control.position.x, HUD_SAFE_MARGIN, max_position.x)
+	control.position.y = clampf(control.position.y, HUD_SAFE_MARGIN, max_position.y)
+
+
+func _input(event: InputEvent) -> void:
+	if not _hud_edit_mode:
+		return
+	# Only mouse events carry a position; a key press while editing must not
+	# reach the base-InputEvent property (review finding, FQ-19 closeout).
+	if not (event is InputEventMouse):
+		return
+	if _hud_edit_panel != null \
+			and _hud_edit_panel.get_global_rect().has_point((event as InputEventMouse).position):
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_hud_drag_widget = _hud_widget_at(event.position)
+			if _hud_drag_widget != "":
+				_hud_edit_selected = _hud_drag_widget
+				_hud_edit_select.select(HUD_WIDGET_IDS.find(_hud_drag_widget))
+				_hud_drag_pointer = event.position
+				_hud_drag_origin = (_hud_widgets[_hud_drag_widget] as Control).position
+				_update_hud_edit_status()
+		else:
+			if _hud_drag_widget != "":
+				_save_hud_layout()
+			_hud_drag_widget = ""
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion and _hud_drag_widget != "":
+		if not bool(_hud_widget_locked.get(_hud_drag_widget, true)):
+			var control: Control = _hud_widgets[_hud_drag_widget]
+			control.position = _hud_drag_origin + (event.position - _hud_drag_pointer)
+			_clamp_hud_widget(control)
+			_update_hud_edit_status()
+		get_viewport().set_input_as_handled()
+
+
+func _hud_widget_at(point: Vector2) -> String:
+	for widget_id in HUD_WIDGET_IDS:
+		var control: Control = _hud_widgets.get(widget_id)
+		if control != null and control.visible and control.get_global_rect().has_point(point):
+			return widget_id
+	return ""
+
+
+func _load_hud_layout() -> void:
+	var saved: Variant = GameState.profile.get("hud_layout", {})
+	if not saved is Dictionary:
+		return
+	if int(saved.get("version", 0)) != HUD_LAYOUT_VERSION:
+		return
+	for widget_id in HUD_WIDGET_IDS:
+		var record: Variant = saved.get(widget_id, {})
+		if not record is Dictionary:
+			continue
+		var control: Control = _hud_widgets.get(widget_id)
+		if control == null:
+			continue
+		var delta_value: Variant = record.get("delta", [0.0, 0.0])
+		if delta_value is Array and delta_value.size() >= 2:
+			control.position = _hud_default_positions[widget_id] + Vector2(float(delta_value[0]), float(delta_value[1]))
+		var saved_scale := clampf(float(record.get("scale", 1.0)), HUD_MIN_SCALE, HUD_MAX_SCALE)
+		control.scale = Vector2.ONE * saved_scale
+		_hud_widget_locked[widget_id] = bool(record.get("locked", true))
+		var saved_visible: Variant = record.get("visible", true)
+		if widget_id in ["crest", "goal", "events"] and saved_visible is bool:
+			control.visible = saved_visible
+			if widget_id == "goal":
+				_goal_visible = control.visible
+		_clamp_hud_widget(control)
+
+
+func _save_hud_layout() -> void:
+	var layout := {"version": HUD_LAYOUT_VERSION}
+	for widget_id in HUD_WIDGET_IDS:
+		var control: Control = _hud_widgets.get(widget_id)
+		if control == null:
+			continue
+		var delta: Vector2 = control.position - _hud_default_positions[widget_id]
+		var saved_visible := control.visible if widget_id in ["crest", "goal", "events"] else true
+		if widget_id == "events" and _map_open:
+			saved_visible = _event_visible_before_map
+		layout[widget_id] = {
+			"delta": [snappedf(delta.x, 1.0), snappedf(delta.y, 1.0)],
+			"scale": snappedf(control.scale.x, HUD_SCALE_STEP),
+			"locked": bool(_hud_widget_locked.get(widget_id, true)),
+			"visible": saved_visible,
+		}
+	GameState.profile["hud_layout"] = layout
+	GameState.save_shell()
+
+
+func reset_hud_layout() -> void:
+	for widget_id in HUD_WIDGET_IDS:
+		var control: Control = _hud_widgets.get(widget_id)
+		if control == null:
+			continue
+		control.position = _hud_default_positions[widget_id]
+		control.scale = Vector2.ONE
+		_hud_widget_locked[widget_id] = true
+		if widget_id in ["crest", "goal", "events"]:
+			control.visible = not (widget_id == "events" and _map_open)
+	_goal_visible = true
+	_event_visible_before_map = true
+	_save_hud_layout()
+	_update_hud_edit_status()
+
+
+func _toggle_top_left_module() -> void:
+	if _top_left_box != null:
+		_top_left_box.visible = not _top_left_box.visible
+		_save_hud_layout()
+
+
+func _toggle_goal_module() -> void:
+	_goal_visible = not _goal_visible
+	if _goal_panel != null:
 		_goal_panel.visible = _goal_visible
+		_save_hud_layout()
+
+
+func _toggle_event_module() -> void:
+	if _event_panel != null:
+		var current_preference: bool = _event_visible_before_map if _map_open else _event_panel.visible
+		var next_visible := not current_preference
+		if _map_open:
+			_event_visible_before_map = next_visible
+			# Map owns the top-right zone while open. Persist the user's intended
+			# Events preference without persisting the temporary hidden state.
+			_event_panel.visible = next_visible
+			_save_hud_layout()
+			_event_panel.visible = false
+		else:
+			_event_panel.visible = next_visible
+			_save_hud_layout()
+
+
+## FQ-19: shared framed-module look — the dock backplate 9-slice reused for
+## the crest/goal/events frames, with the code-drawn plate as fallback.
+func _module_panel_style() -> StyleBox:
+	var backplate: Texture2D = BlockRegistry.visual_texture("ui", "dock_backplate")
+	if backplate != null:
+		var sbt := StyleBoxTexture.new()
+		sbt.texture = backplate
+		sbt.set_texture_margin_all(8)
+		sbt.set_content_margin_all(8)
+		return sbt
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.06, 0.09, 0.9)
+	sb.border_color = Color(0.55, 0.42, 0.24, 0.95)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(4)
+	sb.set_content_margin_all(8)
+	return sb
 
 
 func _build_top_left() -> void:
+	# FQ-19 blueprint crest: one framed settlement panel — name/level title,
+	# a chip+bar+value row per C/L/R resource, then status/stores/XP lines.
+	var crest := PanelContainer.new()
+	_top_left_box = crest
+	crest.position = Vector2(12, 10)
+	crest.custom_minimum_size = Vector2(250, 0)
+	crest.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	crest.add_theme_stylebox_override("panel", _module_panel_style())
+	add_child(crest)
 	var box := VBoxContainer.new()
-	box.position = Vector2(12, 10)
-	box.custom_minimum_size = Vector2(240, 0)
-	add_child(box)
-	_health_bar = _bar(box, "Health", Color(0.82, 0.22, 0.22))
-	_health_bar.value = 100.0
-	_health_label = _label(box, "100 / 100")
-	# FQ-05: attunement (magic resource) sits directly under health.
-	_attunement_bar = _bar(box, "Attunement", Color(0.45, 0.50, 0.95))
-	_attunement_bar.value = 100.0
-	_attunement_label = _label(box, "50 / 50")
-	_bars["coherence"] = _bar(box, "Coherence", Color(0.35, 0.75, 0.40))
-	_bars["load"] = _bar(box, "Load", Color(0.85, 0.45, 0.30))
-	_bars["resilience"] = _bar(box, "Resilience", Color(0.35, 0.55, 0.85))
+	crest.add_child(box)
+	_crest_title = Label.new()
+	_crest_title.text = "◆ Camp · Lv.1"
+	_crest_title.add_theme_font_size_override("font_size", 14)
+	_crest_title.add_theme_color_override("font_color", Color(0.89, 0.75, 0.43))
+	box.add_child(_crest_title)
+	_bars["coherence"] = _crest_bar(box, "Coherence", Color(0.35, 0.75, 0.40))
+	_bars["load"] = _crest_bar(box, "Load", Color(0.85, 0.45, 0.30))
+	_bars["resilience"] = _crest_bar(box, "Resilience", Color(0.35, 0.55, 0.85))
 	_status_label = _label(box, "Status: —")
-	_time_label = _label(box, "Day 1 — Day")
+	_status_label.add_theme_font_size_override("font_size", 11)
 	_stock_label = _label(box, "Town Hall: empty")
+	_stock_label.add_theme_font_size_override("font_size", 11)
 	_progression_label = _label(box, "Lv.1 Camp  XP: 0/100")
+	_progression_label.add_theme_font_size_override("font_size", 11)
+	_progression_label.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
+
+
+## FQ-19 crest resource row: color chip, name, slim bar, right-aligned value.
+func _crest_bar(parent: Control, title: String, color: Color) -> ProgressBar:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 5)
+	parent.add_child(row)
+	var chip := ColorRect.new()
+	chip.color = color
+	chip.custom_minimum_size = Vector2(7, 7)
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	chip.rotation = PI / 4.0
+	chip.pivot_offset = Vector2(3.5, 3.5)
+	row.add_child(chip)
+	var label := Label.new()
+	label.text = title
+	label.custom_minimum_size = Vector2(70, 0)
+	label.add_theme_font_size_override("font_size", 12)
+	row.add_child(label)
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(100, 10)
+	bar.max_value = 100.0
+	bar.value = 50.0
+	bar.show_percentage = false
+	bar.modulate = color
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(bar)
+	var value := Label.new()
+	value.text = "50"
+	value.custom_minimum_size = Vector2(24, 0)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value.add_theme_font_size_override("font_size", 12)
+	row.add_child(value)
+	_bar_values[title.to_lower()] = value
+	return bar
 
 
 ## FQ-14: a small top-center panel showing the current objective and a one-line
 ## hint. Unobtrusive (compact, semi-transparent) and hideable with toggle_goals.
 func _build_goal_panel() -> void:
+	# FQ-19 blueprint treatment: framed panel, objective headline, subgoal
+	# line, and a slim milestone strip showing progress through the arc.
 	_goal_panel = PanelContainer.new()
 	_goal_panel.anchor_left = 0.5
 	_goal_panel.anchor_right = 0.5
@@ -134,19 +580,14 @@ func _build_goal_panel() -> void:
 	_goal_panel.offset_right = 180.0
 	_goal_panel.offset_top = 8.0
 	_goal_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.09, 0.13, 0.72)
-	sb.border_color = Color(0.85, 0.72, 0.35, 0.8)
-	sb.set_border_width_all(1)
-	sb.set_content_margin_all(6)
-	sb.set_corner_radius_all(4)
-	_goal_panel.add_theme_stylebox_override("panel", sb)
+	_goal_panel.add_theme_stylebox_override("panel", _module_panel_style())
 	add_child(_goal_panel)
 	var col := VBoxContainer.new()
 	_goal_panel.add_child(col)
 	_goal_label = Label.new()
 	_goal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_goal_label.add_theme_font_size_override("font_size", 14)
+	_goal_label.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78))
 	col.add_child(_goal_label)
 	_goal_hint = Label.new()
 	_goal_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -154,20 +595,28 @@ func _build_goal_panel() -> void:
 	_goal_hint.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
 	_goal_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_goal_hint)
+	_goal_progress = ProgressBar.new()
+	_goal_progress.custom_minimum_size = Vector2(0, 5)
+	_goal_progress.show_percentage = false
+	_goal_progress.modulate = Color(0.89, 0.75, 0.43)
+	col.add_child(_goal_progress)
 
 
 ## FQ-14: reflect the goal model. `goal` is the goal_tracker.current() dict.
 func update_goal(goal: Dictionary) -> void:
 	if _goal_label == null:
 		return
+	var idx := int(goal.get("index", 0))
+	var total := int(goal.get("total", 5))
+	if _goal_progress != null:
+		_goal_progress.max_value = float(maxi(total, 1))
+		_goal_progress.value = float(idx)
 	if bool(goal.get("all_done", false)):
 		_goal_label.text = "✓ " + str(goal.get("text", "All goals complete."))
 		_goal_hint.text = ""
 		_goal_hint.visible = false
 	else:
-		var idx := int(goal.get("index", 0)) + 1
-		var total := int(goal.get("total", 5))
-		_goal_label.text = "Goal %d/%d: %s" % [idx, total, str(goal.get("text", ""))]
+		_goal_label.text = "Goal %d/%d: %s" % [idx + 1, total, str(goal.get("text", ""))]
 		_goal_hint.text = str(goal.get("hint", ""))
 		_goal_hint.visible = true
 
@@ -176,15 +625,19 @@ func goal_panel_visible() -> bool:
 	return _goal_panel != null and _goal_panel.visible
 
 
-## FQ-15: a centered, hidden-by-default schematic map panel.
+## FQ-15/FQ-16: a compact, hidden-by-default schematic mini-map placeholder.
 func _build_map_panel() -> void:
 	_map_panel = MapPanelScript.new()
-	_map_panel.custom_minimum_size = Vector2(460, 210)
-	_map_panel.size = Vector2(460, 210)
-	_map_panel.anchor_left = 0.5
-	_map_panel.anchor_top = 0.5
-	_map_panel.offset_left = -230.0
-	_map_panel.offset_top = -105.0
+	_map_panel.custom_minimum_size = Vector2(240, 140)
+	_map_panel.size = Vector2(240, 140)
+	_map_panel.anchor_left = 1.0
+	_map_panel.anchor_right = 1.0
+	_map_panel.anchor_top = 0.0
+	_map_panel.anchor_bottom = 0.0
+	_map_panel.offset_left = -252.0
+	_map_panel.offset_right = -12.0
+	_map_panel.offset_top = 96.0
+	_map_panel.offset_bottom = 236.0
 	_map_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_panel.visible = false
 	add_child(_map_panel)
@@ -195,6 +648,12 @@ func _build_map_panel() -> void:
 func toggle_map() -> bool:
 	_map_open = not _map_open
 	_map_panel.visible = _map_open
+	if _event_panel != null:
+		if _map_open:
+			_event_visible_before_map = _event_panel.visible
+			_event_panel.visible = false
+		else:
+			_event_panel.visible = _event_visible_before_map
 	return _map_open
 
 
@@ -208,12 +667,56 @@ func map_open() -> bool:
 
 
 func _build_bottom_left() -> void:
+	# FQ-19 blueprint band (Photo 1/2): the two resource orbs are their own
+	# flanking objects beside ONE central hotbar/nav panel — not decorations
+	# inside a single wide plate. The whole band is the movable "dock" widget;
+	# the backplate spans only the central panel.
+	var band := HBoxContainer.new()
+	_bottom_dock = band
+	band.anchor_left = 0.5
+	band.anchor_right = 0.5
+	band.anchor_top = 1.0
+	band.anchor_bottom = 1.0
+	band.offset_left = -360
+	band.offset_right = 360
+	band.offset_top = -170
+	band.offset_bottom = -24
+	band.alignment = BoxContainer.ALIGNMENT_CENTER
+	band.add_theme_constant_override("separation", 6)
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(band)
+	var health_vessel := _make_resource_vessel("orb_health_frame", Color(0.82, 0.12, 0.10))
+	health_vessel.name = "HealthVessel"
+	_health_vessel_fill = health_vessel.get_node("Fill") as Range
+	_health_vessel_label = health_vessel.get_node("Value") as Label
+	_health_fx = health_vessel.get_node("Fx") as TextureRect
+	_health_label = _health_vessel_label
+	health_vessel.size_flags_vertical = Control.SIZE_SHRINK_END
+	band.add_child(health_vessel)
+	var panel := PanelContainer.new()
+	_dock_panel = panel
+	panel.size_flags_vertical = Control.SIZE_SHRINK_END
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The ornate 9-sliced metal backplate when the final art exists; the
+	# original code-drawn plate stays as the validated fallback.
+	var backplate: Texture2D = BlockRegistry.visual_texture("ui", "dock_backplate")
+	if backplate != null:
+		var dock_art := StyleBoxTexture.new()
+		dock_art.texture = backplate
+		dock_art.set_texture_margin_all(8)   # 9-slice: rivets stay in the corners
+		dock_art.set_content_margin_all(10)
+		panel.add_theme_stylebox_override("panel", dock_art)
+	else:
+		var dock_style := StyleBoxFlat.new()
+		dock_style.bg_color = Color(0.035, 0.045, 0.065, 0.94)
+		dock_style.border_color = Color(0.55, 0.42, 0.24, 0.95)
+		dock_style.set_border_width_all(2)
+		dock_style.set_corner_radius_all(8)
+		dock_style.set_content_margin_all(8)
+		panel.add_theme_stylebox_override("panel", dock_style)
+	band.add_child(panel)
 	var box := VBoxContainer.new()
-	box.anchor_top = 1.0
-	box.anchor_bottom = 1.0
-	box.offset_left = 12
-	box.offset_top = -96
-	add_child(box)
+	panel.add_child(box)
 	_mine_bar = ProgressBar.new()
 	_mine_bar.custom_minimum_size = Vector2(180, 10)
 	_mine_bar.show_percentage = false
@@ -226,13 +729,37 @@ func _build_bottom_left() -> void:
 	# reads them without mutating) — clone before mutating per slot.
 	_slot_normal_sb = _make_slot_style("slot_inventory", Color(0.35, 0.35, 0.4))
 	_slot_selected_sb = _make_slot_style("slot_inventory_selected", Color(0.95, 0.8, 0.25))
+	var dock_row := HBoxContainer.new()
+	dock_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	dock_row.add_theme_constant_override("separation", 8)
+	box.add_child(dock_row)
+	# FQ-19 blueprint order inside the panel: Inventory/Character · five
+	# slots · Skills/Town Hall (the orbs flank the panel outside it).
+	var nav_left := HBoxContainer.new()
+	nav_left.add_theme_constant_override("separation", 3)
+	nav_left.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	dock_row.add_child(nav_left)
+	_add_dock_action_button(nav_left, "Inventory", "button_inventory",
+		func(): toggle_inventory_panel())
+	_add_dock_action_button(nav_left, "Character", "button_character",
+		func(): toggle_character_panel())
 	var slot_row := HBoxContainer.new()
-	box.add_child(slot_row)
+	slot_row.add_theme_constant_override("separation", 2)
+	# Blueprint slots stay compact squares centered on the orb axis instead of
+	# stretching to the vessel height.
+	slot_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	dock_row.add_child(slot_row)
 	for i in range(5):
+		# The MarginContainer wrapper reserves 3px of travel so selecting a
+		# slot raises it without shifting its neighbors (blueprint treatment).
+		var cell := MarginContainer.new()
+		cell.add_theme_constant_override("margin_top", 3)
+		cell.add_theme_constant_override("margin_bottom", 0)
+		slot_row.add_child(cell)
 		var slot := PanelContainer.new()
 		slot.custom_minimum_size = Vector2(42, 46)
 		slot.add_theme_stylebox_override("panel", _slot_normal_sb)
-		slot_row.add_child(slot)
+		cell.add_child(slot)
 		var col := VBoxContainer.new()
 		slot.add_child(col)
 		var icon := TextureRect.new()
@@ -243,12 +770,175 @@ func _build_bottom_left() -> void:
 		var count := _label(col, "")
 		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		count.add_theme_font_size_override("font_size", 11)
+		# Blueprint key number in the slot's top corner; the PanelContainer
+		# lays both children over the same rect, so the tag overlays the tile.
+		var key_tag := Label.new()
+		key_tag.text = str(i + 1)
+		key_tag.add_theme_font_size_override("font_size", 9)
+		key_tag.add_theme_color_override("font_color", Color(0.89, 0.75, 0.43, 0.9))
+		key_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		# Label defaults to SHRINK_CENTER vertically; pin the tag to the
+		# slot's top corner (blueprint key-number position).
+		key_tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		key_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(key_tag)
+		_hotbar_cells.append(cell)
 		_hotbar_slots.append(slot)
 		_hotbar_icons.append(icon)
 		_hotbar_counts.append(count)
+	var nav_right := HBoxContainer.new()
+	nav_right.add_theme_constant_override("separation", 3)
+	nav_right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	dock_row.add_child(nav_right)
+	_add_dock_action_button(nav_right, "Skills", "button_skills",
+		func(): toggle_skill_panel())
+	_add_dock_action_button(nav_right, "Town Hall", "button_town_hall",
+		func(): toggle_town_panel())
 	_hotbar_label = _label(box, "")
-	_label(box, "LMB mine · RMB place · E town hall · C craft · O goals · M map · F5 save · F9 load")
-	_save_label = _label(box, "No save yet — press F5 to save.")
+	_hotbar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hotbar_label.add_theme_font_size_override("font_size", 12)
+	var hint := _label(box, "LMB mine · RMB place · E town hall · C craft · O goals · M map · F5 save · F9 load")
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_color_override("font_color", Color(0.72, 0.75, 0.82))
+	var attunement_vessel := _make_resource_vessel("orb_attunement_frame",
+		Color(0.08, 0.60, 0.95), true)
+	attunement_vessel.name = "AttunementVessel"
+	_attunement_vessel_fill = attunement_vessel.get_node("Fill") as Range
+	_attunement_vessel_label = attunement_vessel.get_node("Value") as Label
+	_attunement_fx = attunement_vessel.get_node("Fx") as TextureRect
+	_attunement_frame = attunement_vessel.get_node("Frame") as Control
+	_attunement_core = attunement_vessel.get_node("Core") as ColorRect
+	_attunement_label = _attunement_vessel_label
+	attunement_vessel.size_flags_vertical = Control.SIZE_SHRINK_END
+	band.add_child(attunement_vessel)
+
+
+## FQ-19: glyph nav button (final button_* art) with the original text button
+## as the validated fallback when the asset is absent. The stable node name is
+## the machine-readable identity either way.
+func _add_dock_action_button(row: HBoxContainer, text: String, ui_id: String,
+		action: Callable) -> void:
+	var button := Button.new()
+	button.name = "DockAction" + text.replace(" ", "")
+	var glyph: Texture2D = BlockRegistry.visual_texture("ui", ui_id)
+	if glyph != null:
+		button.icon = glyph
+		button.expand_icon = true
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.custom_minimum_size = Vector2(34, 34)
+		var empty := StyleBoxEmpty.new()
+		for state in ["normal", "hover", "pressed", "disabled"]:
+			button.add_theme_stylebox_override(state, empty)
+		# The plate is baked into the glyph art, so state feedback rides on
+		# the icon tint instead of a stylebox.
+		button.add_theme_color_override("icon_normal_color", Color(0.92, 0.92, 0.9))
+		button.add_theme_color_override("icon_hover_color", Color.WHITE)
+		button.add_theme_color_override("icon_pressed_color", Color(0.75, 0.72, 0.62))
+	else:
+		button.text = text
+		button.custom_minimum_size = Vector2(76 if text != "Town Hall" else 86, 22)
+	button.focus_mode = Control.FOCUS_ALL
+	button.tooltip_text = "Open %s panel" % text
+	button.pressed.connect(action)
+	row.add_child(button)
+
+
+## FQ-19: one flanking resource orb — a 96px object in its own right (Photo
+## 1/2), 3x the 32px ring art with the numeric value beneath. The geometry
+## scales from the art contract: the ring's transparent hole is art px 5..26,
+## so at 3x the liquid disk sits at (15,15) with diameter 66.
+func _make_resource_vessel(ui_id: String, fill_color: Color,
+		with_core: bool = false) -> Control:
+	var vessel := Control.new()
+	vessel.name = "ResourceVessel"
+	vessel.custom_minimum_size = Vector2(96, 112)
+	vessel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Masked bottom-up liquid when the disk mask exists — the fluid is
+	# clipped to the orb interior so it can never bleed under the ring frame.
+	# The original code-drawn ProgressBar stays as the validated fallback.
+	var mask: Texture2D = BlockRegistry.visual_texture("ui", "orb_fill_mask")
+	var fill: Range
+	if mask != null:
+		# The 32px mask texture stretches over the WHOLE control, and its
+		# disk occupies art px 5..26 — so the control must span the full
+		# 96px frame for the liquid to land exactly inside the ring hole.
+		var liquid := TextureProgressBar.new()
+		liquid.nine_patch_stretch = true
+		liquid.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
+		liquid.texture_under = mask
+		liquid.tint_under = Color(0.02, 0.04, 0.08, 0.88)
+		liquid.texture_progress = mask
+		liquid.tint_progress = fill_color
+		liquid.position = Vector2.ZERO
+		liquid.size = Vector2(96, 96)
+		fill = liquid
+	else:
+		# Code-drawn fallback: a rounded square inset to the ring interior.
+		var bar := ProgressBar.new()
+		bar.show_percentage = false
+		bar.fill_mode = ProgressBar.FILL_BOTTOM_TO_TOP
+		var empty_style := StyleBoxFlat.new()
+		empty_style.bg_color = Color(0.02, 0.04, 0.08, 0.88)
+		empty_style.set_corner_radius_all(33)
+		var fill_style := StyleBoxFlat.new()
+		fill_style.bg_color = fill_color
+		fill_style.set_corner_radius_all(33)
+		bar.add_theme_stylebox_override("background", empty_style)
+		bar.add_theme_stylebox_override("fill", fill_style)
+		bar.position = Vector2(15, 15)
+		bar.size = Vector2(66, 66)
+		fill = bar
+	fill.name = "Fill"
+	fill.min_value = 0.0
+	fill.max_value = 100.0
+	fill.value = 100.0
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vessel.add_child(fill)
+	if with_core:
+		# Blueprint "bright geometric core": a rotating diamond behind the
+		# frame, dim while charging and bright at full attunement.
+		var core := ColorRect.new()
+		core.name = "Core"
+		core.color = Color(0.82, 0.96, 1.0)
+		core.position = Vector2(41, 41)
+		core.size = Vector2(14, 14)
+		core.pivot_offset = Vector2(7, 7)
+		core.rotation = PI / 4.0
+		core.self_modulate = Color(0.4, 0.65, 0.85, 0.5)
+		core.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vessel.add_child(core)
+	var frame := TextureRect.new()
+	frame.name = "Frame"
+	frame.position = Vector2.ZERO
+	frame.size = Vector2(96, 96)
+	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	frame.texture = BlockRegistry.visual_texture("ui", ui_id)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vessel.add_child(frame)
+	# Effect overlay — damage flash / recovery glow / regeneration shimmer
+	# land here as a tinted disk that tweens back to transparent. Spans the
+	# full frame like the fill so the mask's disk aligns with the ring hole.
+	var fx := TextureRect.new()
+	fx.name = "Fx"
+	fx.position = Vector2.ZERO
+	fx.size = Vector2(96, 96)
+	fx.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fx.texture = mask
+	fx.self_modulate = Color(1, 1, 1, 0)
+	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vessel.add_child(fx)
+	var value := Label.new()
+	value.name = "Value"
+	value.position = Vector2(16, 97)
+	value.size = Vector2(64, 14)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value.add_theme_font_size_override("font_size", 11)
+	value.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.95))
+	value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vessel.add_child(value)
+	return vessel
 
 
 ## FQ-13P2: a slot frame from the reserved UI placeholder
@@ -295,17 +985,127 @@ func _make_item_tile(parent: Control, item_id: String, count: int) -> void:
 	col.add_child(count_label)
 
 
+## FQ-19: contextual information stack — right band, top pinned just below the
+## Map/Events zone (their default bottom is 236) so the three surfaces can
+## never collide. Fixed child order is the display priority: selected item,
+## save toast, interaction prompt. Every entry autowraps and auto-hides.
+func _build_context_stack() -> void:
+	_context_stack = VBoxContainer.new()
+	_context_stack.anchor_left = 1.0
+	_context_stack.anchor_right = 1.0
+	_context_stack.offset_left = -252.0
+	_context_stack.offset_right = -12.0
+	_context_stack.offset_top = 244.0
+	_context_stack.add_theme_constant_override("separation", 4)
+	_context_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_context_stack)
+	_ctx_item_panel = _make_context_entry()
+	_ctx_item_label = _ctx_item_panel.get_child(0) as Label
+	_ctx_save_panel = _make_context_entry()
+	(_ctx_save_panel.get_child(0) as Label).text = "✓ Game saved"
+	_ctx_interact_panel = _make_context_entry()
+	_ctx_interact_label = _ctx_interact_panel.get_child(0) as Label
+	_ctx_interact_label.add_theme_color_override("font_color", Color(0.89, 0.75, 0.43))
+
+
+func _make_context_entry() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.visible = false
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.06, 0.09, 0.86)
+	sb.border_color = Color(0.55, 0.42, 0.24, 0.9)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(3)
+	sb.set_content_margin_all(5)
+	panel.add_theme_stylebox_override("panel", sb)
+	var label := Label.new()
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", 12)
+	panel.add_child(label)
+	_context_stack.add_child(panel)
+	return panel
+
+
+## The events panel grows with its log content, so the stack top is pinned
+## dynamically just below whichever of Map/Events is currently visible.
+func _position_context_stack() -> void:
+	if _context_stack == null:
+		return
+	var top := 244.0
+	if _event_panel != null and _event_panel.visible:
+		top = maxf(top, _event_panel.position.y + _event_panel.size.y + 8.0)
+	if _map_panel != null and _map_panel.visible:
+		top = maxf(top, _map_panel.position.y + _map_panel.size.y + 8.0)
+	_context_stack.offset_top = top
+	_context_stack.offset_bottom = top
+
+
+## Show a contextual entry; when hold_seconds > 0 it fades out and hides after
+## the hold (one-shot toast), otherwise it stays until explicitly hidden.
+func _show_context_entry(panel: PanelContainer, hold_seconds: float) -> void:
+	_position_context_stack()
+	var running: Tween = _ctx_tweens.get(panel)
+	if running != null and running.is_valid():
+		running.kill()
+	panel.modulate = Color(1, 1, 1, 1)
+	panel.visible = true
+	if hold_seconds > 0.0:
+		var tween := create_tween()
+		tween.tween_interval(hold_seconds)
+		tween.tween_property(panel, "modulate:a", 0.0, 0.4)
+		tween.tween_callback(func(): panel.visible = false)
+		_ctx_tweens[panel] = tween
+
+
+## FQ-19: one-shot save toast (fired by the actual F5 save, not boot state).
+func notify_saved() -> void:
+	if _ctx_save_panel != null:
+		_show_context_entry(_ctx_save_panel, 2.2)
+
+
+## FQ-19: contextual interaction prompt; empty text hides it.
+func set_interaction_prompt(text: String) -> void:
+	if _ctx_interact_panel == null:
+		return
+	if text == "":
+		_ctx_interact_panel.visible = false
+		return
+	if _ctx_interact_label.text != text or not _ctx_interact_panel.visible:
+		_ctx_interact_label.text = text
+		_show_context_entry(_ctx_interact_panel, 0.0)
+
+
 func _build_log() -> void:
+	_event_panel = PanelContainer.new()
+	_event_panel.anchor_left = 1.0
+	_event_panel.anchor_right = 1.0
+	_event_panel.offset_left = -372
+	_event_panel.offset_right = -12
+	_event_panel.offset_top = 96
+	_event_panel.offset_bottom = 236
+	_event_panel.custom_minimum_size = Vector2(360, 140)
+	_event_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# FQ-19: same framed-module language as the crest/goal panels.
+	_event_panel.add_theme_stylebox_override("panel", _module_panel_style())
+	add_child(_event_panel)
+	var event_box := VBoxContainer.new()
+	event_box.add_theme_constant_override("separation", 2)
+	_event_panel.add_child(event_box)
+	var event_title := _label(event_box, "EVENTS")
+	event_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_event_time_label = _label(event_box, "Day 1 · Day")
+	_event_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_event_time_label.add_theme_color_override("font_color", Color(0.80, 0.72, 0.48))
 	_log_label = Label.new()
-	_log_label.anchor_left = 1.0
-	_log_label.anchor_right = 1.0
-	_log_label.offset_left = -360
-	_log_label.offset_right = -12
-	_log_label.offset_top = 10
 	_log_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_log_label.add_theme_color_override("font_color", Color(0.95, 0.93, 0.85))
-	_log_label.add_theme_font_size_override("font_size", 13)
-	add_child(_log_label)
+	_log_label.add_theme_font_size_override("font_size", 12)
+	_log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	event_box.add_child(_log_label)
 
 
 func _build_town_panel() -> void:
@@ -399,8 +1199,13 @@ func _build_inventory_panel() -> void:
 	_inv_panel.custom_minimum_size = Vector2(320, 300)
 	_inv_panel.visible = false
 	add_child(_inv_panel)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(300, 280)
+	_inv_panel.add_child(scroll)
 	var box := VBoxContainer.new()
-	_inv_panel.add_child(box)
+	box.custom_minimum_size = Vector2(300, 0)
+	scroll.add_child(box)
 	var title := _label(box, "INVENTORY")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	# FQ-09: icon grid above the detail text (hover a tile for its descriptor).
@@ -413,13 +1218,111 @@ func _build_inventory_panel() -> void:
 
 
 func toggle_inventory_panel() -> void:
-	_inv_panel.visible = not _inv_panel.visible
-	if _inv_panel.visible:
+	var opening := not _inv_panel.visible
+	if opening:
+		_close_open_modal_panels("inventory")
+	_inv_panel.visible = opening
+	_set_dock_visible(not _any_modal_panel_open())
+	if opening:
 		_refresh_inventory_panel()
 
 
 func inventory_panel_open() -> bool:
 	return _inv_panel.visible
+
+
+func _set_dock_visible(visible: bool) -> void:
+	if _bottom_dock != null:
+		_bottom_dock.visible = visible
+
+
+func _any_modal_panel_open() -> bool:
+	return (_inv_panel != null and _inv_panel.visible) \
+		or (_character_panel != null and _character_panel.visible) \
+		or (_skill_panel != null and _skill_panel.visible) \
+		or (_town_panel != null and _town_panel.visible)
+
+
+func _close_open_modal_panels(except_id: String) -> void:
+	if except_id != "inventory" and _inv_panel != null:
+		_inv_panel.visible = false
+	if except_id != "character" and _character_panel != null:
+		_character_panel.visible = false
+	if except_id != "skills" and _skill_panel != null:
+		_skill_panel.visible = false
+	if except_id != "town" and _town_panel != null:
+		_town_panel.visible = false
+
+
+## Compact read-only character summary. Character data remains authoritative in
+## GameState/player; this panel only formats the live values for inspection.
+func _build_character_panel() -> void:
+	_character_panel = PanelContainer.new()
+	_character_panel.anchor_left = 0.5
+	_character_panel.anchor_right = 0.5
+	_character_panel.anchor_top = 0.5
+	_character_panel.anchor_bottom = 0.5
+	_character_panel.offset_left = -160
+	_character_panel.offset_top = -150
+	_character_panel.custom_minimum_size = Vector2(320, 300)
+	_character_panel.visible = false
+	add_child(_character_panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	_character_panel.add_child(box)
+	var title := _label(box, "CHARACTER")
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_character_info = _label(box, "")
+	_character_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var hint := _label(box, "Read-only summary · equipment and inventory remain in their own panels")
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_color_override("font_color", Color(0.72, 0.76, 0.84))
+	var close := Button.new()
+	close.text = "Close"
+	close.pressed.connect(func(): toggle_character_panel())
+	box.add_child(close)
+
+
+func toggle_character_panel() -> void:
+	if _character_panel == null:
+		return
+	var opening := not _character_panel.visible
+	if opening:
+		_close_open_modal_panels("character")
+	_character_panel.visible = opening
+	_set_dock_visible(not _any_modal_panel_open())
+	if opening:
+		_refresh_character_panel()
+
+
+func character_panel_open() -> bool:
+	return _character_panel != null and _character_panel.visible
+
+
+func _refresh_character_panel() -> void:
+	if _character_info == null:
+		return
+	var character: Dictionary = GameState.current_character if GameState.current_character is Dictionary else {}
+	var name := str(character.get("name", "Wanderer"))
+	var species := str(character.get("species", player.species_id if player != null else "human"))
+	var role := str(character.get("role", "homesteader"))
+	var body := str(character.get("body_variant", player.body_variant if player != null else "default"))
+	var health_text := "n/a"
+	var attunement_text := "n/a"
+	var carried_text := "n/a"
+	if player != null:
+		health_text = "%d / %d" % [int(round(player.health)), int(round(player.max_health))]
+		var max_attunement: float = player.max_attunement() if player.has_method("max_attunement") else 0.0
+		attunement_text = "%d / %d" % [int(round(player.attunement)), int(round(max_attunement))]
+		carried_text = "%d items" % player.inventory.total()
+	var lines := [
+		"Name: %s" % name.capitalize(),
+		"Species: %s  ·  Role: %s" % [species.capitalize(), role.capitalize()],
+		"Body: %s" % body.capitalize(),
+		"Health: %s  ·  Attunement: %s" % [health_text, attunement_text],
+		"Carried: %s" % carried_text,
+	]
+	_character_info.text = "\n".join(lines)
 
 
 ## FQ-06: skill tree panel plumbing (game_root wires itself in at boot).
@@ -429,8 +1332,12 @@ func setup_skill_panel(root: Node) -> void:
 
 
 func toggle_skill_panel() -> void:
-	_skill_panel.visible = not _skill_panel.visible
-	if _skill_panel.visible:
+	var opening := not _skill_panel.visible
+	if opening:
+		_close_open_modal_panels("skills")
+	_skill_panel.visible = opening
+	_set_dock_visible(not _any_modal_panel_open())
+	if opening:
 		_skill_panel.refresh()
 
 
@@ -568,6 +1475,9 @@ func update_settlement(coherence: float, load_value: float, resilience: float,
 	_bars["coherence"].value = coherence
 	_bars["load"].value = load_value
 	_bars["resilience"].value = resilience
+	for key in _bar_values:
+		if _bars.has(key):
+			(_bar_values[key] as Label).text = str(int(round(_bars[key].value)))
 	_status_label.text = "Status: %s" % (", ".join(labels) if not labels.is_empty() else "—")
 	var lines := ["C/L/R inputs:"]
 	for key in inputs:
@@ -579,39 +1489,154 @@ func update_settlement(coherence: float, load_value: float, resilience: float,
 
 
 func update_health(health: float, max_health: float) -> void:
-	_health_bar.max_value = maxf(1.0, max_health)
-	_health_bar.value = health
-	_health_label.text = "%d / %d" % [int(round(health)), int(round(max_health))]
+	if _health_bar != null:
+		_health_bar.max_value = maxf(1.0, max_health)
+		_health_bar.value = health
+	if _health_vessel_fill != null:
+		_health_vessel_fill.max_value = maxf(1.0, max_health)
+		_health_vessel_fill.value = health
+	if _health_label != null:
+		_health_label.text = "%d / %d" % [int(round(health)), int(round(max_health))]
+	# FQ-19 vessel effects: damage flashes hot, recovery glows green. The
+	# first update after build only seeds the last-seen value.
+	var previous := _last_health
+	_last_health = health
+	if _health_fx != null and previous >= 0.0:
+		if health < previous:
+			_play_vessel_fx(_health_fx, Color(1.0, 0.45, 0.32, 0.8), 0.25)
+		elif health > previous:
+			_play_vessel_fx(_health_fx, Color(0.55, 1.0, 0.6, 0.5), 0.6)
 	var low: bool = max_health > 0.0 and (health / max_health) < LOW_HEALTH_TINT_FRACTION
 	if low != _low_health_active:
 		_low_health_active = low
+		if not low and _health_fx != null and not _vessel_fx_active(_health_fx):
+			_health_fx.self_modulate = Color(1, 1, 1, 0)
 	var tint: Color = Color(0.95, 0.25, 0.15) if low else Color(0.82, 0.22, 0.22)
-	_health_bar.modulate = tint
-	_health_label.add_theme_color_override(
-		"font_color", Color(1.0, 0.35, 0.3) if low else Color(0.9, 0.9, 0.9))
+	if _health_bar != null:
+		_health_bar.modulate = tint
+	if _health_label != null:
+		_health_label.add_theme_color_override(
+			"font_color", Color(1.0, 0.35, 0.3) if low else Color(0.9, 0.9, 0.9))
 
 
 ## FQ-05: attunement display, mirroring update_health without the low tint.
 func update_attunement(attunement: float, max_attunement: float) -> void:
-	_attunement_bar.max_value = maxf(1.0, max_attunement)
-	_attunement_bar.value = attunement
-	_attunement_label.text = "%d / %d" % [int(round(attunement)), int(round(max_attunement))]
+	if _attunement_bar != null:
+		_attunement_bar.max_value = maxf(1.0, max_attunement)
+		_attunement_bar.value = attunement
+	if _attunement_vessel_fill != null:
+		_attunement_vessel_fill.max_value = maxf(1.0, max_attunement)
+		_attunement_vessel_fill.value = attunement
+	if _attunement_label != null:
+		_attunement_label.text = "%d / %d" % [int(round(attunement)), int(round(max_attunement))]
+	# FQ-19 vessel effects: regeneration shimmers, spending pulses the ring
+	# outward; the geometric core burns bright only at full charge.
+	var previous := _last_attunement
+	_last_attunement = attunement
+	if _attunement_fx != null and previous >= 0.0:
+		if attunement > previous:
+			_play_vessel_fx(_attunement_fx, Color(0.7, 0.95, 1.0, 0.45), 0.5)
+		elif attunement < previous:
+			_play_vessel_fx(_attunement_fx, Color(0.5, 0.85, 1.0, 0.55), 0.3)
+			_pulse_vessel_frame(_attunement_frame)
+	if _attunement_core != null:
+		var full: bool = max_attunement > 0.0 and attunement >= max_attunement - 0.001
+		_attunement_core.self_modulate = Color(1.0, 1.0, 1.0, 1.0) if full \
+			else Color(0.4, 0.65, 0.85, 0.5)
+
+
+## FQ-19: one-shot vessel overlay effect — set the tint synchronously (so
+## state is observable immediately) and tween the alpha back to zero.
+func _play_vessel_fx(fx: TextureRect, color: Color, duration: float) -> void:
+	var running: Tween = _vessel_fx_tweens.get(fx)
+	if running != null and running.is_valid():
+		running.kill()
+	fx.self_modulate = color
+	var tween := create_tween()
+	tween.tween_property(fx, "self_modulate:a", 0.0, duration)
+	_vessel_fx_tweens[fx] = tween
+
+
+func _vessel_fx_active(fx: TextureRect) -> bool:
+	var tween: Tween = _vessel_fx_tweens.get(fx)
+	return tween != null and tween.is_valid() and tween.is_running()
+
+
+## FQ-19: outward use-pulse — the ring frame kicks up and settles back.
+func _pulse_vessel_frame(frame: Control) -> void:
+	if frame == null:
+		return
+	if _vessel_pulse_tween != null and _vessel_pulse_tween.is_valid():
+		_vessel_pulse_tween.kill()
+	# The frame is built at a fixed 96x96; anchor the pivot to that constant
+	# so a pre-layout pulse cannot scale around the top-left corner.
+	frame.pivot_offset = Vector2(48, 48)
+	frame.scale = Vector2(1.14, 1.14)
+	_vessel_pulse_tween = create_tween()
+	_vessel_pulse_tween.tween_property(frame, "scale", Vector2.ONE, 0.28)
 
 
 func update_progression(player_level: int, xp_current: int, xp_next: int, base_name: String) -> void:
+	if _crest_title != null:
+		_crest_title.text = "◆ %s · Lv.%d" % [base_name, player_level]
 	_progression_label.text = "Lv.%d %s  XP: %d/%d" % [player_level, base_name, xp_current, xp_next]
 
 
-func update_time(day: int, is_night: bool, threat_count: int = 0) -> void:
-	var text := "Day %d — %s" % [day, "Night" if is_night else "Day"]
+## FQ-19: display-only mirrors of game_root's cycle constants (NIGHT_START
+## 0.65); the HUD maps the raw fraction onto a readable settlement clock where
+## day spans 06:00-20:00 and night wraps 20:00-06:00.
+const CLOCK_NIGHT_START := 0.65
+const CLOCK_DAWN_END := 0.08
+const CLOCK_DUSK_START := 0.55
+
+
+func _clock_text(fraction: float) -> String:
+	var f := clampf(fraction, 0.0, 1.0)
+	var hours: float
+	if f < CLOCK_NIGHT_START:
+		hours = 6.0 + (f / CLOCK_NIGHT_START) * 14.0
+	else:
+		hours = 20.0 + ((f - CLOCK_NIGHT_START) / (1.0 - CLOCK_NIGHT_START)) * 10.0
+		if hours >= 24.0:
+			hours -= 24.0
+	var h := int(hours)
+	var m := int((hours - float(h)) * 60.0)
+	return "%02d:%02d" % [h, m]
+
+
+func update_time(day: int, is_night: bool, threat_count: int = 0,
+		time_fraction: float = -1.0) -> void:
+	# Blueprint events header: "Day 5 • Dusk 18:42". Callers that do not know
+	# the fraction keep the coarse day/night form.
+	var text: String
+	if time_fraction >= 0.0:
+		var phase := "Night"
+		if not is_night:
+			if time_fraction < CLOCK_DAWN_END:
+				phase = "Dawn"
+			elif time_fraction >= CLOCK_DUSK_START:
+				phase = "Dusk"
+			else:
+				phase = "Day"
+		text = "Day %d • %s %s" % [day, phase, _clock_text(time_fraction)]
+	else:
+		text = "Day %d — %s" % [day, "Night" if is_night else "Day"]
 	if threat_count > 0:
 		text += "  ⚠ %d threat%s active" % [threat_count, "" if threat_count == 1 else "s"]
-	_time_label.text = text
+	if _time_label != null:
+		_time_label.text = text
+	if _event_time_label != null:
+		_event_time_label.text = text
 
 
+## FQ-19: the persistent dock save line moved out of the dock (the controls
+## hint already teaches F5/F9); the state is kept for any future consumer and
+## the actual save action fires the contextual notify_saved() toast instead.
 func set_save_hint(has_save: bool) -> void:
-	_save_label.text = "Save available — press F9 to load." if has_save \
-		else "No save yet — press F5 to save."
+	_has_save_hint = has_save
+	if _save_label != null:
+		_save_label.text = "Save available — press F9 to load." if has_save \
+			else "No save yet — press F5 to save."
 
 
 func update_inventory() -> void:
@@ -620,6 +1645,19 @@ func update_inventory() -> void:
 	# FQ-09: slot tiles carry the per-item info; the text line keeps extras
 	# and the tool/gear summary.
 	_hotbar_selected = player.selected_slot
+	# FQ-19: contextual selected-item entry — announced only when the live
+	# selection actually changes, then it fades out on its own.
+	if player.selected_slot < player.hotbar.size():
+		var selected_id: String = player.hotbar[player.selected_slot]
+		var announce := "%d:%s" % [player.selected_slot, selected_id]
+		if announce != _ctx_last_item:
+			var first := _ctx_last_item == ""
+			_ctx_last_item = announce
+			if _ctx_item_panel != null and not first:
+				_ctx_item_label.text = "%s ×%d" % [
+					BlockRegistry.display_name(selected_id),
+					player.inventory.count(selected_id)]
+				_show_context_entry(_ctx_item_panel, 2.5)
 	for i in range(_hotbar_slots.size()):
 		if i >= player.hotbar.size():
 			continue
@@ -627,8 +1665,14 @@ func update_inventory() -> void:
 		_hotbar_icons[i].texture = BlockRegistry.item_icon(item_id)
 		_hotbar_counts[i].text = str(player.inventory.count(item_id))
 		_hotbar_slots[i].tooltip_text = "[%d] %s" % [i + 1, BlockRegistry.display_name(item_id)]
+		var selected: bool = i == player.selected_slot
 		_hotbar_slots[i].add_theme_stylebox_override("panel",
-			_slot_selected_sb if i == player.selected_slot else _slot_normal_sb)
+			_slot_selected_sb if selected else _slot_normal_sb)
+		# FQ-19: the selected slot rides its 3px travel upward (blueprint
+		# raised-slot treatment); neighbors keep the reserved headroom.
+		if i < _hotbar_cells.size():
+			_hotbar_cells[i].add_theme_constant_override("margin_top", 0 if selected else 3)
+			_hotbar_cells[i].add_theme_constant_override("margin_bottom", 3 if selected else 0)
 	var parts: Array[String] = []
 	for extra_id in ["ore", "food"]:
 		var extra: int = player.inventory.count(extra_id)
@@ -652,11 +1696,17 @@ func log_event(message: String) -> void:
 	if _log_lines.size() > 6:
 		_log_lines = _log_lines.slice(_log_lines.size() - 6)
 	_log_label.text = "\n".join(_log_lines)
+	# FQ-19: a growing events panel pushes the contextual stack down with it.
+	_position_context_stack.call_deferred()
 
 
 func toggle_town_panel() -> void:
-	_town_panel.visible = not _town_panel.visible
-	if _town_panel.visible:
+	var opening := not _town_panel.visible
+	if opening:
+		_close_open_modal_panels("town")
+	_town_panel.visible = opening
+	_set_dock_visible(not _any_modal_panel_open())
+	if opening:
 		refresh_town_panel()
 
 

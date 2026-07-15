@@ -1,7 +1,7 @@
 extends CharacterBody2D
 ## Enemy entity configured from a def (enemy_id, family, drops, loot_mult).
-## All three live enemy types (surface_slime, cave_crawler, raider_basic)
-## reuse this scene; family drives the visual tint.
+## All live enemy definitions reuse this scene; family/id drive authored art,
+## fallback tint, movement pressure, and special behavior.
 ## Shambles toward the Town Hall and gnaws at it on contact; player can
 ## hit it with the mine action.
 

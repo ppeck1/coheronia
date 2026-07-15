@@ -2,10 +2,57 @@
 
 ## Current State
 
-**FQ-11 (workbench / furnace / anvil station chain) implemented and closed
-out — the FQ-10 ores now have a real consumer: smelt to ingots, forge metal
-gear** (run `20260713_coheronia_fq11_station_chain`; lineage: … -> FQ-09U3
--> FQ-10; Godot 4.6.1 stable). Suite at 269/269.
+**FQ-19 (blueprint art-consumer and contextual information pass) implemented
+and verified — the FQ-16..FQ-18 HUD arc now renders the operator's blueprint:
+ornate framed dock/crest/goal/events modules, masked liquid resource orbs with
+full effect states, glyph navigation, the exact settlement clock, and the
+event-driven contextual stack** (run `20260715_coheronia_fq19_hud_blueprint`;
+lineage: … -> FQ-15 -> 2026-07-14 authored-sprite run -> FQ-16/17/18 -> FQ-19;
+Godot 4.6.1 stable). Suite at 316/316. NOTE: the working tree also still
+carries the uncommitted 2026-07-14 authored-sprite-coverage run and the
+FQ-16..18 arc — all three layers await the operator's commit decision.
+
+## FQ-19 Additions
+
+- **Final HUD art** (`scripts/art/gen_hud_final_art.py`, deterministic PIL):
+  ornate 9-slice `dock_backplate` (reused as the framed-module style for
+  crest/goal/events), gem-crowned orb frames, disk `orb_fill_mask`, three slot
+  frames, and six glyph buttons — one iron/brass language, 32×32, ≤16 colors,
+  stretch-safe edges. `gen_ui_placeholders.py` now preserves existing files
+  unless `--force-placeholder`. Ten UI ids are consumed (`UI_CONSUMED`);
+  every consumer keeps its code-drawn fallback.
+- **Blueprint dock band** (Photo 1/2, tightened after operator review of the
+  first render): the two resource orbs are their OWN 96px flanking objects
+  beside one central backplate panel (nav glyphs · five key-numbered slots,
+  selected slot rides 3px higher · summary lines) — not decorations inside a
+  single wide plate. The whole band is the movable "dock" widget.
+- **HUD layout schema v2** (`HUD_LAYOUT_VERSION`): layouts saved before the
+  stretch-mode/coordinate-space change loaded widgets off-position on live
+  profiles; a version mismatch now falls back to the blueprint defaults
+  (one-time reset; new edits re-save under v2).
+- **Resource vessels**: masked bottom-up liquid (`TextureProgressBar` +
+  `orb_fill_mask`); health damage flash / recovery glow / low-health pulse
+  (<25%); attunement regeneration shimmer, outward use-pulse, and a rotating
+  geometric core that burns bright at full charge.
+- **Framed crest** (name/level title, chip+bar+value C/L/R rows), **goal
+  panel** (headline, subgoal, milestone strip), and the **exact clock** in the
+  events header (`Day N • Phase HH:MM`; day maps 06:00-20:00, night wraps to
+  06:00; ticks once per real second).
+- **Contextual right-band stack**: selected-item announcement, save toast
+  (`notify_saved()`, fired by the real F5 path), and the `[E] Town Hall`
+  interaction prompt — fixed priority order, auto-hide tweens, top edge pinned
+  dynamically below the live Events panel. The dock's persistent save line was
+  retired (the controls hint still teaches F5/F9).
+- **Resolution QA**: `canvas_items` stretch (aspect `expand`) in
+  `project.godot` — 640×360 and 1280×720 now render the identical accepted
+  composition (the small window scales instead of re-flowing). Mini-map stays
+  the schematic FQ-15 panel: final map art is not ready, explicitly deferred.
+- **Smoke** (7 `fq19_*` checks, suite 316): events/map exclusion + framing,
+  day/phase header, exact-clock phases, dock final-art consumption, vessel
+  liquid + all six effect states, crest/goal blueprint treatment, and the
+  contextual stack (order/eventing/auto-hide/clearance). The contextual check
+  runs at the END of the suite: its real-time waits must not shift the live
+  music clip-switch timing (fq09u1 flaked once from exactly that).
 
 ## FQ-11 Additions
 
@@ -567,10 +614,12 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 |---|---|---|
 | Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
 | JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks, the FQ-09W backgrounds/back_walls categories, the FQ-09U3 stinger OGGs, and the Codex art contracts (Town Hall structure/core, surface sky, backdrop strips, player-visual bodies/rigs/collision) |
+| Strict runtime-asset audit | PASS | All 20 block, 43 item/live-drop, six live-enemy, and ten player-body canonicals resolve; 17/6/10 authored pools complete; no fallback-only ids, sequence gaps, or oversize pools |
+| Pixel-art verifier | PASS 186 PNGs | Exact dimensions, <=16 colors, alpha/corners, material seams, player body scale/ground line, and every rig's exact skin palette in every Look |
 | Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 306/306 | waited Windows Godot process wrote `smoke_results.json` (… -> 296 FQ-13P3 player cosmetics -> 298 FQ-13P4 frame semantics -> 302 FQ-14 goal panel -> 306 FQ-15 map/scouting) |
+| Automated smoke | PASS 306/306 | isolated waited Windows Godot process wrote fresh `smoke_results.json` at 2026-07-14 15:04; all twenty player Looks recolored successfully (`variant_failures=[]`) (… -> 296 FQ-13P3 player cosmetics -> 298 FQ-13P4 frame semantics -> 302 FQ-14 goal panel -> 306 FQ-15 map/scouting) |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
-| Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls) |
+| Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls). Authored-art closeout: isolated hidden/windowed tour wrote and visually passed all nine frames at 2026-07-14 15:04, including varied terrain/flora and inventory icons. |
 
 ## Known Risks / Gotchas
 
@@ -607,7 +656,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - FQ-04 armor is flat mitigation with a 1-health minimum chip; there is no unequip flow for forged gear in play (forge guards prevent duplicates). Combat feel (sword damage 3, armor total 4 vs slime 8) is untested by human play; all numbers are data-tunable in `data/equipment.json`.
 - FQ-05 attunement has exactly one use (the light pulse); no live ancestry or acquirable gear modifies it yet — the hooks are data-ready and smoke-proven but dormant. The pulse light is cosmetic (does not affect `light_score`, night spawns, or occlusion safety math).
 - FQ-06: only the Miner lane's `mining_speed` effect is live; `detect_ore_range`, `cave_safety`, and all non-miner lane effect keys are inert data awaiting their systems. There is no perk refund/respec. Perk points come only from player levels; XP pacing (100 x 1.35^n) means points arrive slowly — untested by human play.
-- FQ-07: art loads bypass the Godot import system (`Image.load_from_file`) by design for plain non-editor runs — an exported build would need an import-aware path (out of scope; this repo never exports). The block tileset reads art at `world.setup`/tileset-build time; dropping in new art requires re-entering the world (no hot-reload). Player/hall visuals are still drawn shapes (not yet image-capable; extend when their art lands).
+- FQ-07: art loads bypass the Godot import system (`Image.load_from_file`) by design for plain non-editor runs — an exported build would need an import-aware path (out of scope; this repo never exports). The block tileset reads art at `world.setup`/tileset-build time; dropping in new art requires re-entering the world (no hot-reload). Player bodies and the Town Hall now use image-first hooks with procedural fallbacks; player gear remains procedural until body-specific overlays are reviewed.
 - FQ-09W's underground darkness is a documented approximation: the ambient
   follows the PLAYER's column skylight (no lateral light bleed, no per-cell
   darkness — the whole canvas darkens when the player is buried, so surface
@@ -618,6 +667,28 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
   removable constructed walls (drops, wall deltas, save migration) remain a
   deliberately separate future gameplay task.
 - A hypothetical pick tier above 2 has no matching equipment item; the gear shape would record the highest defined pick (`pick_forged`) while the live tier is preserved in `carried_tool_tiers`. No real character can exceed tier 2 today (forge caps at 2).
+
+## Authored Sprite Coverage (2026-07-14, post-FQ-15)
+
+- The repo now carries 189 runtime PNGs. All 20 rendered block ids, all 43
+  inventory/live-drop ids, and all six live enemy ids have canonical art.
+- Seventeen high-repetition block ids have three deterministic per-cell looks;
+  all six enemy families have three lifetime-stable looks; all ten player body
+  ids have two selectable alternatives beyond canonical.
+- The five formerly metadata-less live drops (`chitin`, `silk`, `eyes`,
+  `coins`, `scrap_weapons`) now have item names/colors/descriptions, and the
+  asset audit independently derives live drop ids from `enemies.json`.
+- The character-creation Look control reads the selected body's real pool size
+  instead of offering hard-coded no-op values.
+- `scripts/art/prepare_pixel_asset.py` is the repeatable source normalizer;
+  `scripts/art/verify_pixel_assets.py` enforces dimensions, <=16-color pixel
+  palettes, hard alpha/corners, material-specific tile edges, player scale,
+  and exact appearance-palette compatibility. Generated bodies pass through
+  `scripts/art/restore_player_skin_palette.py` before promotion. Strict audit
+  also rejects sequence gaps and pools above the runtime maximum.
+- Player gear, final UI replacements, and opening cels remain deliberately
+  deferred for the reasons recorded in
+  `docs/HANDOFF_ART_INTEGRATION_2026-07-14.md`.
 
 ## Next Action
 
@@ -649,23 +720,12 @@ are the big-ticket playability items in `docs/FABLE_TASK_QUEUE.md` (pause/
 settings/keybinds, save-slot management, build-preview tint, a quest/contracts
 layer on the goal system, a subject/NPC labor MVP). Art production continues in
 parallel via
-`docs/ASSET_ROADMAP.md` — the recommended sprite backlog (player gear
-overlays, remaining equipment icons, opening cels) is in
-`docs/HANDOFF_ART_INTEGRATION_2026-07-12.md`.
+`docs/ASSET_ROADMAP.md`; the exact completed coverage, production contract, and
+gated image work are in `docs/HANDOFF_ART_INTEGRATION_2026-07-14.md`.
 
-Note: this closeout committed U3 and the art integration together because
-three shared files (`smoke_test.gd`, `validate_repo.py`, `player.gd`) carry
-hunks from both lanes and could not be cleanly split. Nothing was pushed;
-push is deferred to explicit operator instruction.
-
-Operator playthrough of v0.6 (make two characters, swap between worlds, forge the axe, harvest a supported bush line, open the inventory panel). Then pick the next increment from:
-
-- farming or plantable/regrowable food sources (bush support rule is the groundwork)
-- research bench MVP (craft/survival/military domains — data validated)
-- perk spending UI for one lane
-- workbench/crafting menu consolidating hand/hall recipes
-- more enemies from the MVP expansion order (thornrat, ore_tick, raider_torchbearer)
-- axe tier 2 + tool durability, or character-owned XP migration
-- underground-start generation for phase C deep ancestries
-
-Recommended next product move: farming (plantable crops using `requires_support`) plus a compact crafting menu, then the research bench MVP.
+Before the next feature increment, perform the still-manual operator
+playthrough in `docs/PLAYTEST_CHECKLIST.md` and review the new terrain/enemy/
+player variety in motion. The recommended product choices remain pause/settings
+and keybinds, save-slot management, build-preview tint, local contracts on the
+goal system, or the first subject/NPC labor slice. The recommended art choice is
+body-specific player gear only after a cross-body alignment matrix is approved.

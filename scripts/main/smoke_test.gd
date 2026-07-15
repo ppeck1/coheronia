@@ -752,14 +752,17 @@ func _run() -> void:
 			str(_p1_node._art == _p1_art0),
 			str(_p1_idx0 >= 0 and _p1_idx0 < _p1_pool.size())])
 
-	# fallback chain: an enemy with no pool and no canonical art draws the
-	# code-drawn body (_art null, variant_index -1); the pooled enemy has art.
+	# The post-FQ-15 art pass closes the three newer live enemy families too:
+	# each resolves a real 3-entry pool and the spawned enemy holds one member.
 	var _p1_thorn: Node = root.spawn_enemy_for_test("thornrat")
-	_check("fq13p1_fallback_code_drawn",
-		BlockRegistry.visual_variant_textures("enemies", "thornrat").is_empty()
-		and _p1_thorn._art == null and _p1_thorn.variant_index == -1
+	var _p1_thorn_pool: Array = BlockRegistry.visual_variant_textures(
+		"enemies", "thornrat")
+	_check("fq13p1_new_enemy_pool_live",
+		_p1_thorn_pool.size() == 3
+		and _p1_thorn._art != null and _p1_thorn.variant_index >= 0
+		and _p1_thorn.variant_index < _p1_thorn_pool.size()
 		and _p1_node._art != null,
-		"thorn_art=%s thorn_idx=%d crawler_has_art=%s" % [str(_p1_thorn._art),
+		"thorn_pool=%d thorn_idx=%d crawler_has_art=%s" % [_p1_thorn_pool.size(),
 			_p1_thorn.variant_index, str(_p1_node._art != null)])
 
 	for _pn in [_p1_node, _p1_thorn]:
@@ -804,7 +807,7 @@ func _run() -> void:
 	# cached (art or swatch), and items carry no variant pool that could vary it.
 	var _p4_dirt_a: Texture2D = BlockRegistry.item_icon("dirt")
 	var _p4_dirt_b: Texture2D = BlockRegistry.item_icon("dirt")
-	var _p4_meat_a: Texture2D = BlockRegistry.item_icon("meat")   # swatch-only
+	var _p4_meat_a: Texture2D = BlockRegistry.item_icon("meat")
 	var _p4_meat_b: Texture2D = BlockRegistry.item_icon("meat")
 	_check("fq13p4_item_icon_stable",
 		_p4_dirt_a != null and _p4_dirt_a == _p4_dirt_b
@@ -939,6 +942,163 @@ func _run() -> void:
 		not _m15_open0 and _m15_toggled and _m15_open1 and not hud.map_open()
 		and _m15_r0 == 1 and _m15_r1 == 2,
 		"toggle=%s->%s r0=%d r1=%d" % [str(_m15_open0), str(_m15_open1), _m15_r0, _m15_r1])
+
+	# FQ-19: the framed events module owns the map's top-right zone. Opening the
+	# map hides events temporarily and restores the prior visibility on close.
+	var _fq19_events_before: bool = hud._event_panel != null and hud._event_panel.visible
+	if hud._event_panel != null:
+		hud._event_panel.visible = true
+		hud._save_hud_layout()
+	var _fq19_map_open: bool = hud.toggle_map()
+	var _fq19_hidden: bool = _fq19_map_open and not hud._event_panel.visible
+	hud._toggle_event_module()
+	var _fq19_preference_toggle_hidden: bool = not hud._event_panel.visible
+	hud.toggle_map()
+	var _fq19_restored: bool = not hud._event_panel.visible
+	hud._toggle_event_module()
+	var _fq19_preference_restored: bool = hud._event_panel.visible
+	var _fq19_event_rect: Rect2 = hud._event_panel.get_global_rect() if hud._event_panel != null else Rect2()
+	var _fq19_viewport: Vector2 = get_viewport().get_visible_rect().size
+	if hud._event_panel != null:
+		hud._event_panel.visible = _fq19_events_before
+		hud._save_hud_layout()
+	_check("fq19_events_map_exclusion",
+		_fq19_hidden and _fq19_preference_toggle_hidden and _fq19_restored
+		and _fq19_preference_restored
+		and hud._event_panel.custom_minimum_size.x >= 320.0
+		and hud._event_panel.custom_minimum_size.y >= 120.0
+		and _fq19_event_rect.position.x >= 8.0
+		and _fq19_event_rect.end.x <= _fq19_viewport.x - 8.0
+		and _fq19_event_rect.position.y >= 8.0
+		and _fq19_event_rect.end.y <= _fq19_viewport.y - 8.0,
+		"hidden=%s pref_off=%s restored=%s pref_on=%s size=%s rect=%s viewport=%s" % [str(_fq19_hidden),
+			str(_fq19_preference_toggle_hidden), str(_fq19_restored), str(_fq19_preference_restored),
+			str(hud._event_panel.custom_minimum_size if hud._event_panel != null else Vector2.ZERO),
+			str(_fq19_event_rect), str(_fq19_viewport)])
+	hud.update_time(5, true, 2)
+	var _fq19_time_ok: bool = hud._time_label == null and hud._event_time_label != null \
+		and hud._event_time_label.text.contains("Day 5") \
+		and hud._event_time_label.text.contains("Night")
+	_check("fq19_events_time_header_live", _fq19_time_ok,
+		"crest_time=%s header=%s" % [str(hud._time_label != null),
+			str(hud._event_time_label.text if hud._event_time_label != null else "missing")])
+
+	# FQ-19: exact clock — the fraction maps onto the settlement clock
+	# (day 06:00-20:00, night wraps 20:00-06:00) with dawn/day/dusk/night
+	# phase words in the events header.
+	hud.update_time(5, true, 0, 0.7)
+	var _fq19c_night: String = hud._event_time_label.text
+	hud.update_time(5, false, 0, 0.05)
+	var _fq19c_dawn: String = hud._event_time_label.text
+	hud.update_time(5, false, 0, 0.3)
+	var _fq19c_day: String = hud._event_time_label.text
+	hud.update_time(5, false, 0, 0.6)
+	var _fq19c_dusk: String = hud._event_time_label.text
+	hud.update_time(root.day_count, root.is_night, 0, root.time_of_day)
+	_check("fq19_events_exact_clock",
+		_fq19c_night.contains("• Night 21:2")
+		and _fq19c_dawn.contains("• Dawn 07:0")
+		and _fq19c_day.contains("• Day 12:2")
+		and _fq19c_dusk.contains("• Dusk 18:5"),
+		"night=%s dawn=%s day=%s dusk=%s" % [_fq19c_night, _fq19c_dawn,
+			_fq19c_day, _fq19c_dusk])
+
+	# FQ-19: framed crest and goal treatment — the crest is a framed panel
+	# whose C/L/R rows carry numeric values, and the goal panel exposes the
+	# milestone progress strip mirroring index/total.
+	hud.update_settlement(72.4, 41.0, 58.0, {}, [])
+	hud.update_progression(2, 10, 100, "Hamlet")
+	var _fq19_crest_ok: bool = hud._top_left_box is PanelContainer \
+		and hud._crest_title != null and hud._crest_title.text.contains("Hamlet") \
+		and hud._crest_title.text.contains("Lv.2") \
+		and hud._bar_values.size() == 3 \
+		and (hud._bar_values["coherence"] as Label).text == "72"
+	hud.update_goal({"id": "light", "text": "Light the Town Hall",
+		"hint": "Craft a torch.", "index": 1, "total": 5, "all_done": false})
+	var _fq19_goal_ok: bool = hud._goal_progress != null \
+		and is_equal_approx(hud._goal_progress.value, 1.0) \
+		and is_equal_approx(hud._goal_progress.max_value, 5.0) \
+		and hud._goal_label.text.contains("Light the Town Hall")
+	hud.update_goal(root._goal_tracker.current())
+	root._refresh_hud_progression()
+	_check("fq19_crest_goal_blueprint",
+		_fq19_crest_ok and _fq19_goal_ok,
+		"crest=%s title=%s c_val=%s goal=%s" % [str(_fq19_crest_ok),
+			str(hud._crest_title.text if hud._crest_title != null else "missing"),
+			str((hud._bar_values["coherence"] as Label).text if hud._bar_values.has("coherence") else "missing"),
+			str(_fq19_goal_ok)])
+
+	# (The contextual-stack check lives at the end of the suite: its real-time
+	# auto-hide waits must not shift the live music clip-switch timing.)
+
+	# FQ-19: final dock art consumed — the ornate backplate 9-slice spans ONLY
+	# the central panel; the two resource orbs are their own flanking siblings
+	# in the band (Photo 1/2), never children of the plate; glyph icons (with
+	# the plate baked in) sit on all four nav buttons; the toolbelt cells
+	# reserve the raised-selection travel.
+	var _fq19_dock_sb: StyleBox = hud._dock_panel.get_theme_stylebox("panel")
+	var _fq19_band_vessels := 0
+	for _fq19_kid in hud._bottom_dock.get_children():
+		if str(_fq19_kid.name).ends_with("Vessel"):
+			_fq19_band_vessels += 1
+	var _fq19_orbs_outside_panel: bool = _fq19_band_vessels == 2 \
+		and hud._dock_panel.find_child("*Vessel*", true, false) == null
+	var _fq19_art_buttons := 0
+	for _fq19_name in ["DockActionInventory", "DockActionCharacter",
+			"DockActionSkills", "DockActionTownHall"]:
+		var _fq19_btn: Node = hud._bottom_dock.find_child(_fq19_name, true, false)
+		if _fq19_btn is Button and (_fq19_btn as Button).icon != null:
+			_fq19_art_buttons += 1
+	_check("fq19_dock_final_art_consumed",
+		_fq19_dock_sb is StyleBoxTexture
+		and (_fq19_dock_sb as StyleBoxTexture).texture != null
+		and _fq19_orbs_outside_panel
+		and _fq19_art_buttons == 4
+		and hud._hotbar_cells.size() == 5,
+		"backplate=%s band_vessels=%d orbs_outside=%s glyph_buttons=%d cells=%d" % [
+			str(_fq19_dock_sb.get_class()), _fq19_band_vessels,
+			str(_fq19_orbs_outside_panel), _fq19_art_buttons,
+			hud._hotbar_cells.size()])
+
+	# FQ-19: resource vessels — masked liquid fill plus the damage / recovery /
+	# zero / regeneration / use-pulse / full-core effect states. Overlay tints
+	# are set synchronously by update_*, so each transition is observable.
+	var _fq19v_masked: bool = hud._health_vessel_fill is TextureProgressBar \
+		and hud._attunement_vessel_fill is TextureProgressBar
+	hud.update_health(80.0, 100.0)
+	hud.update_health(40.0, 100.0)
+	var _fq19v_damage: bool = hud._health_fx != null \
+		and hud._health_fx.self_modulate.a > 0.5 \
+		and hud._health_fx.self_modulate.r > hud._health_fx.self_modulate.g
+	hud.update_health(60.0, 100.0)
+	var _fq19v_recover: bool = hud._health_fx.self_modulate.a > 0.3 \
+		and hud._health_fx.self_modulate.g > hud._health_fx.self_modulate.r
+	hud.update_health(10.0, 100.0)
+	var _fq19v_low: bool = hud._low_health_active
+	hud.update_health(0.0, 100.0)
+	var _fq19v_zero: bool = is_equal_approx(hud._health_vessel_fill.value, 0.0)
+	hud.update_attunement(30.0, 50.0)
+	hud.update_attunement(40.0, 50.0)
+	var _fq19v_shimmer: bool = hud._attunement_fx != null \
+		and hud._attunement_fx.self_modulate.a > 0.3
+	hud.update_attunement(20.0, 50.0)
+	var _fq19v_pulse: bool = hud._attunement_frame != null \
+		and hud._attunement_frame.scale.x > 1.05
+	var _fq19v_core_dim: bool = hud._attunement_core != null \
+		and hud._attunement_core.self_modulate.a < 0.9
+	hud.update_attunement(50.0, 50.0)
+	var _fq19v_core_full: bool = hud._attunement_core != null \
+		and hud._attunement_core.self_modulate.a >= 0.9
+	hud.update_health(player.health, player.max_health)
+	hud.update_attunement(player.attunement, player.max_attunement())
+	_check("fq19_vessel_liquid_and_effects",
+		_fq19v_masked and _fq19v_damage and _fq19v_recover and _fq19v_low
+		and _fq19v_zero and _fq19v_shimmer and _fq19v_pulse
+		and _fq19v_core_dim and _fq19v_core_full,
+		"masked=%s damage=%s recover=%s low=%s zero=%s shimmer=%s pulse=%s core=%s/%s" % [
+			str(_fq19v_masked), str(_fq19v_damage), str(_fq19v_recover),
+			str(_fq19v_low), str(_fq19v_zero), str(_fq19v_shimmer),
+			str(_fq19v_pulse), str(_fq19v_core_dim), str(_fq19v_core_full)])
 
 	# --- Progression MVP: XP, player level, base levels, population cap ---
 
@@ -2191,11 +2351,31 @@ func _run() -> void:
 	player.apply_character({"species": "human", "body_variant": "default",
 		"appearance": "ash"})
 	var _pv_ash_recolored: bool = _pv.appearance_recolored()
+	# Appearance is an exact-palette bridge, so exercise every authored Look,
+	# not only the canonical human body. Generated near-match skin colors can
+	# otherwise make alternate looks silently ignore Pale/Umber/Ash.
+	var _pv_variant_palette_failures: Array[String] = []
+	for _pv_species in ["human", "dwarf", "elf", "goblin", "orc"]:
+		for _pv_body_variant in ["default", "female"]:
+			for _pv_look in [1, 2]:
+				player.apply_character({
+					"species": _pv_species,
+					"body_variant": _pv_body_variant,
+					"visual_variant": _pv_look,
+					"appearance": "pale",
+				})
+				if not _pv.appearance_recolored():
+					_pv_variant_palette_failures.append(
+						"%s/%s/look%d" % [
+							_pv_species, _pv_body_variant, _pv_look])
 	_check("player_visual_appearance_palette_applies",
 		not _pv_tan_recolored and _pv_pale_recolored
-		and _pv_umber_recolored and _pv_ash_recolored,
-		"tan=%s pale=%s umber=%s ash=%s" % [str(_pv_tan_recolored),
-			str(_pv_pale_recolored), str(_pv_umber_recolored), str(_pv_ash_recolored)])
+		and _pv_umber_recolored and _pv_ash_recolored
+		and _pv_variant_palette_failures.is_empty(),
+		"tan=%s pale=%s umber=%s ash=%s variant_failures=%s" % [
+			str(_pv_tan_recolored), str(_pv_pale_recolored),
+			str(_pv_umber_recolored), str(_pv_ash_recolored),
+			str(_pv_variant_palette_failures)])
 
 	# Force the female dwarf miss, then both dwarf misses. Resolution may step
 	# down only within dwarf; it must never substitute human art.
@@ -2304,15 +2484,18 @@ func _run() -> void:
 			str(_p3_canon == BlockRegistry.visual_texture("players", "human")),
 			str(_pv._body_texture == _p3_v1)])
 
-	# a body with no variant pool falls back to its canonical sprite.
+	# Every current body now has the same bounded two-look pool.
 	player.apply_character({"species": "dwarf", "body_variant": "default",
 		"appearance": "tan", "visual_variant": 2})
-	_check("fq13p3_no_pool_falls_back",
-		BlockRegistry.visual_variant_textures("players", "dwarf").is_empty()
-		and _pv._body_texture == BlockRegistry.visual_texture("players", "dwarf")
+	var _p3_dwarf_pool: Array = BlockRegistry.visual_variant_textures(
+		"players", "dwarf")
+	_check("fq13p3_all_body_pools_live",
+		_p3_dwarf_pool.size() == 2
+		and _pv._body_texture == _p3_dwarf_pool[1]
+		and _pv._body_texture != BlockRegistry.visual_texture("players", "dwarf")
 		and _pv.using_body_art(),
-		"dwarf_canonical=%s" % str(
-			_pv._body_texture == BlockRegistry.visual_texture("players", "dwarf")))
+		"dwarf_pool=%d alternate=%s" % [_p3_dwarf_pool.size(), str(
+			_pv._body_texture != BlockRegistry.visual_texture("players", "dwarf"))])
 
 	# character owns the variant (stored on create; deterministic legacy default);
 	# it is presentation-only — never a world-save key.
@@ -2352,7 +2535,7 @@ func _run() -> void:
 
 	# (a) pools resolve both ways: the <id>_01/_02 file convention (scanned on
 	# a temp id so no real asset names are ever written) and an explicit
-	# array entry for a real block; a pool-less block reports no pool.
+	# array entry for a real block; authored convention pools stay visible.
 	var _fq09v_img_a := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	_fq09v_img_a.fill(Color(1.0, 0.0, 0.0))
 	var _fq09v_img_b := Image.create(16, 16, false, Image.FORMAT_RGBA8)
@@ -2362,17 +2545,17 @@ func _run() -> void:
 		if "_a" in _fq09v_path or "_01" in _fq09v_path:
 			_fq09v_src = _fq09v_img_a
 		_fq09v_src.save_png(_fq09v_path)
-	BlockRegistry.visual_assets["categories"]["blocks"]["dirt"] = [
+	BlockRegistry.visual_assets["categories"]["blocks"]["town_hall_core"] = [
 		"art/generated/blocks/smoke_tmp_dirt_a.png",
 		"art/generated/blocks/smoke_tmp_dirt_b.png"]
 	BlockRegistry.clear_visual_cache()
 	_check("fq09v_variant_pools_resolve",
 		BlockRegistry.visual_variant_textures("blocks", "smoke_tmp_vscan").size() == 2
-		and BlockRegistry.visual_variant_textures("blocks", "dirt").size() == 2
-		and BlockRegistry.visual_variant_textures("blocks", "stone").is_empty(),
+		and BlockRegistry.visual_variant_textures("blocks", "town_hall_core").size() == 2
+		and BlockRegistry.visual_variant_textures("blocks", "stone").size() == 3,
 		"scan=%d pool=%d stone=%d" % [
 			BlockRegistry.visual_variant_textures("blocks", "smoke_tmp_vscan").size(),
-			BlockRegistry.visual_variant_textures("blocks", "dirt").size(),
+			BlockRegistry.visual_variant_textures("blocks", "town_hall_core").size(),
 			BlockRegistry.visual_variant_textures("blocks", "stone").size()])
 
 	# (b) selection is deterministic from seed + cell: two setups of the same
@@ -2417,19 +2600,18 @@ func _run() -> void:
 	_check("fq09v_seed_changes_selection", _fq09v_changed,
 		"seed 777 vs 778 over %d sampled cells" % _fq09v_cells.size())
 
-	# (d) removal falls all the way back to the single generated texture and
-	# the live world state returns untouched.
+	# (d) removing the explicit test pool returns the real block to its authored
+	# canonical single, and the live world state returns untouched.
 	for _fq09v_path2 in _fq09v_files:
 		DirAccess.remove_absolute(_fq09v_path2)
-	BlockRegistry.visual_assets["categories"]["blocks"].erase("dirt")
+	BlockRegistry.visual_assets["categories"]["blocks"].erase("town_hall_core")
 	BlockRegistry.clear_visual_cache()
 	world.rebuild_tileset()
 	_check("fq09v_fallback_after_removal",
-		(world._source_ids["dirt"] as Array).size() == 1
-		and BlockRegistry.visual_variant_textures("blocks", "dirt").is_empty()
-		and world._make_block_texture("dirt", 16).get_image().get_pixel(4, 4) \
-			.is_equal_approx(_fq07_clean_pixel),
-		"sources=%d" % (world._source_ids["dirt"] as Array).size())
+		(world._source_ids["town_hall_core"] as Array).size() == 1
+		and BlockRegistry.visual_variant_textures("blocks", "town_hall_core").is_empty()
+		and BlockRegistry.visual_texture("blocks", "town_hall_core") != null,
+		"sources=%d" % (world._source_ids["town_hall_core"] as Array).size())
 	_check("fq09v_world_restored", root.load_game())
 
 	# --- FQ-09C: opening prologue (driven deterministically — autoplay timing
@@ -3464,6 +3646,131 @@ func _run() -> void:
 		"counts_ok=%s selected 0→%d" % [str(_fq09_counts_ok), hud.hotbar_selected_index()])
 	player.selected_slot = 0
 	hud.update_inventory()
+
+	# (a2) bottom-dock resource vessels mirror live full and half values.
+	hud.update_health(100.0, 100.0)
+	hud.update_attunement(50.0, 50.0)
+	var _fq16_full_ok: bool = hud._health_vessel_fill != null \
+		and is_equal_approx(hud._health_vessel_fill.value, 100.0) \
+		and hud._attunement_vessel_fill != null \
+		and is_equal_approx(hud._attunement_vessel_fill.value, 50.0)
+	hud.update_health(50.0, 100.0)
+	hud.update_attunement(25.0, 50.0)
+	var _fq16_half_ok: bool = hud._health_vessel_fill != null \
+		and is_equal_approx(hud._health_vessel_fill.value, 50.0) \
+		and hud._attunement_vessel_fill != null \
+		and is_equal_approx(hud._attunement_vessel_fill.value, 25.0)
+	_check("fq16_bottom_resource_vessels_live",
+		_fq16_full_ok and _fq16_half_ok,
+		"full=%s half=%s health=%.1f attunement=%.1f" % [
+			str(_fq16_full_ok), str(_fq16_half_ok),
+			hud._health_vessel_fill.value, hud._attunement_vessel_fill.value])
+	hud.update_health(player.health, player.max_health)
+	hud.update_attunement(player.attunement, player.max_attunement())
+
+	# (a3) nonmodal HUD edit mode is locked by default, bounded, and profile-backed.
+	var _fq17_before_pos: Vector2 = hud._hud_widgets["crest"].position
+	hud.toggle_hud_edit_mode()
+	var _fq17_enter_ok: bool = hud.is_hud_edit_mode() and GameState.hud_edit_mode
+	hud._toggle_top_left_module()
+	var _fq17_visibility_saved: bool = not bool(GameState.profile["hud_layout"]["crest"]["visible"])
+	hud._toggle_top_left_module()
+	hud._hud_edit_selected = "crest"
+	hud._nudge_hud_widget(Vector2(8, 0))
+	var _fq17_lock_ok: bool = hud._hud_widgets["crest"].position == _fq17_before_pos
+	hud._toggle_hud_widget_lock()
+	hud._nudge_hud_widget(Vector2(8, 0))
+	hud._scale_hud_widget(0.25)
+	var _fq17_move_scale_ok: bool = hud._hud_widgets["crest"].position != _fq17_before_pos \
+		and is_equal_approx(hud._hud_widgets["crest"].scale.x, 1.25)
+	hud.reset_hud_layout()
+	var _fq17_reset_ok: bool = hud._hud_widgets["crest"].position == hud._hud_default_positions["crest"] \
+		and is_equal_approx(hud._hud_widgets["crest"].scale.x, 1.0)
+	hud.toggle_hud_edit_mode()
+	_check("fq17_hud_edit_lock_move_scale_reset",
+		_fq17_enter_ok and _fq17_visibility_saved and _fq17_lock_ok and _fq17_move_scale_ok and _fq17_reset_ok
+		and not GameState.hud_edit_mode,
+		"enter=%s visibility=%s locked=%s moved_scaled=%s reset=%s" % [str(_fq17_enter_ok),
+			str(_fq17_visibility_saved), str(_fq17_lock_ok), str(_fq17_move_scale_ok), str(_fq17_reset_ok)])
+
+	# (a4) blueprint navigation actions are present and modal panels remain
+	# mutually exclusive when opened from the dock (not only keyboard input).
+	var _fq18_toolbar_labels: Array[String] = []
+	for _fq18_child in hud._module_toolbar.get_children():
+		if _fq18_child is Button:
+			_fq18_toolbar_labels.append((_fq18_child as Button).text)
+	# FQ-19: the four nav actions are named glyph buttons flanking the slots
+	# (Inventory/Character left, Skills/Town Hall right). Each must live in
+	# the dock and carry either the final icon art or the text fallback.
+	var _fq18_nav_found := 0
+	for _fq18_name in ["DockActionInventory", "DockActionCharacter",
+			"DockActionSkills", "DockActionTownHall"]:
+		var _fq18_node: Node = hud._bottom_dock.find_child(_fq18_name, true, false) \
+			if hud._bottom_dock != null else null
+		if _fq18_node is Button \
+				and ((_fq18_node as Button).icon != null or (_fq18_node as Button).text != ""):
+			_fq18_nav_found += 1
+	var _fq18_nav_ok := _fq18_toolbar_labels == ["Crest", "Goal", "Events", "Map", "Edit"] \
+		and _fq18_nav_found == 4
+	hud.toggle_character_panel()
+	var _fq18_character_ok: bool = hud.character_panel_open() and not hud.inventory_panel_open() \
+		and not hud.skill_panel_open() and not hud.town_panel_open() and not hud._bottom_dock.visible
+	hud.toggle_skill_panel()
+	var _fq18_skills_ok: bool = hud.skill_panel_open() and not hud.character_panel_open() \
+		and not hud.inventory_panel_open() and not hud.town_panel_open() and not hud._bottom_dock.visible
+	hud.toggle_town_panel()
+	var _fq18_town_ok: bool = hud.town_panel_open() and not hud.character_panel_open() \
+		and not hud.inventory_panel_open() and not hud.skill_panel_open() and not hud._bottom_dock.visible
+	hud.toggle_town_panel()
+	var _fq18_modal_close_ok: bool = not hud._any_modal_panel_open() and hud._bottom_dock.visible
+	_check("fq18_hud_dock_navigation_modal_exclusion",
+		_fq18_nav_ok and _fq18_character_ok and _fq18_skills_ok and _fq18_town_ok and _fq18_modal_close_ok,
+		"nav=%s character=%s skills=%s town=%s close=%s" % [str(_fq18_nav_ok),
+			str(_fq18_character_ok), str(_fq18_skills_ok), str(_fq18_town_ok), str(_fq18_modal_close_ok)])
+
+	# FQ-19: contextual right-band stack — fixed priority order, event-driven
+	# entries (selection change / save / interaction), auto-hide, and a top
+	# edge pinned dynamically below the live Map/Events zone. Runs after the
+	# music suite because the auto-hide assertions wait in real time.
+	var _fq19x_order_ok: bool = hud._context_stack != null \
+		and hud._context_stack.get_child(0) == hud._ctx_item_panel \
+		and hud._context_stack.get_child(1) == hud._ctx_save_panel \
+		and hud._context_stack.get_child(2) == hud._ctx_interact_panel
+	var _fq19x_slot0: int = player.selected_slot
+	player.selected_slot = (player.selected_slot + 1) % 5
+	hud.update_inventory()
+	var _fq19x_item_ok: bool = hud._ctx_item_panel.visible \
+		and hud._ctx_item_label.text != ""
+	hud.notify_saved()
+	var _fq19x_save_ok: bool = hud._ctx_save_panel.visible
+	hud.set_interaction_prompt("[E] Town Hall")
+	var _fq19x_prompt_on: bool = hud._ctx_interact_panel.visible \
+		and hud._ctx_interact_label.text == "[E] Town Hall"
+	hud.set_interaction_prompt("")
+	var _fq19x_prompt_off: bool = not hud._ctx_interact_panel.visible
+	if hud._event_panel != null:
+		hud._event_panel.visible = true
+	hud.set_interaction_prompt("[E] Town Hall")
+	await get_tree().process_frame
+	var _fq19x_stack_rect: Rect2 = hud._context_stack.get_global_rect()
+	var _fq19x_ev_rect: Rect2 = hud._event_panel.get_global_rect()
+	var _fq19x_clear: bool = _fq19x_stack_rect.position.y >= _fq19x_ev_rect.end.y
+	hud.set_interaction_prompt("")
+	# Auto-hide: the save toast holds 2.2s then fades 0.4s; the item entry
+	# holds 2.5s. Both must be gone shortly after.
+	await get_tree().create_timer(3.4).timeout
+	var _fq19x_autohide: bool = not hud._ctx_save_panel.visible \
+		and not hud._ctx_item_panel.visible
+	player.selected_slot = _fq19x_slot0
+	hud.update_inventory()
+	_check("fq19_contextual_stack",
+		_fq19x_order_ok and _fq19x_item_ok and _fq19x_save_ok
+		and _fq19x_prompt_on and _fq19x_prompt_off and _fq19x_clear
+		and _fq19x_autohide,
+		"order=%s item=%s save=%s prompt=%s/%s clear=%s autohide=%s" % [
+			str(_fq19x_order_ok), str(_fq19x_item_ok), str(_fq19x_save_ok),
+			str(_fq19x_prompt_on), str(_fq19x_prompt_off), str(_fq19x_clear),
+			str(_fq19x_autohide)])
 
 	# (b) the inventory panel opens (I binding covered by input_actions_bound)
 	# and its icon grid mirrors the counts.

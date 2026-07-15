@@ -1,5 +1,9 @@
 # Coheronia Art Integration Handoff — 2026-07-12
 
+Superseded for current coverage and next actions by
+`docs/HANDOFF_ART_INTEGRATION_2026-07-14.md`. This file remains the historical
+record of the first 55-PNG integration and its then-shared Fable worktree.
+
 Status: active, verified working tree; the player-appearance mask correction
 and world-anchor strip tranche are mechanically, runtime, and visually verified.
 Changes remain intentionally uncommitted.

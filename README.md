@@ -23,7 +23,7 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 | ![Character creation with data-driven ancestry details](docs/screenshots/07_character_create.png)<br>*Character creation: 5 playable species with live effects, body variants, appearance, traits, roles* | ![World builder with presets, difficulty axes, and generation sliders](docs/screenshots/08_world_create.png)<br>*World builder: presets, six difficulty axes, rule toggles, generation controls* |
 | ![A mined chamber at midday with dark cave ambient and one torch](docs/screenshots/09_underground_midday_torch.png)<br>*Roof-aware cave darkness: dig deep and daylight stays behind you; a torch holds the dark off locally* | ![Title screen with prologue replay and music/sound sliders](docs/screenshots/06_shell_title.png)<br>*Title screen: prologue replay, and the Music/Sound sliders wired to the adaptive score* |
 
-*The in-world sprites, item icons, enemies, five player species, Town Hall, and parallax backdrops are real generated pixel art. The rendering path is image-first with a per-asset color/shape fallback, so anything not yet authored — player-gear overlays, opening-cinematic cels, UI icons — still renders from code and can be replaced one PNG at a time without touching game logic.*
+*The in-world sprites, every current inventory/live-drop icon, all six live enemy families, all ten player bodies, the Town Hall, and parallax backdrops are real generated pixel art. High-repetition terrain, flora, ores, enemies, and player bodies also have runtime-selected visual pools. The rendering path remains image-first with a per-asset color/shape fallback, so player-gear overlays, optional opening cels, and replacement UI art can still land one PNG at a time without touching game logic.*
 
 ## Feature highlights
 
@@ -37,6 +37,7 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 - **Animated opening cinematic** — an eight-scene, ~42s founding myth plays before the title on first launch (any key advances, Esc skips, replayable from the menu): a DOS-style plotted world with keyframed puppet acting — roads unravel, the five peoples gather at a fire, builders raise the first hall beam by beam, the founder kneels and the world answers — rendered entirely in code at 640×360 with hard camera cuts and engine-rendered text: *COHERONIA · By Paul Peck · Where civilization pushes back.*
 - **Learns as you play** — a compact, state-driven goal panel walks the first loop (gather → light the hall → deposit → forge a tool/build a station → survive the night) from real game state, not scripted tutorial text: it advances only when you actually do the thing, never regresses, re-derives the right step after a save/reload, and tucks away with a keypress (**O**).
 - **Scoutable world** — a schematic map panel (**M**) reveals the world band by band *as you explore* — nothing is X-rayed. It marks the Town Hall, your position, ore pockets, and live enemy pressure inside scouted bands only; discovered regions persist compactly in the world save, and the explorer "Biome Reveal" perk widens each step's scouted band (the scouting hook future exploration perks plug into).
+- **Authored visual coverage with real variety** — all data-referenced blocks, inventory/live-drop icons, and live enemies now have canonical pixel art; seventeen high-repetition block ids carry three deterministic per-cell looks, every enemy family carries three lifetime-stable looks, and every player body offers two authored alternatives beyond its canonical form. Items deliberately stay canonical-only so a stack never changes icon during a refresh.
 - **Everything is data** — blocks, recipes, enemies, 12 ancestries, XP curves, base levels, perk lanes, equipment, world presets, and item metadata are JSON authorities validated by a repo linter; most balance changes never touch code.
 
 ## Characters are data
@@ -110,6 +111,7 @@ Or open the folder in the Godot editor and press Play.
 | Hotbar | 1–5 |
 | Town Hall | E or T |
 | Inventory / Skill tree | I / K |
+| Goals / Map | O / M |
 | Eat food / Attunement pulse | H / R |
 | Craft torch | C |
 | Save / Load | F5 / F9 |
@@ -119,6 +121,7 @@ Or open the folder in the Godot editor and press Play.
 
 ```powershell
 python scripts/validate_repo.py
+python scripts/asset_audit.py --strict
 python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile public_repo
 
 $env:COHERONIA_SMOKE = "1"
@@ -163,12 +166,12 @@ continues in bounded increments:
 - **Shipped since the last art pass** — **FQ-10** depth-banded ore families (copper/iron/coal/tin/silver/crystal as data on independent seed channels), **FQ-11** the workbench → furnace → anvil station chain (smelt ingots, alloy bronze, forge iron gear behind an ore → ingot → gear gate), **FQ-12** farming (till → sow → ripen → harvest food, crops that never float or auto-regrow, a food-yard score), **FQ-13** three new live enemies with distinct pressure (crop-eating thornrat, ore-vein ore tick, hall-burning raider torchbearer), the **FQ-13P** visual-consolidation arc (asset/variant audit + tooling, consumed enemy sprite variants, deliberate UI placeholders, player cosmetic pool, variant-vs-animation semantics), and **FQ-14** the state-driven goal panel + playtest checklist, and **FQ-15** the scoutable map panel (discovered bands persisted, hall/player/ore/threat markers, a live scouting perk hook).
 - **Next up** — big-ticket playability items from `docs/FABLE_TASK_QUEUE.md`: a pause/settings/keybinds panel, save-slot management, build-preview placement tint, a local quest/contracts layer on the goal system, and a subject/NPC labor MVP.
 - **More enemies** from a 16-entry design roster (mini-bosses and the hollow_king / world_worm bosses remain), each landing with its gameplay consumer, and a **consolidated crafting menu**.
-- **Art backlog** (parallel, one PNG at a time via [`docs/ASSET_ROADMAP.md`](docs/ASSET_ROADMAP.md)): player-gear overlays, the remaining equipment and enemy icons, and the eight opening-cinematic cels.
-- **Deeper systems** sketched in [`docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`](docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md): the research bench MVP, perk-spending across more lanes, maps and scouting, underground-start generation for deep ancestries, and the civic layer (laws, districts, factions, legitimacy). Ancestries beyond the five playable ones exist as validated data awaiting their phases.
+- **Art backlog** (parallel, one PNG at a time via [`docs/ASSET_ROADMAP.md`](docs/ASSET_ROADMAP.md)): body-specific player-gear overlays after cross-body alignment review, replacement art for currently reserved UI placeholders when those consumers land, and the optional eight-scene opening-cel program.
+- **Deeper systems** sketched in [`docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`](docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md): the research bench MVP, perk-spending across more lanes, underground-start generation for deep ancestries, and the civic layer (laws, districts, factions, legitimacy). Ancestries beyond the five playable ones exist as validated data awaiting their phases.
 
 ## Known limitations
 
-Honest state of the build: some art is still code-drawn fallback (player-gear overlays, the opening-cinematic cels, and UI icons are not yet authored); the adaptive score ships but is one suite, tuned by ear and still balance-in-progress; settlers are abstract population, not NPCs; enemies walk-and-hop without pathfinding; there is one surface biome on finite maps (up to 360×100 tiles); and the inventory/equipment panels are read-only (no drag/drop yet).
+Honest state of the build: player gear still uses the safer rig-aware procedural fallback; the opening remains the deliberate code-plotted cinematic unless optional cels are authored; most HUD image hooks are deliberate placeholders rather than final replacement art. The adaptive score ships but is one suite, tuned by ear and still balance-in-progress; settlers are abstract population, not NPCs; enemies walk-and-hop without pathfinding; there is one surface biome on finite maps (up to 360×100 tiles); and the inventory/equipment panels are read-only (no drag/drop yet).
 
 ---
 

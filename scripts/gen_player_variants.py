@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FQ-13P3 — generate demonstration player cosmetic variants (full-body pool).
+"""FQ-13P3 — generate legacy demonstration player cosmetic variants.
 
 Writes <body_id>_NN.png cosmetic variants next to the canonical player body art
 so the FQ-13P full-body-pool mechanic has real pools to select from. Each variant
@@ -9,9 +9,13 @@ alternate outfit, replaceable one PNG at a time. Deterministic and idempotent.
 
 These are variant 1..N; the canonical <body_id>.png stays variant 0.
 
-Run: python scripts/gen_player_variants.py
+The repo now ships reviewed authored variants. This helper therefore refuses to
+overwrite an existing `_NN.png` unless `--force-demo` is passed explicitly.
+
+Run: python scripts/gen_player_variants.py [--force-demo]
 """
 from __future__ import annotations
+import argparse
 import colorsys
 from pathlib import Path
 from PIL import Image
@@ -48,6 +52,10 @@ def recolor(img: Image.Image, hue_deg: float) -> Image.Image:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--force-demo", action="store_true",
+                        help="overwrite reviewed variants with demo hue swaps")
+    args = parser.parse_args()
     for body_id, hues in VARIANTS.items():
         base_path = PLAYERS / f"{body_id}.png"
         if not base_path.is_file():
@@ -55,9 +63,14 @@ def main() -> int:
             continue
         base = Image.open(base_path).convert("RGBA")
         for i, hue in enumerate(hues, start=1):
+            output_path = PLAYERS / f"{body_id}_{i:02d}.png"
+            if output_path.is_file() and not args.force_demo:
+                print(f"keep art/generated/players/{output_path.name} "
+                      "(reviewed variant already exists)")
+                continue
             variant = recolor(base, hue)
             assert variant.size == base.size, body_id
-            variant.save(PLAYERS / f"{body_id}_{i:02d}.png")
+            variant.save(output_path)
             print(f"wrote art/generated/players/{body_id}_{i:02d}.png (hue {hue})")
     return 0
 

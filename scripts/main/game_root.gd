@@ -51,6 +51,7 @@ const CAVE_CRAWLER_CAP := 2
 @onready var threats: Node2D = $Threats
 
 var time_of_day := 0.25
+var _clock_refresh_accum := 0.0
 var day_count := 1
 var is_night := false
 var storm_active := false
@@ -447,13 +448,21 @@ func _process(delta: float) -> void:
 		if _map_refresh_timer >= 0.3:
 			_map_refresh_timer = 0.0
 			hud.update_map(map_snapshot())
+	# FQ-19: contextual interaction prompt — shown only while the Town Hall is
+	# actually in interact range and no modal panel already owns the screen.
+	var _near_hall: bool = not hud.town_panel_open() \
+		and player.global_position.distance_to(town_hall.global_position) <= INTERACT_RANGE
+	hud.set_interaction_prompt("[E] Town Hall" if _near_hall else "")
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if GameState.hud_edit_mode:
+		return
 	if event.is_action_pressed("save_game"):
 		if save_manager.save_game():
 			log_event("Game saved (F5).")
 			hud.set_save_hint(true)
+			hud.notify_saved()
 		else:
 			log_event("Save failed.")
 	elif event.is_action_pressed("load_game"):
@@ -467,6 +476,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.toggle_town_panel()
 		if hud.skill_panel_open():
 			hud.toggle_skill_panel()
+		if hud.character_panel_open():
+			hud.toggle_character_panel()
 		hud.toggle_inventory_panel()
 	elif event.is_action_pressed("toggle_skills"):
 		# FQ-06: the skill tree is mutually exclusive with the other panels.
@@ -474,6 +485,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.toggle_town_panel()
 		if hud.inventory_panel_open():
 			hud.toggle_inventory_panel()
+		if hud.character_panel_open():
+			hud.toggle_character_panel()
 		hud.toggle_skill_panel()
 	elif event.is_action_pressed("interact") or event.is_action_pressed("toggle_town"):
 		_try_interact()
@@ -483,6 +496,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.toggle_skill_panel()
 		elif hud.inventory_panel_open():
 			hud.toggle_inventory_panel()
+		elif hud.character_panel_open():
+			hud.toggle_character_panel()
 		elif hud.town_panel_open():
 			hud.toggle_town_panel()
 		else:
@@ -503,6 +518,12 @@ func _advance_time(delta: float) -> void:
 	elif not night_now and is_night:
 		_on_dawn()
 	is_night = night_now
+	# FQ-19: keep the events clock ticking between day/night transitions —
+	# once per real second, not per frame (threat counting walks the tree).
+	_clock_refresh_accum += delta
+	if _clock_refresh_accum >= 1.0:
+		_clock_refresh_accum = 0.0
+		hud.update_time(day_count, is_night, _live_threat_count(), time_of_day)
 	_advance_storm(delta)
 	# Smooth tint transition near the day/night/storm boundaries and across
 	# cave mouths (FQ-09W: the target itself is depth-aware).
@@ -587,7 +608,7 @@ func _on_nightfall() -> void:
 	_maybe_spawn_thornrat()
 	_maybe_spawn_raider()
 	_maybe_spawn_torchbearer()
-	hud.update_time(day_count, true, spawn_count)
+	hud.update_time(day_count, true, spawn_count, time_of_day)
 	settlement.compute()
 	music_event.emit("nightfall")
 
@@ -619,7 +640,7 @@ func threat_hp() -> int:
 
 func _on_dawn() -> void:
 	is_night = false
-	hud.update_time(day_count, false)
+	hud.update_time(day_count, false, 0, time_of_day)
 	var all_threats := get_tree().get_nodes_in_group("threats")
 	var survived := all_threats.size()
 	for threat in all_threats:
@@ -889,7 +910,7 @@ func _live_threat_count() -> int:
 
 ## Deferred so a dying threat's queue_free() is visible to the count.
 func _refresh_threat_display() -> void:
-	hud.update_time(day_count, is_night, _live_threat_count())
+	hud.update_time(day_count, is_night, _live_threat_count(), time_of_day)
 
 
 ## Total severity of active pressure, consumed by the settlement model.
@@ -1048,7 +1069,7 @@ func load_game() -> bool:
 		return false
 	# Wave B: restore character-owned carried state after world state is applied.
 	_apply_character_carried_state()
-	hud.update_time(day_count, is_night, _live_threat_count())
+	hud.update_time(day_count, is_night, _live_threat_count(), time_of_day)
 	hud.update_inventory()
 	_refresh_hud_progression()
 	settlement.compute()

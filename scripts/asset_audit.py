@@ -36,14 +36,21 @@ VARIANT_CONSUMERS = {"blocks", "enemies", "players"}
 
 # Categories whose *canonical* single image is consumed at runtime.
 CANONICAL_CONSUMERS = {
-    "blocks", "items", "enemies", "players", "structures",
+    "blocks", "items", "enemies", "players", "player_gear", "structures",
     "backgrounds", "back_walls",
 }
 
 # FQ-13P2: reserved UI placeholders that a live HUD surface already consumes.
 # The rest are authored deliberate placeholders reserved for the HUD redesign
 # (PLACEHOLDER_AUTHORED) — present and validated, not orphans.
-UI_CONSUMED = {"slot_inventory", "slot_inventory_selected"}
+UI_CONSUMED = {
+    "slot_inventory", "slot_inventory_selected",
+    "orb_health_frame", "orb_attunement_frame",
+    # FQ-19: the blueprint dock consumes the backplate, the four nav glyphs,
+    # and the disk mask (liquid fill clip + vessel effect overlay).
+    "dock_backplate", "button_inventory", "button_character",
+    "button_skills", "button_town_hall", "orb_fill_mask",
+}
 
 # Reserved UI hook ids (FQ-13P). Absence => PLACEHOLDER_REQUIRED, not an error.
 RESERVED_UI_IDS = [
@@ -53,8 +60,10 @@ RESERVED_UI_IDS = [
     "button_goals", "button_settings", "cursor_drag_valid", "cursor_drag_invalid",
 ]
 
-# Categories that are intentionally code-drawn for now.
-DEFERRED_CATEGORIES = {"opening"}
+# Categories that intentionally keep their code-drawn fallback until a scoped
+# art program exists. Player gear needs body-specific alignment across ten
+# rigs; a generic empty category is therefore deferred, not a missing asset.
+DEFERRED_CATEGORIES = {"opening", "player_gear"}
 
 # FQ-13P4: categories whose _NN pool is an ANIMATION SEQUENCE (frames played in
 # order), NOT a pick-one variant. Reported distinctly so the two concepts (an
@@ -121,8 +130,18 @@ def main() -> int:
         raw = json.loads((ROOT / f"data/{name}.json").read_text(encoding="utf-8"))
         data_ids[name] = set((raw.get(key) or {}).keys())
     enemies_raw = json.loads((ROOT / "data/enemies.json").read_text(encoding="utf-8"))
-    data_ids["enemies"] = {e["id"] for e in enemies_raw.get("enemies", [])
-                           if e.get("status") == "live"}
+    live_enemies = [e for e in enemies_raw.get("enemies", [])
+                    if e.get("status") == "live"]
+    data_ids["enemies"] = {e["id"] for e in live_enemies}
+    # Live drops can enter the inventory even when they intentionally lack a
+    # metadata row in items.json. Include those runtime ids so the art audit's
+    # item coverage matches what the HUD can actually render.
+    data_ids["items"].update(
+        str(drop.get("item_id", ""))
+        for enemy in live_enemies
+        for drop in enemy.get("drops", [])
+        if str(drop.get("item_id", "")) != ""
+    )
 
     problems: list[str] = []   # real data bugs (strict-failing)
     findings: list[str] = []   # informational gaps (never fail)
@@ -134,7 +153,11 @@ def main() -> int:
         cat_dir = ASSET_ROOT / cat
         ids = scan_category(cat_dir)
         tdims = target_dims(sizes, cat)
-        print(f"\n## {cat}  (target {tdims or 'unconstrained'})")
+        target_label = (
+            f"width {tdims[0]}" if tdims and cat in WIDTH_ONLY_CATEGORIES
+            else tdims or "unconstrained"
+        )
+        print(f"\n## {cat}  (target {target_label})")
         if not ids:
             state = "DEFERRED" if cat in DEFERRED_CATEGORIES else "PLACEHOLDER_REQUIRED"
             print(f"  (no files)  -> {state}")
@@ -170,6 +193,10 @@ def main() -> int:
                 if idxs != expected:
                     problems.append(
                         f"{cat}/{aid}: variant sequence gap {idxs} (expected {expected})")
+                if len(variants) > MAX_VARIANTS:
+                    problems.append(
+                        f"{cat}/{aid}: {len(variants)} files exceed runtime max "
+                        f"{MAX_VARIANTS}; files after _{MAX_VARIANTS:02d} are ignored")
             # Dimension checks. Full-frame/strip categories are width-only.
             width_only = cat in WIDTH_ONLY_CATEGORIES
             for f in ([canon] if canon else []) + variants:
@@ -188,7 +215,13 @@ def main() -> int:
     # Data ids that are referenced but have no canonical art -> FALLBACK_ONLY.
     print("\n## FALLBACK_ONLY (referenced in data, no canonical art — code-drawn)")
     for cat in ["blocks", "items", "enemies"]:
-        present = set(scan_category(ASSET_ROOT / cat).keys())
+        scanned = scan_category(ASSET_ROOT / cat)
+        # A variant-only family is not canonical coverage. This especially
+        # matters for items, where `_NN` files are never consumed as a pool.
+        present = {
+            aid for aid, info in scanned.items()
+            if info.get("canonical") is not None
+        }
         missing = sorted(data_ids.get(cat, set()) - present - NON_RENDERED_IDS)
         if missing:
             print(f"  {cat}: {', '.join(missing)}")

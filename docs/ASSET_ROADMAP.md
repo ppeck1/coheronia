@@ -38,41 +38,52 @@ Priorities: **P1** = biggest visible win first (terrain, player, hall);
 Planned ids must not be produced before their systems exist unless the
 operator asks — the manifest stays honest.
 
-## Live Assets (render today from fallbacks; art drops in directly)
+## Live Assets (current authored coverage)
 
 ### Blocks — `art/generated/blocks/<id>.png`, 16x16
 
-| Id | Transparency | Current fallback | Priority | Prompt note |
-|---|---|---|---|---|
-| dirt | opaque | flat loam color + edge shade | P1 | packed loam, small stones; supports `_01.._08` variants |
-| grass | opaque | flat green + edge shade | P1 | dirt body with a living green crown edge |
-| stone | opaque | flat gray + edge shade | P1 | cool gray facets, one-pixel cracks; variants welcome |
-| ore | opaque | flat brass + edge shade | P1 | stone body with warm metallic flecks |
-| wood | opaque | flat timber + edge shade | P2 | placed plank/beam block (building material, not a tree) |
-| tree_trunk | transparent | 6px bark bar | P2 | slim rounded trunk bar, bark shading; player passes in front |
-| tree_leaves | transparent | clipped blob + flecks | P2 | leafy cluster, clipped corners, moss-family greens |
-| berry_bush | transparent | rounded bush + red dots | P2 | low bush on visible soil contact; 3-4 red berries |
-| torch | transparent | stick + flame pixels | P1 | short stake, small amber flame, no glow halo (engine lights it) |
-| lantern | transparent | hook + housing | P2 | hanging brass housing, warm core, no baked rays |
-| town_hall_core | opaque | flat violet + edge shade | P3 | civic keystone block: timber-and-banner reading, not arcane |
+| Ids | Transparency | Authored state | Runtime variety |
+|---|---|---|---|
+| dirt, grass, stone, ore, wood | opaque | canonical live | three `_01.._03` variants each |
+| coal, copper_ore, tin_ore, iron_ore, silver_ore, crystal | opaque | canonical live | three `_01.._03` variants each |
+| farm_soil | opaque | canonical live | three `_01.._03` variants |
+| crop_seedling, crop_ripe | transparent | canonical live | three `_01.._03` variants each |
+| tree_trunk, tree_leaves, berry_bush | transparent | canonical live | three `_01.._03` variants each |
+| torch, lantern, town_hall_core | mixed | canonical live | canonical only |
+
+Variant pools are deterministic per world seed + cell. Once a pool exists the
+block renderer chooses from `_01.._03`; keep the canonical `<id>.png` as the
+identity/reference asset and fallback for canonical-only tooling.
 
 ### Items — `art/generated/items/<id>.png`, 16x16, transparent
 
-Live ids (icon grids, hotbar, forge buttons): `dirt`, `grass`, `wood`,
-`stone`, `ore`, `torch`, `lantern`, `berry_bush`, `food`, `slime_gel`,
-`wet_fiber`, `tiny_core`, `pick`, `axe`, `sword`, `armor`.
-Fallback: items.json color swatch (hash-hue for unknown ids). Priority P2.
-Prompt note: single readable object silhouette centered on transparency;
-block-material items may reuse their block texture reading at icon scale;
-`food` is a humble ration (berries/bread), never a golden buff icon.
+All current inventory and live-drop ids now have canonical transparent icons:
+
+- foundational: `dirt`, `grass`, `wood`, `stone`, `ore`, `torch`, `lantern`,
+  `berry_bush`, `food`, `slime_gel`, `wet_fiber`, `tiny_core`, `pick`, `axe`,
+  `sword`, `armor`;
+- ore/farm: `coal`, `copper_ore`, `tin_ore`, `iron_ore`, `silver_ore`,
+  `crystal`, `farm_soil`, `crop_seedling`, `crop_ripe`, `crop_seeds`;
+- intermediates: `copper_ingot`, `tin_ingot`, `iron_ingot`, `silver_ingot`,
+  `bronze_ingot`;
+- live enemy drops: `meat`, `thorn_quill`, `hide_scrap`, `ore_flecks`,
+  `shell`, `oil_rags`, `torch_heads`, `chitin`, `silk`, `eyes`, `coins`,
+  `scrap_weapons`.
+
+Items remain canonical-only by design so cached inventory stacks never change
+appearance during refreshes. The color-swatch fallback remains intact for any
+future id that lands before art.
 
 ### Enemies — `art/generated/enemies/<id>.png`, 16x16, transparent
 
-| Id | Family | Fallback | Priority | Prompt note |
-|---|---|---|---|---|
-| surface_slime | surface | violet rect + hurt bar | P2 | soft dome slime, faint core, side-view |
-| cave_crawler | underground | green rect | P2 | low many-legged crawler, cool slate/moss |
-| raider_basic | raider | rust rect | P2 | hooded human silhouette, rust accent, crude blade |
+| Id | Family | Authored state | Runtime variety |
+|---|---|---|---|
+| surface_slime | surface | canonical live | `_01.._03` |
+| thornrat | surface | canonical live | `_01.._03` |
+| cave_crawler | underground | canonical live | `_01.._03` |
+| ore_tick | underground | canonical live | `_01.._03` |
+| raider_basic | raider | canonical live | `_01.._03` |
+| raider_torchbearer | raider | canonical live | `_01.._03` |
 
 Engine draws hurt tint and health bar; sprites must leave headroom for both.
 
@@ -83,18 +94,35 @@ Live body ids: `human`, `human_female`, `dwarf`, `dwarf_female`, `elf`,
 Runtime path: `data/player_visuals.json`, `scripts/player/player_visual.gd`,
 and `scenes/player/Player.tscn`.
 
-Player art is live now. Appearance palettes recolor only rig-defined skin
-regions, body variant selection is saved with the character, and gameplay
-collision remains 12x28. Base bodies stay in simple clothing with no armor;
-equipment art belongs in `art/generated/player_gear/`.
+Player art is live now. Appearance palettes recolor only exact rig-defined
+skin colors inside rig-defined regions, so every canonical and `_NN` Look must
+retain those byte-exact palette entries; use
+`scripts/art/restore_player_skin_palette.py` after generation. Body variant
+selection is saved with the character, and gameplay collision remains 12x28.
+Base bodies stay in simple clothing with no armor; equipment art belongs in
+`art/generated/player_gear/`.
 
-### Equipment / UI icons — `art/generated/items/<id>.png` today (16x16)
+Every body id has two authored Look alternatives (`_01`, `_02`) in addition to
+its canonical body. The shell Look selector now reads the real pool length, so
+it cannot offer absent/no-op values.
 
-Live equipment ids that surface in panels: `pick_basic`, `pick_forged`,
-`axe_crude`, `sword_crude`, `helmet_crude`, `torso_crude`, `feet_crude`,
-`ring_band`, `amulet_focus`. Priority P3 (text panels work fine).
-`art/generated/ui/` (32x32) is reserved: nothing reads it yet — do not
-produce ui-category files until a consumer lands.
+### Equipment overlays and UI placeholders
+
+Equipment panels are text-only, so 16x16 equipment item icons have no live
+consumer and remain deferred. `player_visual` does have live 16x32 overlay
+hooks (`<item_id>_<body_id>.png`, then generic `<item_id>.png`, plus three
+tool-swing phases), but no player-gear PNGs ship yet. The procedural rig-aware
+fallback is safer than a generic overlay until each overlay is checked against
+all ten body shapes.
+
+`art/generated/ui/` contains fifteen 32x32 hooks. The health and attunement
+frames are consumed by the live bottom dock; the remaining button, invalid-slot,
+cursor, and fill-mask files remain replaceable hooks. FQ-14 goals and the FQ-15
+mini-map are currently code-drawn and toggleable, with final glyph art deferred.
+The nonmodal modules now support a default-locked, profile-backed Edit HUD mode
+with bounded move, discrete scale, lock, and reset controls. Modal inventory,
+town, and skills panels remain fixed so gameplay input ownership stays
+deterministic.
 
 ### Backing walls — `art/generated/back_walls/<id>.png`, 16x16, seamless
 
@@ -122,8 +150,8 @@ continuity, visually quieter and darker than the matching foreground block.
 
 ### Opening cinematic cel frames — `art/generated/opening/<scene_id>_01.png` …
 
-Eight scene ids (FQ-09C; 640x360 masters, up to 8 frames each, played at
-8 fps in place of the code-plotted shot; the puppet/plotted rendering is the
+Eight scene ids (FQ-09C; 640x360 masters, up to 8 frames each, looped at
+8 fps for the scene in place of the code-plotted shot; the puppet/plotted rendering is the
 permanent fallback): `opening_01_first_star`, `opening_02_unraveling_roads`,
 `opening_03_scattered_peoples`, `opening_04_darkness_measures_light`,
 `opening_05_first_hall_raised`, `opening_06_attunement_pulse`,
@@ -144,22 +172,18 @@ Keep meaningful action above the lower-quarter text band.
 
 | Family | Ids | Arrives with | Size |
 |---|---|---|---|
-| Ore blocks | copper, iron, coal, tin, silver, crystal, rare-ore placeholder | FQ-10 | 16x16 blocks (+ item icons) |
 | Stations | workbench, furnace, anvil | FQ-11 | 16x16 blocks (possibly multi-tile) |
-| Intermediates | ingots per metal family | FQ-11 | 16x16 items |
-| Farming | seeds, crop growth-stage blocks, tilled soil | FQ-12 | 16x16 |
-| Enemies (next) | thornrat, ore_tick, raider_torchbearer, then broodmother_crawler, bandit_standard_bearer | FQ-13+ (mvp_expansion_order) | 16x16 |
 | Enemies (data-planned) | ash_wasp, mudling, hollow_stag, lantern_leech, stoneback_beetle, sporekin, burrow_maw, raider_sapper, hungry_deserter, false_taxman; bosses hollow_king, world_worm | later waves | 16x16+ |
 | Action effects | mining/chop arc, placement pulse, hurt/collapse feedback, forge confirmation | FQ-09M | small transparent overlays |
 | Back walls | ore_cave_wall, fungal_wall, crystal_wall, timber_wall | with their environments | 16x16 seamless |
 | Backgrounds | cave_far, deep_cavern_far | with cave backdrop wiring | 640x360 |
 | Ancestry sprites (deep/planned) | deep_dwarf, deep_elf, deep_goblin, gnome, deep_gnome, lizardfolk, dragonkin (6 dragonkin types) | phase C-E ancestries | 16x32 |
-| UI icons | goal panel, map/minimap glyphs | FQ-14/FQ-15 | 32x32 |
+| UI replacement art | goals/map glyphs plus reserved orb/dock/button/cursor hooks | future HUD image-consumer pass | 32x32 |
 
 ## Prompt Packs
 
 Use the shared preamble, then the category block, then the per-id note from
-the tables above. Iterate locally (Ollama or any image model) entirely
+the tables above. Iterate in an isolated image-model staging area entirely
 outside the game and validation; only the final PNG enters the repo.
 
 ### Shared preamble (every prompt)

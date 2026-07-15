@@ -13,6 +13,7 @@ var characters: Array = []
 var current_character: Dictionary = {}
 var current_world_id: String = ""
 var current_config: WorldConfig = null
+var hud_edit_mode := false
 
 
 func _ready() -> void:

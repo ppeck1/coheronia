@@ -7,6 +7,8 @@ export_presets.cfg
 *.bak
 .DS_Store
 Thumbs.db
+__pycache__/
+*.py[cod]
 .project/atlas_outbox/imported/*
 !.project/atlas_outbox/imported/.gitkeep
 .project/atlas_outbox/rejected/*
