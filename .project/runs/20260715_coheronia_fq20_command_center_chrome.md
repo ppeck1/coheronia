@@ -72,6 +72,37 @@ the wiki dirs and docs exports. Those pass the repo gates but are NOT part of
 FQ-20: this run commits explicit FQ-20 paths only and leaves all concurrent
 work uncommitted for its own review. Flagged to the operator.
 
+## Operator Polish Loop (2026-07-15 evening, second pass)
+
+The operator's annotated live captures rejected the first FQ-20 render:
+padding failures on every element and a health pool that never visibly
+dropped. All were real:
+
+- **Liquid never drained**: `TextureProgressBar.nine_patch_stretch` SQUASHES
+  the disk texture into the filled sub-rect instead of cropping it — wrong
+  since FQ-19, unmissable on the painted orbs. Fixed by pre-sizing the disk
+  mask (`_glass_mask_texture`: crop art px 5..26, resize to the glass) with
+  nine-patch off so `FILL_BOTTOM_TO_TOP` truly crops. Smoke now asserts the
+  no-squash configuration, and the tour gained `10_vessel_damage_states`.
+- **Systematic padding**: every painted style had content margins at or
+  below the border art (the review had noted it; the captures proved it).
+  All content margins now sit border + ~8px: plain 18, ornate 24, chip 12/7,
+  plate 22-26, slots 8, plus row separations.
+- **Slot layout**: icon now centered LARGE with count bottom-right and key
+  number top-left (blueprint corners); the pale patched digit tabs were
+  replaced in the slicer by mirrored clean frame corners.
+- **Orb art**: health punch widened elliptically (+7/+5) and the ring bevel
+  de-reddened (baked liquid reflections read wrong when empty); the
+  attunement vessel was reworked conceptually — the faceted crystal is KEPT
+  and charge renders as a luminous bottom-up overlay (dim uncharged, bright
+  charged) because punching a crystal away destroys the art. Its baked
+  scene-glow halo and stray annotation ink were keyed out.
+- **Nav buttons**: aspect-true 42x46 with vertical centering.
+- The chip frame source moved to the mockup's clean "Game Saved" chip.
+
+Re-verified: gates green, isolated-worktree smoke 318/318, damage-state and
+full-state renders reviewed at zoom for crest, events, slots, both orbs.
+
 ## Deliberately Deferred
 
 - Diablo-1-style drag-drop inventory (FQ-22 candidate; consumes the reserved

@@ -603,10 +603,12 @@ func _module_panel_style(kind: String = "plain") -> StyleBox:
 	var painted: Texture2D = _painted_texture(
 		"panel_frame_ornate" if kind == "ornate" else "panel_frame_plain")
 	if painted != null:
+		# Content margins sit WELL inside the border art (border + 8px of
+		# air) — text on the frame bevel was the operator's padding finding.
 		var psb := StyleBoxTexture.new()
 		psb.texture = painted
 		psb.set_texture_margin_all(16 if kind == "ornate" else 10)
-		psb.set_content_margin_all(13 if kind == "ornate" else 10)
+		psb.set_content_margin_all(24 if kind == "ornate" else 18)
 		return psb
 	var backplate: Texture2D = BlockRegistry.visual_texture("ui", "dock_backplate")
 	if backplate != null:
@@ -632,10 +634,10 @@ func _chip_style(tint: Color = Color.WHITE) -> StyleBox:
 		var psb := StyleBoxTexture.new()
 		psb.texture = painted
 		psb.set_texture_margin_all(6)
-		psb.content_margin_left = 8
-		psb.content_margin_right = 8
-		psb.content_margin_top = 4
-		psb.content_margin_bottom = 4
+		psb.content_margin_left = 12
+		psb.content_margin_right = 12
+		psb.content_margin_top = 7
+		psb.content_margin_bottom = 7
 		psb.modulate_color = tint
 		return psb
 	var sb := StyleBoxFlat.new()
@@ -678,6 +680,7 @@ func _build_top_left() -> void:
 	_add_corner_medallion(crest)
 	add_child(crest)
 	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
 	crest.add_child(box)
 	_crest_title = Label.new()
 	_crest_title.text = "◆ Camp · Lv.1"
@@ -747,6 +750,7 @@ func _build_goal_panel() -> void:
 	_goal_panel.add_theme_stylebox_override("panel", _module_panel_style())
 	add_child(_goal_panel)
 	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 5)
 	_goal_panel.add_child(col)
 	_goal_label = Label.new()
 	_goal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -887,10 +891,11 @@ func _build_bottom_left() -> void:
 		plate_art.texture_margin_bottom = 18
 		plate_art.texture_margin_left = 6
 		plate_art.texture_margin_right = 6
-		plate_art.content_margin_top = 16
-		plate_art.content_margin_bottom = 12
-		plate_art.content_margin_left = 14
-		plate_art.content_margin_right = 14
+		# Rails are 18px of art; content clears them plus air on every side.
+		plate_art.content_margin_top = 26
+		plate_art.content_margin_bottom = 24
+		plate_art.content_margin_left = 22
+		plate_art.content_margin_right = 22
 		panel.add_theme_stylebox_override("panel", plate_art)
 	elif backplate != null:
 		var dock_art := StyleBoxTexture.new()
@@ -908,6 +913,7 @@ func _build_bottom_left() -> void:
 		panel.add_theme_stylebox_override("panel", dock_style)
 	band.add_child(panel)
 	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 5)
 	panel.add_child(box)
 	_mine_bar = ProgressBar.new()
 	_mine_bar.custom_minimum_size = Vector2(180, 10)
@@ -954,18 +960,23 @@ func _build_bottom_left() -> void:
 		slot.custom_minimum_size = Vector2(56, 60)
 		slot.add_theme_stylebox_override("panel", _slot_normal_sb)
 		cell.add_child(slot)
-		var col := VBoxContainer.new()
-		slot.add_child(col)
+		# Blueprint corners (operator polish pass): LARGE icon centered in
+		# the cell, count in the bottom-right corner, key number in the
+		# top-left — overlapping full-rect children, no dead bottom band.
+		var icon_center := CenterContainer.new()
+		icon_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(icon_center)
 		var icon := TextureRect.new()
-		icon.custom_minimum_size = Vector2(24, 24)
+		icon.custom_minimum_size = Vector2(28, 28)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		col.add_child(icon)
-		var count := _label(col, "")
-		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		icon_center.add_child(icon)
+		var count := Label.new()
+		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		count.size_flags_vertical = Control.SIZE_SHRINK_END
 		count.add_theme_font_size_override("font_size", 11)
-		# Blueprint key number in the slot's top corner; the PanelContainer
-		# lays both children over the same rect, so the tag overlays the tile.
+		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(count)
 		var key_tag := Label.new()
 		key_tag.text = str(i + 1)
 		key_tag.add_theme_font_size_override("font_size", 9)
@@ -1024,7 +1035,10 @@ func _add_dock_action_button(row: HBoxContainer, text: String, ui_id: String,
 		button.icon = glyph
 		button.expand_icon = true
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button.custom_minimum_size = Vector2(40, 44)
+		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+		# Aspect-true to the painted 48x52 glyphs so the frame never crops.
+		button.custom_minimum_size = Vector2(42, 46)
+		button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var empty := StyleBoxEmpty.new()
 		for state in ["normal", "hover", "pressed", "disabled"]:
 			button.add_theme_stylebox_override(state, empty)
@@ -1046,11 +1060,32 @@ func _add_dock_action_button(row: HBoxContainer, text: String, ui_id: String,
 # the slicer prints these values ("health orb: cx=98 cy=102 glass_r=56" + the
 # punch offsets) on every run; re-slicing the mockup means re-checking them.
 # All values in texture pixels: glass center and punched radius.
+# "overlay" vessels keep their baked crystal art and render charge as a
+# luminous bottom-up brightener instead of an opaque liquid over a punched
+# hole (the attunement crystal is not a liquid — operator polish loop).
 const PAINTED_ORB_GEOMETRY := {
-	"orb_health_frame": {"tex": Vector2(180, 196), "center": Vector2(98, 102), "radius": 59.0},
-	"orb_attunement_frame": {"tex": Vector2(188, 216), "center": Vector2(82, 79), "radius": 54.0},
+	"orb_health_frame": {"tex": Vector2(180, 196), "center": Vector2(98, 102), "radius": 62.0},
+	"orb_attunement_frame": {"tex": Vector2(188, 216), "center": Vector2(82, 81), "radius": 51.0, "overlay": true},
 }
 const PAINTED_ORB_WIDTH := 112.0
+var _glass_mask_cache: Dictionary = {}   # diameter -> ImageTexture
+
+
+## FQ-20 polish: the 32px disk mask cropped to its disk (art px 5..26) and
+## resized to the exact glass diameter. TextureProgressBar can then crop the
+## liquid natively (nine-patch stretching SQUASHES the disk instead of
+## draining it — the "health never drops" bug the operator caught).
+func _glass_mask_texture(diameter: int) -> Texture2D:
+	if _glass_mask_cache.has(diameter):
+		return _glass_mask_cache[diameter]
+	var src: Texture2D = BlockRegistry.visual_texture("ui", "orb_fill_mask")
+	if src == null:
+		return null
+	var disk: Image = src.get_image().get_region(Rect2i(5, 5, 22, 22))
+	disk.resize(diameter, diameter, Image.INTERPOLATE_BILINEAR)
+	var tex := ImageTexture.create_from_image(disk)
+	_glass_mask_cache[diameter] = tex
+	return tex
 
 
 ## One flanking resource orb — its own object (Photo 1/2) with the numeric
@@ -1066,6 +1101,7 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 	var frame_size: Vector2
 	var glass_center: Vector2
 	var glass_radius: float
+	var charge_overlay := false
 	if painted != null and PAINTED_ORB_GEOMETRY.has(ui_id):
 		var geometry: Dictionary = PAINTED_ORB_GEOMETRY[ui_id]
 		var art_scale: float = PAINTED_ORB_WIDTH / (geometry.tex as Vector2).x
@@ -1073,16 +1109,17 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 		frame_size = (geometry.tex as Vector2) * art_scale
 		glass_center = (geometry.center as Vector2) * art_scale
 		glass_radius = float(geometry.radius) * art_scale
+		charge_overlay = bool(geometry.get("overlay", false))
 	else:
 		frame_tex = BlockRegistry.visual_texture("ui", ui_id)
 		frame_size = Vector2(96, 96)
 		glass_center = Vector2(48, 48)
 		glass_radius = 33.0
-	# The 32px disk mask spans px 5..26, so the fill control must be larger
-	# than the glass by 32/22 for the disk to land exactly on the hole.
-	var fill_size: float = glass_radius * 2.0 * 32.0 / 22.0
-	var fill_rect := Rect2(glass_center - Vector2(fill_size, fill_size) / 2.0,
-		Vector2(fill_size, fill_size))
+	# The liquid disk spans the punched hole exactly; the punch already
+	# clears the ring's inner bevel (operator polish finding).
+	var glass_d: int = int(round(glass_radius * 2.0))
+	var fill_rect := Rect2(glass_center - Vector2(glass_d, glass_d) / 2.0,
+		Vector2(glass_d, glass_d))
 	var vessel := Control.new()
 	vessel.name = "ResourceVessel"
 	vessel.custom_minimum_size = Vector2(frame_size.x, frame_size.y + 16)
@@ -1090,16 +1127,23 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 	# Masked bottom-up liquid when the disk mask exists — the fluid is
 	# clipped to the orb interior so it can never bleed under the ring frame.
 	# The original code-drawn ProgressBar stays as the validated fallback.
-	var mask: Texture2D = BlockRegistry.visual_texture("ui", "orb_fill_mask")
+	var mask: Texture2D = _glass_mask_texture(glass_d)
 	var fill: Range
 	if mask != null:
+		# nine_patch_stretch stays OFF: the texture is pre-sized to the
+		# control, so FILL_BOTTOM_TO_TOP truly crops and the pool drains.
 		var liquid := TextureProgressBar.new()
-		liquid.nine_patch_stretch = true
 		liquid.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
 		liquid.texture_under = mask
-		liquid.tint_under = Color(0.02, 0.04, 0.08, 0.88)
 		liquid.texture_progress = mask
-		liquid.tint_progress = fill_color
+		if charge_overlay:
+			# Crystal charge: dim the uncharged art, brighten the charged
+			# part — the baked crystal stays visible either way.
+			liquid.tint_under = Color(0.0, 0.02, 0.1, 0.62)
+			liquid.tint_progress = Color(0.5, 0.9, 1.0, 0.42)
+		else:
+			liquid.tint_under = Color(0.02, 0.04, 0.08, 0.88)
+			liquid.tint_progress = fill_color
 		liquid.position = fill_rect.position
 		liquid.size = fill_rect.size
 		fill = liquid
@@ -1124,10 +1168,26 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 	fill.max_value = 100.0
 	fill.value = 100.0
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vessel.add_child(fill)
+	var frame := TextureRect.new()
+	frame.name = "Frame"
+	frame.position = Vector2.ZERO
+	frame.size = frame_size
+	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	frame.stretch_mode = TextureRect.STRETCH_SCALE
+	frame.texture = frame_tex
+	frame.pivot_offset = frame_size / 2.0   # use-pulse scales around center
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Liquid vessels: fluid UNDER the ring (punched glass shows it).
+	# Charge overlays: brightener OVER the baked crystal art.
+	if charge_overlay:
+		vessel.add_child(frame)
+		vessel.add_child(fill)
+	else:
+		vessel.add_child(fill)
+		vessel.add_child(frame)
 	if with_core:
-		# Blueprint "bright geometric core": a rotating diamond behind the
-		# frame, dim while charging and bright at full attunement.
+		# Blueprint "bright geometric core": a rotating diamond, dim while
+		# charging and bright at full attunement.
 		var core := ColorRect.new()
 		core.name = "Core"
 		core.color = Color(0.82, 0.96, 1.0)
@@ -1138,16 +1198,6 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 		core.self_modulate = Color(0.4, 0.65, 0.85, 0.5)
 		core.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vessel.add_child(core)
-	var frame := TextureRect.new()
-	frame.name = "Frame"
-	frame.position = Vector2.ZERO
-	frame.size = frame_size
-	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	frame.stretch_mode = TextureRect.STRETCH_SCALE
-	frame.texture = frame_tex
-	frame.pivot_offset = frame_size / 2.0   # use-pulse scales around center
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vessel.add_child(frame)
 	# Effect overlay — damage flash / recovery glow / regeneration shimmer
 	# land here as a tinted disk that tweens back to transparent. Shares the
 	# fill rect so the mask's disk aligns with the glass hole.
@@ -1188,7 +1238,7 @@ func _make_slot_style(ui_id: String, border: Color) -> StyleBox:
 			var psb := StyleBoxTexture.new()
 			psb.texture = ptex
 			psb.set_texture_margin_all(14 if painted_id == "slot_frame_selected" else 12)
-			psb.set_content_margin_all(5)
+			psb.set_content_margin_all(8)
 			return psb
 	var tex := BlockRegistry.visual_texture("ui", ui_id)
 	if tex != null:
@@ -1329,7 +1379,7 @@ func _build_log() -> void:
 	_event_panel.add_theme_stylebox_override("panel", _module_panel_style())
 	add_child(_event_panel)
 	var event_box := VBoxContainer.new()
-	event_box.add_theme_constant_override("separation", 2)
+	event_box.add_theme_constant_override("separation", 4)
 	_event_panel.add_child(event_box)
 	var event_title := _label(event_box, "EVENTS")
 	event_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

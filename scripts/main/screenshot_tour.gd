@@ -68,6 +68,18 @@ func _run() -> void:
 	await _shot("05_skill_tree")
 	hud.toggle_skill_panel()
 
+	# FQ-20 polish: damage-state proof — both liquid pools visibly drained
+	# (the nine-patch squash bug made "full" the only state a tour ever saw).
+	player.health = player.max_health * 0.35
+	player.attunement = player.max_attunement() * 0.3
+	hud.update_health(player.health, player.max_health)
+	hud.update_attunement(player.attunement, player.max_attunement())
+	await _shot("10_vessel_damage_states")
+	player.health = player.max_health
+	player.attunement = player.max_attunement()
+	hud.update_health(player.health, player.max_health)
+	hud.update_attunement(player.attunement, player.max_attunement())
+
 	# FQ-09W verification shot: a mined chamber at midday — backing walls
 	# behind the air, dark cave ambient, one torch as the readable light.
 	var shaft_x: int = hall_cell.x + 14

@@ -1106,8 +1106,15 @@ func _run() -> void:
 	# FQ-19: resource vessels — masked liquid fill plus the damage / recovery /
 	# zero / regeneration / use-pulse / full-core effect states. Overlay tints
 	# are set synchronously by update_*, so each transition is observable.
-	var _fq19v_masked: bool = hud._health_vessel_fill is TextureProgressBar \
-		and hud._attunement_vessel_fill is TextureProgressBar
+	# The mask texture must be pre-sized to the control with nine-patch OFF:
+	# nine-patch stretching squashes the disk instead of draining it (the
+	# operator-caught "health never drops" bug).
+	var _fq19v_hfill := hud._health_vessel_fill as TextureProgressBar
+	var _fq19v_masked: bool = _fq19v_hfill != null \
+		and hud._attunement_vessel_fill is TextureProgressBar \
+		and not _fq19v_hfill.nine_patch_stretch \
+		and _fq19v_hfill.texture_progress != null \
+		and _fq19v_hfill.texture_progress.get_size().is_equal_approx(_fq19v_hfill.size)
 	hud.update_health(80.0, 100.0)
 	hud.update_health(40.0, 100.0)
 	var _fq19v_damage: bool = hud._health_fx != null \

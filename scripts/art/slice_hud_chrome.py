@@ -56,12 +56,15 @@ def _fill_rect(img: Image.Image, box, color) -> None:
     ImageDraw.Draw(img).rectangle(box, fill=color)
 
 
-def _punch_circle(img: Image.Image, cx: float, cy: float, r: float) -> None:
+def _punch_circle(img: Image.Image, cx: float, cy: float, rx: float,
+        ry: float = -1.0) -> None:
+    """Punch a transparent ellipse (circle when ry is omitted)."""
+    if ry < 0.0:
+        ry = rx
     px = img.load()
-    r2 = r * r
-    for y in range(max(0, int(cy - r)), min(img.height, int(cy + r) + 2)):
-        for x in range(max(0, int(cx - r)), min(img.width, int(cx + r) + 2)):
-            if (x - cx) ** 2 + (y - cy) ** 2 <= r2:
+    for y in range(max(0, int(cy - ry)), min(img.height, int(cy + ry) + 2)):
+        for x in range(max(0, int(cx - rx)), min(img.width, int(cx + rx) + 2)):
+            if ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.0:
                 px[x, y] = (0, 0, 0, 0)
 
 
@@ -79,6 +82,20 @@ def _apply_shape_mask(img: Image.Image, disks, rects) -> None:
         for x in range(img.width):
             if not mp[x, y]:
                 px[x, y] = (0, 0, 0, 0)
+
+
+def _desaturate_red_band(img: Image.Image, cx: float, cy: float,
+        r_in: float, r_out: float) -> None:
+    """Neutralize red ink inside an annulus (baked liquid reflections)."""
+    px = img.load()
+    for y in range(img.height):
+        for x in range(img.width):
+            d2 = (x - cx) ** 2 + (y - cy) ** 2
+            if r_in * r_in <= d2 <= r_out * r_out:
+                p = px[x, y]
+                if p[3] != 0 and p[0] > p[1] + 24 and p[0] > p[2] + 24:
+                    gray = (p[0] * 2 + p[1] + p[2]) // 4
+                    px[x, y] = (gray, int(gray * 0.92), int(gray * 0.88), p[3])
 
 
 def _measure_liquid(img: Image.Image, is_liquid):
@@ -156,8 +173,10 @@ def build(src: Image.Image, debug_dir: Path | None) -> dict[str, Image.Image]:
                 mp[x, y] = (0, 0, 0, 0)
     assets["corner_medallion"] = medallion
 
-    # -- Contextual chip frame.
-    chip = src.crop((1322, 369, 1499, 407)).convert("RGBA")
+    # -- Contextual chip frame: the "Game Saved" chip is the one the
+    #    blueprint annotations do not cross (cyan dashes survived inpainting
+    #    on the first chip's border — operator polish finding).
+    chip = src.crop((1322, 473, 1499, 511)).convert("RGBA")
     chip = _frame_from_strips(chip, 6)
     _inpaint_annotations(chip)
     assets["chip_frame"] = chip
@@ -168,16 +187,23 @@ def build(src: Image.Image, debug_dir: Path | None) -> dict[str, Image.Image]:
     _inpaint_annotations(plate)
     assets["dock_plate"] = plate
 
-    # -- Toolbelt slot frames (slot 4 normal, slot 3 gold selected).
+    # -- Toolbelt slot frames (slot 4 normal, slot 3 gold selected). The
+    #    baked key-number tab is REPLACED by the frame's clean top-right
+    #    corner mirrored — a flat patch color read as a pale blemish
+    #    (operator polish finding); the runtime key tag draws over it.
     slot_n = src.crop((869, 598, 949, 682)).convert("RGBA")
     _fill_rect(slot_n, (10, 10, slot_n.width - 11, slot_n.height - 11), SLOT_BG)
-    _fill_rect(slot_n, (3, 3, 21, 19), TAB_METAL)   # baked "4" digit tab
+    tab_w, tab_h = 24, 22
+    clean = slot_n.crop((slot_n.width - tab_w, 0, slot_n.width, tab_h))
+    slot_n.paste(clean.transpose(Image.FLIP_LEFT_RIGHT), (0, 0))
     _inpaint_annotations(slot_n)
     assets["slot_frame"] = slot_n
 
     slot_s = src.crop((783, 590, 875, 690)).convert("RGBA")
     _fill_rect(slot_s, (13, 13, slot_s.width - 14, slot_s.height - 14), SLOT_BG)
-    _fill_rect(slot_s, (5, 5, 25, 22), TAB_METAL)   # baked "3" digit tab
+    tab_w, tab_h = 28, 26
+    clean_s = slot_s.crop((slot_s.width - tab_w, 0, slot_s.width, tab_h))
+    slot_s.paste(clean_s.transpose(Image.FLIP_LEFT_RIGHT), (0, 0))
     _inpaint_annotations(slot_s)
     assets["slot_frame_selected"] = slot_s
 
@@ -201,23 +227,47 @@ def build(src: Image.Image, debug_dir: Path | None) -> dict[str, Image.Image]:
         [(hcx, hcy, hr + 26)],
         [(hcx - hr - 14, hcy + hr - 8, hcx + hr + 14, hcy + hr + 34)])
     _inpaint_annotations(orb_h)
-    _punch_circle(orb_h, hcx, hcy, hr + 3)
+    # Wider at the equator (+7) than vertically (+5): clears the baked
+    # liquid meniscus and most reflection wedges (operator polish finding).
+    _punch_circle(orb_h, hcx, hcy, hr + 7, hr + 5)
+    # The ring's inner bevel keeps painted RED liquid reflections that read
+    # wrong on an empty pool — desaturate red ink in the bevel annulus.
+    _desaturate_red_band(orb_h, hcx, hcy, hr + 7, hr + 16)
     assets["orb_health_frame"] = orb_h
-    print(f"health orb: cx={hcx:.0f} cy={hcy:.0f} glass_r={hr:.0f}")
+    print(f"health orb: cx={hcx:.0f} cy={hcy:.0f} glass_r={hr:.0f} punch={hr + 7:.0f}x{hr + 5:.0f}")
 
     # The attunement vessel is a full crystal, not a part-filled liquid, so
     # the glass center comes from the blob's extents midpoint.
     orb_a = src.crop((1172, 524, 1360, 740)).convert("RGBA")
     acx, acy, ahw, ahh, _abot = _measure_liquid(orb_a, _violet)
     ar = max(ahw, ahh) + 4.0
+    # Tight disk (+16, not +30): the mockup bakes a dark scene-glow halo
+    # around the orb that read as a dirty circle in-game (operator polish).
+    # No crown rect — it kept a slab of dark background above the ring.
     _apply_shape_mask(orb_a,
-        [(acx, acy, ar + 30)],
-        [(acx - ar - 14, acy + ar - 8, acx + ar + 14, acy + ar + 36),
-         (acx - 20, acy - ar - 28, acx + 20, acy - ar + 8)])
+        [(acx, acy, ar + 16)],
+        [(acx - ar - 14, acy + ar - 8, acx + ar + 14, acy + ar + 36)])
+    # Key out the near-black navy halo that survives inside the disk, and
+    # delete stray annotation ink outside the crystal (isolated cyan dashes
+    # end up floating over transparency where inpainting cannot reach).
+    ap = orb_a.load()
+    for y in range(orb_a.height):
+        for x in range(orb_a.width):
+            p = ap[x, y]
+            if p[3] == 0:
+                continue
+            if max(p[0], p[1], p[2]) < 38 and p[2] > p[0] + 3:
+                ap[x, y] = (0, 0, 0, 0)
+            elif _is_annotation(p) \
+                    and (x - acx) ** 2 + (y - acy) ** 2 > (ar + 2) ** 2:
+                ap[x, y] = (0, 0, 0, 0)
     _inpaint_annotations(orb_a)
-    _punch_circle(orb_a, acx, acy, ar + 6)
+    # NO punch: the attunement vessel is a faceted crystal, not a liquid —
+    # removing it destroys the art (operator polish loop). The runtime
+    # renders charge as a luminous overlay that brightens the baked crystal
+    # bottom-up instead.
     assets["orb_attunement_frame"] = orb_a
-    print(f"attunement orb: cx={acx:.0f} cy={acy:.0f} glass_r={ar:.0f}")
+    print(f"attunement orb: cx={acx:.0f} cy={acy:.0f} crystal_r={ar:.0f} (kept baked)")
 
     if debug_dir is not None:
         sheet_w = max(a.width for a in assets.values()) + 20
