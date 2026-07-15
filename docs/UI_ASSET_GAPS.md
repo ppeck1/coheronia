@@ -75,6 +75,18 @@ and map modules remain independently toggleable:
 | Status icons | none | (deferred — enumerate when statuses land) |
 | Contextual stack | code-drawn framed entries: selected item, save toast, interaction prompt (FQ-19) | (none needed — text surfaces) |
 
+**FQ-20 painted chrome lane** (`art/generated/ui_painted/`, sliced from the
+operator's blueprint mockup by `scripts/art/slice_hud_chrome.py`): thirteen
+free-size RGBA renders — `panel_frame_plain`/`panel_frame_ornate` (module
+frames; the ornate one also borders the mini-map), `corner_medallion` (crest
+ornament), `chip_frame` (contextual entries + command-center toggles),
+`dock_plate`, `slot_frame`/`slot_frame_selected`, four `button_*` glyphs, and
+both `orb_*_frame` rings with punched glass (geometry in hud.gd
+`PAINTED_ORB_GEOMETRY`). All thirteen are LIVE (`UI_PAINTED_CONSUMED` in
+`asset_audit.py`); each consumer falls back to the FQ-19 generated art, then
+the code-drawn style. The lane is exempt from the 32×32/16-color contract and
+is verified by a dedicated light pass in `verify_pixel_assets.py`.
+
 FQ-19 replaced the placeholder look with final art for the ten consumed ids:
 `scripts/art/gen_hud_final_art.py` is the deterministic authority (one shared
 iron/brass material language, 32×32, ≤16 colors, stretch-safe 9-slice edges).

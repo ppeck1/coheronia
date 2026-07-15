@@ -58,6 +58,7 @@ and outbox packets.
 | FQ-17 | P1 | Done | Configurable nonmodal HUD layout | Default-locked Crest/Goal/Events/Map/Edit profile with bounded move, discrete scale, lock, reset, and visibility persistence. |
 | FQ-18 | P1 | Done | HUD navigation and Character summary | Dock action buttons for Inventory/Character/Skills/Town Hall, centered read-only Character panel, modal exclusion, and smoke coverage. |
 | FQ-19 | P1 | Done | Blueprint art-consumer and contextual information pass | Final dock/orb/slot/button art consumed (`gen_hud_final_art.py`); masked liquid vessels with damage/recovery/low/regen/use/core effects; framed Crest/Goal/Events with the exact clock; contextual right-band stack (item/save/interact); `canvas_items` stretch renders the same composition at 640×360 and 1280×720. Mini-map stays schematic (final art deferred). |
+| FQ-20 | P1 | Done | HUD command center, direct manipulation, painted chrome | Painted mockup chrome sliced into `ui_painted/` (`slice_hud_chrome.py`) and consumed everywhere with fallbacks (dock plate, orbs, slots, glyph buttons, crest medallion, module frames, mini-map border, chips); module toggles moved INTO the dock (command center; corner toolbar retired); edit mode = direct drag + corner-grip continuous resize (locks removed, layout v3). |
 
 ## FQ-00 - v0.6.1 Closeout Repair
 

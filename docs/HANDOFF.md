@@ -2,15 +2,42 @@
 
 ## Current State
 
-**FQ-19 (blueprint art-consumer and contextual information pass) implemented
-and verified — the FQ-16..FQ-18 HUD arc now renders the operator's blueprint:
-ornate framed dock/crest/goal/events modules, masked liquid resource orbs with
-full effect states, glyph navigation, the exact settlement clock, and the
-event-driven contextual stack** (run `20260715_coheronia_fq19_hud_blueprint`;
-lineage: … -> FQ-15 -> 2026-07-14 authored-sprite run -> FQ-16/17/18 -> FQ-19;
-Godot 4.6.1 stable). Suite at 316/316. NOTE: the working tree also still
-carries the uncommitted 2026-07-14 authored-sprite-coverage run and the
-FQ-16..18 arc — all three layers await the operator's commit decision.
+**FQ-20 (HUD command center, direct manipulation, and painted chrome)
+implemented and verified — the HUD now wears the actual rendered art from the
+operator's blueprint mockup, the dock is the single command center for what
+is open or closed, and edit mode is direct drag-to-move plus corner-grip
+resize** (run `20260715_coheronia_fq20_command_center_chrome`; lineage: … ->
+FQ-19 (`a4d2ea1`) -> FQ-20; Godot 4.6.1 stable). Suite at 318/318.
+
+## FQ-20 Additions
+
+- **Painted chrome** (`scripts/art/slice_hud_chrome.py` → thirteen assets in
+  `art/generated/ui_painted/`, sliced deterministically from
+  `art/source_templates/COHERONIA_HUD_BLUEPRINT_MOCKUP.png`): module frames
+  (plain + ornate with the corner medallion), chip frame, riveted dock plate,
+  slot frames (normal + gold selected), four nav glyph buttons, and both orb
+  rings with the glass punched for the runtime liquid (per-orb geometry in
+  `PAINTED_ORB_GEOMETRY`). New `ui_painted` manifest category, audit statuses
+  (`UI_PAINTED_CONSUMED`), and a dedicated light verifier pass (free-size
+  RGBA, ≤320px, non-empty — exempt from the pixel-art palette contract).
+  Every consumer keeps the FQ-19 generated art then code-drawn fallbacks.
+  The mini-map now wears the ornate frame as a NinePatch border overlay.
+- **Command center**: the five module toggles (Crest/Goal/Events/Map/Edit)
+  are chip buttons INSIDE the dock panel — the screen-corner module toolbar
+  is retired. Chips mirror live open/closed state both directions
+  (`_sync_command_center`, `set_pressed_no_signal`).
+- **Direct manipulation**: in edit mode every widget drags immediately (the
+  per-widget locks are gone — edit mode itself is the gate) and resizes
+  continuously from a bottom-right corner grip (0.5x-2.0x, snapped 0.01); a
+  full-screen overlay draws gold outlines + grips. Layout schema v3 (drops
+  `locked`, continuous `scale`); older versions fall back to defaults
+  one-time. The nudge/scale buttons remain as precision aids.
+- **Smoke** (suite 318): `fq17_hud_edit_direct_manipulation` (evolved),
+  `fq20_painted_chrome_consumed`, `fq20_dock_command_center`.
+- **Concurrent-lane note**: during this run a separate Codex session wrote
+  opening cels (`art/generated/opening/`) and player-gear overlays
+  (`art/generated/player_gear/`) plus wiki files. None of that is part of
+  FQ-20; it was deliberately left uncommitted for its own review.
 
 ## FQ-19 Additions
 

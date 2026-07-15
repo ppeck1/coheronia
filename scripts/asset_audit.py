@@ -52,6 +52,16 @@ UI_CONSUMED = {
     "button_skills", "button_town_hall", "orb_fill_mask",
 }
 
+# FQ-20: painted HUD chrome (art/generated/ui_painted/, sliced from the
+# blueprint mockup by scripts/art/slice_hud_chrome.py) consumed by hud.gd.
+# Free-size RGBA renders — exempt from the 32x32/16-color ui contract.
+UI_PAINTED_CONSUMED = {
+    "panel_frame_plain", "panel_frame_ornate", "corner_medallion",
+    "chip_frame", "dock_plate", "slot_frame", "slot_frame_selected",
+    "button_inventory", "button_character", "button_skills",
+    "button_town_hall", "orb_health_frame", "orb_attunement_frame",
+}
+
 # Reserved UI hook ids (FQ-13P). Absence => PLACEHOLDER_REQUIRED, not an error.
 RESERVED_UI_IDS = [
     "orb_health_frame", "orb_attunement_frame", "orb_fill_mask", "dock_backplate",
@@ -169,6 +179,8 @@ def main() -> int:
                 status = "AVAILABLE_NOT_CONSUMED" if variants else "PLACEHOLDER_REQUIRED"
             elif cat == "ui":
                 status = "LIVE" if aid in UI_CONSUMED else "PLACEHOLDER_AUTHORED"
+            elif cat == "ui_painted":
+                status = "LIVE" if aid in UI_PAINTED_CONSUMED else "AVAILABLE_NOT_CONSUMED"
             elif cat in CANONICAL_CONSUMERS:
                 status = "LIVE"
             else:

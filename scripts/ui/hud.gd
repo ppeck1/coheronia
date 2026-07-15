@@ -128,7 +128,6 @@ var _ctx_tweens: Dictionary = {}   # PanelContainer -> Tween
 var _ctx_last_item := ""
 var _hud_widgets: Dictionary = {}
 var _hud_default_positions: Dictionary = {}
-var _hud_widget_locked: Dictionary = {}
 var _hud_edit_panel: PanelContainer
 var _hud_edit_select: OptionButton
 var _hud_edit_status: Label
@@ -137,16 +136,24 @@ var _hud_edit_selected := "crest"
 var _hud_drag_widget := ""
 var _hud_drag_pointer := Vector2.ZERO
 var _hud_drag_origin := Vector2.ZERO
+# FQ-20: corner-grip resize state + the edit overlay that draws widget
+# outlines and grips, and the dock command-center toggle chips.
+var _hud_resize_widget := ""
+var _hud_resize_origin_scale := 1.0
+var _hud_edit_overlay: Control
+var _command_toggles: Dictionary = {}   # label -> Button
 const HUD_WIDGET_IDS := ["crest", "goal", "events", "map", "dock"]
-const HUD_MIN_SCALE := 0.75
-const HUD_MAX_SCALE := 1.50
-const HUD_SCALE_STEP := 0.25
+# FQ-20 direct manipulation: continuous resize via the corner grip.
+const HUD_MIN_SCALE := 0.5
+const HUD_MAX_SCALE := 2.0
+const HUD_SCALE_STEP := 0.1
 const HUD_SAFE_MARGIN := 12.0
-# FQ-19: layouts saved before the canvas_items stretch + split dock band were
-# recorded against a different coordinate space and geometry; loading them
-# lands widgets off-screen/off-center. A version mismatch falls back to the
-# blueprint defaults (one-time reset; new edits re-save under this version).
-const HUD_LAYOUT_VERSION := 2
+const HUD_GRIP_SIZE := 18.0
+# Layouts saved before the canvas_items stretch + split dock band (v2) or
+# before locks were retired for direct manipulation (v3) were recorded
+# against different geometry; a version mismatch falls back to the blueprint
+# defaults (one-time reset; new edits re-save under this version).
+const HUD_LAYOUT_VERSION := 3
 
 
 func _ready() -> void:
@@ -154,7 +161,6 @@ func _ready() -> void:
 	_build_bottom_left()
 	_build_log()
 	_build_context_stack()
-	_build_module_toolbar()
 	_build_town_panel()
 	_build_inventory_panel()
 	_build_character_panel()
@@ -165,7 +171,9 @@ func _ready() -> void:
 	_build_debug_overlay()
 	_register_hud_widgets()
 	_build_hud_edit_panel()
+	_build_hud_edit_overlay()
 	_load_hud_layout()
+	_sync_command_center()
 
 
 func _process(_delta: float) -> void:
@@ -180,6 +188,9 @@ func _process(_delta: float) -> void:
 	if _attunement_core != null:
 		_attunement_core.rotation += _delta * 0.8
 	if _hud_edit_mode:
+		# FQ-20: keep the outlines/grips tracking live drags and resizes.
+		if _hud_edit_overlay != null:
+			_hud_edit_overlay.queue_redraw()
 		return
 	if Input.is_action_just_pressed("debug_overlay"):
 		_debug_label.visible = not _debug_label.visible
@@ -187,31 +198,53 @@ func _process(_delta: float) -> void:
 		_toggle_goal_module()
 
 
-func _build_module_toolbar() -> void:
+## FQ-20: the dock IS the command center — what is open or closed is managed
+## from toggle chips in the central panel, not a separate screen-corner
+## toolbar. `_module_toolbar` keeps its name as the row's identity.
+func _build_command_center(parent: Control) -> void:
 	_module_toolbar = HBoxContainer.new()
-	_module_toolbar.anchor_left = 1.0
-	_module_toolbar.anchor_right = 1.0
-	_module_toolbar.offset_left = -380
-	_module_toolbar.offset_right = -12
-	_module_toolbar.offset_top = 62
-	_module_toolbar.offset_bottom = 90
-	_module_toolbar.alignment = BoxContainer.ALIGNMENT_END
+	_module_toolbar.alignment = BoxContainer.ALIGNMENT_CENTER
 	_module_toolbar.add_theme_constant_override("separation", 4)
-	add_child(_module_toolbar)
-	_add_module_button("Crest", func(): _toggle_top_left_module())
-	_add_module_button("Goal", func(): _toggle_goal_module())
-	_add_module_button("Events", func(): _toggle_event_module())
-	_add_module_button("Map", func(): toggle_map())
-	_add_module_button("Edit", func(): toggle_hud_edit_mode())
+	parent.add_child(_module_toolbar)
+	_add_command_toggle("Crest", func(): _toggle_top_left_module())
+	_add_command_toggle("Goal", func(): _toggle_goal_module())
+	_add_command_toggle("Events", func(): _toggle_event_module())
+	_add_command_toggle("Map", func(): toggle_map())
+	_add_command_toggle("Edit", func(): toggle_hud_edit_mode())
 
 
-func _add_module_button(text: String, action: Callable) -> void:
+func _add_command_toggle(text: String, action: Callable) -> void:
 	var button := Button.new()
+	button.name = "CommandToggle" + text
 	button.text = text
-	button.custom_minimum_size = Vector2(64, 24)
+	button.toggle_mode = true
+	button.custom_minimum_size = Vector2(58, 22)
+	button.add_theme_font_size_override("font_size", 11)
+	button.add_theme_stylebox_override("normal", _chip_style(Color(0.72, 0.72, 0.72)))
+	button.add_theme_stylebox_override("hover", _chip_style())
+	button.add_theme_stylebox_override("pressed", _chip_style(Color(1.3, 1.12, 0.75)))
 	button.focus_mode = Control.FOCUS_ALL
-	button.pressed.connect(action)
+	button.tooltip_text = "Show/hide %s" % text
+	button.toggled.connect(func(_pressed_state: bool):
+		action.call()
+		_sync_command_center())
 	_module_toolbar.add_child(button)
+	_command_toggles[text] = button
+
+
+## Mirror the live open/closed state onto the toggle chips (no signals).
+func _sync_command_center() -> void:
+	if _command_toggles.is_empty():
+		return
+	var states := {
+		"Crest": _top_left_box != null and _top_left_box.visible,
+		"Goal": _goal_panel != null and _goal_panel.visible,
+		"Events": _event_panel != null and _event_panel.visible,
+		"Map": map_open(),
+		"Edit": _hud_edit_mode,
+	}
+	for key in _command_toggles:
+		(_command_toggles[key] as Button).set_pressed_no_signal(bool(states.get(key, false)))
 
 
 func _register_hud_widgets() -> void:
@@ -227,7 +260,6 @@ func _register_hud_widgets() -> void:
 		if control == null:
 			continue
 		_hud_default_positions[widget_id] = control.position
-		_hud_widget_locked[widget_id] = true
 		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
@@ -245,8 +277,9 @@ func _build_hud_edit_panel() -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
 	_hud_edit_panel.add_child(box)
-	var title := _label(box, "HUD EDIT (locked by default)")
+	var title := _label(box, "HUD EDIT — drag to move, corner grip to resize")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 12)
 	_hud_edit_select = OptionButton.new()
 	for widget_id in HUD_WIDGET_IDS:
 		_hud_edit_select.add_item(widget_id.capitalize())
@@ -264,7 +297,6 @@ func _build_hud_edit_panel() -> void:
 	var scale_row := HBoxContainer.new()
 	_add_edit_button(scale_row, "Scale −", func(): _scale_hud_widget(-HUD_SCALE_STEP))
 	_add_edit_button(scale_row, "Scale +", func(): _scale_hud_widget(HUD_SCALE_STEP))
-	_add_edit_button(scale_row, "Lock", func(): _toggle_hud_widget_lock())
 	box.add_child(scale_row)
 	var action_row := HBoxContainer.new()
 	_add_edit_button(action_row, "Reset", func(): reset_hud_layout())
@@ -288,6 +320,8 @@ func toggle_hud_edit_mode() -> void:
 	GameState.hud_edit_mode = _hud_edit_mode
 	if _hud_edit_panel != null:
 		_hud_edit_panel.visible = _hud_edit_mode
+	if _hud_edit_overlay != null:
+		_hud_edit_overlay.visible = _hud_edit_mode
 	for widget_id in HUD_WIDGET_IDS:
 		var control: Control = _hud_widgets.get(widget_id)
 		if control != null:
@@ -298,7 +332,9 @@ func toggle_hud_edit_mode() -> void:
 		_update_hud_edit_status()
 	else:
 		_hud_drag_widget = ""
+		_hud_resize_widget = ""
 		_save_hud_layout()
+	_sync_command_center()
 
 
 func is_hud_edit_mode() -> bool:
@@ -308,21 +344,14 @@ func is_hud_edit_mode() -> bool:
 func _update_hud_edit_status() -> void:
 	if _hud_edit_status == null:
 		return
-	var locked: bool = bool(_hud_widget_locked.get(_hud_edit_selected, true))
 	var control: Control = _hud_widgets.get(_hud_edit_selected)
 	var scale := 1.0 if control == null else control.scale.x
-	_hud_edit_status.text = "%s · %s · %.2fx\nDrag the selected module or use arrows." % [
-		_hud_edit_selected.capitalize(), "Locked" if locked else "Unlocked", scale]
+	_hud_edit_status.text = "%s · %.2fx\nDrag any panel to move it; drag a corner grip to resize." % [
+		_hud_edit_selected.capitalize(), scale]
 
 
-func _toggle_hud_widget_lock() -> void:
-	_hud_widget_locked[_hud_edit_selected] = not bool(_hud_widget_locked.get(_hud_edit_selected, true))
-	_update_hud_edit_status()
-
-
+## FQ-20: locks are gone — edit mode itself is the gate; everything drags.
 func _nudge_hud_widget(delta: Vector2) -> void:
-	if bool(_hud_widget_locked.get(_hud_edit_selected, true)):
-		return
 	var control: Control = _hud_widgets.get(_hud_edit_selected)
 	if control == null:
 		return
@@ -332,8 +361,6 @@ func _nudge_hud_widget(delta: Vector2) -> void:
 
 
 func _scale_hud_widget(delta: float) -> void:
-	if bool(_hud_widget_locked.get(_hud_edit_selected, true)):
-		return
 	var control: Control = _hud_widgets.get(_hud_edit_selected)
 	if control == null:
 		return
@@ -341,6 +368,26 @@ func _scale_hud_widget(delta: float) -> void:
 	control.scale = Vector2.ONE * next_scale
 	_clamp_hud_widget(control)
 	_update_hud_edit_status()
+
+
+## FQ-20: apply an absolute scale (corner-grip resize path).
+func _resize_hud_widget(widget_id: String, next_scale: float) -> void:
+	var control: Control = _hud_widgets.get(widget_id)
+	if control == null:
+		return
+	control.scale = Vector2.ONE * clampf(next_scale, HUD_MIN_SCALE, HUD_MAX_SCALE)
+	_clamp_hud_widget(control)
+	_update_hud_edit_status()
+
+
+## The corner-grip zone of a widget (bottom-right, in screen coordinates).
+func _hud_grip_rect(widget_id: String) -> Rect2:
+	var control: Control = _hud_widgets.get(widget_id)
+	if control == null or not control.visible:
+		return Rect2()
+	var rect := Rect2(control.global_position, control.size * control.scale)
+	return Rect2(rect.end - Vector2(HUD_GRIP_SIZE, HUD_GRIP_SIZE),
+		Vector2(HUD_GRIP_SIZE, HUD_GRIP_SIZE))
 
 
 func _clamp_hud_widget(control: Control) -> void:
@@ -358,29 +405,62 @@ func _input(event: InputEvent) -> void:
 	# reach the base-InputEvent property (review finding, FQ-19 closeout).
 	if not (event is InputEventMouse):
 		return
-	if _hud_edit_panel != null \
-			and _hud_edit_panel.get_global_rect().has_point((event as InputEventMouse).position):
+	var point: Vector2 = (event as InputEventMouse).position
+	# Button-up ALWAYS settles an in-flight drag/resize, even over the edit
+	# panel or the command chips — otherwise releasing inside an exemption
+	# zone leaks the drag state onto the next motion (review finding, FQ-20).
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
+			and not event.pressed:
+		if _hud_drag_widget != "" or _hud_resize_widget != "":
+			_save_hud_layout()
+			_hud_drag_widget = ""
+			_hud_resize_widget = ""
+			get_viewport().set_input_as_handled()
+		return
+	if _hud_edit_panel != null and _hud_edit_panel.get_global_rect().has_point(point):
+		return
+	# The command-center chips must stay clickable while editing (that is
+	# where Edit is toggled back off).
+	if _module_toolbar != null and _module_toolbar.get_global_rect().has_point(point):
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			_hud_drag_widget = _hud_widget_at(event.position)
-			if _hud_drag_widget != "":
-				_hud_edit_selected = _hud_drag_widget
-				_hud_edit_select.select(HUD_WIDGET_IDS.find(_hud_drag_widget))
-				_hud_drag_pointer = event.position
-				_hud_drag_origin = (_hud_widgets[_hud_drag_widget] as Control).position
+			# Corner grip first: resize wins over move when both hit.
+			_hud_resize_widget = ""
+			for widget_id in HUD_WIDGET_IDS:
+				if _hud_grip_rect(widget_id).has_point(point):
+					_hud_resize_widget = widget_id
+					break
+			if _hud_resize_widget != "":
+				_hud_edit_selected = _hud_resize_widget
+				_hud_edit_select.select(HUD_WIDGET_IDS.find(_hud_resize_widget))
+				_hud_drag_pointer = point
+				_hud_resize_origin_scale = (_hud_widgets[_hud_resize_widget] as Control).scale.x
 				_update_hud_edit_status()
-		else:
-			if _hud_drag_widget != "":
-				_save_hud_layout()
-			_hud_drag_widget = ""
+			else:
+				_hud_drag_widget = _hud_widget_at(point)
+				if _hud_drag_widget != "":
+					_hud_edit_selected = _hud_drag_widget
+					_hud_edit_select.select(HUD_WIDGET_IDS.find(_hud_drag_widget))
+					_hud_drag_pointer = point
+					_hud_drag_origin = (_hud_widgets[_hud_drag_widget] as Control).position
+					_update_hud_edit_status()
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion and _hud_resize_widget != "":
+		# Continuous resize: scale follows the pointer's distance from the
+		# widget origin relative to where the grip drag started.
+		var control: Control = _hud_widgets[_hud_resize_widget]
+		var origin: Vector2 = control.global_position
+		var start_span: float = maxf((_hud_drag_pointer - origin).length(), 1.0)
+		var now_span: float = (point - origin).length()
+		_resize_hud_widget(_hud_resize_widget,
+			snappedf(_hud_resize_origin_scale * now_span / start_span, 0.01))
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and _hud_drag_widget != "":
-		if not bool(_hud_widget_locked.get(_hud_drag_widget, true)):
-			var control: Control = _hud_widgets[_hud_drag_widget]
-			control.position = _hud_drag_origin + (event.position - _hud_drag_pointer)
-			_clamp_hud_widget(control)
-			_update_hud_edit_status()
+		var control: Control = _hud_widgets[_hud_drag_widget]
+		control.position = _hud_drag_origin + (point - _hud_drag_pointer)
+		_clamp_hud_widget(control)
+		_update_hud_edit_status()
 		get_viewport().set_input_as_handled()
 
 
@@ -390,6 +470,31 @@ func _hud_widget_at(point: Vector2) -> String:
 		if control != null and control.visible and control.get_global_rect().has_point(point):
 			return widget_id
 	return ""
+
+
+## FQ-20: full-screen edit overlay — gold outlines and corner grips over
+## every visible widget while edit mode is on (drawn, not interactive).
+func _build_hud_edit_overlay() -> void:
+	_hud_edit_overlay = Control.new()
+	_hud_edit_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_hud_edit_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_edit_overlay.visible = false
+	_hud_edit_overlay.draw.connect(_draw_hud_edit_overlay)
+	add_child(_hud_edit_overlay)
+
+
+func _draw_hud_edit_overlay() -> void:
+	for widget_id in HUD_WIDGET_IDS:
+		var control: Control = _hud_widgets.get(widget_id)
+		if control == null or not control.visible:
+			continue
+		var rect := Rect2(control.global_position, control.size * control.scale)
+		var selected: bool = widget_id == _hud_edit_selected
+		var line := Color(0.95, 0.8, 0.35, 0.95) if selected else Color(0.7, 0.6, 0.35, 0.55)
+		_hud_edit_overlay.draw_rect(rect, line, false, 2.0 if selected else 1.0)
+		var grip := _hud_grip_rect(widget_id)
+		_hud_edit_overlay.draw_rect(grip, Color(0.95, 0.8, 0.35, 0.9 if selected else 0.6))
+		_hud_edit_overlay.draw_rect(grip, Color(0.1, 0.08, 0.05, 0.9), false, 1.0)
 
 
 func _load_hud_layout() -> void:
@@ -410,7 +515,6 @@ func _load_hud_layout() -> void:
 			control.position = _hud_default_positions[widget_id] + Vector2(float(delta_value[0]), float(delta_value[1]))
 		var saved_scale := clampf(float(record.get("scale", 1.0)), HUD_MIN_SCALE, HUD_MAX_SCALE)
 		control.scale = Vector2.ONE * saved_scale
-		_hud_widget_locked[widget_id] = bool(record.get("locked", true))
 		var saved_visible: Variant = record.get("visible", true)
 		if widget_id in ["crest", "goal", "events"] and saved_visible is bool:
 			control.visible = saved_visible
@@ -431,8 +535,7 @@ func _save_hud_layout() -> void:
 			saved_visible = _event_visible_before_map
 		layout[widget_id] = {
 			"delta": [snappedf(delta.x, 1.0), snappedf(delta.y, 1.0)],
-			"scale": snappedf(control.scale.x, HUD_SCALE_STEP),
-			"locked": bool(_hud_widget_locked.get(widget_id, true)),
+			"scale": snappedf(control.scale.x, 0.01),
 			"visible": saved_visible,
 		}
 	GameState.profile["hud_layout"] = layout
@@ -446,19 +549,20 @@ func reset_hud_layout() -> void:
 			continue
 		control.position = _hud_default_positions[widget_id]
 		control.scale = Vector2.ONE
-		_hud_widget_locked[widget_id] = true
 		if widget_id in ["crest", "goal", "events"]:
 			control.visible = not (widget_id == "events" and _map_open)
 	_goal_visible = true
 	_event_visible_before_map = true
 	_save_hud_layout()
 	_update_hud_edit_status()
+	_sync_command_center()
 
 
 func _toggle_top_left_module() -> void:
 	if _top_left_box != null:
 		_top_left_box.visible = not _top_left_box.visible
 		_save_hud_layout()
+	_sync_command_center()
 
 
 func _toggle_goal_module() -> void:
@@ -466,6 +570,7 @@ func _toggle_goal_module() -> void:
 	if _goal_panel != null:
 		_goal_panel.visible = _goal_visible
 		_save_hud_layout()
+	_sync_command_center()
 
 
 func _toggle_event_module() -> void:
@@ -482,11 +587,27 @@ func _toggle_event_module() -> void:
 		else:
 			_event_panel.visible = next_visible
 			_save_hud_layout()
+	_sync_command_center()
 
 
-## FQ-19: shared framed-module look — the dock backplate 9-slice reused for
-## the crest/goal/events frames, with the code-drawn plate as fallback.
-func _module_panel_style() -> StyleBox:
+## FQ-20: painted chrome sliced from the operator's blueprint mockup
+## (art/generated/ui_painted/, scripts/art/slice_hud_chrome.py).
+func _painted_texture(id: String) -> Texture2D:
+	return BlockRegistry.visual_texture("ui_painted", id)
+
+
+## Framed-module look, best available art first: the painted mockup frame
+## (FQ-20), else the generated dock-backplate 9-slice (FQ-19), else the
+## code-drawn plate. `kind` picks the painted frame family.
+func _module_panel_style(kind: String = "plain") -> StyleBox:
+	var painted: Texture2D = _painted_texture(
+		"panel_frame_ornate" if kind == "ornate" else "panel_frame_plain")
+	if painted != null:
+		var psb := StyleBoxTexture.new()
+		psb.texture = painted
+		psb.set_texture_margin_all(16 if kind == "ornate" else 10)
+		psb.set_content_margin_all(13 if kind == "ornate" else 10)
+		return psb
 	var backplate: Texture2D = BlockRegistry.visual_texture("ui", "dock_backplate")
 	if backplate != null:
 		var sbt := StyleBoxTexture.new()
@@ -503,15 +624,58 @@ func _module_panel_style() -> StyleBox:
 	return sb
 
 
+## FQ-20: small chip framing (contextual entries, command-center toggles) —
+## the painted mockup chip when present, else the code-drawn strip.
+func _chip_style(tint: Color = Color.WHITE) -> StyleBox:
+	var painted: Texture2D = _painted_texture("chip_frame")
+	if painted != null:
+		var psb := StyleBoxTexture.new()
+		psb.texture = painted
+		psb.set_texture_margin_all(6)
+		psb.content_margin_left = 8
+		psb.content_margin_right = 8
+		psb.content_margin_top = 4
+		psb.content_margin_bottom = 4
+		psb.modulate_color = tint
+		return psb
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.06, 0.09, 0.86)
+	sb.border_color = Color(0.55, 0.42, 0.24, 0.9) * tint
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(3)
+	sb.set_content_margin_all(5)
+	return sb
+
+
+## FQ-20: the mockup's diamond medallion pinned to a panel's top-left corner.
+## A PanelContainer stretches its direct children, so the ornament rides in a
+## layout-neutral holder and keeps its manual corner offset.
+func _add_corner_medallion(panel: Control) -> void:
+	var tex: Texture2D = _painted_texture("corner_medallion")
+	if tex == null:
+		return
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(holder)
+	var ornament := TextureRect.new()
+	ornament.texture = tex
+	ornament.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ornament.position = Vector2(-23, -23)
+	ornament.size = Vector2(44, 44)
+	ornament.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(ornament)
+
+
 func _build_top_left() -> void:
 	# FQ-19 blueprint crest: one framed settlement panel — name/level title,
 	# a chip+bar+value row per C/L/R resource, then status/stores/XP lines.
 	var crest := PanelContainer.new()
 	_top_left_box = crest
-	crest.position = Vector2(12, 10)
+	crest.position = Vector2(16, 14)
 	crest.custom_minimum_size = Vector2(250, 0)
 	crest.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	crest.add_theme_stylebox_override("panel", _module_panel_style())
+	crest.add_theme_stylebox_override("panel", _module_panel_style("ornate"))
+	_add_corner_medallion(crest)
 	add_child(crest)
 	var box := VBoxContainer.new()
 	crest.add_child(box)
@@ -641,6 +805,20 @@ func _build_map_panel() -> void:
 	_map_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_panel.visible = false
 	add_child(_map_panel)
+	# FQ-20: ornate painted border over the schematic map (draw_center off so
+	# the map content stays fully visible under the frame edges).
+	var map_frame_tex: Texture2D = _painted_texture("panel_frame_ornate")
+	if map_frame_tex != null:
+		var map_frame := NinePatchRect.new()
+		map_frame.texture = map_frame_tex
+		map_frame.patch_margin_left = 16
+		map_frame.patch_margin_right = 16
+		map_frame.patch_margin_top = 16
+		map_frame.patch_margin_bottom = 16
+		map_frame.draw_center = false
+		map_frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+		map_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_map_panel.add_child(map_frame)
 
 
 ## FQ-15: flip the map panel; returns the new visibility so game_root can decide
@@ -654,6 +832,7 @@ func toggle_map() -> bool:
 			_event_panel.visible = false
 		else:
 			_event_panel.visible = _event_visible_before_map
+	_sync_command_center()
 	return _map_open
 
 
@@ -677,9 +856,9 @@ func _build_bottom_left() -> void:
 	band.anchor_right = 0.5
 	band.anchor_top = 1.0
 	band.anchor_bottom = 1.0
-	band.offset_left = -360
-	band.offset_right = 360
-	band.offset_top = -170
+	band.offset_left = -410
+	band.offset_right = 410
+	band.offset_top = -200
 	band.offset_bottom = -24
 	band.alignment = BoxContainer.ALIGNMENT_CENTER
 	band.add_theme_constant_override("separation", 6)
@@ -697,10 +876,23 @@ func _build_bottom_left() -> void:
 	_dock_panel = panel
 	panel.size_flags_vertical = Control.SIZE_SHRINK_END
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# The ornate 9-sliced metal backplate when the final art exists; the
-	# original code-drawn plate stays as the validated fallback.
+	# FQ-20: the painted riveted bar strip from the mockup; then the FQ-19
+	# generated backplate; then the code-drawn plate.
+	var plate: Texture2D = _painted_texture("dock_plate")
 	var backplate: Texture2D = BlockRegistry.visual_texture("ui", "dock_backplate")
-	if backplate != null:
+	if plate != null:
+		var plate_art := StyleBoxTexture.new()
+		plate_art.texture = plate
+		plate_art.texture_margin_top = 18
+		plate_art.texture_margin_bottom = 18
+		plate_art.texture_margin_left = 6
+		plate_art.texture_margin_right = 6
+		plate_art.content_margin_top = 16
+		plate_art.content_margin_bottom = 12
+		plate_art.content_margin_left = 14
+		plate_art.content_margin_right = 14
+		panel.add_theme_stylebox_override("panel", plate_art)
+	elif backplate != null:
 		var dock_art := StyleBoxTexture.new()
 		dock_art.texture = backplate
 		dock_art.set_texture_margin_all(8)   # 9-slice: rivets stay in the corners
@@ -757,13 +949,15 @@ func _build_bottom_left() -> void:
 		cell.add_theme_constant_override("margin_bottom", 0)
 		slot_row.add_child(cell)
 		var slot := PanelContainer.new()
-		slot.custom_minimum_size = Vector2(42, 46)
+		# FQ-20: blueprint-proportioned slots (38-44 design px ~= 56 at the
+		# 1280 logical width) wearing the painted mockup frames.
+		slot.custom_minimum_size = Vector2(56, 60)
 		slot.add_theme_stylebox_override("panel", _slot_normal_sb)
 		cell.add_child(slot)
 		var col := VBoxContainer.new()
 		slot.add_child(col)
 		var icon := TextureRect.new()
-		icon.custom_minimum_size = Vector2(20, 20)
+		icon.custom_minimum_size = Vector2(24, 24)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		col.add_child(icon)
@@ -801,6 +995,8 @@ func _build_bottom_left() -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.add_theme_color_override("font_color", Color(0.72, 0.75, 0.82))
+	# FQ-20: the command center row — module open/close chips live here.
+	_build_command_center(box)
 	var attunement_vessel := _make_resource_vessel("orb_attunement_frame",
 		Color(0.08, 0.60, 0.95), true)
 	attunement_vessel.name = "AttunementVessel"
@@ -814,19 +1010,21 @@ func _build_bottom_left() -> void:
 	band.add_child(attunement_vessel)
 
 
-## FQ-19: glyph nav button (final button_* art) with the original text button
-## as the validated fallback when the asset is absent. The stable node name is
-## the machine-readable identity either way.
+## FQ-19/20: glyph nav button — the painted mockup button (frame + glyph
+## baked) when present, else the generated glyph, else the text fallback. The
+## stable node name is the machine-readable identity either way.
 func _add_dock_action_button(row: HBoxContainer, text: String, ui_id: String,
 		action: Callable) -> void:
 	var button := Button.new()
 	button.name = "DockAction" + text.replace(" ", "")
-	var glyph: Texture2D = BlockRegistry.visual_texture("ui", ui_id)
+	var glyph: Texture2D = _painted_texture(ui_id)
+	if glyph == null:
+		glyph = BlockRegistry.visual_texture("ui", ui_id)
 	if glyph != null:
 		button.icon = glyph
 		button.expand_icon = true
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button.custom_minimum_size = Vector2(34, 34)
+		button.custom_minimum_size = Vector2(40, 44)
 		var empty := StyleBoxEmpty.new()
 		for state in ["normal", "hover", "pressed", "disabled"]:
 			button.add_theme_stylebox_override(state, empty)
@@ -844,15 +1042,50 @@ func _add_dock_action_button(row: HBoxContainer, text: String, ui_id: String,
 	row.add_child(button)
 
 
-## FQ-19: one flanking resource orb — a 96px object in its own right (Photo
-## 1/2), 3x the 32px ring art with the numeric value beneath. The geometry
-## scales from the art contract: the ring's transparent hole is art px 5..26,
-## so at 3x the liquid disk sits at (15,15) with diameter 66.
+# FQ-20: painted orb geometry measured by scripts/art/slice_hud_chrome.py —
+# the slicer prints these values ("health orb: cx=98 cy=102 glass_r=56" + the
+# punch offsets) on every run; re-slicing the mockup means re-checking them.
+# All values in texture pixels: glass center and punched radius.
+const PAINTED_ORB_GEOMETRY := {
+	"orb_health_frame": {"tex": Vector2(180, 196), "center": Vector2(98, 102), "radius": 59.0},
+	"orb_attunement_frame": {"tex": Vector2(188, 216), "center": Vector2(82, 79), "radius": 54.0},
+}
+const PAINTED_ORB_WIDTH := 112.0
+
+
+## One flanking resource orb — its own object (Photo 1/2) with the numeric
+## value beneath. FQ-20: the painted mockup ring when present (glass geometry
+## from PAINTED_ORB_GEOMETRY); else the FQ-19 generated ring, where the
+## transparent hole is art px 5..26 of 32, so at 3x the liquid disk sits at
+## (15,15) with diameter 66.
 func _make_resource_vessel(ui_id: String, fill_color: Color,
 		with_core: bool = false) -> Control:
+	# Resolve the frame art and the glass geometry it dictates.
+	var painted: Texture2D = _painted_texture(ui_id)
+	var frame_tex: Texture2D
+	var frame_size: Vector2
+	var glass_center: Vector2
+	var glass_radius: float
+	if painted != null and PAINTED_ORB_GEOMETRY.has(ui_id):
+		var geometry: Dictionary = PAINTED_ORB_GEOMETRY[ui_id]
+		var art_scale: float = PAINTED_ORB_WIDTH / (geometry.tex as Vector2).x
+		frame_tex = painted
+		frame_size = (geometry.tex as Vector2) * art_scale
+		glass_center = (geometry.center as Vector2) * art_scale
+		glass_radius = float(geometry.radius) * art_scale
+	else:
+		frame_tex = BlockRegistry.visual_texture("ui", ui_id)
+		frame_size = Vector2(96, 96)
+		glass_center = Vector2(48, 48)
+		glass_radius = 33.0
+	# The 32px disk mask spans px 5..26, so the fill control must be larger
+	# than the glass by 32/22 for the disk to land exactly on the hole.
+	var fill_size: float = glass_radius * 2.0 * 32.0 / 22.0
+	var fill_rect := Rect2(glass_center - Vector2(fill_size, fill_size) / 2.0,
+		Vector2(fill_size, fill_size))
 	var vessel := Control.new()
 	vessel.name = "ResourceVessel"
-	vessel.custom_minimum_size = Vector2(96, 112)
+	vessel.custom_minimum_size = Vector2(frame_size.x, frame_size.y + 16)
 	vessel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Masked bottom-up liquid when the disk mask exists — the fluid is
 	# clipped to the orb interior so it can never bleed under the ring frame.
@@ -860,9 +1093,6 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 	var mask: Texture2D = BlockRegistry.visual_texture("ui", "orb_fill_mask")
 	var fill: Range
 	if mask != null:
-		# The 32px mask texture stretches over the WHOLE control, and its
-		# disk occupies art px 5..26 — so the control must span the full
-		# 96px frame for the liquid to land exactly inside the ring hole.
 		var liquid := TextureProgressBar.new()
 		liquid.nine_patch_stretch = true
 		liquid.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
@@ -870,24 +1100,24 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 		liquid.tint_under = Color(0.02, 0.04, 0.08, 0.88)
 		liquid.texture_progress = mask
 		liquid.tint_progress = fill_color
-		liquid.position = Vector2.ZERO
-		liquid.size = Vector2(96, 96)
+		liquid.position = fill_rect.position
+		liquid.size = fill_rect.size
 		fill = liquid
 	else:
-		# Code-drawn fallback: a rounded square inset to the ring interior.
+		# Code-drawn fallback: a rounded square inset to the glass interior.
 		var bar := ProgressBar.new()
 		bar.show_percentage = false
 		bar.fill_mode = ProgressBar.FILL_BOTTOM_TO_TOP
 		var empty_style := StyleBoxFlat.new()
 		empty_style.bg_color = Color(0.02, 0.04, 0.08, 0.88)
-		empty_style.set_corner_radius_all(33)
+		empty_style.set_corner_radius_all(int(glass_radius))
 		var fill_style := StyleBoxFlat.new()
 		fill_style.bg_color = fill_color
-		fill_style.set_corner_radius_all(33)
+		fill_style.set_corner_radius_all(int(glass_radius))
 		bar.add_theme_stylebox_override("background", empty_style)
 		bar.add_theme_stylebox_override("fill", fill_style)
-		bar.position = Vector2(15, 15)
-		bar.size = Vector2(66, 66)
+		bar.position = glass_center - Vector2(glass_radius, glass_radius)
+		bar.size = Vector2(glass_radius, glass_radius) * 2.0
 		fill = bar
 	fill.name = "Fill"
 	fill.min_value = 0.0
@@ -901,7 +1131,7 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 		var core := ColorRect.new()
 		core.name = "Core"
 		core.color = Color(0.82, 0.96, 1.0)
-		core.position = Vector2(41, 41)
+		core.position = glass_center - Vector2(7, 7)
 		core.size = Vector2(14, 14)
 		core.pivot_offset = Vector2(7, 7)
 		core.rotation = PI / 4.0
@@ -911,19 +1141,20 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 	var frame := TextureRect.new()
 	frame.name = "Frame"
 	frame.position = Vector2.ZERO
-	frame.size = Vector2(96, 96)
+	frame.size = frame_size
 	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	frame.texture = BlockRegistry.visual_texture("ui", ui_id)
+	frame.stretch_mode = TextureRect.STRETCH_SCALE
+	frame.texture = frame_tex
+	frame.pivot_offset = frame_size / 2.0   # use-pulse scales around center
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vessel.add_child(frame)
 	# Effect overlay — damage flash / recovery glow / regeneration shimmer
-	# land here as a tinted disk that tweens back to transparent. Spans the
-	# full frame like the fill so the mask's disk aligns with the ring hole.
+	# land here as a tinted disk that tweens back to transparent. Shares the
+	# fill rect so the mask's disk aligns with the glass hole.
 	var fx := TextureRect.new()
 	fx.name = "Fx"
-	fx.position = Vector2.ZERO
-	fx.size = Vector2(96, 96)
+	fx.position = fill_rect.position
+	fx.size = fill_rect.size
 	fx.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	fx.texture = mask
 	fx.self_modulate = Color(1, 1, 1, 0)
@@ -931,8 +1162,8 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 	vessel.add_child(fx)
 	var value := Label.new()
 	value.name = "Value"
-	value.position = Vector2(16, 97)
-	value.size = Vector2(64, 14)
+	value.position = Vector2(0, frame_size.y + 1)
+	value.size = Vector2(frame_size.x, 14)
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	value.add_theme_font_size_override("font_size", 11)
 	value.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.95))
@@ -941,11 +1172,24 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 	return vessel
 
 
-## FQ-13P2: a slot frame from the reserved UI placeholder
-## (art/generated/ui/<id>.png) when it exists, else the original code-drawn flat
-## fallback. The deliberate placeholder is replaceable without touching this
-## logic, and a missing image is never an error.
+## FQ-13P2: a slot frame from the best available art — the FQ-20 painted
+## mockup frame, else the reserved UI placeholder (art/generated/ui/<id>.png),
+## else the original code-drawn flat fallback. A missing image is never an
+## error.
 func _make_slot_style(ui_id: String, border: Color) -> StyleBox:
+	var painted_id := ""
+	if ui_id == "slot_inventory":
+		painted_id = "slot_frame"
+	elif ui_id == "slot_inventory_selected":
+		painted_id = "slot_frame_selected"
+	if painted_id != "":
+		var ptex: Texture2D = _painted_texture(painted_id)
+		if ptex != null:
+			var psb := StyleBoxTexture.new()
+			psb.texture = ptex
+			psb.set_texture_margin_all(14 if painted_id == "slot_frame_selected" else 12)
+			psb.set_content_margin_all(5)
+			return psb
 	var tex := BlockRegistry.visual_texture("ui", ui_id)
 	if tex != null:
 		var sbt := StyleBoxTexture.new()
@@ -1012,13 +1256,7 @@ func _make_context_entry() -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.visible = false
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.06, 0.09, 0.86)
-	sb.border_color = Color(0.55, 0.42, 0.24, 0.9)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(3)
-	sb.set_content_margin_all(5)
-	panel.add_theme_stylebox_override("panel", sb)
+	panel.add_theme_stylebox_override("panel", _chip_style())
 	var label := Label.new()
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1568,9 +1806,8 @@ func _pulse_vessel_frame(frame: Control) -> void:
 		return
 	if _vessel_pulse_tween != null and _vessel_pulse_tween.is_valid():
 		_vessel_pulse_tween.kill()
-	# The frame is built at a fixed 96x96; anchor the pivot to that constant
-	# so a pre-layout pulse cannot scale around the top-left corner.
-	frame.pivot_offset = Vector2(48, 48)
+	# The pivot was fixed to the frame's center at build time, so a
+	# pre-layout pulse cannot scale around the top-left corner.
 	frame.scale = Vector2(1.14, 1.14)
 	_vessel_pulse_tween = create_tween()
 	_vessel_pulse_tween.tween_property(frame, "scale", Vector2.ONE, 0.28)

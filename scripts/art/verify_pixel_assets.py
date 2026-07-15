@@ -93,6 +93,29 @@ def _skin_palette_hits(image: Image.Image, rig: dict):
     return palette, hits
 
 
+def _verify_painted(problems: list[str]) -> int:
+    """FQ-20 painted-chrome lane: free-size RGBA renders sliced from the
+    blueprint mockup. Exempt from the pixel-art palette/alpha contract; must
+    simply be readable RGBA, bounded (<=320px), and non-empty."""
+    directory = ASSET_ROOT / "ui_painted"
+    checked = 0
+    if not directory.is_dir():
+        return checked
+    for path in sorted(directory.glob("*.png")):
+        checked += 1
+        rel = path.relative_to(ROOT).as_posix()
+        try:
+            image = Image.open(path).convert("RGBA")
+        except Exception as exc:  # pragma: no cover - exercised on bad files
+            problems.append(f"{rel}: unreadable PNG ({exc})")
+            continue
+        if image.width > 320 or image.height > 320:
+            problems.append(f"{rel}: {image.width}x{image.height} exceeds 320px chrome bound")
+        if _alpha_bbox(image) is None:
+            problems.append(f"{rel}: fully transparent")
+    return checked
+
+
 def main() -> int:
     manifest = json.loads(
         (ROOT / "data" / "visual_assets.json").read_text(encoding="utf-8")
@@ -220,12 +243,15 @@ def main() -> int:
                         f"regions ({missing_hex})"
                     )
 
+    checked += _verify_painted(problems)
+
     if problems:
         print(f"FAIL pixel assets: {len(problems)} problem(s) across {checked} PNGs")
         for problem in problems:
             print(f"  - {problem}")
         return 1
-    print(f"PASS pixel assets: {checked} PNGs satisfy size/palette/alpha/edge contracts")
+    print(f"PASS pixel assets: {checked} PNGs satisfy size/palette/alpha/edge contracts"
+        " (painted chrome via the FQ-20 light pass)")
     return 0
 
 
