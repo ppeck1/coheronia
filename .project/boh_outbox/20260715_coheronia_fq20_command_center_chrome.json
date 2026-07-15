@@ -1,0 +1,65 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260715_coheronia_fq20_command_center_chrome",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "a4d2ea1",
+  "end_commit": "e1a4283",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "FQ-20 (merged per operator): painted chrome sliced from the blueprint mockup + dock command center + direct-manipulation HUD editing. No inventory drag-drop, no modal-panel chrome, no touching concurrent Codex lanes.",
+  "summary": "The HUD now wears the actual rendered art from the operator's blueprint mockup instead of approximations: a deterministic slicer extracts thirteen painted assets (module frames with a corner medallion, chip frame, riveted dock plate, slot frames, glyph buttons, and both ornate orb rings with their glass punched so the live liquid shows through) into a new ui_painted asset lane with its own light verification contract. Every HUD surface consumes them with intact fallback chains, and the mini-map finally has a real border - the ornate frame as a NinePatch overlay. The dock became the command center the operator asked for: the five module toggles are chips inside it, the corner toolbar is gone, and chip state mirrors reality in both directions. HUD editing is now direct manipulation - grab any panel and drag it, pull the gold corner grip to stretch it continuously between half and double size, with locks removed and a live overlay showing outlines and grips. Layout persistence moved to v3. Verified end to end: 318/318 smoke, clean strict audit, 208-PNG verifier pass, validator/doctor green, rendered captures reviewed with two polish fixes applied. Mid-run, a concurrent Codex session wrote opening cels and player-gear overlays outside its agreed wiki scope; those were excluded from the commit and flagged.",
+  "acceptance": [
+    "Thirteen painted chrome assets sliced deterministically and consumed with fallbacks; audit shows all thirteen LIVE",
+    "Mini-map and every module wear painted borders; contextual entries and command chips wear the chip frame",
+    "Module open/close is managed from chips inside the dock; corner toolbar removed; two-way sync verified (fq20_dock_command_center)",
+    "Edit mode: direct drag + continuous corner-grip resize with clamps, overlay, and v3 persistence (fq17_hud_edit_direct_manipulation)",
+    "Isolated waited Godot smoke 318/318; strict audit clean; pixel verifier 208 PASS"
+  ],
+  "validation": [
+    "scripts/asset_audit.py --strict -> clean (ui_painted lane LIVE)",
+    "scripts/art/verify_pixel_assets.py -> PASS 208 PNGs (painted light pass)",
+    "scripts/validate_repo.py -> PASS",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "isolated waited Godot smoke -> PASS 318/318 (lineage 316 -> 318)",
+    "rendered tour 1280x720 -> regions reviewed; ornate content margin + medallion clip polish applied",
+    "git diff --check -> line-ending notices only",
+    "independent sonnet review -> recorded in the ledger before commit"
+  ],
+  "docs_updated": [
+    "docs/FABLE_TASK_QUEUE.md",
+    "docs/UI_ASSET_GAPS.md",
+    "docs/HANDOFF.md"
+  ],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "unchanged",
+  "decisions": [
+    "The blueprint mockup is the recyclable art source the operator pointed at; slicing it deterministically keeps the assets regenerable and reviewable",
+    "Frame interiors rebuild from mirrored clean edge strips so baked mockup text can never leak into a 9-slice",
+    "Orb extraction is geometric (mask disks + measured glass punch), never a color flood - the flood eats the dark iron",
+    "ui_painted is a separate lane with a light contract; painted renders cannot honor the 16-color pixel contract and should not pretend to",
+    "The dock is the single command center: chips inside it own module visibility; the corner toolbar is retired",
+    "Locks are gone - edit mode itself is the gate; resize is continuous (0.5x-2.0x) via the corner grip",
+    "Concurrent Codex writes outside the wiki (opening cels, player gear) are excluded from this commit and flagged to the operator"
+  ],
+  "risks": [
+    "fq09u1_live_clip_switch remains timing-flaky on cold isolated profiles (one flake this run; clean on re-run) - hardening belongs to the music lane",
+    "Painted chrome is only as good as the mockup slice boundaries; future mockup revisions require re-running the slicer and re-reviewing",
+    "Codex exceeded its wiki-only scope mid-run; its opening/gear files are unreviewed and uncommitted"
+  ],
+  "next_action": "Operator reviews the painted chrome captures; scope FQ-21/22 (modal-panel chrome, Diablo-1 drag-drop inventory); review the out-of-scope Codex writes in their own lane.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "candidate",
+  "source_paths": [
+    ".project/runs/20260715_coheronia_fq20_command_center_chrome.md",
+    "scripts/art/slice_hud_chrome.py",
+    "art/generated/ui_painted",
+    "art/source_templates/COHERONIA_HUD_BLUEPRINT_MOCKUP.png"
+  ],
+  "ledger_path": ".project/runs/20260715_coheronia_fq20_command_center_chrome.md",
+  "sensitivity": "public-safe",
+  "overrides": [],
+  "created_at": "2026-07-15T16:10:00-04:00"
+}
