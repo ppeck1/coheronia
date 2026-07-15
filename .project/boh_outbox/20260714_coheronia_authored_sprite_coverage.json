@@ -1,0 +1,68 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260714_coheronia_authored_sprite_coverage",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "1b19ad1",
+  "end_commit": "1b19ad1",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "Post-FQ-15 current-live sprite coverage: close canonical block/item/enemy gaps, add bounded runtime variation, repair image/runtime contracts, and verify rendered integration. Future-system art and unsafe generic gear overlays are excluded.",
+  "summary": "Coheronia's live visual surface is now authored instead of quietly falling back. Every rendered block, every inventory or live enemy-drop id, and every one of the six live enemies has canonical pixel art. Seventeen terrain/flora/resource ids select from three deterministic cell-stable looks; all six enemy families select from three lifetime-stable looks; all ten player bodies offer two authored Looks beyond canonical. Total runtime art is 189 PNGs, up from 72. The pass also found five drops absent from item metadata, fixed the character creator so it offers only real Looks, preserved exact player skin palette bytes so Pale/Umber/Ash work on every alternative, and added repeatable normalization/contact/verification tools. Verification is evidence-complete: strict audit clean, 186 pixel assets pass all contracts, repo validator/capsule doctor green, isolated Godot smoke 306/306 with no variant recolor failures, and nine rendered screenshots plus final category contacts visually reviewed. Player gear stays procedural until body-specific alignment is approved; most UI files remain deliberate reserved placeholders; optional opening cels remain deferred behind the complete plotted opening.",
+  "acceptance": [
+    "All 20 rendered block canonicals and 17 three-entry block pools are live",
+    "All 43 inventory/live-drop ids have canonical stable icons",
+    "All six live enemies have canonical sprites and three-entry pools",
+    "All ten player bodies have two alternate Looks with stable scale and working appearance recolor",
+    "Strict audit clean; pixel verifier 186/186; isolated Godot smoke 306/306",
+    "Nine rendered tour frames and final block/item/enemy/player contacts visually pass"
+  ],
+  "validation": [
+    "scripts/asset_audit.py --strict -> clean",
+    "scripts/art/verify_pixel_assets.py -> PASS 186 PNGs",
+    "scripts/validate_repo.py -> PASS",
+    "capsule_doctor.py . --profile public_repo -> Result: healthy",
+    "isolated waited Godot smoke -> PASS 306/306; variant_failures=[]",
+    "isolated hidden/windowed screenshot tour -> 9/9 written and visually reviewed",
+    "git diff --check -> no whitespace errors"
+  ],
+  "docs_updated": [
+    "README.md",
+    "art/source_templates/ASSET_TEMPLATE.md",
+    "docs/ASSET_ROADMAP.md",
+    "docs/UI_ASSET_GAPS.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/HANDOFF.md",
+    "docs/HANDOFF_ART_INTEGRATION_2026-07-14.md"
+  ],
+  "readme_state": "updated",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Items stay canonical-only so inventory stacks never change icon during refresh",
+    "Blocks, enemies, and players use the already-live bounded variant consumers",
+    "Generated player Looks must restore exact rig skin palette entries before promotion",
+    "Generic player gear is deferred because ten bodies do not share a safe overlay alignment",
+    "Reserved UI replacements and optional opening cels require separate explicit scope",
+    "Leave the signable pass uncommitted for operator discussion; do not push"
+  ],
+  "risks": [
+    "Manual operator playtest checklist remains unchecked despite automated and rendered passes",
+    "Player gear is still procedural until a body-specific alignment matrix is approved",
+    "Most UI hooks are deliberate placeholders and have no live image consumer yet"
+  ],
+  "next_action": "Review final category contacts and rendered gameplay; approve/commit this pass or scope body-specific gear overlays.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "candidate",
+  "source_paths": [
+    ".project/runs/20260714_coheronia_authored_sprite_coverage.md",
+    "docs/HANDOFF_ART_INTEGRATION_2026-07-14.md",
+    "art/generated",
+    "scripts/art"
+  ],
+  "ledger_path": ".project/runs/20260714_coheronia_authored_sprite_coverage.md",
+  "sensitivity": "public-safe",
+  "overrides": [],
+  "created_at": "2026-07-14T15:07:21-04:00"
+}
