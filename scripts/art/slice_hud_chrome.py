@@ -241,26 +241,13 @@ def build(src: Image.Image, debug_dir: Path | None) -> dict[str, Image.Image]:
     orb_a = src.crop((1172, 524, 1360, 740)).convert("RGBA")
     acx, acy, ahw, ahh, _abot = _measure_liquid(orb_a, _violet)
     ar = max(ahw, ahh) + 4.0
-    # Tight disk (+16, not +30): the mockup bakes a dark scene-glow halo
-    # around the orb that read as a dirty circle in-game (operator polish).
-    # No crown rect — it kept a slab of dark background above the ring.
+    # Tight geometric silhouette ONLY — per-pixel color keying shredded the
+    # dark crystal/ring pixels into strands (operator polish loop 2). The
+    # +12 disk keeps the metal side columns; the thin remaining halo band
+    # reads as a cast shadow. No crown rect (it kept a slab of background).
     _apply_shape_mask(orb_a,
-        [(acx, acy, ar + 16)],
+        [(acx, acy, ar + 12)],
         [(acx - ar - 14, acy + ar - 8, acx + ar + 14, acy + ar + 36)])
-    # Key out the near-black navy halo that survives inside the disk, and
-    # delete stray annotation ink outside the crystal (isolated cyan dashes
-    # end up floating over transparency where inpainting cannot reach).
-    ap = orb_a.load()
-    for y in range(orb_a.height):
-        for x in range(orb_a.width):
-            p = ap[x, y]
-            if p[3] == 0:
-                continue
-            if max(p[0], p[1], p[2]) < 38 and p[2] > p[0] + 3:
-                ap[x, y] = (0, 0, 0, 0)
-            elif _is_annotation(p) \
-                    and (x - acx) ** 2 + (y - acy) ** 2 > (ar + 2) ** 2:
-                ap[x, y] = (0, 0, 0, 0)
     _inpaint_annotations(orb_a)
     # NO punch: the attunement vessel is a faceted crystal, not a liquid —
     # removing it destroys the art (operator polish loop). The runtime

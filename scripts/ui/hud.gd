@@ -887,6 +887,9 @@ func _build_bottom_left() -> void:
 	if plate != null:
 		var plate_art := StyleBoxTexture.new()
 		plate_art.texture = plate
+		# TILE horizontally: stretching a 24px strip across the whole dock
+		# smeared the wood grain into streaks (operator polish loop 2).
+		plate_art.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
 		plate_art.texture_margin_top = 18
 		plate_art.texture_margin_bottom = 18
 		plate_art.texture_margin_left = 6
@@ -1064,8 +1067,10 @@ func _add_dock_action_button(row: HBoxContainer, text: String, ui_id: String,
 # luminous bottom-up brightener instead of an opaque liquid over a punched
 # hole (the attunement crystal is not a liquid — operator polish loop).
 const PAINTED_ORB_GEOMETRY := {
-	"orb_health_frame": {"tex": Vector2(180, 196), "center": Vector2(98, 102), "radius": 62.0},
-	"orb_attunement_frame": {"tex": Vector2(188, 216), "center": Vector2(82, 81), "radius": 51.0, "overlay": true},
+	# Radius follows the punch's SHORT axis (the fill disk is a circle; a
+	# disk sized to the long axis overlapped the ring bevels top/bottom).
+	"orb_health_frame": {"tex": Vector2(180, 196), "center": Vector2(98, 102), "radius": 60.0},
+	"orb_attunement_frame": {"tex": Vector2(188, 216), "center": Vector2(82, 81), "radius": 48.0, "overlay": true},
 }
 const PAINTED_ORB_WIDTH := 112.0
 var _glass_mask_cache: Dictionary = {}   # diameter -> ImageTexture
