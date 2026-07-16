@@ -55,11 +55,17 @@ var _save_label: Label   # no longer built (FQ-19); kept for the null-guarded se
 var _has_save_hint := false
 var _debug_label: Label
 var _top_left_box: Control
-# FQ-19: the movable "dock" widget is a band of three siblings — health orb,
-# central hotbar/nav panel, attunement orb (Photo 1/2: the orbs are their own
-# objects flanking the panel, not decorations inside one wide plate).
+# FQ-21: the dock is ONE full-width painted band (left cap · tiling plate ·
+# fixed center block · right cap), sliced whole from the mockup — never
+# stretched, never reassembled from small fragments (operator direction).
+# FQ-19's modular orb·panel·orb construction remains the fallback.
 var _bottom_dock: Control          # the whole band (registered HUD widget)
-var _dock_panel: PanelContainer    # the central backplate panel
+var _dock_panel: Control           # the central block (band) / plate panel (fallback)
+var _dock_band_active := false
+# FQ-21 vessel sockets: future liquid mechanics plug in here — each socket
+# exposes the glass geometry plus the swappable fill node (any Range works;
+# update_health/update_attunement only ever drive the Range interface).
+var _vessel_sockets: Dictionary = {}
 # FQ-19: Range covers both fill implementations — the masked liquid
 # TextureProgressBar when orb_fill_mask art exists, else the code-drawn
 # ProgressBar fallback.
@@ -394,8 +400,12 @@ func _clamp_hud_widget(control: Control) -> void:
 	var viewport_size := get_viewport().get_visible_rect().size
 	var scaled_size := control.size * control.scale
 	var max_position := viewport_size - scaled_size - Vector2.ONE * HUD_SAFE_MARGIN
-	control.position.x = clampf(control.position.x, HUD_SAFE_MARGIN, max_position.x)
-	control.position.y = clampf(control.position.y, HUD_SAFE_MARGIN, max_position.y)
+	# A full-width widget (the FQ-21 band) has no horizontal slack; clamping
+	# with min > max would snap it to the margin.
+	if max_position.x >= HUD_SAFE_MARGIN:
+		control.position.x = clampf(control.position.x, HUD_SAFE_MARGIN, max_position.x)
+	if max_position.y >= HUD_SAFE_MARGIN:
+		control.position.y = clampf(control.position.y, HUD_SAFE_MARGIN, max_position.y)
 
 
 func _input(event: InputEvent) -> void:
@@ -850,6 +860,16 @@ func map_open() -> bool:
 
 
 func _build_bottom_left() -> void:
+	# FQ-21: the one-piece full-width painted band when its pieces and the
+	# geometry sidecar exist; the FQ-19 modular construction is the fallback.
+	var band_geometry := _load_band_geometry()
+	if not band_geometry.is_empty() \
+			and _painted_texture("dock_left_cap") != null \
+			and _painted_texture("dock_right_cap") != null \
+			and _painted_texture("dock_center_block") != null \
+			and _painted_texture("dock_mid_tile") != null:
+		_build_dock_band(band_geometry)
+		return
 	# FQ-19 blueprint band (Photo 1/2): the two resource orbs are their own
 	# flanking objects beside ONE central hotbar/nav panel — not decorations
 	# inside a single wide plate. The whole band is the movable "dock" widget;
@@ -1073,7 +1093,43 @@ const PAINTED_ORB_GEOMETRY := {
 	"orb_attunement_frame": {"tex": Vector2(188, 216), "center": Vector2(82, 81), "radius": 48.0, "overlay": true},
 }
 const PAINTED_ORB_WIDTH := 112.0
+const DOCK_BAND_SCALE := 0.8   # band display px per mockup art px
 var _glass_mask_cache: Dictionary = {}   # diameter -> ImageTexture
+var _scaled_tex_cache: Dictionary = {}   # "id@scale" -> ImageTexture
+
+
+## FQ-21: slicer-measured band geometry — hud.gd never hand-syncs mockup
+## coordinates again (that was the source of the masking misalignments).
+func _load_band_geometry() -> Dictionary:
+	var raw := FileAccess.get_file_as_string(
+		"res://art/generated/ui_painted/dock_band_geometry.json")
+	if raw.is_empty():
+		return {}
+	var parsed: Variant = JSON.parse_string(raw)
+	return parsed if parsed is Dictionary else {}
+
+
+func _json_vec(pair: Variant) -> Vector2:
+	if pair is Array and (pair as Array).size() >= 2:
+		return Vector2(float(pair[0]), float(pair[1]))
+	return Vector2.ZERO
+
+
+## A texture pre-resized on the CPU (TextureRect STRETCH_TILE tiles at the
+## texture's native size, so the tile must be baked at display scale).
+func _scaled_texture(id: String, factor: float) -> Texture2D:
+	var key := "%s@%f" % [id, factor]
+	if _scaled_tex_cache.has(key):
+		return _scaled_tex_cache[key]
+	var src: Texture2D = _painted_texture(id)
+	if src == null:
+		return null
+	var img: Image = src.get_image()
+	img.resize(int(round(img.get_width() * factor)),
+		int(round(img.get_height() * factor)), Image.INTERPOLATE_LANCZOS)
+	var tex := ImageTexture.create_from_image(img)
+	_scaled_tex_cache[key] = tex
+	return tex
 
 
 ## FQ-20 polish: the 32px disk mask cropped to its disk (art px 5..26) and
@@ -1225,6 +1281,377 @@ func _make_resource_vessel(ui_id: String, fill_color: Color,
 	value.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vessel.add_child(value)
 	return vessel
+
+
+## FQ-21: the one-piece full-width dock band. Everything painted comes from
+## four native-aspect pieces (nothing 9-sliced, nothing color-keyed); only
+## the clean plate strip TILES to span the width. All coordinates come from
+## the slicer's geometry sidecar, scaled by DOCK_BAND_SCALE.
+func _build_dock_band(geometry: Dictionary) -> void:
+	_dock_band_active = true
+	var s := DOCK_BAND_SCALE
+	var left_geo: Dictionary = geometry.get("left_cap", {})
+	var right_geo: Dictionary = geometry.get("right_cap", {})
+	var block_geo: Dictionary = geometry.get("center_block", {})
+	var tile_geo: Dictionary = geometry.get("mid_tile", {})
+	var left_size: Vector2 = _json_vec(left_geo.get("size")) * s
+	var right_size: Vector2 = _json_vec(right_geo.get("size")) * s
+	var block_size: Vector2 = _json_vec(block_geo.get("size")) * s
+	var left_y: float = float(left_geo.get("y_offset", 0)) * s
+	var plate_y: float = float(block_geo.get("y_offset", 0)) * s
+	var band_h: float = right_size.y
+
+	var band := Control.new()
+	_bottom_dock = band
+	band.anchor_left = 0.0
+	band.anchor_right = 1.0
+	band.anchor_top = 1.0
+	band.anchor_bottom = 1.0
+	band.offset_left = 0.0
+	band.offset_right = 0.0
+	band.offset_top = -band_h
+	band.offset_bottom = 0.0
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(band)
+
+	# --- health liquid UNDER the left cap (shows through the punched glass).
+	var health_glass_center: Vector2 = _json_vec(left_geo.get("glass_center")) * s
+	var health_glass_d: int = int(round(float(left_geo.get("glass_radius", 40)) * s * 2.0))
+	var health_mask: Texture2D = _glass_mask_texture(health_glass_d)
+	var health_fill := TextureProgressBar.new()
+	health_fill.name = "HealthFill"
+	health_fill.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
+	health_fill.texture_under = health_mask
+	health_fill.tint_under = Color(0.02, 0.04, 0.08, 0.88)
+	health_fill.texture_progress = health_mask
+	health_fill.tint_progress = Color(0.82, 0.12, 0.10)
+	health_fill.max_value = 100.0
+	health_fill.value = 100.0
+	health_fill.position = Vector2(0, left_y) + health_glass_center \
+		- Vector2(health_glass_d, health_glass_d) / 2.0
+	health_fill.size = Vector2(health_glass_d, health_glass_d)
+	health_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(health_fill)
+	_health_vessel_fill = health_fill
+
+	# --- the four painted pieces.
+	var left_cap := TextureRect.new()
+	left_cap.name = "BandLeftCap"
+	left_cap.texture = _painted_texture("dock_left_cap")
+	left_cap.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	left_cap.stretch_mode = TextureRect.STRETCH_SCALE
+	left_cap.position = Vector2(0, left_y)
+	left_cap.size = left_size
+	left_cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(left_cap)
+
+	var tile_tex: Texture2D = _scaled_texture("dock_mid_tile", s)
+	var tile_h: float = _json_vec(tile_geo.get("size")).y * s
+	var tile_y: float = float(tile_geo.get("y_offset", 0)) * s
+	var tile_left := TextureRect.new()
+	tile_left.name = "BandTileLeft"
+	tile_left.texture = tile_tex
+	tile_left.stretch_mode = TextureRect.STRETCH_TILE
+	tile_left.anchor_left = 0.0
+	tile_left.anchor_right = 0.5
+	tile_left.offset_left = left_size.x - 1.0
+	tile_left.offset_right = -block_size.x / 2.0 + 1.0
+	tile_left.offset_top = tile_y
+	tile_left.offset_bottom = tile_y + tile_h
+	tile_left.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(tile_left)
+
+	var tile_right := TextureRect.new()
+	tile_right.name = "BandTileRight"
+	tile_right.texture = tile_tex
+	tile_right.stretch_mode = TextureRect.STRETCH_TILE
+	tile_right.anchor_left = 0.5
+	tile_right.anchor_right = 1.0
+	tile_right.offset_left = block_size.x / 2.0 - 1.0
+	tile_right.offset_right = -right_size.x + 1.0
+	tile_right.offset_top = tile_y
+	tile_right.offset_bottom = tile_y + tile_h
+	tile_right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(tile_right)
+
+	var block := TextureRect.new()
+	block.name = "BandCenterBlock"
+	_dock_panel = block
+	block.texture = _painted_texture("dock_center_block")
+	block.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	block.stretch_mode = TextureRect.STRETCH_SCALE
+	block.anchor_left = 0.5
+	block.anchor_right = 0.5
+	block.offset_left = -block_size.x / 2.0
+	block.offset_right = block_size.x / 2.0
+	block.offset_top = plate_y
+	block.offset_bottom = plate_y + block_size.y
+	block.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(block)
+
+	var right_cap := TextureRect.new()
+	right_cap.name = "BandRightCap"
+	right_cap.texture = _painted_texture("dock_right_cap")
+	right_cap.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	right_cap.stretch_mode = TextureRect.STRETCH_SCALE
+	right_cap.anchor_left = 1.0
+	right_cap.anchor_right = 1.0
+	right_cap.offset_left = -right_size.x
+	right_cap.offset_right = 0.0
+	right_cap.offset_top = 0.0
+	right_cap.offset_bottom = right_size.y
+	right_cap.pivot_offset = right_size / 2.0
+	right_cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(right_cap)
+	_attunement_frame = right_cap
+
+	# --- attunement charge overlay + core OVER the baked crystal.
+	var crystal_center: Vector2 = _json_vec(right_geo.get("crystal_center")) * s
+	var crystal_d: int = int(round(float(right_geo.get("crystal_radius", 40)) * s * 2.0))
+	var crystal_mask: Texture2D = _glass_mask_texture(crystal_d)
+	var charge := TextureProgressBar.new()
+	charge.name = "AttunementFill"
+	charge.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
+	charge.texture_under = crystal_mask
+	charge.tint_under = Color(0.0, 0.02, 0.1, 0.62)
+	charge.texture_progress = crystal_mask
+	charge.tint_progress = Color(0.5, 0.9, 1.0, 0.42)
+	charge.max_value = 100.0
+	charge.value = 100.0
+	charge.anchor_left = 1.0
+	charge.anchor_right = 1.0
+	charge.offset_left = -right_size.x + crystal_center.x - crystal_d / 2.0
+	charge.offset_right = charge.offset_left + crystal_d
+	charge.offset_top = crystal_center.y - crystal_d / 2.0
+	charge.offset_bottom = charge.offset_top + crystal_d
+	charge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(charge)
+	_attunement_vessel_fill = charge
+	var core := ColorRect.new()
+	core.name = "Core"
+	core.color = Color(0.82, 0.96, 1.0)
+	core.anchor_left = 1.0
+	core.anchor_right = 1.0
+	core.offset_left = -right_size.x + crystal_center.x - 7.0
+	core.offset_right = core.offset_left + 14.0
+	core.offset_top = crystal_center.y - 7.0
+	core.offset_bottom = core.offset_top + 14.0
+	core.pivot_offset = Vector2(7, 7)
+	core.rotation = PI / 4.0
+	core.self_modulate = Color(0.4, 0.65, 0.85, 0.5)
+	core.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(core)
+	_attunement_core = core
+
+	# --- effect overlays (flash/glow/shimmer) above each vessel.
+	var health_fx := TextureRect.new()
+	health_fx.name = "HealthFx"
+	health_fx.texture = health_mask
+	health_fx.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	health_fx.position = health_fill.position
+	health_fx.size = health_fill.size
+	health_fx.self_modulate = Color(1, 1, 1, 0)
+	health_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(health_fx)
+	_health_fx = health_fx
+	var attune_fx := TextureRect.new()
+	attune_fx.name = "AttunementFx"
+	attune_fx.texture = crystal_mask
+	attune_fx.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	attune_fx.anchor_left = 1.0
+	attune_fx.anchor_right = 1.0
+	attune_fx.offset_left = charge.offset_left
+	attune_fx.offset_right = charge.offset_right
+	attune_fx.offset_top = charge.offset_top
+	attune_fx.offset_bottom = charge.offset_bottom
+	attune_fx.self_modulate = Color(1, 1, 1, 0)
+	attune_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(attune_fx)
+	_attunement_fx = attune_fx
+
+	# --- numeric values ON the glass (blueprint: "83 / 100" on the orb).
+	_health_vessel_label = _vessel_value_label(band)
+	_health_vessel_label.position = Vector2(0, left_y) \
+		+ health_glass_center - Vector2(40, 8)
+	_health_label = _health_vessel_label
+	_attunement_vessel_label = _vessel_value_label(band)
+	_attunement_vessel_label.anchor_left = 1.0
+	_attunement_vessel_label.anchor_right = 1.0
+	_attunement_vessel_label.offset_left = -right_size.x + crystal_center.x - 40.0
+	_attunement_vessel_label.offset_right = _attunement_vessel_label.offset_left + 80.0
+	_attunement_vessel_label.offset_top = crystal_center.y - 8.0
+	_attunement_vessel_label.offset_bottom = crystal_center.y + 8.0
+	_attunement_label = _attunement_vessel_label
+
+	# --- FQ-21 vessel sockets: the future liquid mechanic swaps the fill
+	# node here; update_health/update_attunement only drive Range.
+	_vessel_sockets = {
+		"health": {"glass_center": Vector2(0, left_y) + health_glass_center,
+			"glass_diameter": health_glass_d, "fill": health_fill},
+		"attunement": {"crystal_center": crystal_center,
+			"crystal_diameter": crystal_d, "fill": charge},
+	}
+
+	# --- slot overlays on the block: icon centered, count bottom-right,
+	# key number top-left; selection = gold border stylebox over the frame.
+	# Content margins keep the key tag / count clear of the baked frame's
+	# corner hinges.
+	var empty_sb := StyleBoxEmpty.new()
+	empty_sb.set_content_margin_all(7)
+	_slot_normal_sb = empty_sb
+	var gold: Texture2D = _painted_texture("slot_frame_selected")
+	if gold != null:
+		var gsb := StyleBoxTexture.new()
+		gsb.texture = gold
+		gsb.set_texture_margin_all(14)
+		gsb.set_content_margin_all(7)
+		gsb.draw_center = false
+		_slot_selected_sb = gsb
+	else:
+		var gfb := StyleBoxFlat.new()
+		gfb.border_color = Color(0.95, 0.8, 0.25)
+		gfb.set_border_width_all(2)
+		gfb.draw_center = false
+		_slot_selected_sb = gfb
+	var slot_rects: Array = block_geo.get("slots", [])
+	for i in range(mini(5, slot_rects.size())):
+		var r: Array = slot_rects[i]
+		var slot := PanelContainer.new()
+		slot.position = Vector2(float(r[0]), float(r[1])) * s
+		slot.size = Vector2(float(r[2]), float(r[3])) * s
+		slot.add_theme_stylebox_override("panel", _slot_normal_sb)
+		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		block.add_child(slot)
+		var icon_center := CenterContainer.new()
+		icon_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(icon_center)
+		var icon := TextureRect.new()
+		icon.custom_minimum_size = Vector2(30, 30)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon_center.add_child(icon)
+		var count := Label.new()
+		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		count.size_flags_vertical = Control.SIZE_SHRINK_END
+		count.add_theme_font_size_override("font_size", 11)
+		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(count)
+		var key_tag := Label.new()
+		key_tag.text = str(i + 1)
+		key_tag.add_theme_font_size_override("font_size", 9)
+		key_tag.add_theme_color_override("font_color", Color(0.89, 0.75, 0.43, 0.9))
+		key_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		key_tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		key_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(key_tag)
+		_hotbar_slots.append(slot)
+		_hotbar_icons.append(icon)
+		_hotbar_counts.append(count)
+
+	# --- invisible click zones over the baked nav buttons (labels baked).
+	var buttons: Dictionary = block_geo.get("buttons", {})
+	_add_band_button(block, buttons.get("inventory"), s, "Inventory",
+		func(): toggle_inventory_panel())
+	_add_band_button(block, buttons.get("character"), s, "Character",
+		func(): toggle_character_panel())
+	_add_band_button(block, buttons.get("skills"), s, "Skills",
+		func(): toggle_skill_panel())
+	_add_band_button(block, buttons.get("town_hall"), s, "Town Hall",
+		func(): toggle_town_panel())
+
+	# --- command center chips between the pedestals, under the plate.
+	_build_command_center(band)
+	_module_toolbar.anchor_left = 0.5
+	_module_toolbar.anchor_right = 0.5
+	_module_toolbar.offset_left = -180.0
+	_module_toolbar.offset_right = 180.0
+	_module_toolbar.offset_top = plate_y + block_size.y + 3.0
+	_module_toolbar.offset_bottom = band_h - 2.0
+
+	# --- floating summary chip above the plate (mockup floating-chip style).
+	var summary_chip := PanelContainer.new()
+	summary_chip.add_theme_stylebox_override("panel", _chip_style())
+	summary_chip.position = Vector2(left_size.x + 8.0, 2.0)
+	summary_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(summary_chip)
+	_hotbar_label = Label.new()
+	_hotbar_label.add_theme_font_size_override("font_size", 11)
+	summary_chip.add_child(_hotbar_label)
+
+	# --- mining progress floats above the band center (blueprint position).
+	_mine_bar = ProgressBar.new()
+	_mine_bar.custom_minimum_size = Vector2(180, 10)
+	_mine_bar.show_percentage = false
+	_mine_bar.visible = false
+	_mine_bar.anchor_left = 0.5
+	_mine_bar.anchor_right = 0.5
+	_mine_bar.offset_left = -90.0
+	_mine_bar.offset_right = 90.0
+	_mine_bar.offset_top = plate_y - 16.0
+	_mine_bar.offset_bottom = plate_y - 6.0
+	band.add_child(_mine_bar)
+
+
+func _vessel_value_label(parent: Control) -> Label:
+	var value := Label.new()
+	value.size = Vector2(80, 16)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value.add_theme_font_size_override("font_size", 12)
+	value.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
+	value.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	value.add_theme_constant_override("shadow_offset_x", 1)
+	value.add_theme_constant_override("shadow_offset_y", 1)
+	value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(value)
+	return value
+
+
+## Invisible click zone over a baked button (hover = soft sheen).
+func _add_band_button(block: Control, zone: Variant, s: float, text: String,
+		action: Callable) -> void:
+	if not (zone is Array) or (zone as Array).size() < 4:
+		return
+	var button := Button.new()
+	button.name = "DockAction" + text.replace(" ", "")
+	button.position = Vector2(float(zone[0]), float(zone[1])) * s
+	button.size = Vector2(float(zone[2]), float(zone[3])) * s
+	button.tooltip_text = "Open %s panel" % text
+	button.focus_mode = Control.FOCUS_ALL
+	button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	button.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
+	var sheen := StyleBoxFlat.new()
+	sheen.bg_color = Color(1, 1, 1, 0.12)
+	sheen.set_corner_radius_all(4)
+	button.add_theme_stylebox_override("hover", sheen)
+	button.pressed.connect(action)
+	block.add_child(button)
+
+
+## FQ-21 socket API for the future liquid mechanic: read the glass geometry
+## and the current fill, or swap in a custom fill (any Range-derived Control;
+## the HUD keeps driving it purely through value/max_value).
+func vessel_socket(kind: String) -> Dictionary:
+	return _vessel_sockets.get(kind, {})
+
+
+func replace_vessel_fill(kind: String, replacement: Range) -> bool:
+	var socket: Dictionary = _vessel_sockets.get(kind, {})
+	var current: Range = socket.get("fill")
+	if current == null or replacement == null:
+		return false
+	replacement.min_value = current.min_value
+	replacement.max_value = current.max_value
+	replacement.value = current.value
+	current.add_sibling(replacement)
+	replacement.position = current.position
+	replacement.size = current.size
+	current.queue_free()
+	socket["fill"] = replacement
+	if kind == "health":
+		_health_vessel_fill = replacement
+	elif kind == "attunement":
+		_attunement_vessel_fill = replacement
+	return true
 
 
 ## FQ-13P2: a slot frame from the best available art — the FQ-20 painted

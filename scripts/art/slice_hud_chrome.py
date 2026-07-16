@@ -15,6 +15,7 @@ Run: python scripts/art/slice_hud_chrome.py [--debug] [--src PATH]
 from __future__ import annotations
 
 import argparse
+import json
 import tempfile
 from pathlib import Path
 
@@ -256,6 +257,105 @@ def build(src: Image.Image, debug_dir: Path | None) -> dict[str, Image.Image]:
     assets["orb_attunement_frame"] = orb_a
     print(f"attunement orb: cx={acx:.0f} cy={acy:.0f} crystal_r={ar:.0f} (kept baked)")
 
+    # ------------------------------------------------------------------
+    # FQ-21: the ONE-PIECE full-width band. The mockup dock is a single
+    # sculpted composition; decompose-and-9-slice fought it (operator).
+    # Four native-aspect pieces: left cap (health orb + winged plate end),
+    # a clean plate strip that TILES, a fixed center block (nav buttons +
+    # a uniformly rebuilt slot track), and the right cap (attunement).
+    # All runtime geometry is written to dock_band_geometry.json so hud.gd
+    # never hand-syncs coordinates again.
+    # ------------------------------------------------------------------
+    BAND_TOP = 524          # unified band-vertical origin (right cap top)
+    PLATE_TOP, PLATE_BOT = 576, 700
+
+    # Left cap: reuse the measured health geometry from above.
+    cap_l = src.crop((330, 540, 508, 736)).convert("RGBA")
+    # hcx/hcy/hr are in the same crop origin (330, 540).
+    _apply_shape_mask(cap_l,
+        [(hcx, hcy, hr + 26)],
+        [(hcx - hr - 14, hcy + hr - 8, hcx + hr + 14, hcy + hr + 34),
+         (hcx, PLATE_TOP - 540, cap_l.width, PLATE_BOT - 540)])
+    _inpaint_annotations(cap_l)
+    _punch_circle(cap_l, hcx, hcy, hr + 7, hr + 5)
+    _desaturate_red_band(cap_l, hcx, hcy, hr + 7, hr + 16)
+    assets["dock_left_cap"] = cap_l
+
+    # Right cap: measure the crystal in the cap crop's own origin.
+    cap_r = src.crop((1170, 524, 1355, 740)).convert("RGBA")
+    rcx, rcy, rhw, rhh, _rbot = _measure_liquid(cap_r, _violet)
+    rr = max(rhw, rhh) + 4.0
+    _apply_shape_mask(cap_r,
+        [(rcx, rcy, rr + 12)],
+        [(rcx - rr - 14, rcy + rr - 8, rcx + rr + 14, rcy + rr + 36),
+         (0, PLATE_TOP - 524, rcx, PLATE_BOT - 524)])
+    _inpaint_annotations(cap_r)
+    assets["dock_right_cap"] = cap_r
+
+    # Plate tile: the only truly clean full-height grain segment lies
+    # between slot 5 and the Skills button (the wider segments carry baked
+    # nav labels that repeated as "ter ter ter" across the rebuilt track).
+    # Mirror-extended to double width: a 21px period tiled across the band
+    # read as mechanical fence pickets (operator polish loop).
+    tile_seg = src.crop((1035, PLATE_TOP, 1056, PLATE_BOT)).convert("RGBA")
+    _inpaint_annotations(tile_seg)
+    tile = Image.new("RGBA", (tile_seg.width * 2, tile_seg.height))
+    tile.paste(tile_seg, (0, 0))
+    tile.paste(tile_seg.transpose(Image.FLIP_LEFT_RIGHT), (tile_seg.width, 0))
+    assets["dock_mid_tile"] = tile
+
+    # Center block: nav buttons (labels baked) + the slot track rebuilt
+    # UNIFORMLY — the baked slots vary (slot 3 is painted selected), so the
+    # track is refilled with tiled plate and five clean slot frames pasted
+    # at even pitch. Runtime selection is a gold overlay.
+    block = src.crop((508, PLATE_TOP, 1170, PLATE_BOT)).convert("RGBA")
+    track_x0, track_x1 = 629 - 508, 1035 - 508
+    x = track_x0
+    while x < track_x1:
+        seg = tile.crop((0, 0, min(48, track_x1 - x), tile.height))
+        block.paste(seg, (x, 0))
+        x += seg.width
+    slot_art = assets["slot_frame"]
+    slot_pitch = (track_x1 - track_x0 - slot_art.width) / 4.0
+    slot_y = (block.height - slot_art.height) // 2
+    slot_rects = []
+    for i in range(5):
+        sx = track_x0 + round(i * slot_pitch)
+        block.paste(slot_art, (sx, slot_y), slot_art)
+        slot_rects.append([sx, slot_y, slot_art.width, slot_art.height])
+    _inpaint_annotations(block)
+    assets["dock_center_block"] = block
+
+    geometry = {
+        "comment": "All values in native mockup art px. band_top is the "
+            "shared vertical origin; piece y offsets are relative to it.",
+        "band_top": BAND_TOP,
+        "left_cap": {
+            "size": [cap_l.width, cap_l.height], "y_offset": 540 - BAND_TOP,
+            "glass_center": [round(hcx), round(hcy)],
+            "glass_radius": round(hr + 5),
+        },
+        "right_cap": {
+            "size": [cap_r.width, cap_r.height], "y_offset": 0,
+            "crystal_center": [round(rcx), round(rcy)],
+            "crystal_radius": round(rr),
+        },
+        "center_block": {
+            "size": [block.width, block.height],
+            "y_offset": PLATE_TOP - BAND_TOP,
+            "slots": slot_rects,
+            "buttons": {
+                "inventory": [511 - 508, 605 - PLATE_TOP, 48, 52],
+                "character": [563 - 508, 605 - PLATE_TOP, 50, 52],
+                "skills": [1058 - 508, 605 - PLATE_TOP, 50, 52],
+                "town_hall": [1112 - 508, 605 - PLATE_TOP, 52, 52],
+            },
+        },
+        "mid_tile": {
+            "size": [tile.width, tile.height],
+            "y_offset": PLATE_TOP - BAND_TOP,
+        },
+    }
     if debug_dir is not None:
         sheet_w = max(a.width for a in assets.values()) + 20
         total_h = sum(a.height + 26 for a in assets.values()) + 20
@@ -269,7 +369,7 @@ def build(src: Image.Image, debug_dir: Path | None) -> dict[str, Image.Image]:
         sheet.save(debug_dir / "fq20_chrome_sheet.png")
         print("debug sheet:", debug_dir / "fq20_chrome_sheet.png")
 
-    return assets
+    return assets, geometry
 
 
 def main() -> int:
@@ -282,13 +382,16 @@ def main() -> int:
     assert src.size == (1672, 941), f"unexpected mockup size {src.size}"
 
     debug_dir = Path(tempfile.gettempdir()) if args.debug else None
-    assets = build(src, debug_dir)
+    assets, geometry = build(src, debug_dir)
 
     if not args.debug:
         OUT.mkdir(parents=True, exist_ok=True)
         for name, art in assets.items():
             art.save(OUT / f"{name}.png")
             print(f"wrote art/generated/ui_painted/{name}.png {art.size}")
+        (OUT / "dock_band_geometry.json").write_text(
+            json.dumps(geometry, indent=2) + "\n", encoding="utf-8")
+        print("wrote art/generated/ui_painted/dock_band_geometry.json")
         print(f"{len(assets)} painted chrome assets written.")
     return 0
 

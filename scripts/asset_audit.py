@@ -60,6 +60,9 @@ UI_PAINTED_CONSUMED = {
     "chip_frame", "dock_plate", "slot_frame", "slot_frame_selected",
     "button_inventory", "button_character", "button_skills",
     "button_town_hall", "orb_health_frame", "orb_attunement_frame",
+    # FQ-21: the one-piece full-width band (the pre-band ids above stay
+    # consumed by the modular fallback path).
+    "dock_left_cap", "dock_right_cap", "dock_center_block", "dock_mid_tile",
 }
 
 # Reserved UI hook ids (FQ-13P). Absence => PLACEHOLDER_REQUIRED, not an error.

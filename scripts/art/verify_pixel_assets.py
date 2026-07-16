@@ -109,8 +109,9 @@ def _verify_painted(problems: list[str]) -> int:
         except Exception as exc:  # pragma: no cover - exercised on bad files
             problems.append(f"{rel}: unreadable PNG ({exc})")
             continue
-        if image.width > 320 or image.height > 320:
-            problems.append(f"{rel}: {image.width}x{image.height} exceeds 320px chrome bound")
+        # FQ-21: the one-piece band center block is legitimately wide.
+        if image.width > 700 or image.height > 320:
+            problems.append(f"{rel}: {image.width}x{image.height} exceeds chrome bounds")
         if _alpha_bbox(image) is None:
             problems.append(f"{rel}: fully transparent")
     return checked

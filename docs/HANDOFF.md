@@ -2,12 +2,42 @@
 
 ## Current State
 
-**FQ-20 (HUD command center, direct manipulation, and painted chrome)
-implemented and verified — the HUD now wears the actual rendered art from the
-operator's blueprint mockup, the dock is the single command center for what
-is open or closed, and edit mode is direct drag-to-move plus corner-grip
-resize** (run `20260715_coheronia_fq20_command_center_chrome`; lineage: … ->
-FQ-19 (`a4d2ea1`) -> FQ-20; Godot 4.6.1 stable). Suite at 318/318.
+**FQ-21 (one-piece full-width dock band) implemented and verified — the dock
+is now four native-aspect pieces sliced whole from the operator's blueprint
+mockup, spanning the screen edge-to-edge: left health-orb cap, mirror-tiled
+plate, a fixed center block with a uniformly rebuilt slot track, and the
+right attunement-crystal cap. Nothing is stretched, nothing is color-keyed,
+and every runtime coordinate comes from the slicer's geometry sidecar** (run
+`20260715_coheronia_fq21_one_piece_band`; lineage: … -> FQ-20 (`a6661f6`) ->
+FQ-21; Godot 4.6.1 stable). Suite at 319/319.
+
+## FQ-21 Additions
+
+- **Band pieces** (`slice_hud_chrome.py`): `dock_left_cap` (punched glass,
+  de-reddened bevel), `dock_right_cap` (baked crystal kept; charge is a
+  luminous bottom-up overlay), `dock_mid_tile` (the one clean grain segment,
+  mirror-extended so tiling reads as paneling, then TILED — never
+  stretched), `dock_center_block` (nav buttons with baked labels; the slot
+  track refilled with tiled plate and five clean frames at even pitch,
+  because the baked slots varied and slot 3 was painted selected).
+- **Geometry sidecar** `dock_band_geometry.json`: glass/crystal centers and
+  radii, slot rects, button zones — written by the slicer, loaded by hud.gd
+  (`_load_band_geometry`). Hand-synced coordinates are gone; they were the
+  root of the masking misalignments.
+- **hud.gd band mode** (`_build_dock_band`; the FQ-19/20 modular
+  construction remains the fallback): full-width anchored band, health
+  liquid UNDER the punched cap, charge overlay OVER the crystal, values ON
+  the glass (blueprint), slot overlays (icon centered / count bottom-right /
+  key top-left; selection = gold border overlay), invisible click zones over
+  the baked buttons (hover sheen), command chips between the pedestals, the
+  summary as a floating chip, mining progress floating above the plate.
+- **Vessel sockets** for the operator's planned liquid mechanics:
+  `vessel_socket(kind)` exposes glass geometry + the fill node;
+  `replace_vessel_fill(kind, node)` swaps any Range-derived control in —
+  `update_health`/`update_attunement` only ever drive the Range interface.
+  Smoke-proven (`fq21_vessel_socket` swaps a stub in and back).
+- **Smoke** 319: `fq21_dock_band_one_piece`, `fq21_vessel_socket`; fq13p2 /
+  fq18 / fq20 checks evolved for band mode.
 
 ## FQ-20 Additions
 

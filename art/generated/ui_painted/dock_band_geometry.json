@@ -1,0 +1,100 @@
+{
+  "comment": "All values in native mockup art px. band_top is the shared vertical origin; piece y offsets are relative to it.",
+  "band_top": 524,
+  "left_cap": {
+    "size": [
+      178,
+      196
+    ],
+    "y_offset": 16,
+    "glass_center": [
+      98,
+      102
+    ],
+    "glass_radius": 60
+  },
+  "right_cap": {
+    "size": [
+      185,
+      216
+    ],
+    "y_offset": 0,
+    "crystal_center": [
+      84,
+      79
+    ],
+    "crystal_radius": 48
+  },
+  "center_block": {
+    "size": [
+      662,
+      124
+    ],
+    "y_offset": 52,
+    "slots": [
+      [
+        121,
+        20,
+        80,
+        84
+      ],
+      [
+        203,
+        20,
+        80,
+        84
+      ],
+      [
+        284,
+        20,
+        80,
+        84
+      ],
+      [
+        365,
+        20,
+        80,
+        84
+      ],
+      [
+        447,
+        20,
+        80,
+        84
+      ]
+    ],
+    "buttons": {
+      "inventory": [
+        3,
+        29,
+        48,
+        52
+      ],
+      "character": [
+        55,
+        29,
+        50,
+        52
+      ],
+      "skills": [
+        550,
+        29,
+        50,
+        52
+      ],
+      "town_hall": [
+        604,
+        29,
+        52,
+        52
+      ]
+    }
+  },
+  "mid_tile": {
+    "size": [
+      42,
+      124
+    ],
+    "y_offset": 52
+  }
+}

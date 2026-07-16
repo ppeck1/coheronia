@@ -781,12 +781,19 @@ func _run() -> void:
 			str(BlockRegistry.visual_texture("ui", "button_settings") != null),
 			str(BlockRegistry.visual_texture("ui", "orb_health_frame") != null)])
 
-	# the live hotbar slot consumes the placeholder frame (StyleBoxTexture).
-	var _p2_slot0 = hud._hotbar_slots[0].get_theme_stylebox("panel")
+	# the live hotbar slot consumes frame art. FQ-21 band mode: the normal
+	# frame is BAKED into the one-piece center block (the overlay stylebox is
+	# deliberately empty) and the gold selection stylebox stays textured.
+	# Sample a NON-selected slot — the selected one wears the gold texture.
+	var _p2_slot0 = hud._hotbar_slots[(player.selected_slot + 1) % 5].get_theme_stylebox("panel")
+	var _p2_normal_ok: bool = (hud._slot_normal_sb is StyleBoxEmpty) \
+		if hud._dock_band_active else (hud._slot_normal_sb is StyleBoxTexture)
+	var _p2_slot0_ok: bool = _p2_slot0 is StyleBoxEmpty \
+		if hud._dock_band_active else _p2_slot0 is StyleBoxTexture
 	_check("fq13p2_slot_frame_consumed",
-		hud._slot_normal_sb is StyleBoxTexture
+		_p2_normal_ok
 		and hud._slot_selected_sb is StyleBoxTexture
-		and _p2_slot0 is StyleBoxTexture,
+		and _p2_slot0_ok,
 		"normal=%s selected=%s slot0=%s" % [
 			str(hud._slot_normal_sb is StyleBoxTexture),
 			str(hud._slot_selected_sb is StyleBoxTexture),
@@ -1031,61 +1038,78 @@ func _run() -> void:
 	# (The contextual-stack check lives at the end of the suite: its real-time
 	# auto-hide waits must not shift the live music clip-switch timing.)
 
-	# FQ-19: final dock art consumed — the ornate backplate 9-slice spans ONLY
-	# the central panel; the two resource orbs are their own flanking siblings
-	# in the band (Photo 1/2), never children of the plate; glyph icons (with
-	# the plate baked in) sit on all four nav buttons; the toolbelt cells
-	# reserve the raised-selection travel.
-	var _fq19_dock_sb: StyleBox = hud._dock_panel.get_theme_stylebox("panel")
-	var _fq19_band_vessels := 0
-	for _fq19_kid in hud._bottom_dock.get_children():
-		if str(_fq19_kid.name).ends_with("Vessel"):
-			_fq19_band_vessels += 1
-	var _fq19_orbs_outside_panel: bool = _fq19_band_vessels == 2 \
-		and hud._dock_panel.find_child("*Vessel*", true, false) == null
-	var _fq19_art_buttons := 0
-	for _fq19_name in ["DockActionInventory", "DockActionCharacter",
+	# FQ-21: the one-piece full-width painted band — four native-aspect
+	# pieces present (caps, tiling plate, center block), the band spanning
+	# the viewport width, five slot overlays, and geometry loaded from the
+	# slicer sidecar (the center block texture matches its declared size).
+	var _fq21_geometry: Dictionary = hud._load_band_geometry()
+	var _fq21_block: TextureRect = hud._bottom_dock.find_child("BandCenterBlock", true, false)
+	var _fq21_pieces_ok: bool = hud._dock_band_active \
+		and hud._bottom_dock.find_child("BandLeftCap", true, false) != null \
+		and hud._bottom_dock.find_child("BandRightCap", true, false) != null \
+		and hud._bottom_dock.find_child("BandTileLeft", true, false) != null \
+		and _fq21_block != null and _fq21_block.texture != null \
+		and _fq21_block.texture.get_size().is_equal_approx(
+			Vector2(float(_fq21_geometry.center_block.size[0]),
+				float(_fq21_geometry.center_block.size[1])))
+	var _fq21_full_width: bool = hud._bottom_dock.size.x >= \
+		get_viewport().get_visible_rect().size.x - 1.0
+	var _fq21_nav_found := 0
+	for _fq21_name in ["DockActionInventory", "DockActionCharacter",
 			"DockActionSkills", "DockActionTownHall"]:
-		var _fq19_btn: Node = hud._bottom_dock.find_child(_fq19_name, true, false)
-		if _fq19_btn is Button and (_fq19_btn as Button).icon != null:
-			_fq19_art_buttons += 1
-	_check("fq19_dock_final_art_consumed",
-		_fq19_dock_sb is StyleBoxTexture
-		and (_fq19_dock_sb as StyleBoxTexture).texture != null
-		and _fq19_orbs_outside_panel
-		and _fq19_art_buttons == 4
-		and hud._hotbar_cells.size() == 5,
-		"backplate=%s band_vessels=%d orbs_outside=%s glyph_buttons=%d cells=%d" % [
-			str(_fq19_dock_sb.get_class()), _fq19_band_vessels,
-			str(_fq19_orbs_outside_panel), _fq19_art_buttons,
-			hud._hotbar_cells.size()])
+		var _fq21_btn: Node = hud._bottom_dock.find_child(_fq21_name, true, false)
+		if _fq21_btn is Button and (_fq21_btn as Button).tooltip_text != "":
+			_fq21_nav_found += 1
+	_check("fq21_dock_band_one_piece",
+		_fq21_pieces_ok and _fq21_full_width and _fq21_nav_found == 4
+		and hud._hotbar_slots.size() == 5,
+		"pieces=%s full_width=%s nav=%d slots=%d" % [str(_fq21_pieces_ok),
+			str(_fq21_full_width), _fq21_nav_found, hud._hotbar_slots.size()])
 
-	# FQ-20: painted mockup chrome consumed — the riveted dock plate strip,
-	# the painted orb ring with the mockup glass geometry, painted slot
-	# frames, and painted module frames distinct from the dock plate.
-	var _fq20_plate_ok: bool = _fq19_dock_sb is StyleBoxTexture \
-		and (_fq19_dock_sb as StyleBoxTexture).texture.get_size() == Vector2(24, 124)
-	var _fq20_orb_tex: Texture2D = (hud._attunement_frame as TextureRect).texture
-	var _fq20_orb_ok: bool = _fq20_orb_tex != null \
-		and _fq20_orb_tex.get_size() == Vector2(188, 216)
-	var _fq20_slot_sb: StyleBox = hud._hotbar_slots[0].get_theme_stylebox("panel")
-	var _fq20_slot_ok: bool = _fq20_slot_sb is StyleBoxTexture \
-		and (_fq20_slot_sb as StyleBoxTexture).texture.get_size().x >= 80.0
+	# FQ-21: vessel sockets — the future liquid mechanic's plug-in point.
+	# Both sockets expose glass geometry + a Range fill, and a replacement
+	# Range keeps receiving update_health values.
+	var _fq21_health_socket: Dictionary = hud.vessel_socket("health")
+	var _fq21_attune_socket: Dictionary = hud.vessel_socket("attunement")
+	var _fq21_sockets_ok: bool = _fq21_health_socket.get("fill") is Range \
+		and int(_fq21_health_socket.get("glass_diameter", 0)) > 0 \
+		and _fq21_attune_socket.get("fill") is Range
+	var _fq21_stub := ProgressBar.new()
+	_fq21_stub.show_percentage = false
+	var _fq21_swap_ok: bool = hud.replace_vessel_fill("health", _fq21_stub)
+	hud.update_health(41.0, 100.0)
+	var _fq21_drive_ok: bool = is_equal_approx(_fq21_stub.value, 41.0)
+	# Swap a fresh masked fill back in so later checks see the real vessel.
+	var _fq21_restored := TextureProgressBar.new()
+	var _fq21_mask: Texture2D = hud._glass_mask_texture(
+		int(_fq21_health_socket.get("glass_diameter", 60)))
+	_fq21_restored.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
+	_fq21_restored.texture_under = _fq21_mask
+	_fq21_restored.tint_under = Color(0.02, 0.04, 0.08, 0.88)
+	_fq21_restored.texture_progress = _fq21_mask
+	_fq21_restored.tint_progress = Color(0.82, 0.12, 0.10)
+	hud.replace_vessel_fill("health", _fq21_restored)
+	hud.update_health(player.health, player.max_health)
+	_check("fq21_vessel_socket",
+		_fq21_sockets_ok and _fq21_swap_ok and _fq21_drive_ok,
+		"sockets=%s swap=%s drive=%s" % [str(_fq21_sockets_ok),
+			str(_fq21_swap_ok), str(_fq21_drive_ok)])
+
+	# FQ-20: painted mockup chrome consumed elsewhere — painted module
+	# frames on crest/events (distinct textures from the band pieces).
 	var _fq20_crest_sb: StyleBox = (hud._top_left_box as PanelContainer).get_theme_stylebox("panel")
 	var _fq20_events_sb: StyleBox = hud._event_panel.get_theme_stylebox("panel")
 	var _fq20_frames_ok: bool = _fq20_crest_sb is StyleBoxTexture \
 		and _fq20_events_sb is StyleBoxTexture \
-		and (_fq20_crest_sb as StyleBoxTexture).texture \
-			!= (_fq19_dock_sb as StyleBoxTexture).texture
-	_check("fq20_painted_chrome_consumed",
-		_fq20_plate_ok and _fq20_orb_ok and _fq20_slot_ok and _fq20_frames_ok,
-		"plate=%s orb=%s slot=%s frames=%s" % [str(_fq20_plate_ok),
-			str(_fq20_orb_ok), str(_fq20_slot_ok), str(_fq20_frames_ok)])
+		and (_fq20_crest_sb as StyleBoxTexture).texture != _fq21_block.texture
+	_check("fq20_painted_chrome_consumed", _fq20_frames_ok,
+		"crest=%s events=%s" % [str(_fq20_crest_sb.get_class()),
+			str(_fq20_events_sb.get_class())])
 
 	# FQ-20: the dock is the command center — five module toggle chips live
 	# inside the dock panel, drive the modules, and mirror external changes.
 	var _fq20_cc_ok: bool = hud._module_toolbar != null \
-		and hud._dock_panel.is_ancestor_of(hud._module_toolbar) \
+		and hud._bottom_dock.is_ancestor_of(hud._module_toolbar) \
 		and hud._command_toggles.size() == 5
 	var _fq20_crest_chip: Button = hud._command_toggles.get("Crest")
 	var _fq20_cc_before: bool = hud._top_left_box.visible
@@ -3767,8 +3791,11 @@ func _run() -> void:
 			"DockActionSkills", "DockActionTownHall"]:
 		var _fq18_node: Node = hud._bottom_dock.find_child(_fq18_name, true, false) \
 			if hud._bottom_dock != null else null
+		# FQ-21: band-mode buttons are invisible click zones over the BAKED
+		# button art — the tooltip is their visible identity.
 		if _fq18_node is Button \
-				and ((_fq18_node as Button).icon != null or (_fq18_node as Button).text != ""):
+				and ((_fq18_node as Button).icon != null or (_fq18_node as Button).text != ""
+					or (_fq18_node as Button).tooltip_text != ""):
 			_fq18_nav_found += 1
 	var _fq18_nav_ok := _fq18_toolbar_labels == ["Crest", "Goal", "Events", "Map", "Edit"] \
 		and _fq18_nav_found == 4
