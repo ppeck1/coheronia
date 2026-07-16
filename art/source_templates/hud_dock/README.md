@@ -46,6 +46,10 @@ Regenerate the two authoring aids after any accepted source change:
 - `hud_dock_composite_preview.png` shows the current chrome with representative
   fills, values, icons, counts, hotkeys, labels, and UI states.
 
+The foreground trim's occupied alpha must terminate at native `y=50`, the
+upper backplate-rail edge. Environmental dressing extends upward from that
+baseline; it must never be positioned on the lower rail.
+
 These two review PNGs are attachments/templates only and are never loaded by
 the game.
 

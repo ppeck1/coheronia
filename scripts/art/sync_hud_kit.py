@@ -241,6 +241,16 @@ def validate_asset(
                     errors.append(
                         f"{path.name}: alpha coverage {coverage:.3f} exceeds {float(maximum):.3f}"
                     )
+                baseline = rule.get("alpha_baseline_y")
+                if baseline is not None:
+                    bbox = image.getchannel("A").getbbox()
+                    expected = int(baseline)
+                    if bbox is None or bbox[3] != expected:
+                        actual = "empty" if bbox is None else str(bbox[3])
+                        errors.append(
+                            f"{path.name}: occupied alpha baseline {actual} must equal "
+                            f"layout rail y={expected}"
+                        )
                 if bool(rule.get("binary_alpha", False)):
                     values = set(image.getchannel("A").tobytes())
                     if not values.issubset({0, 255}) or values != {0, 255}:

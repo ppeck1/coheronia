@@ -197,8 +197,9 @@ def main() -> int:
                 "max_coverage": 0.75,
             },
             "dock_foreground_trim.png": {
-                "min_coverage": 0.01,
-                "max_coverage": 0.15,
+                "min_coverage": 0.002,
+                "max_coverage": 0.05,
+                "alpha_baseline_y": 50,
                 "transparent_rects": [[8, 8, 160, 160], [1112, 8, 160, 160]],
             },
             "health_fill_mask.png": {"binary_alpha": True},

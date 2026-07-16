@@ -143,6 +143,7 @@
     "dock_foreground_trim.png": {
       "min_coverage": 0.002,
       "max_coverage": 0.05,
+      "alpha_baseline_y": 50,
       "transparent_rects": [
         [
           8,

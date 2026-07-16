@@ -86,6 +86,9 @@ The current real-game comparison capture is [`docs/screenshots/10_vessel_damage_
 - The environmental trim must occupy between 0.2 and 5 percent of its canvas;
   this prevents both an accidentally empty export and a return to continuous,
   visually dominant rails.
+- The environmental trim must sit on the upper backplate rail: its lowest
+  occupied alpha row ends at native `y=50`. Nothing may be dressed along the
+  lower rail.
 - Slot and button state families must retain the exact occupied alpha silhouette of their normal state.
 - Button glyphs must preserve at least two transparent pixels around the occupied icon silhouette.
 - Theme variants must use `<base-stem>__<theme-id>.png`, match the base file's
@@ -140,7 +143,7 @@ Use the asset-specific prompt below as the complete instruction for that task. I
 
 ### Dock Foreground Trim
 
-> Create new artwork inside the attached `dock_foreground_trim.png` canvas for Coheronia. Return exactly one 1280 x 176 RGBA PNG on the same canvas. Use the attached runtime guide, current backplate, composite, and in-game screenshot as immutable geometry references. The backplate already owns the rails and structural hardware; do not redraw, trace, brighten, or duplicate them. Paint only sparse, low-contrast environmental dressing and seam concealment: a little dirt accumulation along portions of the bottom rail, two or three tiny stone/rubble clusters near major seams, occasional restrained moss or a short vine crossing otherwise empty structure, and subtle wear near the outer dock edges. Both 160 x 160 vessel keep-outs must remain fully transparent. Nothing may obstruct a button, slot, label, icon, count, hotkey, value, or control silhouette. Most of the canvas must remain transparent. Avoid continuous lines, symmetrical decoration, saturated green, bright highlights, large foliage, repeated motifs, glow, blur, shadows outside the dressing, an opaque background, named-game imitation, or canvas resize.
+> Create new artwork inside the attached `dock_foreground_trim.png` canvas for Coheronia. Return exactly one 1280 x 176 RGBA PNG on the same canvas. Use the attached runtime guide, current backplate, composite, and in-game screenshot as immutable geometry references. The backplate already owns the rails and structural hardware; do not redraw, trace, brighten, or duplicate them. Paint only sparse, low-contrast environmental dressing and seam concealment resting on the upper backplate rail. The lowest occupied alpha must end at native y=50; do not place dirt, rubble, moss, vines, or wear on the lower rail. Use a little dirt accumulation, two or three tiny stone/rubble clusters near major seams, occasional restrained moss or a short vine, and subtle wear near the outer dock edges. Both 160 x 160 vessel keep-outs must remain fully transparent. Nothing may obstruct a button, slot, label, icon, count, hotkey, value, or control silhouette. Most of the canvas must remain transparent. Avoid continuous lines, symmetrical decoration, saturated green, bright highlights, large foliage, repeated motifs, glow, blur, shadows outside the dressing, an opaque background, named-game imitation, or canvas resize.
 
 ### Health Frame
 

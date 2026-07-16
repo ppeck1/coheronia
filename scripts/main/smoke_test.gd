@@ -1189,6 +1189,13 @@ func _run() -> void:
 			break
 	var _fq21_trim_tex: Texture2D = hud._painted_texture("dock_foreground_trim")
 	var _fq21_trim_img: Image = _fq21_trim_tex.get_image() if _fq21_trim_tex != null else null
+	var _fq21_alpha_rules: Dictionary = _fq21_geometry.get("alpha_rules", {})
+	var _fq21_trim_rule: Dictionary = _fq21_alpha_rules.get("dock_foreground_trim.png", {})
+	var _fq21_trim_baseline_y := int(_fq21_trim_rule.get("alpha_baseline_y", -1))
+	var _fq21_trim_used: Rect2i = _fq21_trim_img.get_used_rect() \
+		if _fq21_trim_img != null else Rect2i()
+	var _fq21_trim_on_upper_rail: bool = _fq21_trim_baseline_y >= 0 \
+		and _fq21_trim_used.end.y == _fq21_trim_baseline_y
 	var _fq21_trim_keepouts := _fq21_trim_img != null
 	if _fq21_trim_img != null:
 		for _fq21_vessel_name in ["health", "attunement"]:
@@ -1210,8 +1217,9 @@ func _run() -> void:
 		_fq21_frame_clear and _fq21_slots_uniform and _fq21_map_padded \
 		and _fq21_full_nav_cell and _fq21_visible_nav_label \
 		and _fq21_json_content and _fq21_rail_aligned \
-		and _fq21_trim_keepouts and _fq21_native_integer,
-		"frame_clear=%s slot_size=%s selected=%s gap=%.1f map=%s nav_h=%.1f label=%s content=%s rail_y=%.1f aligned=%s trim=%s integer=%s" % [
+		and _fq21_trim_on_upper_rail and _fq21_trim_keepouts \
+		and _fq21_native_integer,
+		"frame_clear=%s slot_size=%s selected=%s gap=%.1f map=%s nav_h=%.1f label=%s content=%s rail_y=%.1f aligned=%s trim_baseline=%d trim_end=%d trim=%s integer=%s" % [
 			str(_fq21_frame_clear),
 			_fq21_slot_normal.get_size() if _fq21_slot_normal != null else Vector2.ZERO,
 			_fq21_slot_selected.get_size() if _fq21_slot_selected != null else Vector2.ZERO,
@@ -1219,6 +1227,7 @@ func _run() -> void:
 			_fq21_town_hit.size.y if _fq21_town_hit != null else 0.0,
 			str(_fq21_visible_nav_label), str(_fq21_json_content),
 			_fq21_control_rail_y, str(_fq21_rail_aligned),
+			_fq21_trim_baseline_y, _fq21_trim_used.end.y,
 			str(_fq21_trim_keepouts),
 			str(_fq21_native_integer)])
 
