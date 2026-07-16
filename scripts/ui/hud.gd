@@ -1003,6 +1003,8 @@ func _build_hud_kit(layout: Dictionary) -> void:
 		if not raw_layer is Dictionary:
 			continue
 		var layer_def: Dictionary = raw_layer
+		if not bool(layer_def.get("enabled", true)):
+			continue
 		var asset_file := str(layer_def.get("asset", ""))
 		var asset_id := asset_file.trim_suffix(".png")
 		var layer := _kit_layer(band, str(layer_def.get("name", asset_id)),

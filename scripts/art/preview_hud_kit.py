@@ -58,7 +58,10 @@ def _masked_fill(mask_name: str, fraction: float, color: tuple[int, int, int, in
 def render_composite(layout: dict) -> Image.Image:
     width, height = map(int, layout["native_size"])
     canvas = Image.new("RGBA", (width, height), (69, 89, 119, 255))
-    layers = sorted(layout["decorative_layers"], key=lambda layer: int(layer["z"]))
+    layers = sorted(
+        (layer for layer in layout["decorative_layers"] if layer.get("enabled", True)),
+        key=lambda layer: int(layer["z"]),
+    )
     for layer in layers:
         if int(layer["z"]) <= 0:
             _paste(canvas, _open_asset(layer["asset"]), layer["rect"])

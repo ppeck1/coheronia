@@ -1051,9 +1051,19 @@ func _run() -> void:
 	# four registered action controls.
 	var _fq21_geometry: Dictionary = hud._load_hud_kit_layout()
 	var _fq21_block: TextureRect = hud._bottom_dock.find_child("DockBackplate", true, false)
+	var _fq21_trim_enabled := true
+	for _fq21_layer_raw in _fq21_geometry.get("decorative_layers", []):
+		if _fq21_layer_raw is Dictionary \
+				and str((_fq21_layer_raw as Dictionary).get("role", "")) == "foreground_trim":
+			_fq21_trim_enabled = bool((_fq21_layer_raw as Dictionary).get("enabled", true))
+			break
+	var _fq21_trim_node: Node = hud._bottom_dock.find_child(
+		"DockForegroundTrim", true, false)
+	var _fq21_trim_toggle_ok: bool = (_fq21_trim_enabled and _fq21_trim_node != null) \
+		or (not _fq21_trim_enabled and _fq21_trim_node == null)
 	var _fq21_pieces_ok: bool = hud._hud_kit_active and hud._dock_band_active \
 		and _fq21_block != null and _fq21_block.texture != null \
-		and hud._bottom_dock.find_child("DockForegroundTrim", true, false) != null \
+		and _fq21_trim_toggle_ok \
 		and hud._bottom_dock.find_child("HealthFrame", true, false) != null \
 		and hud._bottom_dock.find_child("AttunementFrame", true, false) != null \
 		and _fq21_block.texture.get_size().is_equal_approx(
@@ -1073,7 +1083,8 @@ func _run() -> void:
 	_check("fq21_hud_kit_primary",
 		_fq21_pieces_ok and _fq21_full_width and _fq21_nav_found == 4
 		and hud._hotbar_slots.size() == 5,
-		"pieces=%s full_width=%s nav=%d slots=%d children=%s" % [str(_fq21_pieces_ok),
+		"pieces=%s trim_enabled=%s trim_toggle=%s full_width=%s nav=%d slots=%d children=%s" % [
+			str(_fq21_pieces_ok), str(_fq21_trim_enabled), str(_fq21_trim_toggle_ok),
 			str(_fq21_full_width), _fq21_nav_found, hud._hotbar_slots.size(),
 			str(_fq21_child_names)])
 

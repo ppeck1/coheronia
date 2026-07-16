@@ -189,6 +189,11 @@ def main() -> int:
                 "rect": [0, 0, W, H],
                 "z": 3,
                 "role": "foreground_trim",
+                "enabled": False,
+                "status_note": (
+                    "Disabled pending a new in-game fit and anchoring pass; current "
+                    "environmental dressing appears detached from the dock."
+                ),
             },
         ],
         "alpha_rules": {

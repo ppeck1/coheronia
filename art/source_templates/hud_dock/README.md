@@ -50,6 +50,11 @@ The foreground trim's occupied alpha must terminate at native `y=50`, the
 upper backplate-rail edge. Environmental dressing extends upward from that
 baseline; it must never be positioned on the lower rail.
 
+`DockForegroundTrim` is currently disabled with `enabled: false` in the layout.
+The present dressing still appears visually detached in-game and needs a new
+fit/anchoring pass. Keep the asset and contract intact until that replacement
+is reviewed; re-enable it only after a fresh runtime capture passes.
+
 These two review PNGs are attachments/templates only and are never loaded by
 the game.
 

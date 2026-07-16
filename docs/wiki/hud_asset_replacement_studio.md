@@ -119,6 +119,12 @@ The current real-game comparison capture is [`docs/screenshots/10_vessel_damage_
 | `button_icon_skills.png` | 32 x 32 | Skills glyph only |
 | `button_icon_town_hall.png` | 32 x 32 | Town Hall glyph only |
 
+> **Current status:** `DockForegroundTrim` is disabled through
+> `hud_dock_layout.json` (`enabled: false`). The existing environmental
+> dressing appears detached in-game and needs another fit/anchoring pass.
+> Preserve the asset and its fallback contract, but do not re-enable it until a
+> new runtime capture confirms that it is visually attached to the dock.
+
 ## Recommended Replacement Order
 
 - Establish `dock_backplate.png` and `dock_foreground_trim.png` together.

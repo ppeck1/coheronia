@@ -125,6 +125,8 @@ def validate_layout(layout: dict, sizes: dict[str, tuple[int, int]]) -> list[str
                 raise ValueError(f"decorative_layers[{index}] needs a node name")
             if not isinstance(layer.get("z"), int):
                 raise ValueError(f"decorative_layers[{index}].z must be an integer")
+            if "enabled" in layer and not isinstance(layer["enabled"], bool):
+                raise ValueError(f"decorative_layers[{index}].enabled must be a boolean")
             role = layer.get("role")
             if not isinstance(role, str) or not role:
                 raise ValueError(f"decorative_layers[{index}] needs a role")
