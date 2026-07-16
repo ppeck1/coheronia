@@ -83,6 +83,9 @@ The current real-game comparison capture is [`docs/screenshots/10_vessel_damage_
 - Keep visual hierarchy restrained: dark wood and iron support the content; brass is an accent, not a full outline on every object.
 - Judge backplate and trim with every runtime child visible. Decorative marks must not visually imply or duplicate slots, buttons, vessels, labels, or progress bars.
 - `dock_foreground_trim.png` must remain completely transparent inside both 160 x 160 vessel-frame keep-outs shown in `hud_dock_runtime_guide.png`; it renders above the vessel frames.
+- The environmental trim must occupy between 0.2 and 5 percent of its canvas;
+  this prevents both an accidentally empty export and a return to continuous,
+  visually dominant rails.
 - Slot and button state families must retain the exact occupied alpha silhouette of their normal state.
 - Button glyphs must preserve at least two transparent pixels around the occupied icon silhouette.
 - Theme variants must use `<base-stem>__<theme-id>.png`, match the base file's

@@ -141,8 +141,8 @@
       "max_coverage": 0.75
     },
     "dock_foreground_trim.png": {
-      "min_coverage": 0.01,
-      "max_coverage": 0.15,
+      "min_coverage": 0.002,
+      "max_coverage": 0.05,
       "transparent_rects": [
         [
           8,
