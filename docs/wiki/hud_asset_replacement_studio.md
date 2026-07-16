@@ -22,6 +22,8 @@ Do not delegate fill masks or runtime information as freeform art. Health, attun
 
 The source file is authoritative. Never paste a generated image directly into the runtime directory as the only copy.
 
+When all 19 assets and the layout are valid, `hud.gd` selects this native kit first. The FQ-21 sliced four-piece band and FQ-19 modular dock remain fallback paths rather than current art targets.
+
 ## Non-Negotiable Export Rules
 
 - Keep the exact filename and exact pixel dimensions in the table below.

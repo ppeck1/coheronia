@@ -1009,9 +1009,11 @@
             <a class="doc-link" href="skills.html">Skills<small>Live Miner lane, planned lanes, and skill-system work queue</small></a>
             <a class="doc-link" href="image_continuation.html">Image Continuation<small>Future image-work handoff and public-safety checks</small></a>
             <a class="doc-link" href="hud_asset_replacement_studio.html">HUD Asset Replacement Studio<small>Drop-in template contract and one ChatGPT brief per dock asset</small></a>
+            <a class="doc-link" href="known_issues.html">Known Issues<small>Active presentation defects, verification targets, and intentional limits</small></a>
             <a class="doc-link" href="character_types.html">Character Types<small>Species, roles, traits, and ancestries</small></a>
             <a class="doc-link" href="wiki.html">Wiki Overview<small>HTML view of the canonical planning and maintenance page</small></a>
             <a class="doc-link" href="../ITEM_AND_RECIPE_MATRIX.html">Item And Recipe Matrix<small>Strict audit of items, equipment, and routes</small></a>
+            <a class="doc-link" href="../VARIABLE_MATRIX.html">Variable Matrix<small>Current authority, ownership, consumers, fallbacks, and presentation defects</small></a>
             <a class="doc-link" href="../ITEM_GRAPH.html">Strict Item Graph Audit<small>Full acquisition and crafting graph source</small></a>
             <a class="doc-link" href="../IMAGE_INVENTORY_MATRIX.html">Image Inventory Matrix<small>Image families, placeholders, and deferred art</small></a>
             <a class="doc-link" href="../ASSET_ROADMAP.html">Asset Roadmap<small>Future-facing visual planning surface</small></a>
@@ -1027,7 +1029,7 @@
             <span class="chip warn">Drops need stronger sinks</span>
             <span class="chip warn">Metallurgy has dead ends</span>
             <span class="chip future">10 planned enemy hooks</span>
-            <span class="chip danger">0 gear overlays authored</span>
+            <span class="chip ok">120 gear overlays authored</span>
           </div>
         </div>
       </aside>
@@ -1122,8 +1124,8 @@
                   <div class="icon-row">
                     <img src="../../art/generated/ui/button_settings.png" alt="Settings button icon">
                     <div>
-                      <strong>5 deliberate UI placeholders</strong>
-                      <span>These are intentional hold surfaces, not broken file gaps.</span>
+                      <strong>19-layer primary HUD kit</strong>
+                      <span>Native chrome is separated from runtime values, icons, fills, and state.</span>
                     </div>
                   </div>
                 </div>
@@ -1298,6 +1300,14 @@
                   <span>Exact drop-in canvas contracts and a ready-to-paste image-editing brief for every dock piece.</span>
                 </div>
               </a>
+
+              <a class="directory-card search-target" href="known_issues.html" data-search="known issues gear overlay load alignment swing tool weapon hud padding masking limitations">
+                <img src="../screenshots/10_vessel_damage_states.png" alt="HUD vessels at partial runtime values">
+                <div>
+                  <strong>Known Issues</strong>
+                  <span>Current presentation defects, intentional scope limits, and the evidence required to close them.</span>
+                </div>
+              </a>
             </div>
           </div>
         </section>
@@ -1322,10 +1332,10 @@
                 <span><code>silver_ingot</code>, <code>bronze_ingot</code>, and <code>crystal</code> are great planning anchors because they are real, live, and still under-consumed.</span>
               </article>
 
-              <article class="status-card search-target" data-search="equipment overlays player gear art deferred not blocker">
-                <div class="status-label future">Visual Hook</div>
-                <strong>Gear overlays are deferred, not broken</strong>
-                <span>The <code>player_gear</code> family is still empty on purpose. It is a readability and polish opportunity, not a mechanics blocker.</span>
+              <article class="status-card search-target" data-search="equipment overlays player gear load alignment swing known issue">
+                <div class="status-label warn">Known Issue</div>
+                <strong>Gear coverage is live; refresh and motion need polish</strong>
+                <span>120 body-specific crude-armor/tool PNGs ship. Some transitions can miss or misalign an overlay, and pick/axe motion still snaps across three poses.</span>
               </article>
 
               <article class="status-card search-target" data-search="dead equipment ring band amulet focus">
@@ -1486,22 +1496,22 @@
                         <td>Enemy art is currently healthy and should not be mistaken for an active gap.</td>
                       </tr>
                       <tr>
-                        <td>UI hooks</td>
-                        <td><code>art/generated/ui/&lt;id&gt;.png</code></td>
-                        <td>10 live, 5 deliberate placeholders</td>
-                        <td>Some placeholders are authored on purpose and should be treated as reserved hooks, not missing assets.</td>
+                        <td>Primary HUD kit</td>
+                        <td><code>art/source_templates/hud_dock/</code> → <code>art/generated/ui_painted/</code></td>
+                        <td>19 native layers plus one JSON layout live</td>
+                        <td>Static chrome is replaceable without baking runtime values, icons, counts, fills, or state.</td>
                       </tr>
                       <tr>
                         <td>Player gear overlays</td>
                         <td><code>art/generated/player_gear/&lt;item_id&gt;_&lt;body_id&gt;.png</code></td>
-                        <td>Hooks exist, no overlay PNGs are authored yet</td>
-                        <td>This is the biggest real future image family if equipment readability becomes a priority.</td>
+                        <td>120 body-specific crude-armor/tool PNGs live</td>
+                        <td>Uncovered equipment falls back procedurally; transition refresh/alignment and swing continuity remain active issues.</td>
                       </tr>
                       <tr>
                         <td>Opening scenes</td>
                         <td><code>art/generated/opening/&lt;scene_id&gt;_01.png</code>...</td>
-                        <td>Deferred by design</td>
-                        <td>The game already has a safe plotted fallback, so this is presentation polish, not broken content.</td>
+                        <td>Eight pools / ten authored PNGs live</td>
+                        <td>The plotted fallback remains available; future work is optional animation expansion rather than an empty family.</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1647,6 +1657,13 @@
                   <span>Strict inventory of item ids, equipment, stations, routes, and recipe edge cases.</span>
                 </div>
               </a>
+              <a class="directory-card" href="../VARIABLE_MATRIX.html">
+                <img src="../../art/generated/ui_painted/button_icon_character.png" alt="Character authority icon">
+                <div>
+                  <strong>Variable Matrix</strong>
+                  <span>Current authorities, persistence ownership, runtime consumers, fallbacks, and active presentation defects.</span>
+                </div>
+              </a>
               <a class="directory-card" href="../ITEM_GRAPH.html">
                 <img src="../../art/generated/items/ore.png" alt="Ore icon">
                 <div>
@@ -1691,9 +1708,9 @@
                 <img src="../screenshots/01_settlement_day.png" alt="Settlement day screenshot">
                 <figcaption>Settlement baseline. Useful for grounding the overall look, terrain readability, HUD information density, and Town Hall presence.</figcaption>
               </a>
-              <a class="shot" href="../screenshots/03_inventory.png">
-                <img src="../screenshots/03_inventory.png" alt="Inventory screenshot">
-                <figcaption>Inventory-facing truth surface. Good for terminology, icon scale, and the distinction between carried items and equipped gear.</figcaption>
+              <a class="shot" href="../screenshots/10_vessel_damage_states.png">
+                <img src="../screenshots/10_vessel_damage_states.png" alt="HUD resource vessels at partial values">
+                <figcaption>Native HUD-kit runtime-state proof. Health and attunement drain independently while labels, slots, icons, counts, and hotkeys remain live children.</figcaption>
               </a>
               <a class="shot" href="../screenshots/04_town_hall.png">
                 <img src="../screenshots/04_town_hall.png" alt="Town hall screenshot">
@@ -1737,8 +1754,8 @@
               <span><code>bronze_ingot</code> and <code>silver_ingot</code> are ready for stronger downstream systems.</span>
             </div>
             <div class="watch-card">
-              <strong>Gear overlays are a future polish lane</strong>
-              <span>Visual readability could improve there one day, but gameplay is already safe without them.</span>
+              <strong>Gear overlays need reliability and motion polish</strong>
+              <span>120 PNGs are live; the remaining work is transition refresh/alignment, smoother pick/axe arcs, and an authored sword sequence.</span>
             </div>
           </div>
         </div>

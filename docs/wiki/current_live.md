@@ -1,6 +1,6 @@
 # Current Live
 
-Generated: 2026-07-15
+Generated: 2026-07-16
 
 This page lists wiki surfaces that represent current live behavior or currently obtainable data. Source-only entries appear here only when they are live or defined in current data; planning notes are kept on [Planned Data](planned_data.md).
 
@@ -39,6 +39,16 @@ This page lists wiki surfaces that represent current live behavior or currently 
 | [Raider Coins](items/coins.md), [Weapon Scrap](items/scrap_weapons.md) | Raider Basic | Live drops with no sinks yet. |
 | [Oil Rags](items/oil_rags.md), [Torch Heads](items/torch_heads.md) | Raider Torchbearer | Live drops with no sinks yet. |
 
+## Current Presentation Systems
+
+| Surface | Current live state |
+|---|---|
+| Primary HUD | A native 19-asset layered dock kit is the preferred runtime path. Health, attunement, icons, counts, hotkeys, labels, and interaction states remain runtime-driven children positioned from one JSON contract. Map and Events are independent movable modules and can remain open together. |
+| Equipped character presentation | Crude helmet, torso, and feet have authored overlays for all ten current bodies. The basic pick, forged pick, and crude axe have authored three-phase swing overlays for all ten bodies. Other equipment retains a rig-aware procedural fallback. |
+| Opening presentation | All eight opening scenes have authored cel pools, with ten PNGs total. Deterministic plotted scenes remain available as fallback. |
+
+Presentation defects that do not invalidate the gameplay state are tracked on [Known Issues](known_issues.md).
+
 ## Live Species
 
 [Human](characters/species/human.md), [Dwarf](characters/species/dwarf.md), [Elf](characters/species/elf.md), [Goblin](characters/species/goblin.md), and [Orc](characters/species/orc.md) are live species entries through `data/character_data.json`.
@@ -48,4 +58,5 @@ This page lists wiki surfaces that represent current live behavior or currently 
 - [Items](items.md)
 - [Recipes](recipes.md)
 - [Status Browser](status_browser.md)
+- [Known Issues](known_issues.md)
 - [Wiki Overview](wiki.md)

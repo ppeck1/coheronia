@@ -1,6 +1,6 @@
 # Coheronia Wiki
 
-Generated: 2026-07-15
+Generated: 2026-07-16
 
 ## Scope
 
@@ -14,12 +14,12 @@ Generated: 2026-07-15
 
 | Field | Value |
 |---|---|
-| Generated | 2026-07-15 |
-| Source state | Prepared from the local Coheronia working tree for final security review. |
-| Base repo commit | `49b26ea091206381a8ba4aaa7a643b5cc699eb8b` |
-| Final publish commit | Pending final upload/security check. |
-| Validator | Pending final upload/security check. |
-| Wiki link check | PASS on 2026-07-15 local recursive `docs/wiki` check. |
+| Generated | 2026-07-16 |
+| Source state | Public documentation refresh after native HUD-kit, authored gear-overlay, and opening-cel integration. |
+| Base repo commit | `250a677` before this publication refresh. |
+| Publication branch | `agent/update-public-docs-hud` |
+| Validator | PASS on 2026-07-16; see publication handoff for the final command set. |
+| Wiki link check | PASS on 2026-07-16 local recursive Markdown/HTML target check. |
 
 This wiki is generated from current Coheronia repo data and includes live, internal, and planned-data references. Planned-data pages are not live gameplay unless marked as live.
 
@@ -38,7 +38,7 @@ This wiki is generated from current Coheronia repo data and includes live, inter
 |---|---|---|
 | Runtime image and placeholder rules | What image surfaces exist and how fallback behaves | Prevents false "missing art" reports and keeps placeholder surfaces explicit |
 | Core resources, processed materials, farming, enemy drops | What items exist, where they live, and whether they matter today | Tracks sink coverage and dead ends |
-| Equipment | What gear exists and how it is actually acquired | Tracks equip-path clarity and future overlay needs |
+| Equipment | What gear exists, how it is acquired, and which authored overlays currently ship | Tracks equip-path clarity, current visual coverage, and remaining gaps |
 | Source-only, dead, and internal tokens | What should not be mistaken for real backpack items | Prevents maintenance drift and data confusion |
 | Enemy chance tables | What enemies currently drop | Keeps balance and source-planning visible |
 | Recipe routing reference | What crafting routes exist and where results go | Prevents recipe/data/code drift |
@@ -58,9 +58,9 @@ This wiki is generated from current Coheronia repo data and includes live, inter
 | Block/world art | Covered for current live blocks | Generated block-texture fallback exists | no live blockers | Variant pools are already live for many blocks. |
 | Enemy sprites | Covered for all 6 live enemies | Code-drawn hostile fallback exists | only planned enemy families | No live enemy image gap right now. |
 | Equipment icons | No dedicated live backpack-style equipment icon family in use | Text-only equipment panels and procedural equipped visuals | still deferred by design | This is intentionally not the same thing as item-icon coverage. |
-| Player gear overlays | No authored overlay PNGs yet | Procedural gear/tool presentation | entire `player_gear` family deferred | Biggest live visual hook that still has no authored art. |
-| UI art | 10 live, 5 deliberate placeholders | Code-style fallback on some surfaces; placeholder-authored PNGs on reserved hooks | reserved placeholder hooks still acceptable | Placeholder UI art is deliberate, not broken. |
-| Opening scenes | No authored opening frame PNGs yet | Plotted prologue fallback | full opening frame family deferred | Safe to defer until presentation priority rises. |
+| Player gear overlays | 120 authored body-specific PNGs: crude helmet/torso/feet plus three-phase basic-pick, forged-pick, and crude-axe swings across ten bodies | Generic/rig-aware procedural presentation remains for uncovered or unresolved equipment | swords, iron armor, rings, amulet, accessory, plus alignment/refresh hardening | Current coverage is substantial but an intermittent load/refresh presentation defect remains. |
+| UI art | Primary 19-asset native HUD kit is live under `art/generated/ui_painted/`; legacy reserved hooks also remain | FQ-21 sliced band, FQ-19 modular construction, and code styles are fallback paths | final polish for primary chrome and framed panels | Runtime values/states remain separate from PNGs by contract. |
+| Opening scenes | Eight authored scene pools / ten PNGs are live | Deterministic plotted prologue remains the resilience fallback | optional approved animation/variant expansion | Scene 1 has three frames; the other seven currently use one authored cel each. |
 | Backgrounds and back walls | Covered for current live surfaces | Code-drawn sky / silhouette and darkened wall fallback exists | cave/deep-cave families still future | No current maintenance blocker. |
 
 ## Status Legend
@@ -92,6 +92,7 @@ This wiki is generated from current Coheronia repo data and includes live, inter
   - `skills.md`
   - `image_continuation.md`
   - `hud_asset_replacement_studio.md`
+  - `known_issues.md`
 - Generated leaf pages now live under:
   - `docs/wiki/items/`
   - `docs/wiki/equipment/`
@@ -107,6 +108,7 @@ This wiki is generated from current Coheronia repo data and includes live, inter
 - [IMAGE_INVENTORY_MATRIX.md](../IMAGE_INVENTORY_MATRIX.md) is the full runtime image inventory.
 - [Image Continuation](image_continuation.md) is the wiki handoff page for future image work and public/IP-safety checks.
 - [HUD Asset Replacement Studio](hud_asset_replacement_studio.md) is the drop-in HUD template contract with a ready-to-paste ChatGPT instruction for every dock asset.
+- [Known Issues](known_issues.md) separates active presentation defects from intentional scope limits.
 - This page is the readable maintenance layer above those audits.
 
 ## Runtime Image And Placeholder Rules
@@ -117,9 +119,10 @@ This wiki is generated from current Coheronia repo data and includes live, inter
 | Block/world art | `art/generated/blocks/<id>.png` plus optional `_01.._03` variants | Live and covered | Falls back to generated block texture | Helps separate world blocks from inventory items. |
 | Enemy sprites | `art/generated/enemies/<id>.png` plus optional `_01.._03` variants | Live and covered | Falls back to code-drawn hostile shapes | Live enemies are visually safe even if art regresses. |
 | Equipment item icons | no live 16x16 dedicated equipment icon family in use | Deferred | Equipment panels stay text-based | Important because equipment ids should not be assumed to have backpack-style icons. |
-| Player gear overlays | `art/generated/player_gear/<item_id>_<body_id>.png` or `<item_id>.png` | Hooks live, no PNGs present | Falls back to procedural gear and tool presentation | This is the real future art sink for equipped gear. |
-| UI hooks | `art/generated/ui/<id>.png` | 10 live, 5 deliberate placeholders | Falls back to code styles or text where supported | Placeholder-authored UI art is intentional and should not be mistaken for missing files. |
-| Opening scenes | `art/generated/opening/<scene_id>_01.png`... | Deferred | Falls back to plotted prologue scenes | Not a broken live surface. |
+| Player gear overlays | `art/generated/player_gear/<item_id>_<body_id>.png` and `<tool_id>_<body_id>_swing_<phase>.png` | 120 body-specific crude-armor/tool PNGs live | Body-specific -> generic -> rig-aware procedural fallback | Current unresolved ids and intermittent refresh/alignment are tracked on Known Issues. |
+| Primary HUD kit | authored `art/source_templates/hud_dock/` -> runtime `art/generated/ui_painted/` | 19 required native RGBA layers plus `hud_dock_layout.json` live | FQ-21 sliced band -> FQ-19 modular dock -> code styles | Use the HUD Asset Replacement Studio; do not regenerate assembled mockup slices. |
+| Legacy UI hooks | `art/generated/ui/<id>.png` | 10 live, 5 deliberate placeholders | Code styles or text where supported | Retained for fallback/reserved consumers rather than primary dock authoring. |
+| Opening scenes | `art/generated/opening/<scene_id>_01.png`... | Eight pools / ten PNGs live | Falls back to plotted prologue scenes | Authored cels are preferred without removing deterministic fallback. |
 
 ## Core Resource And Progression Items
 
@@ -179,13 +182,13 @@ This wiki is generated from current Coheronia repo data and includes live, inter
 
 | Item | Storage | Player-facing? | Current source | Current gameplay use | System role | Sink status | Recommended next sink | Image ref | Placeholder / fallback | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `pick_basic` | equipment slot | Yes | Default character gear | Entry mining tool | mining progression | complete | none required now | no dedicated equipment icon; no `player_gear` overlay yet | procedural equipped presentation | The actual starter pick, unlike UI surrogate `pick`. |
-| `pick_forged` | equipment slot | Yes | `basic_pick_upgrade` | Tier-2 mining | mining progression | complete | none required now | no dedicated equipment icon; no `player_gear` overlay yet | procedural equipped presentation | Player-facing result of the Town Hall upgrade. |
-| `axe_crude` | equipment slot | Yes | `craft_axe` | Wood and plant harvesting | gathering progression | complete | none required now | no dedicated equipment icon; no `player_gear` overlay yet | procedural equipped presentation | Actual equipped axe item. |
+| `pick_basic` | equipment slot | Yes | Default character gear | Entry mining tool | mining progression | complete | refine swing continuity | 30 body/phase swing overlays; no dedicated equipment icon | procedural fallback if a matching overlay cannot resolve | Three phases across all ten current bodies; intermittent refresh/alignment remains under review. |
+| `pick_forged` | equipment slot | Yes | `basic_pick_upgrade` | Tier-2 mining | mining progression | complete | refine swing continuity | 30 body/phase swing overlays; no dedicated equipment icon | procedural fallback if a matching overlay cannot resolve | Player-facing Town Hall upgrade; three phases across all ten bodies. |
+| `axe_crude` | equipment slot | Yes | `craft_axe` | Wood and plant harvesting | gathering progression | complete | refine swing continuity | 30 body/phase swing overlays; no dedicated equipment icon | procedural fallback if a matching overlay cannot resolve | Three phases across all ten bodies. |
 | `sword_crude` | equipment slot | Yes | `craft_sword` | Early combat weapon | combat progression | complete | none required now | no dedicated equipment icon; no `player_gear` overlay yet | procedural equipped presentation | Direct-equip Town Hall weapon. |
-| `helmet_crude` | equipment slot | Yes | `craft_armor_set` | Early armor | combat progression | complete | none required now | no dedicated equipment icon; no `player_gear` overlay yet | procedural equipped presentation | Direct-equip Town Hall armor piece. |
-| `torso_crude` | equipment slot | Yes | `craft_armor_set` | Early armor | combat progression | complete | none required now | no dedicated equipment icon; no `player_gear` overlay yet | procedural equipped presentation | Direct-equip Town Hall armor piece. |
-| `feet_crude` | equipment slot | Yes | `craft_armor_set` | Early armor | combat progression | complete | none required now | no dedicated equipment icon; no `player_gear` overlay yet | procedural equipped presentation | Direct-equip Town Hall armor piece. |
+| `helmet_crude` | equipment slot | Yes | `craft_armor_set` | Early armor | combat progression | complete | harden load/refresh alignment | 10 body-specific static overlays; no dedicated equipment icon | procedural fallback if a matching overlay cannot resolve | One authored overlay for each current body id. |
+| `torso_crude` | equipment slot | Yes | `craft_armor_set` | Early armor | combat progression | complete | harden load/refresh alignment | 10 body-specific static overlays; no dedicated equipment icon | procedural fallback if a matching overlay cannot resolve | One authored overlay for each current body id. |
+| `feet_crude` | equipment slot | Yes | `craft_armor_set` | Early armor | combat progression | complete | harden load/refresh alignment | 10 body-specific static overlays; no dedicated equipment icon | procedural fallback if a matching overlay cannot resolve | One authored overlay for each current body id. |
 | `sword_iron` | equipment slot | Yes | `anvil_iron_sword` | Better combat weapon | combat progression | complete | none required now | no dedicated equipment icon; no `player_gear` overlay yet | procedural equipped presentation | Current best live weapon. |
 | `helmet_iron` | equipment slot | Yes | `anvil_iron_armor` | Better armor | combat progression | complete | none required now | no dedicated equipment icon; no `player_gear` overlay yet | procedural equipped presentation | Current best live helm. |
 | `torso_iron` | equipment slot | Yes | `anvil_iron_armor` | Better armor | combat progression | complete | none required now | no dedicated equipment icon; no `player_gear` overlay yet | procedural equipped presentation | Current best live torso armor. |
@@ -248,10 +251,10 @@ This wiki is generated from current Coheronia repo data and includes live, inter
 | Item icons | Fully covered for all 43 current item ids | none required for current live item ids | Stable and canonical-only by design. |
 | Enemy sprites | Covered for all 6 live enemy ids | planned enemy families only | No immediate live-image blocker. |
 | Player bodies | Covered for all 10 live body ids plus look variants | planned ancestry bodies only | Safe for current shell and gameplay. |
-| Equipment overlays | Hooks live | all `player_gear` PNGs deferred | Best next visual wiki gap if gear readability becomes a priority. |
+| Equipment overlays | 120 body-specific PNGs live for crude armor and basic/forged pick + crude axe swings | uncovered equipment families and refresh/alignment hardening | Continue from current coverage; do not regenerate already-authored families without an approved style pass. |
 | Equipment item icons | No live consumer | still deferred | Do not mistake this for a bug; the game currently does not use backpack-style equipment icons. |
-| UI | 10 live, 5 deliberate placeholders | reserved placeholder hooks still acceptable | Placeholders are intentional, not broken. |
-| Opening art | deferred | all opening frames still absent | Uses plotted fallback safely. |
+| UI | Primary native 19-asset HUD kit live; legacy/reserved UI hooks retained | primary chrome polish and framed-panel defect cleanup | Runtime content remains separate; use the HUD Asset Replacement Studio. |
+| Opening art | Eight authored scene pools / ten PNGs live | optional approved animation/variant expansion | Plotted fallback remains safe and deterministic. |
 | Backdrops and back walls | live and covered for current surfaces | future cave/deep-cave/background families | Not a current blocker. |
 
 ## Planned-Only Data Hooks
@@ -287,7 +290,8 @@ These are intentionally separated from live content. They are not implemented cu
 | Add first downstream sinks for `silver_ingot`, `bronze_ingot`, and `crystal` | Metallurgy and attunement progression currently stop early. |
 | Decide whether `ring_band` and `amulet_focus` should stay dead or become near-term goals | They are already defined and create obvious planning pressure. |
 | Decide whether any world-only metadata items should remain non-inventory forever | `grass`, `farm_soil`, `crop_seedling`, `crop_ripe`, and `berry_bush` are easy to misunderstand without a deliberate policy. |
-| Add `player_gear` overlays only if equipment readability becomes a real need | The fallback is safe today, so this is polish/planning work, not a blocker. |
+| Harden authored `player_gear` refresh/alignment and extend only uncovered equipment families | Crude armor and three tool families already have 120 PNGs; the active problem is reliable presentation and polished motion, not an empty asset directory. |
+| Replace provisional HUD chrome through the native kit contract | Geometry and runtime separation are stabilized; the remaining work is asset and framed-panel polish with screenshot review. |
 
 ## Notes
 

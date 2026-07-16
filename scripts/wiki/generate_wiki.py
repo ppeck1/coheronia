@@ -32,6 +32,7 @@ GENERATED_FILES = [
 ]
 
 REFERENCE_DOCS = [
+    ROOT / "docs" / "VARIABLE_MATRIX.md",
     ROOT / "docs" / "ITEM_AND_RECIPE_MATRIX.md",
     ROOT / "docs" / "ITEM_GRAPH.md",
     ROOT / "docs" / "IMAGE_INVENTORY_MATRIX.md",
@@ -758,6 +759,7 @@ def build_sidebar_links(html_path: Path) -> str:
         ("Character Types", WIKI_DIR / "character_types.html", "Species, roles, traits, and ancestries"),
         ("Crafting Stations", WIKI_DIR / "stations.html", "Station pages and hosted recipes"),
         ("HUD Asset Studio", WIKI_DIR / "hud_asset_replacement_studio.html", "Drop-in dock art contract and image-editing briefs"),
+        ("Known Issues", WIKI_DIR / "known_issues.html", "Active presentation defects and intentional limits"),
         ("Wiki Overview", WIKI_DIR / "wiki.html", "Full planning and maintenance overview"),
     ]
     cards = []
@@ -1675,6 +1677,14 @@ def render_equipment_page(equip_id: str, data: dict, indexes: dict) -> None:
     equip_def = data["equipment"][equip_id]
     page_path = equipment_page_path(equip_id)
     status = equipment_status(equip_id, indexes)
+    overlay_coverage = {
+        "pick_basic": "30 body/phase swing overlays (10 body ids x phases 0/1/2).",
+        "pick_forged": "30 body/phase swing overlays (10 body ids x phases 0/1/2).",
+        "axe_crude": "30 body/phase swing overlays (10 body ids x phases 0/1/2).",
+        "helmet_crude": "10 body-specific static overlays (one per current body id).",
+        "torso_crude": "10 body-specific static overlays (one per current body id).",
+        "feet_crude": "10 body-specific static overlays (one per current body id).",
+    }.get(equip_id, "No authored body-specific overlay in the current coverage set.")
     rows = [
         ("ID", f"`{equip_id}`"),
         ("Page type", "Equipment"),
@@ -1684,7 +1694,8 @@ def render_equipment_page(equip_id: str, data: dict, indexes: dict) -> None:
         ("Stat effects", effect_summary(equip_def.get("effects", {}))),
         ("Visual surface", "No dedicated backpack-style equipment icon family is currently in use."),
         ("Player gear overlay hook", "`art/generated/player_gear/<item_id>_<body_id>.png` or `<item_id>.png`"),
-        ("Fallback / placeholder", "Procedural equipped presentation when no overlay art exists."),
+        ("Authored overlay coverage", overlay_coverage),
+        ("Fallback / placeholder", "Procedural equipped presentation when a matching overlay cannot resolve."),
     ]
     lines = [
         f"# {equip_def.get('display_name', title_from_id(equip_id))}",

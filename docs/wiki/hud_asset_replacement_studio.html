@@ -35,6 +35,7 @@
 <a class="nav-card" href="character_types.html">Character Types<small>Species, roles, traits, and ancestries</small></a>
 <a class="nav-card" href="stations.html">Crafting Stations<small>Station pages and hosted recipes</small></a>
 <a class="nav-card" href="hud_asset_replacement_studio.html">HUD Asset Studio<small>Drop-in dock art contract and image-editing briefs</small></a>
+<a class="nav-card" href="known_issues.html">Known Issues<small>Active presentation defects and intentional limits</small></a>
 <a class="nav-card" href="wiki.html">Wiki Overview<small>Full planning and maintenance overview</small></a>
           </div>
         </div>
@@ -53,6 +54,7 @@
 <h2 id="authoring-and-runtime-boundary">Authoring And Runtime Boundary</h2>
 <div class="table-wrap"><table><thead><tr><th>Purpose</th><th>Path</th></tr></thead><tbody><tr><td>Drop edited source PNGs here</td><td><code>art/source_templates/hud_dock/</code></td></tr><tr><td>Runtime copies used by Godot</td><td><code>art/generated/ui_painted/</code></td></tr><tr><td>Geometry and required sizes</td><td><code>art/source_templates/hud_dock/hud_dock_layout.json</code></td></tr><tr><td>Safe validation and promotion</td><td><code>scripts/art/sync_hud_kit.py</code></td></tr><tr><td>Placeholder builder; do not rerun over authored art</td><td><code>scripts/art/build_hud_kit_placeholders.py</code></td></tr></tbody></table></div>
 <p>The source file is authoritative. Never paste a generated image directly into the runtime directory as the only copy.</p>
+<p>When all 19 assets and the layout are valid, <code>hud.gd</code> selects this native kit first. The FQ-21 sliced four-piece band and FQ-19 modular dock remain fallback paths rather than current art targets.</p>
 <h2 id="non-negotiable-export-rules">Non-Negotiable Export Rules</h2>
 <ul><li>Keep the exact filename and exact pixel dimensions in the table below.</li><li>Export a real RGBA PNG. Do not use JPEG, indexed color, or a flattened background.</li><li>Keep the canvas size fixed. Do not crop, expand, rotate, or rescale the canvas.</li><li>Use hard pixel edges and integer-aligned details. Avoid blur, glow haze, and fractional resampling.</li><li>Preserve transparent space. Nothing may spill outside its intended canvas.</li><li>Do not bake text, values, hotkeys, item images, counts, resource fill, selection, cooldowns, or tooltips into art.</li><li>Review at 100 percent scale. A beautiful zoomed image can still be unreadable or noisy in the game.</li><li>Keep visual hierarchy restrained: dark wood and iron support the content; brass is an accent, not a full outline on every object.</li></ul>
 <h2 id="file-contract">File Contract</h2>

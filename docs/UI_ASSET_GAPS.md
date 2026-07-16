@@ -1,6 +1,7 @@
 # Coheronia — Runtime Asset & Variant Audit (FQ-13P0)
 
-State: refreshed by the post-FQ-15 authored-art run on 2026-07-14. Regenerate
+State: refreshed on 2026-07-16 after native HUD-kit stabilization, authored
+opening cels, and the 120-file player-gear integration. Regenerate
 the machine portion any time with
 `python scripts/asset_audit.py` (add `--strict` to fail on data bugs); the UI
 placeholders are (re)built with `python scripts/gen_ui_placeholders.py` and the
@@ -50,14 +51,24 @@ single `<id>.png` path is read; "Variants live" = the `_NN` pool is read.
 | items | `hud.item_icon` / `visual_texture("items", …)` | ✅ | ❌ (none authored) | canonical only | `item_fallback_color` swatch |
 | enemies | `simple_threat._select_sprite` (once at creation) → variant pool, else `visual_texture` | ✅ (all 6 live ids) | ✅ (6 pools) | per-instance `posmod(hash(id:cell:seed))`, fixed for life | canonical → family-tinted drawn rect |
 | players | `player_visual._select_body_texture` → variant pool, else `visual_texture("players", body_id)` | ✅ (all 10 body ids) | ✅ (10 pools) | character-owned `visual_variant` (0 = canonical, k>0 = pool[k-1] wrapped) | canonical → same-species default → drawn 16×32 rig |
-| player_gear | `player_visual._gear_texture` / `_tool_swing_texture` (body-specific → generic) | ❌ (hook only; no art yet) | ❌ | equipped item/body id and swing phase | procedural gear overlay |
+| player_gear | `player_visual._gear_texture` / `_tool_swing_texture` (body-specific → generic) | ✅ partial (30 crude-armor statics + 90 pick/axe swing PNGs) | phases are authored action frames, not variant pools | equipped item/body id and swing phase | rig-aware procedural gear overlay |
 | structures | `visual_texture("structures", "town_hall")` | ✅ | ❌ | canonical only | drawn hall |
 | backgrounds | `world_backdrop.layer_texture` → `visual_texture("backgrounds", id)` | ✅ | ❌ | canonical only | gradient/silhouette |
 | back_walls | `world._make_wall_texture` → `visual_texture("back_walls", id)` | ✅ | ❌ | canonical only | darkened block texture |
-| ui | `hud._make_slot_style` + bottom dock vessel frames + module toolbar | ✅ (slots, vessels) | n/a | resource values mirrored from game state | procedural fallback when art is absent |
-| opening | (none — code-plotted; cel hook `prologue.gd`) | ❌ | frames = **animation** | ordered `(tick*8/TICK_HZ) % n` @ 8fps | `prologue_canvas` plot |
+| ui | `hud._load_hud_kit_layout` / `_build_hud_kit` first, then legacy painted/modular paths | ✅ (19-asset native kit plus legacy hooks) | n/a | JSON-native dock geometry; runtime values/states remain children | FQ-21 sliced band -> FQ-19 modular/code fallback |
+| opening | `prologue.gd` authored-cel hook | ✅ eight pools / ten PNGs | frames = **animation** | ordered `(tick*8/TICK_HZ) % n` @ 8fps | `prologue_canvas` plot |
 
 ### HUD sub-surfaces
+
+**Current primary path (2026-07-16):** the dock consumes 19 native-size RGBA
+layers from `art/generated/ui_painted/`, with every rectangle owned by
+`hud_dock_layout.json`. Authored source lives in
+`art/source_templates/hud_dock/` and promotes through
+`scripts/art/sync_hud_kit.py`. Health/attunement fills, labels, item icons,
+counts, hotkeys, selection, hover/press state, and FX are runtime children.
+The command-center module controls are outside the primary dock, and Map and
+Events may remain open together. The FQ-21/FQ-20/FQ-19 material below records
+fallback/history rather than the current art-authoring target.
 
 The HUD now has one primary bottom player-state dock. Settlement, goal, event,
 and map modules remain independently toggleable:
@@ -113,6 +124,12 @@ both drag cursors.
   alternatives. Every Look preserves its rig's exact skin-palette entries, so
   the live appearance recolor works for canonical and alternate art. No
   data-referenced block/item/live-enemy fallback remains.
+- Player gear now includes 120 body-specific PNGs: crude helmet/torso/feet for
+  all ten body ids and phases 0/1/2 for basic pick, forged pick, and crude axe.
+  Other equipment remains on the procedural fallback; overlay refresh/alignment
+  after some transitions is a known presentation defect.
+- Opening art now includes all eight scene pools (ten PNGs total); the plotted
+  cinematic remains the deterministic fallback.
 
 ## Placeholder hooks (`PLACEHOLDER_REQUIRED`)
 
@@ -120,9 +137,10 @@ both drag cursors.
   are now **authored** deliberate placeholders (FQ-13P2). Two are consumed
   (`slot_inventory*`); the rest are `PLACEHOLDER_AUTHORED`, reserved for the HUD
   redesign.
-- `art/generated/player_gear/*` — empty; gear is drawn procedurally.
-- `art/generated/opening/*` — `DEFERRED` (the cinematic is code-plotted by
-  design; cel-shot upgrade is optional per `opening_convention`).
+- `art/generated/player_gear/*` — partially authored (120 PNGs); uncovered
+  equipment and any unresolved body-specific lookup use procedural fallback.
+- `art/generated/opening/*` — eight authored pools / ten PNGs live; the
+  code-plotted cinematic remains a fallback, not the only presentation.
 
 ## Player cosmetic-variation decision (bounded approach)
 
@@ -208,11 +226,14 @@ Current state: **0 findings, 0 data bugs** (enemy pools consumed as of FQ-13P1).
 | Player cosmetic variants | ✅ LIVE | two alternatives for every current body; dynamic creation Look range |
 | Block variant pools | ✅ LIVE | three variants for 17 high-repetition block ids |
 | Item icons | ✅ stable by design | canonical-only, cached (FQ-13P4) |
-| Opening cel shots | `DEFERRED` (animation semantics) | optional per `opening_convention` / `frame_semantics` |
+| Opening cel shots | ✅ LIVE (animation semantics) | eight pools / ten PNGs; plotted fallback retained |
+| Player gear overlays | PARTIAL / known polish issue | 120 crude-armor/tool PNGs live; extend uncovered ids and harden refresh/alignment |
+| Primary HUD chrome | LIVE contract / provisional art | replace only through the 19-asset HUD Asset Replacement Studio workflow |
 
 **FQ-13P arc status: complete (P0–P4).** The audit + tooling, enemy variant
 consumption, deliberate UI placeholders, player cosmetics, and the
 variant-vs-animation formalization are all live. The 2026-07-14 art run closes
 the current canonical and high-repetition variation backlog. Remaining image
-work is deliberately gated: body-specific player gear, replacement UI art once
-those hooks are consumed, optional opening cels, and assets for future systems.
+work is deliberately gated: uncovered player gear and swing polish, native-kit
+HUD replacement art, optional opening animation expansion, and assets for
+future systems.

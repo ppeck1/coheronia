@@ -1,16 +1,42 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-16 merge)
+## Current State (2026-07-16 public refresh)
 
-**All concurrent lanes merged and verified on one tree (suite 319/319):**
-the FQ-19..21 HUD arc (below), the Codex opening-cel and body-specific gear
-programs, 40+ future item icons, torch/lantern variants, and the generated
-wiki (`docs/wiki/`, 175 pages, 1298 links verified, publication-safe).
-**Open defect for the next session:** the vessel fill masking is still off
-and off-center at the live window scale — the full diagnosis, suspect list,
-and verification workflow are in `docs/WORK_HANDOFF_HUD_BAND_FOR_CODEX.md`.
+**The native HUD-kit stabilization is merged locally and verified at 321/321.**
+The primary bottom dock now selects a 19-asset native RGBA kit plus one JSON
+geometry authority before the older FQ-21 sliced band and FQ-19 modular
+fallbacks. Health/attunement fills and all icons, counts, hotkeys, labels,
+selection, and FX remain runtime children. The command-center module row is a
+separate movable widget; Map and Events have independent defaults and can stay
+open together. A safe authored-source -> runtime promotion tool and one prompt
+per dock asset live in `docs/wiki/hud_asset_replacement_studio.md`.
 
-## Previous State
+The tree also contains eight authored opening-scene pools (ten PNGs) and 120
+body-specific player-gear PNGs: crude helmet/torso/feet plus three phases for
+basic pick, forged pick, and crude axe across all ten bodies. Gameplay-safe
+fallbacks remain intact.
+
+**Open presentation defects:** some character/load transitions can fail to
+resolve or align a matching gear overlay; pick/axe motion is still a stepped
+three-pose sequence; swords lack an equivalent authored swing; and the current
+HUD/framed-panel chrome still needs padding, masking, and opaque-region polish.
+These are tracked publicly in `docs/wiki/known_issues.md`. Equipment state and
+effects remain functional when the visual fallback is used.
+
+**Latest release evidence:** static validator, strict asset audit, pixel-asset
+verification (386 PNGs), public-profile capsule doctor, and diff check pass.
+An isolated Godot run passed 321/321 on the required rerun after the documented
+single `fq09u1_live_clip_switch` cold-run flake.
+
+**Publication governance note:** the `public_repo` profile says not to commit
+raw `.project/runs`, Atlas outbox, or BOH outbox artifacts, while historical
+versions of those directories are already tracked and the README describes the
+audit trail. This predates the HUD publication candidate. No new raw evidence
+files are part of this refresh, but the owner should explicitly choose whether
+to sanitize the historical artifacts or revise the public profile/checklist to
+make that publication intentional.
+
+## Historical FQ-21 State
 
 **FQ-21 (one-piece full-width dock band) implemented and verified — the dock
 is now four native-aspect pieces sliced whole from the operator's blueprint
@@ -723,7 +749,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - FQ-04 armor is flat mitigation with a 1-health minimum chip; there is no unequip flow for forged gear in play (forge guards prevent duplicates). Combat feel (sword damage 3, armor total 4 vs slime 8) is untested by human play; all numbers are data-tunable in `data/equipment.json`.
 - FQ-05 attunement has exactly one use (the light pulse); no live ancestry or acquirable gear modifies it yet — the hooks are data-ready and smoke-proven but dormant. The pulse light is cosmetic (does not affect `light_score`, night spawns, or occlusion safety math).
 - FQ-06: only the Miner lane's `mining_speed` effect is live; `detect_ore_range`, `cave_safety`, and all non-miner lane effect keys are inert data awaiting their systems. There is no perk refund/respec. Perk points come only from player levels; XP pacing (100 x 1.35^n) means points arrive slowly — untested by human play.
-- FQ-07: art loads bypass the Godot import system (`Image.load_from_file`) by design for plain non-editor runs — an exported build would need an import-aware path (out of scope; this repo never exports). The block tileset reads art at `world.setup`/tileset-build time; dropping in new art requires re-entering the world (no hot-reload). Player bodies and the Town Hall now use image-first hooks with procedural fallbacks; player gear remains procedural until body-specific overlays are reviewed.
+- FQ-07: art loads bypass the Godot import system (`Image.load_from_file`) by design for plain non-editor runs — an exported build would need an import-aware path (out of scope; this repo never exports). The block tileset reads art at `world.setup`/tileset-build time; dropping in new art requires re-entering the world (no hot-reload). Player bodies and the Town Hall use image-first hooks with procedural fallbacks. The later gear program added 120 body-specific overlays; intermittent resolution/alignment remains a presentation defect.
 - FQ-09W's underground darkness is a documented approximation: the ambient
   follows the PLAYER's column skylight (no lateral light bleed, no per-cell
   darkness — the whole canvas darkens when the player is buried, so surface
@@ -753,9 +779,11 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
   and exact appearance-palette compatibility. Generated bodies pass through
   `scripts/art/restore_player_skin_palette.py` before promotion. Strict audit
   also rejects sequence gaps and pools above the runtime maximum.
-- Player gear, final UI replacements, and opening cels remain deliberately
-  deferred for the reasons recorded in
-  `docs/HANDOFF_ART_INTEGRATION_2026-07-14.md`.
+- At this historical checkpoint, player gear, final UI replacements, and opening
+  cels were deliberately deferred for the reasons recorded in
+  `docs/HANDOFF_ART_INTEGRATION_2026-07-14.md`. The current repository now has
+  120 player-gear overlays, ten opening PNGs across eight cel pools, and the
+  19-asset layered HUD kit described at the top of this handoff.
 
 ## Next Action
 
@@ -794,5 +822,8 @@ Before the next feature increment, perform the still-manual operator
 playthrough in `docs/PLAYTEST_CHECKLIST.md` and review the new terrain/enemy/
 player variety in motion. The recommended product choices remain pause/settings
 and keybinds, save-slot management, build-preview tint, local contracts on the
-goal system, or the first subject/NPC labor slice. The recommended art choice is
-body-specific player gear only after a cross-body alignment matrix is approved.
+goal system, or the first subject/NPC labor slice. The recommended art work is
+to verify the existing body-specific gear across the cross-body alignment
+matrix, smooth tool anchors and arcs, author the missing sword sequence, and
+replace provisional HUD chrome through the documented asset contract without
+changing runtime content.

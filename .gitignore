@@ -28,4 +28,5 @@ audio/**/*.zip
 
 # Agent session artifacts (never publish)
 .codex/
+.claude/
 __pycache__/

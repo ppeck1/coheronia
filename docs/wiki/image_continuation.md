@@ -1,6 +1,6 @@
 # Image Continuation
 
-Generated: 2026-07-15
+Generated: 2026-07-16
 
 This page is the wiki handoff surface for future image work. It is meant for Codex, Claude Code, or another art agent that needs to continue the image pipeline without mistaking planned data for live gaps.
 
@@ -10,7 +10,8 @@ This page is the wiki handoff surface for future image work. It is meant for Cod
 |---|---|---|
 | What image files exist, what is missing, and what is deferred? | [IMAGE_INVENTORY_MATRIX.md](../IMAGE_INVENTORY_MATRIX.md) | Full runtime image inventory and deferred-work matrix. |
 | What should the next image pass create? | [ASSET_ROADMAP.md](../ASSET_ROADMAP.md) | Asset sizes, conventions, priority notes, and prompt packs. |
-| What UI art is live, placeholder-authored, or deferred? | [UI_ASSET_GAPS.md](../UI_ASSET_GAPS.md) | UI-specific consumer and placeholder status. |
+| How is primary HUD chrome replaced safely? | [HUD Asset Replacement Studio](hud_asset_replacement_studio.md) | Exact native canvases, alpha rules, per-file prompts, and safe promotion commands. |
+| What legacy/reserved UI art is live, placeholder-authored, or deferred? | [UI_ASSET_GAPS.md](../UI_ASSET_GAPS.md) | Legacy UI consumer and placeholder status. |
 | What visual canon constraints should art follow? | `docs/ART_DIRECTION_AND_CANON.md` | Tone, palette, meaning, and public-safety guidance. |
 | Which content is live vs planned? | [Current Live](current_live.md), [Planned Data](planned_data.md), [Status Browser](status_browser.md) | Prevents future art from implying planned systems are implemented. |
 
@@ -22,19 +23,20 @@ This page is the wiki handoff surface for future image work. It is meant for Cod
 | Current items | Covered for current item ids. | A style refresh or new item ids land. |
 | Live enemies | Covered for the six live enemy families. | New live enemies land, or a variant refresh is requested. |
 | Player bodies | Covered for the five live species and presentation variants. | A body/style refresh is requested. |
-| Player gear overlays | Deferred; hooks exist, no PNGs yet. | The next pass is explicitly about authored equipment overlays. |
-| UI hooks | Partly live and partly placeholder-authored. | A UI replacement pass is scoped. |
-| Opening frames | Deferred; plotted fallback remains live. | Opening cel art is explicitly scoped. |
+| Player gear overlays | Partially authored: crude armor plus basic/forged pick and crude-axe swings cover all ten bodies (120 PNGs). Other equipment falls back procedurally. | An uncovered equipment id or an approved style/alignment revision is scoped. |
+| Primary HUD | Native 19-asset layered kit is live under `art/generated/ui_painted/`; runtime masks, values, icons, counts, labels, and state remain separate. | Use the HUD Asset Replacement Studio contract one file or state family at a time. |
+| Legacy/reserved UI hooks | Retained as fallback or future-consumer surfaces. | A named consumer or fallback cleanup is explicitly scoped. |
+| Opening frames | Eight authored pools / ten cels are live; plotted rendering remains fallback. | Approved animation or scene-variant expansion is scoped. |
 | Future enemies / ancestries / systems | Planned only. | The system is promoted to live work or the operator explicitly asks for concept art. |
 
 ## Recommended Next Image Work
 
 1. Use [IMAGE_INVENTORY_MATRIX.md](../IMAGE_INVENTORY_MATRIX.md) to confirm the current missing/deferred list.
-2. Use [ASSET_ROADMAP.md](../ASSET_ROADMAP.md) for exact dimensions, naming, and prompt constraints.
-3. Use `docs/ART_DIRECTION_AND_CANON.md` for palette, tone, and canon.
-4. Stage generated candidates outside the runtime tree.
-5. Bring only final PNGs into `art/generated/<category>/`.
-6. Run the repo's image validation and full repo validation before declaring the pass ready.
+2. For the primary dock, use the [HUD Asset Replacement Studio](hud_asset_replacement_studio.md); its authored source directory and sync tool are the authority.
+3. For other families, use [ASSET_ROADMAP.md](../ASSET_ROADMAP.md) for dimensions, naming, and prompt constraints.
+4. Use `docs/ART_DIRECTION_AND_CANON.md` for palette, tone, and canon.
+5. Stage generated candidates outside the runtime tree unless the family has an explicit authored-source boundary.
+6. Promote only validated final PNGs and run the image validation, repository validator, and appropriate visual/smoke checks.
 
 ## Public And IP Safety
 
@@ -48,12 +50,14 @@ This page is the wiki handoff surface for future image work. It is meant for Cod
 ## Quick Prompt For A Future Image Agent
 
 ```text
-Continue Coheronia image work from the current repo state. First read docs/wiki/image_continuation.md, docs/IMAGE_INVENTORY_MATRIX.md, docs/ASSET_ROADMAP.md, docs/UI_ASSET_GAPS.md, and docs/ART_DIRECTION_AND_CANON.md. Do not create art for planned-only systems unless explicitly asked. Do not reference or imitate any named commercial game, studio, character, sprite, UI, asset sheet, or living artist. Use Coheronia's own art direction: side-view pixel art, mythic frontier, labor-centered settlement, restrained palette, readable at native pixel scale. Stage candidates outside runtime folders; commit only final PNGs under art/generated/<category>/ after validation.
+Continue Coheronia image work from the current repo state. First read docs/wiki/image_continuation.md, docs/wiki/known_issues.md, docs/wiki/hud_asset_replacement_studio.md, docs/IMAGE_INVENTORY_MATRIX.md, docs/ASSET_ROADMAP.md, docs/UI_ASSET_GAPS.md, and docs/ART_DIRECTION_AND_CANON.md. Confirm what is already authored before generating anything. Do not create art for planned-only systems unless explicitly asked. Do not reference or imitate any named commercial game, studio, character, sprite, UI, asset sheet, or living artist. Use Coheronia's own art direction: side-view pixel art, mythic frontier, labor-centered settlement, restrained palette, readable at native pixel scale. Respect each family's authored-source and runtime-promotion contract; commit only validated final PNGs.
 ```
 
 ## Related Pages
 
 - [Current Live](current_live.md)
+- [Known Issues](known_issues.md)
+- [HUD Asset Replacement Studio](hud_asset_replacement_studio.md)
 - [Planned Data](planned_data.md)
 - [Status Browser](status_browser.md)
 - [Wiki Overview](wiki.md)

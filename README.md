@@ -2,28 +2,26 @@
 
 **A side-view survival settlement sandbox where your civilization pushes back.**
 
-Dig, build, and light a frontier settlement Terraria-style — then keep it alive as a tiny civilization sim scores your shelter, food, light, and defenses in real time and answers with settlers, raids, and storms.
+Dig, build, and light a side-view frontier settlement — then keep it alive as a tiny civilization sim scores your shelter, food, light, and defenses in real time and answers with settlers, raids, and storms.
 
 ![Daytime settlement with the Town Hall, torch line, and live HUD](docs/screenshots/01_settlement_day.png)
 
-`Godot 4.6 · GDScript · data-driven design · 306-check self-verifying test suite · adaptive music · image-first art pipeline`
+`Godot 4.6 · GDScript · data-driven design · 321-check self-verifying test suite · adaptive music · layered image-first UI pipeline`
 
 ## What it is
 
 Coheronia sits between a survival sandbox and a civilization pressure sim. Minute to minute you mine tunnels, roof the hall, place torches, and haul food home. The settlement model turns those physical acts into three live pressures — **Coherence, Load, and Resilience** — computed from real world state (shelter blocks, light sources, stockpile, threats), never faked. A coherent, fed, lit settlement attracts settlers and ratchets from Camp to Hamlet to Village; a neglected one starves, empties, and cracks under night raids and storms.
 
-It is also a **portfolio project in AI-orchestrated software engineering**: every increment was planned from a task queue, implemented, reviewed by an independent agent pass, verified by an automated in-engine test suite that has grown from 62 to 306 checks, and shipped with a signed evidence ledger. The full audit trail lives in this repo.
+It is also a **portfolio project in AI-orchestrated software engineering**: every increment was planned from a task queue, implemented, reviewed by an independent agent pass, and verified by an automated in-engine test suite that has grown from 62 to 321 checks. The maintained handoff and verification commands live in this repository.
 
 ## Screenshots
 
 | | |
 |---|---|
-| ![Night falls — torch light holds the line](docs/screenshots/02_night_torchlight.png)<br>*Night, torchlight, and real-time light occlusion* | ![Inventory panel with icon grid and 12 gear slots](docs/screenshots/03_inventory.png)<br>*Backpack + a 12-slot equipment model (weapon, tools, armor, rings, amulet)* |
-| ![Town Hall panel with stockpile grid and forge stations](docs/screenshots/04_town_hall.png)<br>*Town Hall: stockpile grid and forge stations with crafted states* | ![Skill tree with owned, available, and locked nodes](docs/screenshots/05_skill_tree.png)<br>*Skill tree: level-earned points, prerequisites, one live lane* |
-| ![Character creation with data-driven ancestry details](docs/screenshots/07_character_create.png)<br>*Character creation: 5 playable species with live effects, body variants, appearance, traits, roles* | ![World builder with presets, difficulty axes, and generation sliders](docs/screenshots/08_world_create.png)<br>*World builder: presets, six difficulty axes, rule toggles, generation controls* |
-| ![A mined chamber at midday with dark cave ambient and one torch](docs/screenshots/09_underground_midday_torch.png)<br>*Roof-aware cave darkness: dig deep and daylight stays behind you; a torch holds the dark off locally* | ![Title screen with prologue replay and music/sound sliders](docs/screenshots/06_shell_title.png)<br>*Title screen: prologue replay, and the Music/Sound sliders wired to the adaptive score* |
+| ![Night falls — torch light holds the line](docs/screenshots/02_night_torchlight.png)<br>*Night, torchlight, and real-time light occlusion* | ![Town Hall panel with stockpile and forge stations](docs/screenshots/04_town_hall.png)<br>*Town Hall: stockpile, station chain, and crafted-state controls* |
+| ![Runtime-driven health and attunement vessels at partial charge](docs/screenshots/10_vessel_damage_states.png)<br>*The layered HUD kit keeps vessel fills, values, slots, and counts live at runtime* | ![A mined chamber at midday with dark cave ambient and one torch](docs/screenshots/09_underground_midday_torch.png)<br>*Roof-aware cave darkness: daylight stays behind while a torch holds the local dark off* |
 
-*The in-world sprites, every current inventory/live-drop icon, all six live enemy families, all ten player bodies, the Town Hall, and parallax backdrops are real generated pixel art. High-repetition terrain, flora, ores, enemies, and player bodies also have runtime-selected visual pools. The rendering path remains image-first with a per-asset color/shape fallback, so player-gear overlays, optional opening cels, and replacement UI art can still land one PNG at a time without touching game logic.*
+*The in-world sprites, every current inventory/live-drop icon, all six live enemy families, all ten player bodies, the Town Hall, parallax backdrops, eight opening-scene cel pools, and 120 body-specific crude-gear/tool overlays are real generated pixel art. High-repetition terrain, flora, ores, enemies, and player bodies also have runtime-selected visual pools. Missing or unresolved images keep a procedural fallback, while the primary dock uses a 19-asset layered kit whose runtime values and states remain separate from its PNG chrome.*
 
 ## Feature highlights
 
@@ -36,7 +34,7 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 - **Progression stack** — six XP types feed player levels; levels grant perk points spent in a visual skill tree; base levels gate population; Attunement (the magic resource) regenerates and powers a first light-pulse ability, with ancestry/equipment/perk hooks already live.
 - **Animated opening cinematic** — an eight-scene, ~42s founding myth plays before the title on first launch (any key advances, Esc skips, replayable from the menu): a DOS-style plotted world with keyframed puppet acting — roads unravel, the five peoples gather at a fire, builders raise the first hall beam by beam, the founder kneels and the world answers — rendered entirely in code at 640×360 with hard camera cuts and engine-rendered text: *COHERONIA · By Paul Peck · Where civilization pushes back.*
 - **Learns as you play** — a compact, state-driven goal panel walks the first loop (gather → light the hall → deposit → forge a tool/build a station → survive the night) from real game state, not scripted tutorial text: it advances only when you actually do the thing, never regresses, re-derives the right step after a save/reload, and tucks away with a keypress (**O**).
-- **Scoutable world** — a schematic map panel (**M**) reveals the world band by band *as you explore* — nothing is X-rayed. It marks the Town Hall, your position, ore pockets, and live enemy pressure inside scouted bands only; discovered regions persist compactly in the world save, and the explorer "Biome Reveal" perk widens each step's scouted band (the scouting hook future exploration perks plug into).
+- **Scoutable world** — a schematic map panel (**M**) reveals the world band by band *as you explore* — nothing is X-rayed. It marks the Town Hall, your position, ore pockets, and live enemy pressure inside scouted bands only; discovered regions persist compactly in the world save, and the explorer "Biome Reveal" perk widens each step's scouted band. Map and Events are independent movable modules and can remain open together.
 - **Authored visual coverage with real variety** — all data-referenced blocks, inventory/live-drop icons, and live enemies now have canonical pixel art; seventeen high-repetition block ids carry three deterministic per-cell looks, every enemy family carries three lifetime-stable looks, and every player body offers two authored alternatives beyond its canonical form. Items deliberately stay canonical-only so a stack never changes icon during a refresh.
 - **Everything is data** — blocks, recipes, enemies, 12 ancestries, XP curves, base levels, perk lanes, equipment, world presets, and item metadata are JSON authorities validated by a repo linter; most balance changes never touch code.
 
@@ -88,8 +86,8 @@ terrain history, settlement, and progression. Persistence lives in
 
 This repo doubles as an experiment in disciplined AI-driven development:
 
-- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 306 checks: mining frame counts, save/load round-trips, legacy-save migrations, UI panel contents, a player physically walking past a tree, armor math to the decimal, a next-bar music crossfade actually reaching the requested clip, a game event firing its stinger. Every feature lands with new checks; the suite has never been allowed to stay red.
-- **Evidence over claims.** Every increment ships with a run ledger in [`.project/runs/`](.project/runs/) recording scope, decisions, review findings and their resolutions, and validation output — plus machine-readable packets in `.project/atlas_outbox/` and `.project/boh_outbox/`.
+- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 321 checks: mining frame counts, save/load round-trips, legacy-save migrations, UI panel contents, simultaneous Map/Events state, native HUD-kit layering, a player physically walking past a tree, armor math to the decimal, a next-bar music crossfade actually reaching the requested clip, and a game event firing its stinger. Every feature lands with new checks; the suite has never been allowed to stay red.
+- **Evidence over claims.** Increment scope, decisions, review findings, and validation state are summarized in [`docs/HANDOFF.md`](docs/HANDOFF.md). Historical raw protocol artifacts are still tracked; their fit with the current public-repository profile is explicitly flagged for owner review rather than silently presented as settled policy.
 - **Independent review loop.** Each change was reviewed by a separate agent pass before commit; findings (from save-corruption edge cases to invisible-tint rendering bugs) are documented and fixed in the ledgers.
 - **Task queue discipline.** Work follows [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) one bounded increment at a time — FQ-00 through FQ-09 plus the FQ-09R/S/V/C/W/A/M and U0–U3 refinements (skill-tree star map, variant art pools, the opening cinematic, backdrops and cave darkness, the asset roadmap, action effects, and the full adaptive-music arc) on top of the v0.1–v0.6 foundation, each documented in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md).
 
@@ -117,7 +115,7 @@ Or open the folder in the Godot editor and press Play.
 | Save / Load | F5 / F9 |
 | Save & exit to shell | Esc |
 
-**Verify the build** (validators + the 306-check in-engine suite):
+**Verify the build** (validators + the 321-check in-engine suite):
 
 ```powershell
 python scripts/validate_repo.py
@@ -129,7 +127,7 @@ Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-r
 # results: user://smoke_results.json
 ```
 
-**Regenerate the README screenshots** (staged capture tour — 9 shots; run windowed, not `--headless`, so the frame capture resolves):
+**Regenerate the README screenshots** (staged capture tour — 14 shots, including five HUD QA frames; run windowed, not `--headless`, so the frame capture resolves):
 
 ```powershell
 $env:COHERONIA_SHOTS = "1"
@@ -148,11 +146,13 @@ scripts/world                    deterministic generation, block grid, lighting,
                                  data-authority registry
 scripts/player                   movement, mining, combat, equipment, attunement, perks
 scripts/settlement               Town Hall + the Coherence/Load/Resilience model
-scripts/ui                       code-built HUD, icon-grid panels, skill tree
+scripts/ui                       layered HUD-kit assembly, movable modules,
+                                 icon-grid panels, skill tree
 data/*.json                      the actual game design: blocks, recipes, enemies,
                                  ancestries, progression, equipment, presets, items
 docs/                            handoff, variable matrix, task queue, future design
-.project/                        run ledgers + evidence packets for every increment
+.project/                        historical protocol records; public-profile
+                                 governance review is pending
 ```
 
 Persistence: `user://shell.json` (profile + characters) and `user://worlds/<id>.json` (one file per world: config + terrain deltas + simulation state).
@@ -163,15 +163,18 @@ The full adaptive-music arc, the opening cinematic, and the first real art pass
 are done; the active queue ([`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md))
 continues in bounded increments:
 
-- **Shipped since the last art pass** — **FQ-10** depth-banded ore families (copper/iron/coal/tin/silver/crystal as data on independent seed channels), **FQ-11** the workbench → furnace → anvil station chain (smelt ingots, alloy bronze, forge iron gear behind an ore → ingot → gear gate), **FQ-12** farming (till → sow → ripen → harvest food, crops that never float or auto-regrow, a food-yard score), **FQ-13** three new live enemies with distinct pressure (crop-eating thornrat, ore-vein ore tick, hall-burning raider torchbearer), the **FQ-13P** visual-consolidation arc (asset/variant audit + tooling, consumed enemy sprite variants, deliberate UI placeholders, player cosmetic pool, variant-vs-animation semantics), and **FQ-14** the state-driven goal panel + playtest checklist, and **FQ-15** the scoutable map panel (discovered bands persisted, hall/player/ore/threat markers, a live scouting perk hook).
+- **Shipped since the last art pass** — **FQ-10–15** added ore families, metallurgy stations, farming, three pressure-specific enemies, deterministic visual pools, the state-driven goal panel, and persistent scouting. **FQ-16–21** added the player-state dock, movable HUD modules, dock navigation, runtime vessels, and several painted-chrome experiments. The current stabilization pass supersedes the fragile sliced-band path with a native 19-asset HUD kit, keeps Map and Events independent, and retains the older constructions only as fallbacks.
 - **Next up** — big-ticket playability items from `docs/FABLE_TASK_QUEUE.md`: a pause/settings/keybinds panel, save-slot management, build-preview placement tint, a local quest/contracts layer on the goal system, and a subject/NPC labor MVP.
 - **More enemies** from a 16-entry design roster (mini-bosses and the hollow_king / world_worm bosses remain), each landing with its gameplay consumer, and a **consolidated crafting menu**.
-- **Art backlog** (parallel, one PNG at a time via [`docs/ASSET_ROADMAP.md`](docs/ASSET_ROADMAP.md)): body-specific player-gear overlays after cross-body alignment review, replacement art for currently reserved UI placeholders when those consumers land, and the optional eight-scene opening-cel program.
+- **Art backlog** — polish the current HUD chrome one contract-safe PNG at a time via the [`HUD Asset Replacement Studio`](docs/wiki/hud_asset_replacement_studio.md); extend body-specific gear beyond the currently covered crude armor, pick, and axe families; refine action poses; and expand opening-scene animation only where it improves the existing authored cel pools.
 - **Deeper systems** sketched in [`docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`](docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md): the research bench MVP, perk-spending across more lanes, underground-start generation for deep ancestries, and the civic layer (laws, districts, factions, legitimacy). Ancestries beyond the five playable ones exist as validated data awaiting their phases.
 
-## Known limitations
+## Known issues and limitations
 
-Honest state of the build: player gear still uses the safer rig-aware procedural fallback; the opening remains the deliberate code-plotted cinematic unless optional cels are authored; most HUD image hooks are deliberate placeholders rather than final replacement art. The adaptive score ships but is one suite, tuned by ear and still balance-in-progress; settlers are abstract population, not NPCs; enemies walk-and-hop without pathfinding; there is one surface biome on finite maps (up to 360×100 tiles); and the inventory/equipment panels are read-only (no drag/drop yet).
+- **Gear presentation is not fully reliable yet.** The repository ships 120 body-specific PNGs for crude helmet/torso/feet overlays and three-phase basic-pick, forged-pick, and crude-axe swings. During some character/load transitions a matching overlay can fail to appear or align correctly, leaving the procedural fallback or an incomplete-looking character. Equipment data and effects still load; the defect is visual.
+- **Tool and weapon motion needs another pass.** Pick and axe art currently snaps through three authored poses. The anchors, arc continuity, mirroring, and timing need polish, and the sword does not yet have an equivalent authored attack sequence.
+- **The HUD architecture is stabilized, but the art is provisional.** The primary dock now separates static chrome from runtime values and uses JSON-owned native geometry. Some framed panel states still show padding, masking, or oversized opaque-region defects, particularly in automated captures; the legacy painted/sliced constructions remain fallback code, not the target design.
+- **Several systems remain intentionally shallow.** Inventory/equipment is read-only with no drag/drop or unequip flow; settlers are abstract population rather than NPCs; enemies walk and hop without pathfinding; the adaptive score is one suite still being balanced; and current finite maps have one surface biome.
 
 ---
 
