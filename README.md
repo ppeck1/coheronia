@@ -25,8 +25,19 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 
 ## Video clips
 
-- [Opening prologue and title transition](docs/screenshots/clips/coheronia.prologue.07162026.1125.mp4)
-- [Gameplay with the current HUD pass](docs/screenshots/clips/coheronia.gameplay.07162026.1135.mp4)
+**Opening prologue and title transition**
+
+<video controls width="100%" src="https://raw.githubusercontent.com/ppeck1/coheronia/agent/update-public-docs-hud/docs/screenshots/clips/coheronia.prologue.07162026.1125.mp4">
+  <a href="docs/screenshots/clips/coheronia.prologue.07162026.1125.mp4">Watch the opening prologue and title transition.</a>
+</video>
+
+**Gameplay with the current HUD pass**
+
+<video controls width="100%" src="https://raw.githubusercontent.com/ppeck1/coheronia/agent/update-public-docs-hud/docs/screenshots/clips/coheronia.gameplay.07162026.1135.mp4">
+  <a href="docs/screenshots/clips/coheronia.gameplay.07162026.1135.mp4">Watch gameplay with the current HUD pass.</a>
+</video>
+
+Direct links: [prologue](docs/screenshots/clips/coheronia.prologue.07162026.1125.mp4) · [gameplay](docs/screenshots/clips/coheronia.gameplay.07162026.1135.mp4)
 
 ## Feature highlights
 
