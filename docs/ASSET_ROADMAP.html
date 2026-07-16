@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coheronia Asset Roadmap And Prompt Packs | Coheronia Wiki</title>
+  <link rel="stylesheet" href="wiki/wiki_theme.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="kicker">Coheronia Wiki</div>
+      <h1>Coheronia Asset Roadmap And Prompt Packs</h1>
+      <p>HTML wiki page generated from the current repo-backed markdown source. This keeps browsing in HTML while preserving markdown as the maintainable source format.</p>
+      <div class="top-actions">
+        <a href="wiki/index.html">Wiki Home</a>
+        <a href="ASSET_ROADMAP.md">View Markdown Source</a>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2>Browse</h2>
+          <p>Move through the wiki by category pages and leaf pages without dropping into raw markdown.</p>
+        </div>
+        <div class="sidebar-section">
+          <h3>Sections</h3>
+          <div class="nav-stack">
+            <a class="nav-card" href="wiki/index.html">Home<small>Front page and overall wiki entry</small></a>
+<a class="nav-card" href="wiki/items.html">Items<small>Category page for all item entries</small></a>
+<a class="nav-card" href="wiki/equipment.html">Equipment<small>Gear families and leaf pages</small></a>
+<a class="nav-card" href="wiki/weapons.html">Weapons<small>Weapon-specific browse page</small></a>
+<a class="nav-card" href="wiki/blocks.html">Blocks<small>Block registry and leaf pages</small></a>
+<a class="nav-card" href="wiki/bestiary.html">Bestiary<small>Live and planned enemy pages</small></a>
+<a class="nav-card" href="wiki/character_types.html">Character Types<small>Species, roles, traits, and ancestries</small></a>
+<a class="nav-card" href="wiki/stations.html">Crafting Stations<small>Station pages and hosted recipes</small></a>
+<a class="nav-card" href="wiki/wiki.html">Wiki Overview<small>Full planning and maintenance overview</small></a>
+          </div>
+        </div>
+      </aside>
+      <main class="content">
+        <div class="content-inner">
+          <div class="breadcrumbs"><a href="wiki/index.html">Wiki</a><span class="sep">/</span><a href="wiki/index.html#references">Reference Docs</a><span class="sep">/</span><a href="ASSET_ROADMAP.html">Asset Roadmap</a><span class="sep">/</span><span>ASSET_ROADMAP.md</span></div>
+          <div class="article">
+            <div class="meta-note">Generated HTML Page</div>
+            <h1 id="coheronia-asset-roadmap-and-prompt-packs">Coheronia Asset Roadmap And Prompt Packs</h1>
+<p>Status: FQ-09A authority — the concrete asset map for future human and LLM art passes. Style, tone, palette, and meaning come from <code>docs/ART_DIRECTION_AND_CANON.md</code>; naming, sizes, and review rules from <code>art/source_templates/ASSET_TEMPLATE.md</code>; plane separation and wall/backdrop rules from <code>art/source_templates/BACKGROUND_TEMPLATE.md</code>. This document never overrides those authorities — it maps them onto every current and near-term asset id.</p>
+<p>Decision (per the FQ-09A scope rule): no <code>data/asset_manifest.json</code> is introduced, because no code or validation consumes one — the runtime already resolves every asset by convention. This human-readable roadmap is the manifest.</p>
+<h2 id="how-the-pipeline-works-for-any-art-agent">How The Pipeline Works (for any art agent)</h2>
+<ul><li>Drop a PNG at <code>art/generated/&lt;category&gt;/&lt;id&gt;.png</code> and it is live on the</li></ul>
+<p>next world entry / app start. No Godot import step, no code change, no manifest edit (<code>Image.load_from_file</code> at runtime).</p>
+<ul><li>Missing art is never an error: every id below renders today from a</li></ul>
+<p>generated color/shape/code-drawn fallback. Art replaces fallbacks one file at a time.</p>
+<ul><li>Variant pools (FQ-09V): <code>&lt;id&gt;_01.png</code> … <code>&lt;id&gt;_08.png</code> (consecutive, first</li></ul>
+<p>gap ends the scan) render as deterministic per-cell variety for blocks and as 8 fps cel frames for opening scenes.</p>
+<ul><li>The validator treats convention-path gaps as INFO only; it fails only</li></ul>
+<p>broken explicit entries in <code>data/visual_assets.json</code> (which you normally never need to touch).</p>
+<ul><li>Never bake words into any image. <code>COHERONIA</code>, <code>By Paul Peck</code>, the tagline,</li></ul>
+<p>and all copy are engine-rendered — an image containing text is rejected.</p>
+<ul><li>Author at 100% target size and judge at 100% zoom; nearest-neighbor</li></ul>
+<p>scaling only.</p>
+<p>Priorities: <strong>P1</strong> = biggest visible win first (terrain, player, hall); <strong>P2</strong> = core loop surfaces (items, live enemies, stations when they land); <strong>P3</strong> = presentation polish (opening cel frames, backgrounds, UI icons). Planned ids must not be produced before their systems exist unless the operator asks — the manifest stays honest.</p>
+<h2 id="live-assets-current-authored-coverage">Live Assets (current authored coverage)</h2>
+<h3 id="blocks-art-generated-blocks-id-png-16x16">Blocks — <code>art/generated/blocks/&lt;id&gt;.png</code>, 16x16</h3>
+<div class="table-wrap"><table><thead><tr><th>Ids</th><th>Transparency</th><th>Authored state</th><th>Runtime variety</th></tr></thead><tbody><tr><td>dirt, grass, stone, ore, wood</td><td>opaque</td><td>canonical live</td><td>three <code>_01.._03</code> variants each</td></tr><tr><td>coal, copper_ore, tin_ore, iron_ore, silver_ore, crystal</td><td>opaque</td><td>canonical live</td><td>three <code>_01.._03</code> variants each</td></tr><tr><td>farm_soil</td><td>opaque</td><td>canonical live</td><td>three <code>_01.._03</code> variants</td></tr><tr><td>crop_seedling, crop_ripe</td><td>transparent</td><td>canonical live</td><td>three <code>_01.._03</code> variants each</td></tr><tr><td>tree_trunk, tree_leaves, berry_bush</td><td>transparent</td><td>canonical live</td><td>three <code>_01.._03</code> variants each</td></tr><tr><td>torch, lantern, town_hall_core</td><td>mixed</td><td>canonical live</td><td>canonical only</td></tr></tbody></table></div>
+<p>Variant pools are deterministic per world seed + cell. Once a pool exists the block renderer chooses from <code>_01.._03</code>; keep the canonical <code>&lt;id&gt;.png</code> as the identity/reference asset and fallback for canonical-only tooling.</p>
+<h3 id="items-art-generated-items-id-png-16x16-transparent">Items — <code>art/generated/items/&lt;id&gt;.png</code>, 16x16, transparent</h3>
+<p>All current inventory and live-drop ids now have canonical transparent icons:</p>
+<ul><li>foundational: <code>dirt</code>, <code>grass</code>, <code>wood</code>, <code>stone</code>, <code>ore</code>, <code>torch</code>, <code>lantern</code>,</li></ul>
+<p><code>berry_bush</code>, <code>food</code>, <code>slime_gel</code>, <code>wet_fiber</code>, <code>tiny_core</code>, <code>pick</code>, <code>axe</code>, <code>sword</code>, <code>armor</code>;</p>
+<ul><li>ore/farm: <code>coal</code>, <code>copper_ore</code>, <code>tin_ore</code>, <code>iron_ore</code>, <code>silver_ore</code>,</li></ul>
+<p><code>crystal</code>, <code>farm_soil</code>, <code>crop_seedling</code>, <code>crop_ripe</code>, <code>crop_seeds</code>;</p>
+<ul><li>intermediates: <code>copper_ingot</code>, <code>tin_ingot</code>, <code>iron_ingot</code>, <code>silver_ingot</code>,</li></ul>
+<p><code>bronze_ingot</code>;</p>
+<ul><li>live enemy drops: <code>meat</code>, <code>thorn_quill</code>, <code>hide_scrap</code>, <code>ore_flecks</code>,</li></ul>
+<p><code>shell</code>, <code>oil_rags</code>, <code>torch_heads</code>, <code>chitin</code>, <code>silk</code>, <code>eyes</code>, <code>coins</code>, <code>scrap_weapons</code>.</p>
+<p>Items remain canonical-only by design so cached inventory stacks never change appearance during refreshes. The color-swatch fallback remains intact for any future id that lands before art.</p>
+<h3 id="enemies-art-generated-enemies-id-png-16x16-transparent">Enemies — <code>art/generated/enemies/&lt;id&gt;.png</code>, 16x16, transparent</h3>
+<div class="table-wrap"><table><thead><tr><th>Id</th><th>Family</th><th>Authored state</th><th>Runtime variety</th></tr></thead><tbody><tr><td>surface_slime</td><td>surface</td><td>canonical live</td><td><code>_01.._03</code></td></tr><tr><td>thornrat</td><td>surface</td><td>canonical live</td><td><code>_01.._03</code></td></tr><tr><td>cave_crawler</td><td>underground</td><td>canonical live</td><td><code>_01.._03</code></td></tr><tr><td>ore_tick</td><td>underground</td><td>canonical live</td><td><code>_01.._03</code></td></tr><tr><td>raider_basic</td><td>raider</td><td>canonical live</td><td><code>_01.._03</code></td></tr><tr><td>raider_torchbearer</td><td>raider</td><td>canonical live</td><td><code>_01.._03</code></td></tr></tbody></table></div>
+<p>Engine draws hurt tint and health bar; sprites must leave headroom for both.</p>
+<h3 id="player-bodies-art-generated-players-body-id-png-16x32-transparent">Player bodies - <code>art/generated/players/&lt;body_id&gt;.png</code>, 16x32, transparent</h3>
+<p>Live body ids: <code>human</code>, <code>human_female</code>, <code>dwarf</code>, <code>dwarf_female</code>, <code>elf</code>, <code>elf_female</code>, <code>goblin</code>, <code>goblin_female</code>, <code>orc</code>, <code>orc_female</code>. Runtime path: <code>data/player_visuals.json</code>, <code>scripts/player/player_visual.gd</code>, and <code>scenes/player/Player.tscn</code>.</p>
+<p>Player art is live now. Appearance palettes recolor only exact rig-defined skin colors inside rig-defined regions, so every canonical and <code>_NN</code> Look must retain those byte-exact palette entries; use <code>scripts/art/restore_player_skin_palette.py</code> after generation. Body variant selection is saved with the character, and gameplay collision remains 12x28. Base bodies stay in simple clothing with no armor; equipment art belongs in <code>art/generated/player_gear/</code>.</p>
+<p>Every body id has two authored Look alternatives (<code>_01</code>, <code>_02</code>) in addition to its canonical body. The shell Look selector now reads the real pool length, so it cannot offer absent/no-op values.</p>
+<h3 id="equipment-overlays-and-ui-placeholders">Equipment overlays and UI placeholders</h3>
+<p>Equipment panels are text-only, so 16x16 equipment item icons have no live consumer and remain deferred. <code>player_visual</code> does have live 16x32 overlay hooks (<code>&lt;item_id&gt;_&lt;body_id&gt;.png</code>, then generic <code>&lt;item_id&gt;.png</code>, plus three tool-swing phases), but no player-gear PNGs ship yet. The procedural rig-aware fallback is safer than a generic overlay until each overlay is checked against all ten body shapes.</p>
+<p><code>art/generated/ui/</code> contains fifteen 32x32 hooks. The health and attunement frames are consumed by the live bottom dock; the remaining button, invalid-slot, cursor, and fill-mask files remain replaceable hooks. FQ-14 goals and the FQ-15 mini-map are currently code-drawn and toggleable, with final glyph art deferred. The nonmodal modules now support a default-locked, profile-backed Edit HUD mode with bounded move, discrete scale, lock, and reset controls. Modal inventory, town, and skills panels remain fixed so gameplay input ownership stays deterministic.</p>
+<h3 id="backing-walls-art-generated-back-walls-id-png-16x16-seamless">Backing walls — <code>art/generated/back_walls/&lt;id&gt;.png</code>, 16x16, seamless</h3>
+<div class="table-wrap"><table><thead><tr><th>Id</th><th>Status</th><th>Fallback</th><th>Priority</th><th>Prompt note</th></tr></thead><tbody><tr><td>dirt_wall</td><td>live</td><td>darkened dirt texture</td><td>P1</td><td>seamless packed-earth rear wall, ~40-50% value of dirt, opaque</td></tr><tr><td>stone_wall</td><td>live</td><td>darkened stone texture</td><td>P1</td><td>seamless rough stone rear wall, quieter than foreground stone</td></tr></tbody></table></div>
+<p>Rules: opaque centers (underground air must never read as sky), edge-tiling continuity, visually quieter and darker than the matching foreground block.</p>
+<h3 id="structures-art-generated-structures-id-png">Structures - <code>art/generated/structures/&lt;id&gt;.png</code></h3>
+<div class="table-wrap"><table><thead><tr><th>Id</th><th>Status</th><th>Shape</th><th>Priority</th><th>Prompt note</th></tr></thead><tbody><tr><td>town_hall</td><td>live</td><td>56x48 transparent sprite</td><td>P1</td><td>founding timber hall; damage stays an engine overlay; fallback remains procedural</td></tr></tbody></table></div>
+<h3 id="scenic-backgrounds-art-generated-backgrounds-id-png">Scenic backgrounds — <code>art/generated/backgrounds/&lt;id&gt;.png</code></h3>
+<div class="table-wrap"><table><thead><tr><th>Id</th><th>Status</th><th>Shape</th><th>Priority</th><th>Prompt note</th></tr></thead><tbody><tr><td>surface_sky</td><td>live</td><td>640x360 full frame, opaque</td><td>P3</td><td>day-neutral sky field; engine tints day/night/storm — author neutral, no sun/moon, no baked lighting events</td></tr><tr><td>surface_far_terrain</td><td>live</td><td>640x36 tiling RGBA strip, transparent top</td><td>P3</td><td>distant ridge silhouettes, low contrast/saturation</td></tr><tr><td>surface_mid_silhouette</td><td>live</td><td>640x20 tiling RGBA strip, transparent top</td><td>P3</td><td>nearer tree/hill silhouettes, still below foreground contrast</td></tr></tbody></table></div>
+<h3 id="opening-cinematic-cel-frames-art-generated-opening-scene-id-01-png">Opening cinematic cel frames — <code>art/generated/opening/&lt;scene_id&gt;_01.png</code> …</h3>
+<p>Eight scene ids (FQ-09C; 640x360 masters, up to 8 frames each, looped at 8 fps for the scene in place of the code-plotted shot; the puppet/plotted rendering is the permanent fallback): <code>opening_01_first_star</code>, <code>opening_02_unraveling_roads</code>, <code>opening_03_scattered_peoples</code>, <code>opening_04_darkness_measures_light</code>, <code>opening_05_first_hall_raised</code>, <code>opening_06_attunement_pulse</code>, <code>opening_07_civilization_pushes_back</code>, <code>opening_08_title_card</code>. Priority P3, in storyboard order. Every frame is wordless; scene copy, title, and <code>By Paul Peck</code> remain engine labels. Composition, beats, and palette per scene are locked in <code>docs/OPENING_STORYBOARD.md</code> — frames re-draw those beats as hand-authored animation, they do not invent new ones. Keep meaningful action above the lower-quarter text band.</p>
+<h2 id="remaining-drawn-shape-actor">Remaining Drawn-Shape Actor</h2>
+<div class="table-wrap"><table><thead><tr><th>Surface</th><th>Today</th><th>Planned asset shape</th></tr></thead><tbody><tr><td>Attunement pulse</td><td>radial gradient light</td><td>optional star-white ring sprite (structural, no fireball)</td></tr></tbody></table></div>
+<h2 id="planned-assets-systems-not-live-yet-do-not-produce-early">Planned Assets (systems not live yet — do not produce early)</h2>
+<div class="table-wrap"><table><thead><tr><th>Family</th><th>Ids</th><th>Arrives with</th><th>Size</th></tr></thead><tbody><tr><td>Stations</td><td>workbench, furnace, anvil</td><td>FQ-11</td><td>16x16 blocks (possibly multi-tile)</td></tr><tr><td>Enemies (data-planned)</td><td>ash_wasp, mudling, hollow_stag, lantern_leech, stoneback_beetle, sporekin, burrow_maw, raider_sapper, hungry_deserter, false_taxman; bosses hollow_king, world_worm</td><td>later waves</td><td>16x16+</td></tr><tr><td>Action effects</td><td>mining/chop arc, placement pulse, hurt/collapse feedback, forge confirmation</td><td>FQ-09M</td><td>small transparent overlays</td></tr><tr><td>Back walls</td><td>ore_cave_wall, fungal_wall, crystal_wall, timber_wall</td><td>with their environments</td><td>16x16 seamless</td></tr><tr><td>Backgrounds</td><td>cave_far, deep_cavern_far</td><td>with cave backdrop wiring</td><td>640x360</td></tr><tr><td>Ancestry sprites (deep/planned)</td><td>deep_dwarf, deep_elf, deep_goblin, gnome, deep_gnome, lizardfolk, dragonkin (6 dragonkin types)</td><td>phase C-E ancestries</td><td>16x32</td></tr><tr><td>UI replacement art</td><td>goals/map glyphs plus reserved orb/dock/button/cursor hooks</td><td>future HUD image-consumer pass</td><td>32x32</td></tr></tbody></table></div>
+<h2 id="prompt-packs">Prompt Packs</h2>
+<p>Use the shared preamble, then the category block, then the per-id note from the tables above. Iterate in an isolated image-model staging area entirely outside the game and validation; only the final PNG enters the repo.</p>
+<h3 id="shared-preamble-every-prompt">Shared preamble (every prompt)</h3>
+<blockquote><p>Coheronia, &quot;Mythic Frontier Pixel Diorama&quot;: side-view pixel art for a survival settlement game. Crisp integer pixel clusters, limited family palette, one-pixel outline policy, readable at 100% zoom. Palette roles: amber/warm parchment/brass = maintained civilization; indigo/blue-black/ cool slate = exposure and the unknown; star-white/pale cyan/muted violet = attunement insight; moss/loam/timber/stone/iron = the material world; controlled rust/bruised red = danger only. Hopeful under pressure, frontier myth, labor-centered. NEVER: glossy mobile fantasy, neon sci-fi, generic fireball magic, grimdark decay, painterly noise, baked-in text of any kind.</p></blockquote>
+<h3 id="blocks-back-walls-16x16">Blocks / back walls (16x16)</h3>
+<blockquote><p>One 16x16 side-view terrain tile of &lt;id&gt;: &lt;per-id note&gt;. Flat readable material, subtle 1px edge shading, tiles seamlessly with itself. [back walls only:] This is a REAR cave wall: 40-50% the value of its foreground block, fully opaque, visually quiet. [variants:] Produce N interchangeable variants sharing silhouette, palette, and edge treatment.</p></blockquote>
+<h3 id="items-equipment-icons-16x16-transparent">Items / equipment icons (16x16, transparent)</h3>
+<blockquote><p>One 16x16 inventory icon of &lt;id&gt;: &lt;per-id note&gt;. Single centered object silhouette on transparency, 1px outline, readable against dark UI panels.</p></blockquote>
+<h3 id="enemies-16x16-transparent">Enemies (16x16, transparent)</h3>
+<blockquote><p>One 16x16 side-view creature sprite of &lt;id&gt; (&lt;family&gt; family): &lt;per-id note&gt;. Strong silhouette, one accent color from its family palette, no background, leaves 2px headroom for an engine-drawn health bar.</p></blockquote>
+<h3 id="player-ancestry-sprites-16x32-transparent-live-for-current-five-species">Player / ancestry sprites (16x32, transparent — live for current five species)</h3>
+<blockquote><p>One 16x32 side-view settler sprite: &lt;ancestry&gt; (&lt;build notes: human balanced/upright; dwarf low/compact/heavy; elf narrow/vertical; orc broad/grounded; goblin small/quick&gt;). Practical frontier work clothes, tool-belt reading, no armor spectacle. Use rig-defined skin masks only for appearance recolor; clothing must remain stable across tan/pale/umber/ash.</p></blockquote>
+<h3 id="opening-cel-frames-640x360-wordless">Opening cel frames (640x360, wordless)</h3>
+<blockquote><p>Frame &lt;n&gt; of &lt;=8 for cinematic scene &lt;scene_id&gt;: &lt;storyboard beat from docs/OPENING_STORYBOARD.md&gt;. 640x360 pixel-art master in the &quot;Coheronia DOS Vector Cinematic&quot; register: predominantly black/blue-black negative space, ~30% cool monoline structure, ~10% amber/star-white accents, hard-edged indexed color, no gradients or bloom. Absolutely no letters, numerals, or logos anywhere. Keep the lower quarter compositionally calm (engine text band).</p></blockquote>
+<h3 id="scenic-backgrounds-640x360-tiling-strips">Scenic backgrounds (640x360 / tiling strips)</h3>
+<blockquote><p>&lt;surface_sky | far terrain strip | mid silhouette strip&gt;: side-view backdrop plane, contrast and saturation clearly below gameplay sprites, no baked light sources or weather (the engine tints day/night/storm), no implied walkable terrain, [strips:] tiles horizontally, transparent above the ridge line.</p></blockquote>
+<h2 id="audio-assets-fq-09u-program-planned-authored-in-m8str0">Audio Assets (FQ-09U program — planned; authored in M8str0)</h2>
+<p>Music production has its own authority pair: <code>docs/WORK_ORDER_FQ_09U_ADAPTIVE_MUSIC.md</code> (architecture, state model, gating) and <code>audio/source_templates/MUSIC_TEMPLATE.md</code> (production contract, mood vocabulary, prompt packs, render checklist), with <code>data/music_manifest.json</code> as the machine contract. Nothing at runtime consumes these until FQ-09U1.</p>
+<div class="table-wrap"><table><thead><tr><th>Family</th><th>Ids</th><th>Arrives with</th><th>Contract</th></tr></thead><tbody><tr><td>Context loops</td><td>coheronia_surface_day, coheronia_surface_night, coheronia_underground, coheronia_crisis</td><td>FQ-09U1</td><td>one adaptive suite: 72 BPM, 4/4, 16 bars (53.333 s), shared key family and phrase grid, OGG</td></tr><tr><td>Stems</td><td>stem_foundation, stem_hearth, stem_motion, stem_pressure, stem_attunement, stem_fracture</td><td>FQ-09U2</td><td>phase-locked 16-bar layers, any subset musical</td></tr><tr><td>Stingers</td><td>stinger_dawn, stinger_nightfall, stinger_raid_warning, stinger_attunement, stinger_base_advance</td><td>FQ-09U3</td><td>one-shots under 8 s, built from suite material</td></tr><tr><td>Opening cues</td><td>cue_opening_01_drone_bell … cue_opening_08_title_chord (<code>audio/opening/&lt;id&gt;.ogg</code>)</td><td>live hooks since FQ-09C (silent-skip)</td><td>restrained one-shots per the storyboard&#x27;s sound direction</td></tr></tbody></table></div>
+<h2 id="review-gate">Review Gate</h2>
+<p>Every candidate passes <code>art/source_templates/ASSET_TEMPLATE.md</code>&#x27;s checklist (and BACKGROUND_TEMPLATE&#x27;s for walls/backdrops) before entering the repo: correct path/size, seamless where required, readable at 100%, quieter than foreground where applicable, no text, fallback still works when the file is removed. Validator, smoke, screenshot tour, and <code>git diff --check</code> stay green — the smoke&#x27;s art checks prove both directions (image wins when present, fallback returns on removal).</p>
+          </div>
+          <div class="footer-note">
+            Source markdown: <a href="ASSET_ROADMAP.md">ASSET_ROADMAP.md</a>.
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

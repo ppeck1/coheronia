@@ -2888,12 +2888,18 @@ func _run() -> void:
 		DirAccess.remove_absolute(_fq09c_cp3)
 	BlockRegistry.clear_visual_cache()
 	await get_tree().process_frame
+	# Removing the explicit entry falls back to the CONVENTION pool when real
+	# authored cels exist on disk (the 2026-07-15 Codex opening-art program
+	# shipped them), else to the plotted rendering.
+	var _fq09c_real_pool: bool = not BlockRegistry.visual_variant_textures(
+		"opening", "opening_01_first_star").is_empty()
 	var _fq09c_celq: Control = _fq09c_script.new()
 	_fq09c_celq.autoplay = false
 	add_child(_fq09c_celq)
-	var _fq09c_cel_off: bool = not _fq09c_celq.current_uses_cel()
+	var _fq09c_cel_off: bool = _fq09c_celq.current_uses_cel() == _fq09c_real_pool
 	_check("fq09c_cel_shot_hook", _fq09c_cel_on and _fq09c_cel_off,
-		"pool_plays=%s removal_falls_back=%s" % [str(_fq09c_cel_on), str(_fq09c_cel_off)])
+		"pool_plays=%s removal_matches_disk=%s real_pool=%s" % [str(_fq09c_cel_on),
+			str(_fq09c_cel_off), str(_fq09c_real_pool)])
 	_fq09c_celq.queue_free()
 	await get_tree().process_frame
 
@@ -3099,9 +3105,14 @@ func _run() -> void:
 			_fq09m_axe_id = _pv.active_tool_id()
 	player._reset_mining()
 	player.axe_tier = _fq09m_old_axe_tier
+	# Tool rendering is procedural exactly when no authored swing art exists
+	# (the 2026-07-15 Codex gear program shipped body-specific swing sets).
+	var _fq09m_gear_art: bool = BlockRegistry.visual_texture(
+		"player_gear", "pick_basic_human_swing_0") != null
 	_check("player_visual_three_swing_poses",
-		_fq09m_three_poses and _fq09m_tool_fallback,
-		"expected=[0, 1, 2] procedural_tool=%s" % str(_fq09m_tool_fallback))
+		_fq09m_three_poses and (_fq09m_tool_fallback != _fq09m_gear_art),
+		"expected=[0, 1, 2] procedural_tool=%s gear_art=%s" % [
+			str(_fq09m_tool_fallback), str(_fq09m_gear_art)])
 	_check("player_visual_tool_matches_target",
 		_fq09m_pick_id.begins_with("pick_") and _fq09m_axe_id == "axe_crude",
 		"stone=%s tree=%s" % [_fq09m_pick_id, _fq09m_axe_id])

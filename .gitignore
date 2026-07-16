@@ -25,3 +25,7 @@ art/generated/*/smoke_tmp_*.png
 # rendered OGGs, sources, and tooling are tracked.
 audio/**/*.rar
 audio/**/*.zip
+
+# Agent session artifacts (never publish)
+.codex/
+__pycache__/

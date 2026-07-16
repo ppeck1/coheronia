@@ -1,6 +1,16 @@
 # Coheronia - Handoff
 
-## Current State
+## Current State (2026-07-16 merge)
+
+**All concurrent lanes merged and verified on one tree (suite 319/319):**
+the FQ-19..21 HUD arc (below), the Codex opening-cel and body-specific gear
+programs, 40+ future item icons, torch/lantern variants, and the generated
+wiki (`docs/wiki/`, 175 pages, 1298 links verified, publication-safe).
+**Open defect for the next session:** the vessel fill masking is still off
+and off-center at the live window scale — the full diagnosis, suspect list,
+and verification workflow are in `docs/WORK_HANDOFF_HUD_BAND_FOR_CODEX.md`.
+
+## Previous State
 
 **FQ-21 (one-piece full-width dock band) implemented and verified — the dock
 is now four native-aspect pieces sliced whole from the operator's blueprint

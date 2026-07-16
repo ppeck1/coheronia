@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coheronia Wiki - Skills</title>
+  <link rel="stylesheet" href="wiki_theme.css">
+  <style>
+    .skill-map {
+      margin: 20px 0 24px;
+      padding: 18px;
+      border: 1px solid rgba(255, 228, 163, 0.28);
+      border-radius: 18px;
+      background: rgba(8, 10, 20, 0.46);
+      overflow-x: auto;
+    }
+    .skill-map svg {
+      min-width: 960px;
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .skill-node rect {
+      rx: 8;
+      ry: 8;
+      stroke-width: 1.4;
+      fill: #171826;
+    }
+    .skill-node text {
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      fill: #f6eddc;
+      font-size: 13px;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+    .skill-node .small {
+      fill: #d2c3a8;
+      font-size: 11px;
+    }
+    .skill-live rect { stroke: #8fbb66; }
+    .skill-ground rect { stroke: #dfb162; }
+    .skill-planned rect { stroke: #8d8798; stroke-dasharray: 5 4; }
+    .skill-edge {
+      fill: none;
+      stroke: rgba(255, 232, 187, 0.58);
+      stroke-width: 2;
+      marker-end: url(#arrow);
+    }
+    .skill-edge.soft {
+      stroke: rgba(210, 195, 168, 0.28);
+      stroke-dasharray: 5 5;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <span class="kicker">Coheronia Wiki</span>
+      <h1>Skills</h1>
+      <p>Current skill-system review surface, grounded in <code>data/progression/perks.json</code> and the live Skill Constellations panel.</p>
+      <div class="top-actions">
+        <a href="index.html">Wiki Home</a>
+        <a href="skills.md">View Markdown Source</a>
+        <a href="planned_data.html">Planned Data</a>
+        <a href="image_continuation.html">Image Continuation</a>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2>Browse</h2>
+          <p>The live runtime has one buyable lane. Other lanes are planned data and should stay labeled that way until consumers exist.</p>
+        </div>
+        <div class="sidebar-section">
+          <h3>Related</h3>
+          <div class="nav-stack">
+            <a class="nav-card" href="current_live.html">Current Live<small>What is shipped now</small></a>
+            <a class="nav-card" href="planned_data.html">Planned Data<small>Future-only references</small></a>
+            <a class="nav-card" href="status_browser.html">Status Browser<small>Live vs planned terminology</small></a>
+            <a class="nav-card" href="image_continuation.html">Image Continuation<small>Art handoff constraints</small></a>
+            <a class="nav-card" href="wiki.html">Wiki Overview<small>Maintenance source</small></a>
+          </div>
+        </div>
+      </aside>
+
+      <main class="content">
+        <div class="content-inner article">
+          <div class="breadcrumbs"><a href="index.html">Wiki</a><span class="sep">/</span><span>Skills</span></div>
+          <h1>Skill Constellations</h1>
+          <p>The current panel is a star-map presentation over data-driven perk nodes. One lane is live now: Miner. The remaining lanes are present as planned data and need consumer checks before public wording treats them as shipped behavior.</p>
+
+          <div class="skill-map" role="img" aria-label="Coheronia skill lane status graph">
+            <svg viewBox="0 0 1040 520" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                  <path d="M0,0 L0,6 L9,3 z" fill="rgba(255, 232, 187, 0.7)" />
+                </marker>
+              </defs>
+              <path class="skill-edge" d="M195 245 C260 245 260 145 335 145"/>
+              <path class="skill-edge" d="M195 245 C260 245 260 345 335 345"/>
+              <path class="skill-edge soft" d="M520 145 C600 145 600 135 690 135"/>
+              <path class="skill-edge soft" d="M520 345 C600 345 600 385 690 385"/>
+
+              <g class="skill-node skill-live" transform="translate(55 205)">
+                <rect width="140" height="80"/>
+                <text x="70" y="28">Stone Recovery</text>
+                <text class="small" x="70" y="50">cost 1</text>
+                <text class="small" x="70" y="66">mining speed live</text>
+              </g>
+              <g class="skill-node skill-ground" transform="translate(335 105)">
+                <rect width="185" height="80"/>
+                <text x="92.5" y="28">Deep Sense</text>
+                <text class="small" x="92.5" y="50">cost 1</text>
+                <text class="small" x="92.5" y="66">ore sensing consumer needed</text>
+              </g>
+              <g class="skill-node skill-ground" transform="translate(335 305)">
+                <rect width="185" height="80"/>
+                <text x="92.5" y="28">Tunnel Safety</text>
+                <text class="small" x="92.5" y="50">cost 2</text>
+                <text class="small" x="92.5" y="66">cave hazard consumer needed</text>
+              </g>
+              <g class="skill-node skill-planned" transform="translate(690 50)">
+                <rect width="230" height="70"/>
+                <text x="115" y="27">Builder / Artisan</text>
+                <text class="small" x="115" y="49">construction and crafting lanes</text>
+              </g>
+              <g class="skill-node skill-planned" transform="translate(690 160)">
+                <rect width="230" height="70"/>
+                <text x="115" y="27">Warden / Ruler</text>
+                <text class="small" x="115" y="49">combat and civic lanes</text>
+              </g>
+              <g class="skill-node skill-planned" transform="translate(690 270)">
+                <rect width="230" height="70"/>
+                <text x="115" y="27">Forager / Explorer</text>
+                <text class="small" x="115" y="49">survival and discovery lanes</text>
+              </g>
+              <g class="skill-node skill-planned" transform="translate(690 380)">
+                <rect width="230" height="70"/>
+                <text x="115" y="27">Skill Art Convention</text>
+                <text class="small" x="115" y="49">not authored yet</text>
+              </g>
+            </svg>
+          </div>
+
+          <h2>Current Runtime Shape</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Field</th><th>Current state</th></tr></thead>
+              <tbody>
+                <tr><td>Point rule</td><td>One perk point per player level above 1.</td></tr>
+                <tr><td>Live lane</td><td>Miner.</td></tr>
+                <tr><td>Planned lanes</td><td>Builder, Warden, Forager, Ruler, Explorer, Artisan.</td></tr>
+                <tr><td>Purchase state</td><td>Stored in the world save progression state.</td></tr>
+                <tr><td>UI surface</td><td>Skill Constellations panel, opened from the live HUD path.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>Live Miner Lane</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Perk</th><th>Cost</th><th>Effect key</th><th>Effect value</th><th>Requires</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Stone Recovery</td><td>1</td><td><code>mining_speed</code></td><td>1.15</td><td>none</td><td>Live mechanical value.</td></tr>
+                <tr><td>Deep Sense</td><td>1</td><td><code>detect_ore_range</code></td><td>1.20</td><td>Stone Recovery</td><td>Groundwork; needs ore sensing feature before it is meaningful in play.</td></tr>
+                <tr><td>Tunnel Safety</td><td>2</td><td><code>cave_safety</code></td><td>1.20</td><td>Stone Recovery</td><td>Groundwork; needs cave hazard feature before it is meaningful in play.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>Serious Work Needed</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Area</th><th>Why it matters</th><th>Suggested next definition</th></tr></thead>
+              <tbody>
+                <tr><td>Lane ownership</td><td>Planned lanes exist, but their gameplay loops are unevenly defined.</td><td>Add one acceptance note per lane: XP source, first useful perk, and live system dependency.</td></tr>
+                <tr><td>Effect semantics</td><td>Some effect keys are groundwork without shipped consumers.</td><td>Split every perk into live consumer, stub consumer, or no consumer yet.</td></tr>
+                <tr><td>Image direction</td><td>The star-map panel has a clear mood, but no authored skill icon set is documented.</td><td>Add a future skill-art convention only after runtime code agrees.</td></tr>
+                <tr><td>Balance</td><td>Current costs are readable, but not tied to a broad progression curve.</td><td>Record target time-to-first-perk, time-to-branch, and total points by milestone.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>Continuation Prompt</h2>
+          <blockquote>Continue Coheronia skill-system planning from the current repo state. Read docs/wiki/skills.md, data/progression/perks.json, scripts/ui/skill_tree_panel.gd, and the live progression/save code before editing. Keep wiki wording separated from runtime changes. Do not imply planned lanes are shipped gameplay. For every proposed skill addition, document the effect key, live consumer, XP gate, prerequisite, cost, and art need. Avoid references to named commercial games, studios, characters, sprite sheets, UI styles, or living artists.</blockquote>
+
+          <p class="source-note">Source markdown: <a href="skills.md">skills.md</a>.</p>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

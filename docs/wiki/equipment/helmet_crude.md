@@ -1,0 +1,42 @@
+# Crude Helm
+
+Generated: 2026-07-15
+
+> `Equipment` page. Current status: `complete`.
+
+| Field | Value |
+|---|---|
+| ID | `helmet_crude` |
+| Page type | Equipment |
+| Slot type | helmet |
+| Current status | complete |
+| Description | A stiff wooden cap. Softens blows a little. |
+| Stat effects | armor=1 |
+| Visual surface | No dedicated backpack-style equipment icon family is currently in use. |
+| Player gear overlay hook | `art/generated/player_gear/<item_id>_<body_id>.png` or `<item_id>.png` |
+| Fallback / placeholder | Procedural equipped presentation when no overlay art exists. |
+
+## Summary
+
+Crude Helm is a live equipment entry with an active source route and slot effect.
+
+## Acquisition
+
+| Source type | Source | Station | Notes |
+|---|---|---|---|
+| Town Hall consumes stockpile inputs and equips the crude armor set directly | Crude Armor Set | [Town Hall](../stations/town_hall.md) | Routes into `helmet`. |
+
+## Current Use
+
+| Slot | Effects | Notes |
+|---|---|---|
+| helmet | armor=1 | Live gear effects apply when equipped. |
+
+## Related Pages
+
+- [Equipment](../equipment.md)
+- [Wiki Overview](../wiki.md)
+
+## Notes
+
+- This page documents the current live route only. It does not change mechanics.

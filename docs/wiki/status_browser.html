@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Status Browser | Coheronia Wiki</title>
+  <link rel="stylesheet" href="wiki_theme.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="kicker">Coheronia Wiki</div>
+      <h1>Status Browser</h1>
+      <p>HTML wiki page generated from the current repo-backed markdown source. This keeps browsing in HTML while preserving markdown as the maintainable source format.</p>
+      <div class="top-actions">
+        <a href="index.html">Wiki Home</a>
+        <a href="status_browser.md">View Markdown Source</a>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2>Browse</h2>
+          <p>Move through the wiki by category pages and leaf pages without dropping into raw markdown.</p>
+        </div>
+        <div class="sidebar-section">
+          <h3>Sections</h3>
+          <div class="nav-stack">
+            <a class="nav-card" href="index.html">Home<small>Front page and overall wiki entry</small></a>
+<a class="nav-card" href="items.html">Items<small>Category page for all item entries</small></a>
+<a class="nav-card" href="equipment.html">Equipment<small>Gear families and leaf pages</small></a>
+<a class="nav-card" href="weapons.html">Weapons<small>Weapon-specific browse page</small></a>
+<a class="nav-card" href="blocks.html">Blocks<small>Block registry and leaf pages</small></a>
+<a class="nav-card" href="bestiary.html">Bestiary<small>Live and planned enemy pages</small></a>
+<a class="nav-card" href="character_types.html">Character Types<small>Species, roles, traits, and ancestries</small></a>
+<a class="nav-card" href="stations.html">Crafting Stations<small>Station pages and hosted recipes</small></a>
+<a class="nav-card" href="wiki.html">Wiki Overview<small>Full planning and maintenance overview</small></a>
+          </div>
+        </div>
+      </aside>
+      <main class="content">
+        <div class="content-inner">
+          <div class="breadcrumbs"><a href="index.html">Wiki</a><span class="sep">/</span><a href="status_browser.html">Status Browser</a><span class="sep">/</span><span>wiki/status_browser.md</span></div>
+          <div class="article">
+            <div class="meta-note">Generated HTML Page</div>
+            <h1 id="status-browser">Status Browser</h1>
+<p>Generated: 2026-07-15</p>
+<p>This page gives the wiki a quick current-vs-planned browser. It is intentionally classification-first: use it when you need to know whether a page describes live behavior, planned data, internal implementation glue, or source-only material.</p>
+<h2 id="status-groups">Status Groups</h2>
+<div class="table-wrap"><table><thead><tr><th>Status</th><th>Meaning</th><th>Browse</th></tr></thead><tbody><tr><td>complete</td><td>Live source and meaningful live downstream use.</td><td><a href="current_live.html">Current Live</a></td></tr><tr><td>source-only</td><td>Live or defined source exists, but no meaningful downstream sink exists yet.</td><td><a href="current_live.html">Current Live</a> and <a href="planned_data.html">Planned Data</a></td></tr><tr><td>dead</td><td>Defined in current data, but not obtainable in current play.</td><td><a href="planned_data.html">Planned Data</a></td></tr><tr><td>planned</td><td>Referenced only by planned data. Not live gameplay.</td><td><a href="planned_data.html">Planned Data</a></td></tr><tr><td>internal</td><td>Runtime bridge token, not a player-facing object.</td><td><a href="internal_tokens.html">Internal Tokens</a></td></tr></tbody></table></div>
+<h2 id="practical-use">Practical Use</h2>
+<ul><li>Start with <a href="current_live.html">Current Live</a> for player-facing or currently obtainable things.</li><li>Use <a href="planned_data.html">Planned Data</a> for future sink notes, planned enemy drops, dead equipment definitions, and design pressure.</li><li>Use <a href="internal_tokens.html">Internal Tokens</a> for implementation bridges such as <code>tool_tier_2_pick</code>.</li><li>Use <a href="recipes.html">Recipes</a> when a status question depends on route behavior rather than item identity.</li></ul>
+<h2 id="related-pages">Related Pages</h2>
+<ul><li><a href="items.html">Items</a></li><li><a href="recipes.html">Recipes</a></li><li><a href="stations.html">Crafting Stations</a></li><li><a href="wiki.html">Wiki Overview</a></li></ul>
+          </div>
+          <div class="footer-note">
+            Source markdown: <a href="status_browser.md">status_browser.md</a>.
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coheronia Item Graph | Coheronia Wiki</title>
+  <link rel="stylesheet" href="wiki/wiki_theme.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="kicker">Coheronia Wiki</div>
+      <h1>Coheronia Item Graph</h1>
+      <p>HTML wiki page generated from the current repo-backed markdown source. This keeps browsing in HTML while preserving markdown as the maintainable source format.</p>
+      <div class="top-actions">
+        <a href="wiki/index.html">Wiki Home</a>
+        <a href="ITEM_GRAPH.md">View Markdown Source</a>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2>Browse</h2>
+          <p>Move through the wiki by category pages and leaf pages without dropping into raw markdown.</p>
+        </div>
+        <div class="sidebar-section">
+          <h3>Sections</h3>
+          <div class="nav-stack">
+            <a class="nav-card" href="wiki/index.html">Home<small>Front page and overall wiki entry</small></a>
+<a class="nav-card" href="wiki/items.html">Items<small>Category page for all item entries</small></a>
+<a class="nav-card" href="wiki/equipment.html">Equipment<small>Gear families and leaf pages</small></a>
+<a class="nav-card" href="wiki/weapons.html">Weapons<small>Weapon-specific browse page</small></a>
+<a class="nav-card" href="wiki/blocks.html">Blocks<small>Block registry and leaf pages</small></a>
+<a class="nav-card" href="wiki/bestiary.html">Bestiary<small>Live and planned enemy pages</small></a>
+<a class="nav-card" href="wiki/character_types.html">Character Types<small>Species, roles, traits, and ancestries</small></a>
+<a class="nav-card" href="wiki/stations.html">Crafting Stations<small>Station pages and hosted recipes</small></a>
+<a class="nav-card" href="wiki/wiki.html">Wiki Overview<small>Full planning and maintenance overview</small></a>
+          </div>
+        </div>
+      </aside>
+      <main class="content">
+        <div class="content-inner">
+          <div class="breadcrumbs"><a href="wiki/index.html">Wiki</a><span class="sep">/</span><a href="wiki/index.html#references">Reference Docs</a><span class="sep">/</span><a href="ITEM_GRAPH.html">Item Graph</a><span class="sep">/</span><span>ITEM_GRAPH.md</span></div>
+          <div class="article">
+            <div class="meta-note">Generated HTML Page</div>
+            <h1 id="coheronia-item-graph">Coheronia Item Graph</h1>
+<p>Generated: 2026-07-15</p>
+<h2 id="scope">Scope</h2>
+<ul><li>Audit target: <code>B:\dev\Coheronia\coheronia_fable_oneshot_repo</code> only.</li><li>Grounded in <code>docs/ITEM_AND_RECIPE_MATRIX.md</code>, <code>data/items.json</code>, <code>data/equipment.json</code>, <code>data/recipes.json</code>, <code>data/blocks.json</code>, plus the live consumers in <code>scripts/player/player.gd</code>, <code>scripts/settlement/town_hall.gd</code>, and <code>scripts/ui/hud.gd</code>.</li><li>The live graph below focuses on gameplay-facing acquisition and crafting flow.</li><li>Town Hall recipes and station recipes consume Town Hall stockpile inputs in live play; the graph shows the dependency flow directly item-to-recipe for readability.</li><li>The self-identity hand recipes <code>craft_wood_block</code> and <code>craft_stone_block</code> are intentionally omitted from the graph because they do not change the item id.</li></ul>
+<h2 id="live-item-graph">Live Item Graph</h2>
+<p><code></code>`mermaid flowchart LR classDef source fill:#f8fafc,stroke:#475569,color:#334155; classDef live fill:#ecfdf5,stroke:#166534,color:#14532d; classDef gear fill:#eff6ff,stroke:#1d4ed8,color:#1e3a8a; classDef recipe fill:#fff7ed,stroke:#c2410c,color:#9a3412; classDef station fill:#fef3c7,stroke:#b45309,color:#92400e;</p>
+<p>subgraph src[&quot;Starts and live sources&quot;] direction TB start_h[/Homesteader start/] start_p[/Prospector start/] start_d[/Default character gear/] blk_dirt[/Dirt or Grass drop/] blk_wood[/Wood or Tree Trunk drop/] blk_stone[/Stone drop/] blk_coal[/Coal Seam drop/] blk_copper[/Copper Ore drop/] blk_tin[/Tin Ore drop/] blk_ore[/Deep Ore drop/] blk_iron[/Iron Ore drop/] blk_silver[/Silver Ore drop/] blk_crystal[/Raw Crystal drop/] blk_seedling[/Sprouting Crop drop/] blk_ripe[/Ripe Crop drop/] blk_bush[/Berry Bush drop/] blk_torch[/Torch block drop/] blk_lantern[/Lantern block drop/] en_slime[/Surface Slime/] en_thornrat[/Thornrat/] en_crawler[/Cave Crawler/] en_tick[/Ore Tick/] en_raider[/Raider Basic/] en_torchbearer[/Raider Torchbearer/] end</p>
+<p>subgraph items[&quot;Live inventory items&quot;] direction TB i_dirt[&quot;dirt&quot;] i_wood[&quot;wood&quot;] i_stone[&quot;stone&quot;] i_torch[&quot;torch&quot;] i_food[&quot;food&quot;] i_crop_seeds[&quot;crop_seeds&quot;] i_lantern[&quot;lantern&quot;] i_coal[&quot;coal&quot;] i_copper_ore[&quot;copper_ore&quot;] i_tin_ore[&quot;tin_ore&quot;] i_ore[&quot;ore&quot;] i_iron_ore[&quot;iron_ore&quot;] i_silver_ore[&quot;silver_ore&quot;] i_crystal[&quot;crystal&quot;] i_copper_ingot[&quot;copper_ingot&quot;] i_tin_ingot[&quot;tin_ingot&quot;] i_iron_ingot[&quot;iron_ingot&quot;] i_silver_ingot[&quot;silver_ingot&quot;] i_bronze_ingot[&quot;bronze_ingot&quot;] i_slime_gel[&quot;slime_gel&quot;] i_wet_fiber[&quot;wet_fiber&quot;] i_tiny_core[&quot;tiny_core&quot;] i_meat[&quot;meat&quot;] i_thorn_quill[&quot;thorn_quill&quot;] i_hide_scrap[&quot;hide_scrap&quot;] i_chitin[&quot;chitin&quot;] i_silk[&quot;silk&quot;] i_eyes[&quot;eyes&quot;] i_ore_flecks[&quot;ore_flecks&quot;] i_shell[&quot;shell&quot;] i_coins[&quot;coins&quot;] i_scrap_weapons[&quot;scrap_weapons&quot;] i_oil_rags[&quot;oil_rags&quot;] i_torch_heads[&quot;torch_heads&quot;] end</p>
+<p>subgraph craft[&quot;Crafting and stations&quot;] direction TB hand[&quot;Hand crafting&quot;] town[&quot;Town Hall&quot;] st_workbench[&quot;Workbench&quot;] st_furnace[&quot;Furnace&quot;] st_anvil[&quot;Anvil&quot;] r_torch{{craft_torch}} r_seeds{{craft_seeds}} r_lantern{{craft_lantern}} r_pick{{basic_pick_upgrade}} r_axe{{craft_axe}} r_sword{{craft_sword}} r_armor{{craft_armor_set}} r_bundle{{workbench_torch_bundle}} r_smelt_copper{{smelt_copper}} r_smelt_tin{{smelt_tin}} r_smelt_iron{{smelt_iron}} r_smelt_silver{{smelt_silver}} r_bronze{{alloy_bronze}} r_iron_sword{{anvil_iron_sword}} r_iron_armor{{anvil_iron_armor}} end</p>
+<p>subgraph gear[&quot;Live equipment&quot;] direction TB g_pick_basic[&quot;pick_basic&quot;] g_pick_forged[&quot;pick_forged&quot;] g_axe_crude[&quot;axe_crude&quot;] g_sword_crude[&quot;sword_crude&quot;] g_helmet_crude[&quot;helmet_crude&quot;] g_torso_crude[&quot;torso_crude&quot;] g_feet_crude[&quot;feet_crude&quot;] g_sword_iron[&quot;sword_iron&quot;] g_helmet_iron[&quot;helmet_iron&quot;] g_torso_iron[&quot;torso_iron&quot;] g_feet_iron[&quot;feet_iron&quot;] end</p>
+<p>start_h --&gt; i_dirt start_h --&gt; i_wood start_p --&gt; i_stone start_p --&gt; i_torch start_d --&gt; g_pick_basic</p>
+<p>blk_dirt --&gt; i_dirt blk_wood --&gt; i_wood blk_stone --&gt; i_stone blk_coal --&gt; i_coal blk_copper --&gt; i_copper_ore blk_tin --&gt; i_tin_ore blk_ore --&gt; i_ore blk_iron --&gt; i_iron_ore blk_silver --&gt; i_silver_ore blk_crystal --&gt; i_crystal blk_seedling --&gt; i_crop_seeds blk_ripe --&gt; i_food blk_ripe --&gt; i_crop_seeds blk_bush --&gt; i_food blk_torch --&gt; i_torch blk_lantern --&gt; i_lantern</p>
+<p>en_slime --&gt; i_slime_gel en_slime --&gt; i_wet_fiber en_slime --&gt; i_tiny_core en_thornrat --&gt; i_meat en_thornrat --&gt; i_thorn_quill en_thornrat --&gt; i_hide_scrap en_crawler --&gt; i_chitin en_crawler --&gt; i_silk en_crawler --&gt; i_eyes en_tick --&gt; i_ore_flecks en_tick --&gt; i_shell en_raider --&gt; i_coins en_raider --&gt; i_scrap_weapons en_torchbearer --&gt; i_oil_rags en_torchbearer --&gt; i_torch_heads</p>
+<p>hand --&gt; r_torch hand --&gt; r_seeds town --&gt; r_lantern town --&gt; r_pick town --&gt; r_axe town --&gt; r_sword town --&gt; r_armor st_workbench --&gt; r_bundle st_furnace --&gt; r_smelt_copper st_furnace --&gt; r_smelt_tin st_furnace --&gt; r_smelt_iron st_furnace --&gt; r_smelt_silver st_furnace --&gt; r_bronze st_anvil --&gt; r_iron_sword st_anvil --&gt; r_iron_armor</p>
+<p>i_wood -- x1 --&gt; r_torch i_stone -- x1 --&gt; r_torch r_torch -- x3 --&gt; i_torch</p>
+<p>i_food -- x1 --&gt; r_seeds r_seeds -- x2 --&gt; i_crop_seeds</p>
+<p>i_ore -- x2 --&gt; r_lantern i_wood -- x1 --&gt; r_lantern r_lantern -- x1 --&gt; i_lantern</p>
+<p>g_pick_basic -. upgraded by .-&gt; r_pick i_wood -- x3 --&gt; r_pick i_stone -- x5 --&gt; r_pick r_pick --&gt; g_pick_forged</p>
+<p>i_wood -- x4 --&gt; r_axe i_stone -- x2 --&gt; r_axe r_axe --&gt; g_axe_crude</p>
+<p>i_wood -- x2 --&gt; r_sword i_stone -- x3 --&gt; r_sword r_sword --&gt; g_sword_crude</p>
+<p>i_wood -- x6 --&gt; r_armor i_stone -- x4 --&gt; r_armor r_armor --&gt; g_helmet_crude r_armor --&gt; g_torso_crude r_armor --&gt; g_feet_crude</p>
+<p>i_wood -- x12 --&gt; st_workbench i_stone -- x6 --&gt; st_workbench st_workbench -. prereq .-&gt; st_furnace i_stone -- x16 --&gt; st_furnace i_coal -- x4 --&gt; st_furnace st_furnace -. prereq .-&gt; st_anvil i_stone -- x10 --&gt; st_anvil i_iron_ingot -- x3 --&gt; st_anvil</p>
+<p>i_wood -- x2 --&gt; r_bundle i_coal -- x1 --&gt; r_bundle r_bundle -- x6 --&gt; i_torch</p>
+<p>i_copper_ore -- x2 --&gt; r_smelt_copper i_coal -- x1 --&gt; r_smelt_copper r_smelt_copper -- x1 --&gt; i_copper_ingot</p>
+<p>i_tin_ore -- x2 --&gt; r_smelt_tin i_coal -- x1 --&gt; r_smelt_tin r_smelt_tin -- x1 --&gt; i_tin_ingot</p>
+<p>i_iron_ore -- x2 --&gt; r_smelt_iron i_coal -- x1 --&gt; r_smelt_iron r_smelt_iron -- x1 --&gt; i_iron_ingot</p>
+<p>i_silver_ore -- x2 --&gt; r_smelt_silver i_coal -- x1 --&gt; r_smelt_silver r_smelt_silver -- x1 --&gt; i_silver_ingot</p>
+<p>i_copper_ingot -- x1 --&gt; r_bronze i_tin_ingot -- x1 --&gt; r_bronze i_coal -- x1 --&gt; r_bronze r_bronze -- x2 --&gt; i_bronze_ingot</p>
+<p>i_iron_ingot -- x3 --&gt; r_iron_sword r_iron_sword --&gt; g_sword_iron</p>
+<p>i_iron_ingot -- x5 --&gt; r_iron_armor r_iron_armor --&gt; g_helmet_iron r_iron_armor --&gt; g_torso_iron r_iron_armor --&gt; g_feet_iron</p>
+<p>class start_h,start_p,start_d,blk_dirt,blk_wood,blk_stone,blk_coal,blk_copper,blk_tin,blk_ore,blk_iron,blk_silver,blk_crystal,blk_seedling,blk_ripe,blk_bush,blk_torch,blk_lantern,en_slime,en_thornrat,en_crawler,en_tick,en_raider,en_torchbearer source; class i_dirt,i_wood,i_stone,i_torch,i_food,i_crop_seeds,i_lantern,i_coal,i_copper_ore,i_tin_ore,i_ore,i_iron_ore,i_silver_ore,i_crystal,i_copper_ingot,i_tin_ingot,i_iron_ingot,i_silver_ingot,i_bronze_ingot,i_slime_gel,i_wet_fiber,i_tiny_core,i_meat,i_thorn_quill,i_hide_scrap,i_chitin,i_silk,i_eyes,i_ore_flecks,i_shell,i_coins,i_scrap_weapons,i_oil_rags,i_torch_heads live; class hand,town,st_workbench,st_furnace,st_anvil station; class r_torch,r_seeds,r_lantern,r_pick,r_axe,r_sword,r_armor,r_bundle,r_smelt_copper,r_smelt_tin,r_smelt_iron,r_smelt_silver,r_bronze,r_iron_sword,r_iron_armor recipe; class g_pick_basic,g_pick_forged,g_axe_crude,g_sword_crude,g_helmet_crude,g_torso_crude,g_feet_crude,g_sword_iron,g_helmet_iron,g_torso_iron,g_feet_iron gear; <code></code>`</p>
+<h2 id="non-live-status-graph">Non-live Status Graph</h2>
+<p><code></code>`mermaid flowchart LR classDef source fill:#f8fafc,stroke:#475569,color:#334155; classDef live fill:#ecfdf5,stroke:#166534,color:#14532d; classDef gear fill:#eff6ff,stroke:#1d4ed8,color:#1e3a8a; classDef sourceOnly fill:#f3f4f6,stroke:#6b7280,color:#374151,stroke-dasharray: 5 5; classDef dead fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d,stroke-dasharray: 5 5; classDef internal fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e,stroke-dasharray: 2 2;</p>
+<p>defs_items[/Defined in items.json only/] defs_gear[/Defined in equipment.json only/] defs_recipe[/Declared in recipe JSON only/]</p>
+<p>so_grass[&quot;grass&quot;] so_farm_soil[&quot;farm_soil&quot;] so_crop_seedling[&quot;crop_seedling&quot;] so_crop_ripe[&quot;crop_ripe&quot;] so_berry_bush[&quot;berry_bush&quot;] so_pick[&quot;pick&quot;] so_axe[&quot;axe&quot;] so_sword[&quot;sword&quot;] so_armor[&quot;armor&quot;]</p>
+<p>dead_ring[&quot;ring_band&quot;] dead_amulet[&quot;amulet_focus&quot;] internal_pick[&quot;tool_tier_2_pick&quot;]</p>
+<p>live_dirt[&quot;dirt&quot;] live_food[&quot;food&quot;] live_crop_seeds[&quot;crop_seeds&quot;] live_pick[&quot;pick_basic / pick_forged&quot;] live_axe[&quot;axe_crude&quot;] live_sword[&quot;sword_crude / sword_iron&quot;] live_armor[&quot;crude / iron armor set&quot;]</p>
+<p>defs_items --&gt; so_grass defs_items --&gt; so_farm_soil defs_items --&gt; so_crop_seedling defs_items --&gt; so_crop_ripe defs_items --&gt; so_berry_bush defs_items --&gt; so_pick defs_items --&gt; so_axe defs_items --&gt; so_sword defs_items --&gt; so_armor</p>
+<p>defs_gear --&gt; dead_ring defs_gear --&gt; dead_amulet</p>
+<p>defs_recipe --&gt; internal_pick</p>
+<p>so_grass -. world drop resolves to .-&gt; live_dirt so_crop_seedling -. live block yields .-&gt; live_crop_seeds so_crop_ripe -. live block yields .-&gt; live_food so_crop_ripe -. live block also yields .-&gt; live_crop_seeds so_berry_bush -. live block yields .-&gt; live_food so_pick -. icon surrogate for .-&gt; live_pick so_axe -. icon surrogate for .-&gt; live_axe so_sword -. icon surrogate for .-&gt; live_sword so_armor -. icon surrogate for .-&gt; live_armor internal_pick -. player facing result is .-&gt; live_pick</p>
+<p>class defs_items,defs_gear,defs_recipe source; class so_grass,so_farm_soil,so_crop_seedling,so_crop_ripe,so_berry_bush,so_pick,so_axe,so_sword,so_armor sourceOnly; class dead_ring,dead_amulet dead; class internal_pick internal; class live_dirt,live_food,live_crop_seeds live; class live_pick,live_axe,live_sword,live_armor gear; <code></code>`</p>
+<h2 id="label-matrix">Label Matrix</h2>
+<div class="table-wrap"><table><thead><tr><th>Node</th><th>Status label</th><th>Why it is labeled this way</th><th>Closest live counterpart or outcome</th><th>Notes</th></tr></thead><tbody><tr><td><code>grass</code></td><td>source-only</td><td>Inventory metadata exists, but the live grass block drops <code>dirt</code> instead of a <code>grass</code> item.</td><td><code>dirt</code></td><td>World block exists; backpack item does not.</td></tr><tr><td><code>farm_soil</code></td><td>source-only</td><td>Tilled-soil block state exists in the world, but no live inventory grant produces <code>farm_soil</code> as an item.</td><td>none</td><td>World-state only right now.</td></tr><tr><td><code>crop_seedling</code></td><td>source-only</td><td>Crop growth stage exists as a world block state, but inventory does not receive <code>crop_seedling</code>.</td><td><code>crop_seeds</code></td><td>The live seedling block drops seeds.</td></tr><tr><td><code>crop_ripe</code></td><td>source-only</td><td>Ripe crop is a world state, not a retained inventory item.</td><td><code>food</code>, <code>crop_seeds</code></td><td>Harvest flow resolves to outputs instead of keeping <code>crop_ripe</code>.</td></tr><tr><td><code>berry_bush</code></td><td>source-only</td><td>Berry bush exists as a world block, but the harvest result is <code>food</code>, not a bush item.</td><td><code>food</code></td><td>Preferred tool is axe in block data.</td></tr><tr><td><code>pick</code></td><td>source-only</td><td>Generic forge icon / metadata id, not an actual equipped gear id.</td><td><code>pick_basic</code>, <code>pick_forged</code></td><td>Used as a representational surface only.</td></tr><tr><td><code>axe</code></td><td>source-only</td><td>Generic forge icon / metadata id, not an actual equipped gear id.</td><td><code>axe_crude</code></td><td>Used as a representational surface only.</td></tr><tr><td><code>sword</code></td><td>source-only</td><td>Generic forge icon / metadata id, not an actual equipped gear id.</td><td><code>sword_crude</code>, <code>sword_iron</code></td><td>Used as a representational surface only.</td></tr><tr><td><code>armor</code></td><td>source-only</td><td>Generic forge icon / metadata id, not the wearable armor-piece ids.</td><td><code>helmet_crude</code>, <code>torso_crude</code>, <code>feet_crude</code>, <code>helmet_iron</code>, <code>torso_iron</code>, <code>feet_iron</code></td><td>Used as a representational surface only.</td></tr><tr><td><code>ring_band</code></td><td>dead</td><td>Real equipment definition with no current acquisition path.</td><td>none</td><td>Present for schema/smoke coverage only.</td></tr><tr><td><code>amulet_focus</code></td><td>dead</td><td>Real equipment definition with code support, but no live acquisition path.</td><td>none</td><td>Explicitly not acquirable in play today.</td></tr><tr><td><code>tool_tier_2_pick</code></td><td>internal</td><td>Recipe JSON output token for <code>basic_pick_upgrade</code>; the live gameplay result is the upgraded equipped pick state.</td><td><code>pick_forged</code></td><td>Internal bridge token, not a player-facing inventory item.</td></tr></tbody></table></div>
+<h2 id="notes">Notes</h2>
+<p>- - -</p>
+          </div>
+          <div class="footer-note">
+            Source markdown: <a href="ITEM_GRAPH.md">ITEM_GRAPH.md</a>.
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,1838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coheronia Wiki</title>
+  <style>
+    :root {
+      --page-top: #5f7ea8;
+      --page-mid: #2e3f5a;
+      --page-bottom: #17140f;
+      --panel: rgba(41, 29, 18, 0.94);
+      --panel-soft: rgba(58, 42, 28, 0.9);
+      --panel-lite: rgba(84, 63, 44, 0.86);
+      --line: rgba(255, 232, 187, 0.16);
+      --line-strong: rgba(255, 228, 163, 0.3);
+      --text: #f6eddc;
+      --muted: #d2c3a8;
+      --accent: #f0c76d;
+      --accent-2: #c99648;
+      --moss: #91bc62;
+      --sky: #9bc8e7;
+      --danger: #d9896d;
+      --ok: #7eb063;
+      --shadow: 0 26px 65px rgba(0, 0, 0, 0.35);
+      --radius: 18px;
+      --radius-sm: 12px;
+      --serif: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      --sans: "Trebuchet MS", Verdana, Tahoma, sans-serif;
+      --mono: Consolas, "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: var(--sans);
+      background:
+        linear-gradient(180deg, rgba(120, 163, 208, 0.18), transparent 22%),
+        radial-gradient(circle at top left, rgba(155, 200, 231, 0.22), transparent 20%),
+        radial-gradient(circle at top right, rgba(145, 188, 98, 0.12), transparent 22%),
+        linear-gradient(180deg, var(--page-top) 0%, var(--page-mid) 26%, #233048 36%, #1f1d1a 58%, var(--page-bottom) 100%);
+      min-height: 100vh;
+    }
+
+    a {
+      color: #ffe0a2;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    code {
+      font-family: var(--mono);
+      color: #ffe4a7;
+      font-size: 0.94em;
+    }
+
+    img {
+      max-width: 100%;
+      display: block;
+    }
+
+    .page-shell {
+      max-width: 1580px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .top-banner {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255, 231, 176, 0.22);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      background:
+        linear-gradient(180deg, rgba(17, 15, 12, 0.18), rgba(24, 17, 12, 0.72)),
+        url("../screenshots/01_settlement_day.png") center 24% / cover no-repeat;
+      min-height: 220px;
+      margin-bottom: 18px;
+    }
+
+    .top-banner::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(15, 14, 12, 0.08), rgba(15, 14, 12, 0.74)),
+        linear-gradient(90deg, rgba(28, 20, 12, 0.78), rgba(28, 20, 12, 0.25) 55%, rgba(28, 20, 12, 0.78));
+      pointer-events: none;
+    }
+
+    .top-banner-inner {
+      position: relative;
+      z-index: 1;
+      padding: 24px 26px 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 220px;
+    }
+
+    .crest-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .site-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 226, 153, 0.22);
+      background: rgba(16, 13, 9, 0.42);
+      color: #ffe4a7;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .site-title {
+      margin: 12px 0 8px;
+      font-family: var(--serif);
+      font-size: clamp(2.6rem, 6vw, 4.8rem);
+      line-height: 0.95;
+      letter-spacing: 0.02em;
+      text-shadow: 0 3px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .site-subtitle {
+      max-width: 880px;
+      margin: 0;
+      color: #f1e7d5;
+      font-size: 1.03rem;
+      line-height: 1.65;
+      text-shadow: 0 2px 18px rgba(0, 0, 0, 0.32);
+    }
+
+    .banner-card {
+      min-width: 250px;
+      max-width: 300px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 226, 153, 0.2);
+      background: rgba(19, 15, 11, 0.66);
+      backdrop-filter: blur(8px);
+      padding: 14px 14px 12px;
+    }
+
+    .banner-card h2 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      font-family: var(--serif);
+      color: #ffe4a7;
+    }
+
+    .mini-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .mini-row {
+      display: grid;
+      gap: 2px;
+    }
+
+    .mini-row strong {
+      font-size: 0.92rem;
+    }
+
+    .mini-row span {
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+
+    .wiki-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .wiki-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 226, 153, 0.17);
+      background: rgba(20, 16, 12, 0.46);
+      color: var(--text);
+      font-size: 0.92rem;
+    }
+
+    .wiki-tab:hover,
+    .wiki-tab.active {
+      background: rgba(255, 218, 135, 0.14);
+      border-color: rgba(255, 218, 135, 0.32);
+      text-decoration: none;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr) 290px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .rail {
+      position: sticky;
+      top: 14px;
+      align-self: start;
+      border: 1px solid var(--line-strong);
+      border-radius: 22px;
+      background:
+        linear-gradient(180deg, rgba(69, 50, 34, 0.96), rgba(39, 28, 19, 0.98));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .rail-top {
+      padding: 20px 18px 16px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(145, 188, 98, 0.13), transparent),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+    }
+
+    .rail-title {
+      margin: 0 0 6px;
+      font-family: var(--serif);
+      font-size: 1.55rem;
+      line-height: 1;
+    }
+
+    .rail-copy {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.52;
+    }
+
+    .search-wrap {
+      padding: 14px 18px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .search-wrap label,
+    .rail-block h3,
+    .eyebrow {
+      display: block;
+      margin: 0 0 8px;
+      color: #ffdd9d;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .search-wrap input {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      background: rgba(9, 8, 7, 0.28);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 11px 12px;
+      font: inherit;
+    }
+
+    .search-note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .rail-block {
+      padding: 16px 18px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .rail-block:last-child {
+      border-bottom: none;
+    }
+
+    .link-stack,
+    .chip-stack,
+    .watch-stack,
+    .fact-stack,
+    .recent-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .nav-link,
+    .doc-link,
+    .watch-card,
+    .fact-card,
+    .recent-card {
+      display: block;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.035);
+      padding: 11px 12px;
+      color: var(--text);
+    }
+
+    .nav-link small,
+    .doc-link small,
+    .watch-card span,
+    .fact-card span,
+    .recent-card span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.83rem;
+      line-height: 1.45;
+    }
+
+    .chip-stack {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      text-align: center;
+      font-size: 0.85rem;
+      line-height: 1.25;
+    }
+
+    .chip.ok {
+      background: rgba(126, 176, 99, 0.14);
+      border-color: rgba(126, 176, 99, 0.24);
+      color: #dbf2cf;
+    }
+
+    .chip.warn {
+      background: rgba(240, 199, 109, 0.13);
+      border-color: rgba(240, 199, 109, 0.24);
+      color: #ffeabf;
+    }
+
+    .chip.future {
+      background: rgba(155, 200, 231, 0.12);
+      border-color: rgba(155, 200, 231, 0.22);
+      color: #dcf0fe;
+    }
+
+    .chip.danger {
+      background: rgba(217, 137, 109, 0.14);
+      border-color: rgba(217, 137, 109, 0.22);
+      color: #ffd8cc;
+    }
+
+    .main-column {
+      min-width: 0;
+      display: grid;
+      gap: 18px;
+    }
+
+    .module {
+      border: 1px solid var(--line-strong);
+      border-radius: 22px;
+      background:
+        linear-gradient(180deg, rgba(63, 46, 31, 0.96), rgba(36, 27, 19, 0.98));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .module-head {
+      padding: 20px 22px 0;
+    }
+
+    .module-body {
+      padding: 18px 22px 22px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      font-family: var(--serif);
+      letter-spacing: 0.01em;
+    }
+
+    h2 {
+      font-size: clamp(1.55rem, 2.2vw, 2.2rem);
+      margin-bottom: 8px;
+    }
+
+    .lede {
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.68;
+      margin: 0;
+    }
+
+    .split-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(290px, 0.9fr);
+      gap: 18px;
+    }
+
+    .hero-card,
+    .info-card,
+    .strip-card,
+    .summary-card,
+    .infobox {
+      border-radius: 18px;
+      border: 1px solid rgba(255, 239, 194, 0.1);
+      background: rgba(255, 255, 255, 0.03);
+      padding: 18px;
+    }
+
+    .hero-card {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.08)),
+        rgba(255, 255, 255, 0.03);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 226, 153, 0.18);
+      background: rgba(255, 229, 170, 0.08);
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .button:hover {
+      text-decoration: none;
+      background: rgba(255, 229, 170, 0.14);
+      border-color: rgba(255, 226, 153, 0.28);
+    }
+
+    .button.ghost {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .glance-grid,
+    .directory-grid,
+    .feature-grid,
+    .status-grid,
+    .gallery-grid,
+    .screenshot-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .glance-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .glance {
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 16px;
+    }
+
+    .glance .value {
+      font-family: var(--serif);
+      font-size: 2rem;
+      line-height: 1;
+      margin: 0 0 8px;
+      color: #ffe7b4;
+    }
+
+    .glance .label {
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      color: #ffd996;
+      margin-bottom: 7px;
+    }
+
+    .glance .note {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    .info-card h3,
+    .strip-card h3,
+    .summary-card h3,
+    .infobox h3 {
+      margin-bottom: 10px;
+      font-size: 1.08rem;
+      color: #ffe4a7;
+    }
+
+    .icon-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .icon-row {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+
+    .icon-row img {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      image-rendering: pixelated;
+      background: rgba(0, 0, 0, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 3px;
+    }
+
+    .icon-row strong {
+      display: block;
+      font-size: 0.92rem;
+      margin-bottom: 2px;
+    }
+
+    .icon-row span {
+      color: var(--muted);
+      font-size: 0.83rem;
+      line-height: 1.45;
+    }
+
+    .split-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .directory-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .feature-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .directory-card,
+    .feature-card {
+      display: grid;
+      grid-template-columns: 62px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 14px;
+      color: var(--text);
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+
+    .directory-card:hover,
+    .feature-card:hover {
+      text-decoration: none;
+      transform: translateY(-2px);
+      border-color: rgba(255, 228, 163, 0.24);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .directory-card img,
+    .feature-card img {
+      width: 62px;
+      height: 62px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      border-radius: 14px;
+      background: rgba(11, 9, 6, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 8px;
+    }
+
+    .directory-card strong,
+    .feature-card strong {
+      display: block;
+      font-size: 1rem;
+      margin-bottom: 5px;
+    }
+
+    .directory-card span,
+    .feature-card span {
+      color: var(--muted);
+      font-size: 0.87rem;
+      line-height: 1.5;
+    }
+
+    .status-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .status-card {
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 16px;
+    }
+
+    .status-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border-radius: 999px;
+      padding: 5px 9px;
+      margin-bottom: 10px;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+    }
+
+    .status-label.ok {
+      background: rgba(126, 176, 99, 0.15);
+      color: #d8f0cd;
+    }
+
+    .status-label.warn {
+      background: rgba(240, 199, 109, 0.16);
+      color: #ffe5b3;
+    }
+
+    .status-label.future {
+      background: rgba(155, 200, 231, 0.14);
+      color: #def1fd;
+    }
+
+    .status-label.danger {
+      background: rgba(217, 137, 109, 0.16);
+      color: #ffd8cc;
+    }
+
+    .status-card strong {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 1rem;
+    }
+
+    .status-card span {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 640px;
+      background: rgba(0, 0, 0, 0.08);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 12px 13px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
+
+    th {
+      background: rgba(255, 229, 170, 0.08);
+      color: #ffe3a6;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    details.panel {
+      border-top: 1px solid var(--line);
+    }
+
+    details.panel:first-of-type {
+      border-top: none;
+    }
+
+    details.panel > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    details.panel > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .sum-wrap {
+      display: grid;
+      gap: 6px;
+    }
+
+    .sum-wrap strong {
+      font-size: 1.08rem;
+      font-family: var(--serif);
+    }
+
+    .sum-wrap span {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .sum-arrow {
+      font-size: 1.4rem;
+      color: var(--accent);
+      transform: rotate(90deg);
+      transition: transform 140ms ease;
+    }
+
+    details.panel:not([open]) .sum-arrow {
+      transform: rotate(0deg);
+    }
+
+    .panel-body {
+      padding: 0 22px 22px;
+    }
+
+    .gallery-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-top: 16px;
+    }
+
+    .gallery-card {
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 16px;
+    }
+
+    .gallery-card img {
+      width: 48px;
+      height: 48px;
+      image-rendering: pixelated;
+      border-radius: 10px;
+      background: rgba(11, 9, 6, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 6px;
+      margin-bottom: 12px;
+    }
+
+    .gallery-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.98rem;
+    }
+
+    .gallery-card span {
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.52;
+    }
+
+    .screenshot-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 10px;
+    }
+
+    .shot {
+      display: block;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+    }
+
+    .shot:hover {
+      text-decoration: none;
+    }
+
+    .shot img {
+      aspect-ratio: 16 / 9;
+      width: 100%;
+      object-fit: cover;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .shot figcaption {
+      padding: 12px 14px 14px;
+      color: var(--muted);
+      font-size: 0.87rem;
+      line-height: 1.52;
+    }
+
+    .footer-note {
+      padding: 16px 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.58;
+    }
+
+    .search-hide {
+      display: none !important;
+    }
+
+    .tight {
+      margin-top: 0;
+    }
+
+    @media (max-width: 1320px) {
+      .layout {
+        grid-template-columns: 270px minmax(0, 1fr);
+      }
+
+      .right-rail {
+        grid-column: 1 / -1;
+        position: static;
+      }
+    }
+
+    @media (max-width: 1040px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        position: static;
+      }
+
+      .split-hero,
+      .split-grid,
+      .status-grid,
+      .directory-grid,
+      .glance-grid,
+      .gallery-grid,
+      .screenshot-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .crest-row {
+        flex-direction: column;
+      }
+
+      .banner-card {
+        max-width: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .page-shell {
+        padding: 12px;
+      }
+
+      .top-banner-inner,
+      .module-body,
+      .module-head,
+      details.panel > summary,
+      .panel-body {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      .directory-card,
+      .feature-card {
+        grid-template-columns: 52px minmax(0, 1fr);
+      }
+
+      .directory-card img,
+      .feature-card img {
+        width: 52px;
+        height: 52px;
+      }
+
+      table {
+        min-width: 520px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="top-banner search-target" data-search="coheronia wiki main page maintenance planning art items recipes enemies images placeholders gameplay public wiki future">
+      <div class="top-banner-inner">
+        <div class="crest-row">
+          <div>
+            <div class="site-kicker">Main Page Prototype</div>
+            <h1 class="site-title">Coheronia Wiki</h1>
+            <p class="site-subtitle">
+              A generated developer/reference wiki for the game as it exists right now:
+              what is live, what is internal, what is planned data, and what art is real
+              versus placeholder.
+            </p>
+          </div>
+
+          <aside class="banner-card">
+            <h2>At A Glance</h2>
+            <div class="mini-list">
+              <div class="mini-row">
+                <strong>Canonical source</strong>
+                <span><code>docs/wiki/wiki.md</code> remains the detailed maintenance record.</span>
+              </div>
+              <div class="mini-row">
+                <strong>Presentation layer</strong>
+                <span><code>docs/wiki/index.html</code> is the friendlier front door for browsing and planning.</span>
+              </div>
+              <div class="mini-row">
+                <strong>Public-wiki trajectory</strong>
+                <span>Generated reference docs, ready for final security review before upload.</span>
+              </div>
+              <div class="mini-row">
+                <strong>Publish metadata</strong>
+                <span>Generated 2026-07-15 from base commit <code>49b26ea091206381a8ba4aaa7a643b5cc699eb8b</code>. Wiki link check: PASS. Final commit and validator state are pending the upload check.</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <nav class="wiki-tabs">
+          <a class="wiki-tab active" href="#main-page">Main Page</a>
+          <a class="wiki-tab" href="current_live.html">Current Live</a>
+          <a class="wiki-tab" href="recipes.html">Recipes</a>
+          <a class="wiki-tab" href="item_graph.html">Graph</a>
+          <a class="wiki-tab" href="skills.html">Skills</a>
+          <a class="wiki-tab" href="#browse">Browse</a>
+          <a class="wiki-tab" href="#systems">Systems</a>
+          <a class="wiki-tab" href="status_browser.html">Status</a>
+          <a class="wiki-tab" href="#visuals">Images</a>
+          <a class="wiki-tab" href="#references">Registry</a>
+          <a class="wiki-tab" href="#screens">Screenshots</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="rail left-rail">
+        <div class="rail-top">
+          <h2 class="rail-title">Navigator</h2>
+          <p class="rail-copy">Use this the way you would use a real wiki sidebar: get oriented fast, then drill into the source pages.</p>
+        </div>
+
+        <div class="search-wrap">
+          <label for="wiki-filter">Search This Page</label>
+          <input id="wiki-filter" type="search" placeholder="Filter sections, cards, portals, and notes">
+          <div class="search-note" id="search-note">Showing the full front page.</div>
+        </div>
+
+        <div class="rail-block">
+          <h3>Main Page</h3>
+          <div class="link-stack">
+            <a class="nav-link" href="#main-page">Welcome and current state<small>Why this wiki exists and what it is tracking</small></a>
+            <a class="nav-link" href="#browse">Browse the game<small>Topic-first portals instead of filename-first links</small></a>
+            <a class="nav-link" href="#systems">System watchlist<small>Live loops, dead ends, and future pressure points</small></a>
+            <a class="nav-link" href="#visuals">Image coverage<small>Authored art, placeholders, and fallback behavior</small></a>
+            <a class="nav-link" href="#references">Reference registry<small>Strict docs and evidence sources</small></a>
+            <a class="nav-link" href="#screens">Live screenshots<small>Actual visual anchors from the repo</small></a>
+          </div>
+        </div>
+
+        <div class="rail-block">
+          <h3>Doc Registry</h3>
+          <div class="link-stack">
+            <a class="doc-link" href="current_live.html">Current Live<small>Current player-facing and obtainable behavior</small></a>
+            <a class="doc-link" href="recipes.html">Recipes<small>First-class recipe index and per-recipe route pages</small></a>
+            <a class="doc-link" href="items.html">Items<small>Full current, source-only, internal, and planned item registry</small></a>
+            <a class="doc-link" href="equipment.html">Equipment<small>Gear families and per-equipment pages</small></a>
+            <a class="doc-link" href="bestiary.html">Bestiary<small>Live and planned enemy pages</small></a>
+            <a class="doc-link" href="blocks.html">Blocks<small>Block registry with page-per-block links</small></a>
+            <a class="doc-link" href="stations.html">Crafting Stations<small>Station pages and hosted recipe surfaces</small></a>
+            <a class="doc-link" href="status_browser.html">Status Browser<small>Live, source-only, planned, dead, and internal slices</small></a>
+            <a class="doc-link" href="planned_data.html">Planned Data<small>Future sink notes and planned-only references</small></a>
+            <a class="doc-link" href="internal_tokens.html">Internal Tokens<small>Implementation bridge tokens kept out of normal item flow</small></a>
+            <a class="doc-link" href="item_graph.html">Item Graph<small>Rendered wiki-local acquisition and crafting flow</small></a>
+            <a class="doc-link" href="skills.html">Skills<small>Live Miner lane, planned lanes, and skill-system work queue</small></a>
+            <a class="doc-link" href="image_continuation.html">Image Continuation<small>Future image-work handoff and public-safety checks</small></a>
+            <a class="doc-link" href="character_types.html">Character Types<small>Species, roles, traits, and ancestries</small></a>
+            <a class="doc-link" href="wiki.html">Wiki Overview<small>HTML view of the canonical planning and maintenance page</small></a>
+            <a class="doc-link" href="../ITEM_AND_RECIPE_MATRIX.html">Item And Recipe Matrix<small>Strict audit of items, equipment, and routes</small></a>
+            <a class="doc-link" href="../ITEM_GRAPH.html">Strict Item Graph Audit<small>Full acquisition and crafting graph source</small></a>
+            <a class="doc-link" href="../IMAGE_INVENTORY_MATRIX.html">Image Inventory Matrix<small>Image families, placeholders, and deferred art</small></a>
+            <a class="doc-link" href="../ASSET_ROADMAP.html">Asset Roadmap<small>Future-facing visual planning surface</small></a>
+            <a class="doc-link" href="../UI_ASSET_GAPS.html">UI Asset Gaps<small>UI placeholder coverage and art debt</small></a>
+          </div>
+        </div>
+
+        <div class="rail-block">
+          <h3>Status Chips</h3>
+          <div class="chip-stack">
+            <span class="chip ok">43 live item icons covered</span>
+            <span class="chip ok">6 live enemies covered</span>
+            <span class="chip warn">Drops need stronger sinks</span>
+            <span class="chip warn">Metallurgy has dead ends</span>
+            <span class="chip future">10 planned enemy hooks</span>
+            <span class="chip danger">0 gear overlays authored</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-column">
+        <section class="module section-anchor search-target" id="main-page" data-search="main page welcome purpose planning maintenance source of truth public wiki trajectory">
+          <div class="module-head">
+            <span class="eyebrow">Welcome</span>
+            <h2>Built Like A Wiki Main Page, Grounded Like A Registry</h2>
+          </div>
+          <div class="module-body">
+            <div class="split-hero">
+              <article class="hero-card">
+                <p class="lede">
+                  The job of this page is not just to say what exists. It is here to
+                  show what exists, what is actually player-facing, what is internal,
+                  what is planned-only data, and what visual surfaces are live, deferred,
+                  or deliberately placeholder. The markdown source remains authoritative;
+                  this wrapper is the clearer, more welcoming browsing layer.
+                </p>
+                <p class="lede">
+                  This wiki is generated from current Coheronia repo data and includes live,
+                  internal, and planned-data references. Planned-data pages are not live
+                  gameplay unless marked as live.
+                </p>
+                <div class="button-row">
+                  <a class="button" href="current_live.html">Open Current Live</a>
+                  <a class="button" href="recipes.html">Open Recipes</a>
+                  <a class="button" href="items.html">Open Items</a>
+                  <a class="button" href="equipment.html">Open Equipment</a>
+                  <a class="button" href="bestiary.html">Open Bestiary</a>
+                  <a class="button" href="blocks.html">Open Blocks</a>
+                  <a class="button" href="stations.html">Open Stations</a>
+                  <a class="button" href="status_browser.html">Open Status Browser</a>
+                  <a class="button" href="item_graph.html">Open Item Graph</a>
+                  <a class="button" href="skills.html">Open Skills</a>
+                  <a class="button" href="image_continuation.html">Open Image Continuation</a>
+                  <a class="button" href="wiki.html">Open Wiki Overview</a>
+                  <a class="button" href="../ITEM_GRAPH.html">Open Strict Graph Audit</a>
+                  <a class="button" href="../IMAGE_INVENTORY_MATRIX.html">Open Image Inventory</a>
+                  <button class="button ghost" type="button" onclick="setAllDetails(true)">Expand All</button>
+                  <button class="button ghost" type="button" onclick="setAllDetails(false)">Collapse All</button>
+                </div>
+
+                <div class="split-grid">
+                  <section class="summary-card search-target" data-search="how to use this wiki planning maintenance source live planned dead internal">
+                    <h3>How To Use This</h3>
+                    <p class="lede tight">
+                      Start here for orientation, then jump into the detailed docs for
+                      exact tables. Use the front page when you need to answer what is
+                      live, what is planned, what is missing an art pass, or what is
+                      present in data but not meaningful in gameplay yet.
+                    </p>
+                  </section>
+
+                  <section class="summary-card search-target" data-search="what this is not mechanics changed notes future proposals">
+                    <h3>What This Does Not Do</h3>
+                    <p class="lede tight">
+                      This page does not invent mechanics or silently redesign systems.
+                      Proposed sinks and future hooks are called out as proposals only,
+                      and dead or internal tokens stay explicitly labeled so they do not
+                      get mistaken for implemented player items.
+                    </p>
+                  </section>
+                </div>
+              </article>
+
+              <aside class="infobox search-target" data-search="quick facts item ids equipment enemies planned hooks ui placeholders overlays">
+                <h3>Quick Facts</h3>
+                <div class="icon-list">
+                  <div class="icon-row">
+                    <img src="../../art/generated/items/wood.png" alt="Wood icon">
+                    <div>
+                      <strong>43 current item ids</strong>
+                      <span>Canonical item art coverage is complete for the current registry.</span>
+                    </div>
+                  </div>
+                  <div class="icon-row">
+                    <img src="../../art/generated/items/sword.png" alt="Sword icon">
+                    <div>
+                      <strong>13 equipment definitions</strong>
+                      <span>Includes live gear and defined-but-dead accessories.</span>
+                    </div>
+                  </div>
+                  <div class="icon-row">
+                    <img src="../../art/generated/items/slime_gel.png" alt="Slime gel icon">
+                    <div>
+                      <strong>6 live enemy families</strong>
+                      <span>Each has authored sprites plus a safe fallback path.</span>
+                    </div>
+                  </div>
+                  <div class="icon-row">
+                    <img src="../../art/generated/ui/button_settings.png" alt="Settings button icon">
+                    <div>
+                      <strong>5 deliberate UI placeholders</strong>
+                      <span>These are intentional hold surfaces, not broken file gaps.</span>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+
+            <div class="glance-grid" style="margin-top: 18px;">
+              <article class="glance search-target" data-search="43 item icons art coverage">
+                <div class="label">Current Item Icons</div>
+                <div class="value">43</div>
+                <div class="note">Every current item id has a canonical icon in <code>art/generated/items</code>.</div>
+              </article>
+              <article class="glance search-target" data-search="13 equipment definitions entries">
+                <div class="label">Equipment Entries</div>
+                <div class="value">13</div>
+                <div class="note">The wiki covers live gear, dead accessories, and equip-route edge cases.</div>
+              </article>
+              <article class="glance search-target" data-search="6 live enemies art coverage drops">
+                <div class="label">Live Enemies</div>
+                <div class="value">6</div>
+                <div class="note">All live enemy families have documented drops and authored sprite coverage.</div>
+              </article>
+              <article class="glance search-target" data-search="10 planned hooks future enemy items">
+                <div class="label">Planned Hooks</div>
+                <div class="value">10</div>
+                <div class="note">Planned enemy families already point at future items that stay clearly non-live.</div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="module section-anchor search-target" id="browse" data-search="browse the game portals items recipes images enemies equipment planning registry">
+          <div class="module-head">
+            <span class="eyebrow">Browse</span>
+            <h2>Browse The Game</h2>
+            <p class="lede">These topic portals are meant to feel like a real wiki front page: jump by system, not by filename.</p>
+          </div>
+          <div class="module-body">
+            <div class="directory-grid">
+              <a class="directory-card search-target" href="current_live.html" data-search="current live player facing obtainable gameplay live behavior">
+                <img src="../../art/generated/items/wood.png" alt="Wood icon">
+                <div>
+                  <strong>Current Live</strong>
+                  <span>Start here for current player-facing and obtainable behavior before browsing broader registries.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="recipes.html" data-search="recipes crafting station inputs outputs result route inventory stockpile equip internal token">
+                <img src="../../art/generated/items/torch.png" alt="Torch icon">
+                <div>
+                  <strong>Recipes</strong>
+                  <span>First-class recipe pages with station, inputs, raw outputs, result route, and actual result in play.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="items.html" data-search="items resources progression ore wood stone dirt stockpile building">
+                <img src="../../art/generated/items/ore.png" alt="Ore icon">
+                <div>
+                  <strong>Items</strong>
+                  <span>Browse the full item registry, including current items, source-only branches, internal tokens, and planned hooks.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="equipment.html" data-search="equipment armor sword pick axe iron gear slots">
+                <img src="../../art/generated/items/armor.png" alt="Armor icon">
+                <div>
+                  <strong>Equipment</strong>
+                  <span>Live gear, dead accessories, equip-route edge cases, and page-per-equipment coverage.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="bestiary.html" data-search="bestiary enemies drops slime thornrat raider cave crawler ore tick planned enemies">
+                <img src="../../art/generated/items/slime_gel.png" alt="Slime gel icon">
+                <div>
+                  <strong>Bestiary</strong>
+                  <span>Live enemy pages, planned enemy hooks, and direct links into drop-bearing leaf entries.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="blocks.html" data-search="blocks terrain farming ore nodes torch lantern town hall core">
+                <img src="../../art/generated/items/bronze_ingot.png" alt="Bronze ingot icon">
+                <div>
+                  <strong>Blocks</strong>
+                  <span>Terrain, farming states, resource nodes, settlement blocks, and page-per-block reference entries.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="stations.html" data-search="crafting stations town hall hand workbench furnace anvil recipes result route">
+                <img src="../../art/generated/ui/button_town_hall.png" alt="Town Hall button icon">
+                <div>
+                  <strong>Crafting Stations</strong>
+                  <span>Station pages, build costs, hosted recipes, and route surfaces including Town Hall and by-hand crafting.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="status_browser.html" data-search="status browser complete source only planned dead internal live current">
+                <img src="../../art/generated/items/crystal.png" alt="Raw crystal icon">
+                <div>
+                  <strong>Status Browser</strong>
+                  <span>Jump by current-live, planned-data, source-only, dead, and internal-token classifications.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="item_graph.html" data-search="item graph acquisition crafting live flow sources sinks rendered svg">
+                <img src="../../art/generated/items/ore.png" alt="Ore icon">
+                <div>
+                  <strong>Item Graph</strong>
+                  <span>Rendered wiki-local graph for acquisition, crafting, equipment routes, and source-rich pressure points.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="skills.html" data-search="skills perk tree miner planned lanes constellation progression">
+                <img src="../../art/generated/ui/button_goals.png" alt="Goals button icon">
+                <div>
+                  <strong>Skills</strong>
+                  <span>Live Miner lane, planned lane data, and the next definitions needed before skill expansion.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="planned_data.html" data-search="planned future hooks not implemented antlers clay wax venom future items">
+                <img src="../../art/generated/items/tiny_core.png" alt="Tiny core icon">
+                <div>
+                  <strong>Planned Data</strong>
+                  <span>Future-facing data references that stay clearly marked as not implemented gameplay.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="internal_tokens.html" data-search="internal tokens tool tier 2 pick implementation bridge not player facing">
+                <img src="../../art/generated/items/pick.png" alt="Pick icon">
+                <div>
+                  <strong>Internal Tokens</strong>
+                  <span>Implementation bridge tokens that should not be confused with normal player-facing items.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="character_types.html" data-search="character types species roles traits ancestries human dwarf elf goblin orc">
+                <img src="../../art/generated/ui/button_character.png" alt="Character button icon">
+                <div>
+                  <strong>Character Types</strong>
+                  <span>Species, roles, traits, and ancestries, each with their own leaf pages.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="weapons.html" data-search="weapons melee combat sword crude iron">
+                <img src="../../art/generated/items/sword.png" alt="Sword icon">
+                <div>
+                  <strong>Weapons</strong>
+                  <span>A focused browse page for the weapon family, similar to a dedicated weapon-category wiki page.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="#visuals" data-search="images placeholders fallbacks ui player gear opening scenes">
+                <img src="../../art/generated/ui/slot_inventory.png" alt="Inventory slot icon">
+                <div>
+                  <strong>Images And Placeholder Rules</strong>
+                  <span>Real art, procedural fallback, and why placeholder UI art should not be treated like missing files.</span>
+                </div>
+              </a>
+
+              <a class="directory-card search-target" href="image_continuation.html" data-search="image continuation future art handoff ip safety public safety asset roadmap image inventory ui gaps">
+                <img src="../../art/generated/ui/button_goals.png" alt="Goals button icon">
+                <div>
+                  <strong>Image Continuation</strong>
+                  <span>Future image-work handoff, missing/deferred surface routing, and public-safety notes.</span>
+                </div>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section class="module section-anchor search-target" id="systems" data-search="systems watchlist dead ends sinks current gameplay use why it matters">
+          <div class="module-head">
+            <span class="eyebrow">Systems</span>
+            <h2>Current System Watchlist</h2>
+            <p class="lede">The important question is not only what exists, but what currently matters and what still lacks downstream meaning.</p>
+          </div>
+          <div class="module-body">
+            <div class="status-grid">
+              <article class="status-card search-target" data-search="drops source only combat loot sinks slime gel wet fiber scrap weapons oil rags tiny core">
+                <div class="status-label warn">Design Pressure</div>
+                <strong>Combat loot is ahead of its sinks</strong>
+                <span><code>slime_gel</code>, <code>wet_fiber</code>, <code>tiny_core</code>, <code>scrap_weapons</code>, and <code>oil_rags</code> all exist cleanly but still do not reshape player choices much.</span>
+              </article>
+
+              <article class="status-card search-target" data-search="metallurgy bronze silver crystal dead ends stockpile">
+                <div class="status-label warn">Dead End</div>
+                <strong>Metallurgy has visible branch stops</strong>
+                <span><code>silver_ingot</code>, <code>bronze_ingot</code>, and <code>crystal</code> are great planning anchors because they are real, live, and still under-consumed.</span>
+              </article>
+
+              <article class="status-card search-target" data-search="equipment overlays player gear art deferred not blocker">
+                <div class="status-label future">Visual Hook</div>
+                <strong>Gear overlays are deferred, not broken</strong>
+                <span>The <code>player_gear</code> family is still empty on purpose. It is a readability and polish opportunity, not a mechanics blocker.</span>
+              </article>
+
+              <article class="status-card search-target" data-search="dead equipment ring band amulet focus">
+                <div class="status-label danger">Defined But Dead</div>
+                <strong>Accessories already create planning pressure</strong>
+                <span><code>ring_band</code> and <code>amulet_focus</code> are defined cleanly enough that they naturally invite near-term sink planning.</span>
+              </article>
+
+              <article class="status-card search-target" data-search="world only internal ui surrogate grass farm soil pick axe sword armor tool tier 2 pick">
+                <div class="status-label future">Clarity Need</div>
+                <strong>World-only and internal tokens need strong labeling</strong>
+                <span>The wiki now keeps block-state items, UI surrogate icons, and internal result tokens clearly separated from real backpack or equipment items.</span>
+              </article>
+
+              <article class="status-card search-target" data-search="public wiki future planning maintenance exactness">
+                <div class="status-label ok">Trajectory</div>
+                <strong>The page can grow outward cleanly</strong>
+                <span>Because the content is data-grounded, this front page can become more public over time without losing maintenance accuracy.</span>
+              </article>
+            </div>
+
+            <details class="panel search-target" open data-search="why it matters current gameplay use sink status recommended next sink">
+              <summary>
+                <div class="sum-wrap">
+                  <strong>Why the new columns matter</strong>
+                  <span>The wiki now tracks more than presence: it tracks relevance, storage, player-facing status, sink status, and next likely use.</span>
+                </div>
+                <span class="sum-arrow">&#8250;</span>
+              </summary>
+              <div class="panel-body">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Column</th>
+                        <th>What it prevents</th>
+                        <th>Planning value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Storage</td>
+                        <td>World blocks and stockpile-only outputs getting mistaken for normal carried items.</td>
+                        <td>Shows where the object actually matters in runtime flow.</td>
+                      </tr>
+                      <tr>
+                        <td>Player-facing?</td>
+                        <td>Internal tokens or block states getting documented like real player inventory items.</td>
+                        <td>Keeps the wiki honest about what the player can truly see or hold.</td>
+                      </tr>
+                      <tr>
+                        <td>Current gameplay use</td>
+                        <td>Source-only items looking more important than they really are today.</td>
+                        <td>Turns the page into a readiness and value map, not just a registry dump.</td>
+                      </tr>
+                      <tr>
+                        <td>Sink status</td>
+                        <td>Dead ends hiding inside otherwise polished-looking item chains.</td>
+                        <td>Makes the next design and implementation pressure obvious.</td>
+                      </tr>
+                      <tr>
+                        <td>Recommended next sink</td>
+                        <td>Planning sessions starting from scratch every time.</td>
+                        <td>Converts the wiki into a live design-maintenance surface.</td>
+                      </tr>
+                      <tr>
+                        <td>Image ref and fallback</td>
+                        <td>Placeholders and safe procedural fallback being reported as missing art bugs.</td>
+                        <td>Keeps image work scoped to the surfaces that actually need it.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+
+            <details class="panel search-target" open data-search="recent changes latest updates wiki folder html wrapper item graph chance table">
+              <summary>
+                <div class="sum-wrap">
+                  <strong>Recent changes to the wiki surface</strong>
+                  <span>What this maintenance pass added to make the registry easier to use and easier to grow.</span>
+                </div>
+                <span class="sum-arrow">&#8250;</span>
+              </summary>
+              <div class="panel-body">
+                <div class="feature-grid">
+                  <article class="feature-card search-target" data-search="wiki folder move rename item wiki wiki">
+                    <img src="../../art/generated/items/torch.png" alt="Torch icon">
+                    <div>
+                      <strong>Moved under its own wiki registry</strong>
+                      <span>The canonical source now lives at <code>docs/wiki/wiki.md</code> with a separate wrapper at <code>docs/wiki/index.html</code>.</span>
+                    </div>
+                  </article>
+                  <article class="feature-card search-target" data-search="item graph matrix reference docs">
+                    <img src="../../art/generated/items/ore.png" alt="Ore icon">
+                    <div>
+                      <strong>Connected to the strict audit docs</strong>
+                      <span>The front page now acts as a home layer above the item matrix, item graph, and image inventory.</span>
+                    </div>
+                  </article>
+                  <article class="feature-card search-target" data-search="live enemy drops chance tables recipes">
+                    <img src="../../art/generated/items/slime_gel.png" alt="Slime gel icon">
+                    <div>
+                      <strong>Explicit chance tables and route notes</strong>
+                      <span>Live enemy drops, recipe inputs and outputs, station routing, and internal token caveats are now surfaced directly.</span>
+                    </div>
+                  </article>
+                  <article class="feature-card search-target" data-search="public wiki feel visual wrapper generated reference">
+                    <img src="../../art/generated/ui/button_inventory.png" alt="Inventory button icon">
+                    <div>
+                      <strong>Rebuilt as a real front door</strong>
+                      <span>The wrapper now behaves more like a wiki main page instead of a plain document shell, while staying grounded in local repo truth.</span>
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <section class="module section-anchor search-target" id="visuals" data-search="visual coverage images placeholders fallback art icons ui overlays screenshots">
+          <div class="module-head">
+            <span class="eyebrow">Images</span>
+            <h2>Visual Coverage And Placeholder Rules</h2>
+            <p class="lede">This is where the wiki becomes especially useful for maintenance: it separates missing art from safe fallback and from deliberate placeholder work.</p>
+          </div>
+          <div class="module-body">
+            <details class="panel search-target" open data-search="item icons enemy sprites ui hooks gear overlays opening scenes">
+              <summary>
+                <div class="sum-wrap">
+                  <strong>Runtime image families</strong>
+                  <span>Authored path families, current live state, and the actual fallback behavior.</span>
+                </div>
+                <span class="sum-arrow">&#8250;</span>
+              </summary>
+              <div class="panel-body">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Surface</th>
+                        <th>Authored path</th>
+                        <th>Current state</th>
+                        <th>Why it matters</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Item icons</td>
+                        <td><code>art/generated/items/&lt;id&gt;.png</code></td>
+                        <td>Complete for all 43 current item ids</td>
+                        <td>Missing art is not a runtime break because <code>BlockRegistry.item_icon()</code> generates a stable fallback swatch, but canonical icons are already present now.</td>
+                      </tr>
+                      <tr>
+                        <td>Enemy sprites</td>
+                        <td><code>art/generated/enemies/&lt;id&gt;.png</code></td>
+                        <td>Complete for all 6 live enemy families</td>
+                        <td>Enemy art is currently healthy and should not be mistaken for an active gap.</td>
+                      </tr>
+                      <tr>
+                        <td>UI hooks</td>
+                        <td><code>art/generated/ui/&lt;id&gt;.png</code></td>
+                        <td>10 live, 5 deliberate placeholders</td>
+                        <td>Some placeholders are authored on purpose and should be treated as reserved hooks, not missing assets.</td>
+                      </tr>
+                      <tr>
+                        <td>Player gear overlays</td>
+                        <td><code>art/generated/player_gear/&lt;item_id&gt;_&lt;body_id&gt;.png</code></td>
+                        <td>Hooks exist, no overlay PNGs are authored yet</td>
+                        <td>This is the biggest real future image family if equipment readability becomes a priority.</td>
+                      </tr>
+                      <tr>
+                        <td>Opening scenes</td>
+                        <td><code>art/generated/opening/&lt;scene_id&gt;_01.png</code>...</td>
+                        <td>Deferred by design</td>
+                        <td>The game already has a safe plotted fallback, so this is presentation polish, not broken content.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+
+            <details class="panel search-target" open data-search="real icons placeholder icons example surfaces">
+              <summary>
+                <div class="sum-wrap">
+                  <strong>Reference surfaces and sample icons</strong>
+                  <span>Real local images used by the runtime and the wiki wrapper.</span>
+                </div>
+                <span class="sum-arrow">&#8250;</span>
+              </summary>
+              <div class="panel-body">
+                <div class="gallery-grid">
+                  <article class="gallery-card search-target" data-search="slime gel source only real icon">
+                    <img src="../../art/generated/items/slime_gel.png" alt="slime_gel icon">
+                    <strong><code>slime_gel</code></strong>
+                    <span>Real icon, source-only item, clear candidate for a first utility or healing sink.</span>
+                  </article>
+                  <article class="gallery-card search-target" data-search="bronze ingot metallurgy dead end real icon">
+                    <img src="../../art/generated/items/bronze_ingot.png" alt="bronze_ingot icon">
+                    <strong><code>bronze_ingot</code></strong>
+                    <span>Real icon for a live stockpile material that still terminates in a dead branch.</span>
+                  </article>
+                  <article class="gallery-card search-target" data-search="pick surrogate icon ui not real equipment">
+                    <img src="../../art/generated/items/pick.png" alt="pick icon">
+                    <strong><code>pick</code></strong>
+                    <span>Surrogate icon only. It should never be confused with <code>pick_basic</code> or <code>pick_forged</code>.</span>
+                  </article>
+                  <article class="gallery-card search-target" data-search="slot inventory ui live art">
+                    <img src="../../art/generated/ui/slot_inventory.png" alt="slot_inventory icon">
+                    <strong><code>slot_inventory</code></strong>
+                    <span>Live UI art surface. Useful for checking whether inventory-facing additions fit the current visual language.</span>
+                  </article>
+                  <article class="gallery-card search-target" data-search="button settings placeholder deliberate ui">
+                    <img src="../../art/generated/ui/button_settings.png" alt="button_settings icon">
+                    <strong><code>button_settings</code></strong>
+                    <span>Deliberate placeholder-authored UI art. Placeholder does not mean missing.</span>
+                  </article>
+                  <article class="gallery-card search-target" data-search="tiny core rare drop planned attunement">
+                    <img src="../../art/generated/items/tiny_core.png" alt="tiny_core icon">
+                    <strong><code>tiny_core</code></strong>
+                    <span>Rare drop with good icon coverage and a still-open design destiny.</span>
+                  </article>
+                </div>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <section class="module section-anchor search-target" id="references" data-search="references registry docs strict audit matrices wiki markdown graph asset roadmap ui gaps">
+          <div class="module-head">
+            <span class="eyebrow">Registry</span>
+            <h2>Reference Registry</h2>
+            <p class="lede">When you need the denser evidence behind this front page, these are the authoritative supporting surfaces.</p>
+          </div>
+          <div class="module-body">
+            <div class="directory-grid">
+              <a class="directory-card" href="items.html">
+                <img src="../../art/generated/items/ore.png" alt="Ore icon">
+                <div>
+                  <strong>Items</strong>
+                  <span>Full item landing page with grouped browse tables and links to every item leaf page.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="equipment.html">
+                <img src="../../art/generated/items/armor.png" alt="Armor icon">
+                <div>
+                  <strong>Equipment</strong>
+                  <span>Equipment registry with tools, weapons, armor, accessories, and route-aware leaf pages.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="blocks.html">
+                <img src="../../art/generated/items/stone.png" alt="Stone icon">
+                <div>
+                  <strong>Blocks</strong>
+                  <span>Block families and dedicated block pages for terrain, ore nodes, farming states, and protected structures.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="bestiary.html">
+                <img src="../../art/generated/items/slime_gel.png" alt="Slime gel icon">
+                <div>
+                  <strong>Bestiary</strong>
+                  <span>Enemy landing page with live and planned slices plus links to every enemy entry.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="character_types.html">
+                <img src="../../art/generated/ui/button_character.png" alt="Character button icon">
+                <div>
+                  <strong>Character Types</strong>
+                  <span>Species, roles, traits, and ancestries pulled into their own category registry.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="stations.html">
+                <img src="../../art/generated/ui/button_town_hall.png" alt="Town Hall button icon">
+                <div>
+                  <strong>Crafting Stations</strong>
+                  <span>Work surfaces, build costs, and recipe host pages modeled more like a true crafting-station wiki section.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="recipes.html">
+                <img src="../../art/generated/items/torch.png" alt="Torch icon">
+                <div>
+                  <strong>Recipes</strong>
+                  <span>Recipe index and leaf pages for station, input, output, route, and actual result continuity.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="status_browser.html">
+                <img src="../../art/generated/items/crystal.png" alt="Raw crystal icon">
+                <div>
+                  <strong>Status Browser</strong>
+                  <span>Current-live, planned-data, dead, source-only, and internal-token slices in one place.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="item_graph.html">
+                <img src="../../art/generated/items/ore.png" alt="Ore icon">
+                <div>
+                  <strong>Rendered Item Graph</strong>
+                  <span>Static SVG view of the live acquisition and crafting flow, made for wiki browsing.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="skills.html">
+                <img src="../../art/generated/ui/button_goals.png" alt="Goals button icon">
+                <div>
+                  <strong>Skills</strong>
+                  <span>Skill tree status, live Miner lane, planned lanes, and future work definitions.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="wiki.html">
+                <img src="../../art/generated/items/torch.png" alt="Torch icon">
+                <div>
+                  <strong>Wiki Markdown</strong>
+                  <span>The long-form source page with storage, use, sink status, and image columns across current and future content.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="../ITEM_AND_RECIPE_MATRIX.html">
+                <img src="../../art/generated/items/wood.png" alt="Wood icon">
+                <div>
+                  <strong>Item And Recipe Matrix</strong>
+                  <span>Strict inventory of item ids, equipment, stations, routes, and recipe edge cases.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="../ITEM_GRAPH.html">
+                <img src="../../art/generated/items/ore.png" alt="Ore icon">
+                <div>
+                  <strong>Strict Item Graph Audit</strong>
+                  <span>Full acquisition and crafting graph source with source-only, dead, and internal labels.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="../IMAGE_INVENTORY_MATRIX.html">
+                <img src="../../art/generated/ui/button_inventory.png" alt="Inventory button icon">
+                <div>
+                  <strong>Image Inventory Matrix</strong>
+                  <span>The image-family audit: present art, placeholder art, runtime fallback, and what still needs to be created.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="../ASSET_ROADMAP.html">
+                <img src="../../art/generated/items/bronze_ingot.png" alt="Bronze ingot icon">
+                <div>
+                  <strong>Asset Roadmap</strong>
+                  <span>Future art program and asset-pack planning, useful when deciding what to author next.</span>
+                </div>
+              </a>
+              <a class="directory-card" href="../UI_ASSET_GAPS.html">
+                <img src="../../art/generated/ui/button_settings.png" alt="Settings button icon">
+                <div>
+                  <strong>UI Asset Gaps</strong>
+                  <span>Dedicated view of UI hook status, placeholder surfaces, and replacement opportunities.</span>
+                </div>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section class="module section-anchor search-target" id="screens" data-search="screenshots inventory town hall underground shell title visual anchors">
+          <div class="module-head">
+            <span class="eyebrow">Screenshots</span>
+            <h2>Live Build Visual Anchors</h2>
+            <p class="lede">Useful for checking whether a registry or art decision still reads well in the game that actually exists.</p>
+          </div>
+          <div class="module-body">
+            <div class="screenshot-grid">
+              <a class="shot" href="../screenshots/01_settlement_day.png">
+                <img src="../screenshots/01_settlement_day.png" alt="Settlement day screenshot">
+                <figcaption>Settlement baseline. Useful for grounding the overall look, terrain readability, HUD information density, and Town Hall presence.</figcaption>
+              </a>
+              <a class="shot" href="../screenshots/03_inventory.png">
+                <img src="../screenshots/03_inventory.png" alt="Inventory screenshot">
+                <figcaption>Inventory-facing truth surface. Good for terminology, icon scale, and the distinction between carried items and equipped gear.</figcaption>
+              </a>
+              <a class="shot" href="../screenshots/04_town_hall.png">
+                <img src="../screenshots/04_town_hall.png" alt="Town hall screenshot">
+                <figcaption>Town Hall station view. Best anchor for surrogate icon usage, stockpile behavior, and forge-route clarity.</figcaption>
+              </a>
+              <a class="shot" href="../screenshots/09_underground_midday_torch.png">
+                <img src="../screenshots/09_underground_midday_torch.png" alt="Underground torch screenshot">
+                <figcaption>Underground readability and light value. Strong reference when thinking about torch, lantern, fuel, and attunement-adjacent future sinks.</figcaption>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <p class="footer-note">
+          Source of truth: <a href="wiki.html">docs/wiki/wiki.html</a> as the browseable view, backed by <code>docs/wiki/wiki.md</code>. Presentation layer:
+          <a href="index.html">docs/wiki/index.html</a>. This wrapper is intentionally more
+          welcoming and more browseable, but it is still grounded in the current repo's
+          real data files, image folders, and runtime-facing maintenance docs.
+        </p>
+      </main>
+
+      <aside class="rail right-rail">
+        <div class="rail-top">
+          <h2 class="rail-title">Watchlist</h2>
+          <p class="rail-copy">The shortest honest summary of where the design and asset pressure currently is.</p>
+        </div>
+
+        <div class="rail-block">
+          <h3>Maintenance Snapshot</h3>
+          <div class="watch-stack">
+            <div class="watch-card">
+              <strong>Item art is healthy</strong>
+              <span>All 43 current item ids have canonical art in the repo right now.</span>
+            </div>
+            <div class="watch-card">
+              <strong>Enemy drops need meaning</strong>
+              <span>The biggest content debt is not image coverage. It is source-only loot without enough sinks.</span>
+            </div>
+            <div class="watch-card">
+              <strong>Metallurgy wants a second chapter</strong>
+              <span><code>bronze_ingot</code> and <code>silver_ingot</code> are ready for stronger downstream systems.</span>
+            </div>
+            <div class="watch-card">
+              <strong>Gear overlays are a future polish lane</strong>
+              <span>Visual readability could improve there one day, but gameplay is already safe without them.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rail-block">
+          <h3>Priority Items</h3>
+          <div class="fact-stack">
+            <div class="fact-card">
+              <strong><code>slime_gel</code></strong>
+              <span>Best candidate for an early practical sink such as adhesive, healing, or torch gel.</span>
+            </div>
+            <div class="fact-card">
+              <strong><code>tiny_core</code></strong>
+              <span>Rare enough to justify a special attunement or accessory route.</span>
+            </div>
+            <div class="fact-card">
+              <strong><code>bronze_ingot</code></strong>
+              <span>A strong planning anchor for tools, rings, or civic-material identity.</span>
+            </div>
+            <div class="fact-card">
+              <strong><code>silver_ingot</code></strong>
+              <span>Natural bridge toward amulets, economy, or ritual infrastructure.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rail-block">
+          <h3>Recent Pass</h3>
+          <div class="recent-stack">
+            <div class="recent-card">
+              <strong>Wiki folder established</strong>
+              <span>The registry now has a dedicated <code>docs/wiki</code> home.</span>
+            </div>
+            <div class="recent-card">
+              <strong>Main page wrapper rebuilt</strong>
+              <span>The HTML surface now behaves more like a real game wiki front page.</span>
+            </div>
+            <div class="recent-card">
+              <strong>Image references surfaced</strong>
+              <span>Real icon paths, placeholder surfaces, and screenshot anchors are now visible from the home layer.</span>
+            </div>
+            <div class="recent-card">
+              <strong>Planning columns strengthened</strong>
+              <span>The wiki now shows why items matter, where they live, and how they currently resolve.</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    function setAllDetails(open) {
+      document.querySelectorAll("details.panel").forEach((node) => {
+        node.open = open;
+      });
+    }
+
+    const filterInput = document.getElementById("wiki-filter");
+    const searchNote = document.getElementById("search-note");
+    const searchableNodes = Array.from(document.querySelectorAll(".search-target"));
+
+    if (filterInput) {
+      filterInput.addEventListener("input", () => {
+        const term = filterInput.value.trim().toLowerCase();
+        let visibleCount = 0;
+
+        searchableNodes.forEach((node) => {
+          node.classList.remove("search-hide");
+        });
+
+        searchableNodes.forEach((node) => {
+          const haystack = (node.dataset.search || node.textContent || "").toLowerCase();
+          const match = term === "" || haystack.includes(term);
+          node.classList.toggle("search-hide", !match);
+          if (match) {
+            visibleCount += 1;
+            let parent = node.parentElement;
+            while (parent) {
+              if (parent.classList && parent.classList.contains("search-target")) {
+                parent.classList.remove("search-hide");
+              }
+              parent = parent.parentElement;
+            }
+            const hostPanel = node.closest("details.panel");
+            if (hostPanel) {
+              hostPanel.open = true;
+            }
+          }
+        });
+
+        if (!searchNote) {
+          return;
+        }
+
+        if (term === "") {
+          searchNote.textContent = "Showing the full front page.";
+          return;
+        }
+
+        searchNote.textContent = `Showing ${visibleCount} matching section${visibleCount === 1 ? "" : "s"} for "${filterInput.value}".`;
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Continuation | Coheronia Wiki</title>
+  <link rel="stylesheet" href="wiki_theme.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="kicker">Coheronia Wiki</div>
+      <h1>Image Continuation</h1>
+      <p>HTML wiki page generated from the current repo-backed markdown source. This keeps browsing in HTML while preserving markdown as the maintainable source format.</p>
+      <div class="top-actions">
+        <a href="index.html">Wiki Home</a>
+        <a href="image_continuation.md">View Markdown Source</a>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2>Browse</h2>
+          <p>Move through the wiki by category pages and leaf pages without dropping into raw markdown.</p>
+        </div>
+        <div class="sidebar-section">
+          <h3>Sections</h3>
+          <div class="nav-stack">
+            <a class="nav-card" href="index.html">Home<small>Front page and overall wiki entry</small></a>
+<a class="nav-card" href="items.html">Items<small>Category page for all item entries</small></a>
+<a class="nav-card" href="equipment.html">Equipment<small>Gear families and leaf pages</small></a>
+<a class="nav-card" href="weapons.html">Weapons<small>Weapon-specific browse page</small></a>
+<a class="nav-card" href="blocks.html">Blocks<small>Block registry and leaf pages</small></a>
+<a class="nav-card" href="bestiary.html">Bestiary<small>Live and planned enemy pages</small></a>
+<a class="nav-card" href="character_types.html">Character Types<small>Species, roles, traits, and ancestries</small></a>
+<a class="nav-card" href="stations.html">Crafting Stations<small>Station pages and hosted recipes</small></a>
+<a class="nav-card" href="wiki.html">Wiki Overview<small>Full planning and maintenance overview</small></a>
+          </div>
+        </div>
+      </aside>
+      <main class="content">
+        <div class="content-inner">
+          <div class="breadcrumbs"><a href="index.html">Wiki</a><span class="sep">/</span><a href="image_continuation.html">Image Continuation</a><span class="sep">/</span><span>wiki/image_continuation.md</span></div>
+          <div class="article">
+            <div class="meta-note">Generated HTML Page</div>
+            <h1 id="image-continuation">Image Continuation</h1>
+<p>Generated: 2026-07-15</p>
+<p>This page is the wiki handoff surface for future image work. It is meant for Codex, Claude Code, or another art agent that needs to continue the image pipeline without mistaking planned data for live gaps.</p>
+<h2 id="start-here">Start Here</h2>
+<div class="table-wrap"><table><thead><tr><th>Question</th><th>Best source</th><th>Why</th></tr></thead><tbody><tr><td>What image files exist, what is missing, and what is deferred?</td><td><a href="../IMAGE_INVENTORY_MATRIX.html">IMAGE_INVENTORY_MATRIX.md</a></td><td>Full runtime image inventory and deferred-work matrix.</td></tr><tr><td>What should the next image pass create?</td><td><a href="../ASSET_ROADMAP.html">ASSET_ROADMAP.md</a></td><td>Asset sizes, conventions, priority notes, and prompt packs.</td></tr><tr><td>What UI art is live, placeholder-authored, or deferred?</td><td><a href="../UI_ASSET_GAPS.html">UI_ASSET_GAPS.md</a></td><td>UI-specific consumer and placeholder status.</td></tr><tr><td>What visual canon constraints should art follow?</td><td><code>docs/ART_DIRECTION_AND_CANON.md</code></td><td>Tone, palette, meaning, and public-safety guidance.</td></tr><tr><td>Which content is live vs planned?</td><td><a href="current_live.html">Current Live</a>, <a href="planned_data.html">Planned Data</a>, <a href="status_browser.html">Status Browser</a></td><td>Prevents future art from implying planned systems are implemented.</td></tr></tbody></table></div>
+<h2 id="current-image-state">Current Image State</h2>
+<div class="table-wrap"><table><thead><tr><th>Family</th><th>Current state</th><th>Continue only if</th></tr></thead><tbody><tr><td>Current blocks</td><td>Covered with canonical art and variants where applicable.</td><td>A future terrain pass is explicitly requested.</td></tr><tr><td>Current items</td><td>Covered for current item ids.</td><td>A style refresh or new item ids land.</td></tr><tr><td>Live enemies</td><td>Covered for the six live enemy families.</td><td>New live enemies land, or a variant refresh is requested.</td></tr><tr><td>Player bodies</td><td>Covered for the five live species and presentation variants.</td><td>A body/style refresh is requested.</td></tr><tr><td>Player gear overlays</td><td>Deferred; hooks exist, no PNGs yet.</td><td>The next pass is explicitly about authored equipment overlays.</td></tr><tr><td>UI hooks</td><td>Partly live and partly placeholder-authored.</td><td>A UI replacement pass is scoped.</td></tr><tr><td>Opening frames</td><td>Deferred; plotted fallback remains live.</td><td>Opening cel art is explicitly scoped.</td></tr><tr><td>Future enemies / ancestries / systems</td><td>Planned only.</td><td>The system is promoted to live work or the operator explicitly asks for concept art.</td></tr></tbody></table></div>
+<h2 id="recommended-next-image-work">Recommended Next Image Work</h2>
+<p>1. Use <a href="../IMAGE_INVENTORY_MATRIX.html">IMAGE_INVENTORY_MATRIX.md</a> to confirm the current missing/deferred list. 2. Use <a href="../ASSET_ROADMAP.html">ASSET_ROADMAP.md</a> for exact dimensions, naming, and prompt constraints. 3. Use <code>docs/ART_DIRECTION_AND_CANON.md</code> for palette, tone, and canon. 4. Stage generated candidates outside the runtime tree. 5. Bring only final PNGs into <code>art/generated/&lt;category&gt;/</code>. 6. Run the repo&#x27;s image validation and full repo validation before declaring the pass ready.</p>
+<h2 id="public-and-ip-safety">Public And IP Safety</h2>
+<ul><li>Do not use another named game, studio, character, sprite, UI, or asset sheet as a visual target.</li><li>Do not request imitation of any living artist, commercial game, or copyrighted franchise.</li><li>Do not copy silhouettes, sprites, UI frames, icons, palettes, maps, enemies, bosses, or exact composition from another game.</li><li>Use Coheronia&#x27;s own language instead: side-view pixel art, mythic frontier, labor-centered settlement, restrained palette, readable at native pixel scale.</li><li>Do not bake words, logos, signatures, title text, creator names, or UI copy into generated images.</li><li>Before public upload, scan all wiki/source docs for named-game comparison language. Replace it with generic technical language such as &quot;side-view rear wall tiles&quot; or &quot;rear cave wall tiles.&quot;</li></ul>
+<h2 id="quick-prompt-for-a-future-image-agent">Quick Prompt For A Future Image Agent</h2>
+<p><code></code><code>text Continue Coheronia image work from the current repo state. First read docs/wiki/image_continuation.md, docs/IMAGE_INVENTORY_MATRIX.md, docs/ASSET_ROADMAP.md, docs/UI_ASSET_GAPS.md, and docs/ART_DIRECTION_AND_CANON.md. Do not create art for planned-only systems unless explicitly asked. Do not reference or imitate any named commercial game, studio, character, sprite, UI, asset sheet, or living artist. Use Coheronia&#x27;s own art direction: side-view pixel art, mythic frontier, labor-centered settlement, restrained palette, readable at native pixel scale. Stage candidates outside runtime folders; commit only final PNGs under art/generated/&lt;category&gt;/ after validation. </code><code></code></p>
+<h2 id="related-pages">Related Pages</h2>
+<ul><li><a href="current_live.html">Current Live</a></li><li><a href="planned_data.html">Planned Data</a></li><li><a href="status_browser.html">Status Browser</a></li><li><a href="wiki.html">Wiki Overview</a></li></ul>
+          </div>
+          <div class="footer-note">
+            Source markdown: <a href="image_continuation.md">image_continuation.md</a>.
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

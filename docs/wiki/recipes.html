@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recipes | Coheronia Wiki</title>
+  <link rel="stylesheet" href="wiki_theme.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="kicker">Coheronia Wiki</div>
+      <h1>Recipes</h1>
+      <p>HTML wiki page generated from the current repo-backed markdown source. This keeps browsing in HTML while preserving markdown as the maintainable source format.</p>
+      <div class="top-actions">
+        <a href="index.html">Wiki Home</a>
+        <a href="recipes.md">View Markdown Source</a>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2>Browse</h2>
+          <p>Move through the wiki by category pages and leaf pages without dropping into raw markdown.</p>
+        </div>
+        <div class="sidebar-section">
+          <h3>Sections</h3>
+          <div class="nav-stack">
+            <a class="nav-card" href="index.html">Home<small>Front page and overall wiki entry</small></a>
+<a class="nav-card" href="items.html">Items<small>Category page for all item entries</small></a>
+<a class="nav-card" href="equipment.html">Equipment<small>Gear families and leaf pages</small></a>
+<a class="nav-card" href="weapons.html">Weapons<small>Weapon-specific browse page</small></a>
+<a class="nav-card" href="blocks.html">Blocks<small>Block registry and leaf pages</small></a>
+<a class="nav-card" href="bestiary.html">Bestiary<small>Live and planned enemy pages</small></a>
+<a class="nav-card" href="character_types.html">Character Types<small>Species, roles, traits, and ancestries</small></a>
+<a class="nav-card" href="stations.html">Crafting Stations<small>Station pages and hosted recipes</small></a>
+<a class="nav-card" href="wiki.html">Wiki Overview<small>Full planning and maintenance overview</small></a>
+          </div>
+        </div>
+      </aside>
+      <main class="content">
+        <div class="content-inner">
+          <div class="breadcrumbs"><a href="index.html">Wiki</a><span class="sep">/</span><a href="recipes.html">Recipes</a><span class="sep">/</span><span>wiki/recipes.md</span></div>
+          <div class="article">
+            <div class="meta-note">Generated HTML Page</div>
+            <h1 id="recipes">Recipes</h1>
+<p>Generated: 2026-07-15</p>
+<p>This page is the first-class recipe index for the current Coheronia wiki. It separates recipe behavior from station pages so crafting continuity can be reviewed directly.</p>
+<h2 id="recipe-index">Recipe Index</h2>
+<div class="table-wrap"><table><thead><tr><th>Recipe</th><th>Station</th><th>Inputs</th><th>Raw outputs</th><th>Result route</th><th>Actual result in play</th></tr></thead><tbody><tr><td><a href="recipes/craft_torch.html">Torch</a></td><td>hand</td><td><code>wood x1</code>, <code>stone x1</code></td><td><code>torch x3</code></td><td>inventory</td><td>Adds torches to player inventory.</td></tr><tr><td><a href="recipes/craft_wood_block.html">Wood Block</a></td><td>hand</td><td><code>wood x1</code></td><td><code>wood x1</code></td><td>inventory</td><td>Identity craft; returns a carried wood item.</td></tr><tr><td><a href="recipes/craft_stone_block.html">Stone Block</a></td><td>hand</td><td><code>stone x1</code></td><td><code>stone x1</code></td><td>inventory</td><td>Identity craft; returns a carried stone item.</td></tr><tr><td><a href="recipes/craft_seeds.html">Crop Seeds</a></td><td>hand</td><td><code>food x1</code></td><td><code>crop_seeds x2</code></td><td>inventory</td><td>Converts food into plantable seeds.</td></tr><tr><td><a href="recipes/craft_lantern.html">Lantern</a></td><td>town_hall</td><td><code>ore x2</code>, <code>wood x1</code></td><td><code>lantern x1</code></td><td>inventory</td><td>Adds a placeable lantern to player inventory.</td></tr><tr><td><a href="recipes/basic_pick_upgrade.html">Basic Pick Upgrade</a></td><td>town_hall</td><td><code>wood x3</code>, <code>stone x5</code></td><td><code>tool_tier_2_pick x1</code></td><td>code-routed pick upgrade</td><td>Upgrades the equipped pick to <code>pick_forged</code>; the raw output is an internal token.</td></tr><tr><td><a href="recipes/craft_axe.html">Axe</a></td><td>town_hall</td><td><code>wood x4</code>, <code>stone x2</code></td><td>none</td><td>code-routed equip</td><td>Equips <code>axe_crude</code>.</td></tr><tr><td><a href="recipes/craft_sword.html">Crude Sword</a></td><td>town_hall</td><td><code>wood x2</code>, <code>stone x3</code></td><td>none</td><td>code-routed equip</td><td>Equips <code>sword_crude</code>.</td></tr><tr><td><a href="recipes/craft_armor_set.html">Crude Armor Set</a></td><td>town_hall</td><td><code>wood x6</code>, <code>stone x4</code></td><td>none</td><td>code-routed equip</td><td>Equips crude helmet, torso, and feet armor.</td></tr><tr><td><a href="recipes/workbench_torch_bundle.html">Torch Bundle</a></td><td>workbench</td><td><code>wood x2</code>, <code>coal x1</code></td><td><code>torch x6</code></td><td>inventory</td><td>Adds torches to player inventory.</td></tr><tr><td><a href="recipes/smelt_copper.html">Smelt Copper</a></td><td>furnace</td><td><code>copper_ore x2</code>, <code>coal x1</code></td><td><code>copper_ingot x1</code></td><td>stockpile</td><td>Adds copper ingot to Town Hall stockpile.</td></tr><tr><td><a href="recipes/smelt_tin.html">Smelt Tin</a></td><td>furnace</td><td><code>tin_ore x2</code>, <code>coal x1</code></td><td><code>tin_ingot x1</code></td><td>stockpile</td><td>Adds tin ingot to Town Hall stockpile.</td></tr><tr><td><a href="recipes/smelt_iron.html">Smelt Iron</a></td><td>furnace</td><td><code>iron_ore x2</code>, <code>coal x1</code></td><td><code>iron_ingot x1</code></td><td>stockpile</td><td>Adds iron ingot to Town Hall stockpile.</td></tr><tr><td><a href="recipes/smelt_silver.html">Smelt Silver</a></td><td>furnace</td><td><code>silver_ore x2</code>, <code>coal x1</code></td><td><code>silver_ingot x1</code></td><td>stockpile</td><td>Adds silver ingot to stockpile; no downstream live sink yet.</td></tr><tr><td><a href="recipes/alloy_bronze.html">Alloy Bronze</a></td><td>furnace</td><td><code>copper_ingot x1</code>, <code>tin_ingot x1</code>, <code>coal x1</code></td><td><code>bronze_ingot x2</code></td><td>stockpile</td><td>Adds bronze ingots to stockpile; no downstream live sink yet.</td></tr><tr><td><a href="recipes/anvil_iron_sword.html">Iron Sword</a></td><td>anvil</td><td><code>iron_ingot x3</code></td><td>none</td><td><code>equip_slots</code></td><td>Equips <code>sword_iron</code>.</td></tr><tr><td><a href="recipes/anvil_iron_armor.html">Iron Armor Set</a></td><td>anvil</td><td><code>iron_ingot x5</code></td><td>none</td><td><code>equip_slots</code></td><td>Equips iron helmet, torso, and feet armor.</td></tr></tbody></table></div>
+<h2 id="routing-notes">Routing Notes</h2>
+<ul><li>Inventory recipes create carried items.</li><li>Stockpile recipes add outputs to the Town Hall stockpile rather than the backpack.</li><li>Equip-route recipes can have empty raw JSON outputs because code applies the actual equipment result.</li><li><code>basic_pick_upgrade</code> is the special bridge case: the raw token <code>tool_tier_2_pick</code> is internal, while the player-facing result is <code>pick_forged</code>.</li></ul>
+<h2 id="related-pages">Related Pages</h2>
+<ul><li><a href="stations.html">Crafting Stations</a></li><li><a href="items.html">Items</a></li><li><a href="equipment.html">Equipment</a></li><li><a href="internal_tokens.html">Internal Tokens</a></li><li><a href="wiki.html">Wiki Overview</a></li></ul>
+          </div>
+          <div class="footer-note">
+            Source markdown: <a href="recipes.md">recipes.md</a>.
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
