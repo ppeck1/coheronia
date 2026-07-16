@@ -23,21 +23,24 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 
 *The in-world sprites, every current inventory/live-drop icon, all six live enemy families, all ten player bodies, the Town Hall, parallax backdrops, eight opening-scene cel pools, and 120 body-specific crude-gear/tool overlays are real generated pixel art. High-repetition terrain, flora, ores, enemies, and player bodies also have runtime-selected visual pools. Missing or unresolved images keep a procedural fallback, while the primary dock uses a 19-asset layered kit whose runtime values and states remain separate from its PNG chrome.*
 
-## Video clips
 
-**Opening prologue and title transition**
+## 📖 Prologue
 
-<video controls width="100%" src="https://raw.githubusercontent.com/ppeck1/coheronia/agent/update-public-docs-hud/docs/screenshots/clips/coheronia.prologue.07162026.1125.mp4">
-  <a href="docs/screenshots/clips/coheronia.prologue.07162026.1125.mp4">Watch the opening prologue and title transition.</a>
-</video>
+[![Coheronia Prologue](https://img.youtube.com/vi/QQ2BuoXqErk/maxresdefault.jpg)](https://youtu.be/QQ2BuoXqErk)
 
-**Gameplay with the current HUD pass**
+Watch the opening cinematic and story introduction.
 
-<video controls width="100%" src="https://raw.githubusercontent.com/ppeck1/coheronia/agent/update-public-docs-hud/docs/screenshots/clips/coheronia.gameplay.07162026.1135.mp4">
-  <a href="docs/screenshots/clips/coheronia.gameplay.07162026.1135.mp4">Watch gameplay with the current HUD pass.</a>
-</video>
+Direct link: [prologue](docs/screenshots/clips/coheronia.prologue.07162026.1125.mp4) 
 
-Direct links: [prologue](docs/screenshots/clips/coheronia.prologue.07162026.1125.mp4) · [gameplay](docs/screenshots/clips/coheronia.gameplay.07162026.1135.mp4)
+
+## 🎮 Gameplay
+
+[![Coheronia Gameplay](https://img.youtube.com/vi/-KxICidJK2A/maxresdefault.jpg)](https://youtu.be/-KxICidJK2A)
+
+Watch the latest gameplay demonstration.
+
+Direct link: [gameplay](docs/screenshots/clips/coheronia.gameplay.07162026.1135.mp4)
+---
 
 ## Feature highlights
 
