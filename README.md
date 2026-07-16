@@ -23,6 +23,11 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 
 *The in-world sprites, every current inventory/live-drop icon, all six live enemy families, all ten player bodies, the Town Hall, parallax backdrops, eight opening-scene cel pools, and 120 body-specific crude-gear/tool overlays are real generated pixel art. High-repetition terrain, flora, ores, enemies, and player bodies also have runtime-selected visual pools. Missing or unresolved images keep a procedural fallback, while the primary dock uses a 19-asset layered kit whose runtime values and states remain separate from its PNG chrome.*
 
+## Video clips
+
+- [Opening prologue and title transition](docs/screenshots/clips/coheronia.prologue.07162026.1125.mp4)
+- [Gameplay with the current HUD pass](docs/screenshots/clips/coheronia.gameplay.07162026.1135.mp4)
+
 ## Feature highlights
 
 - **Persistent shell** — characters and worlds are separate persistent objects. Characters own their backpack, hotbar, tools, and 12 gear slots and carry them between worlds; each world file owns its terrain history, settlement, threats, and progression.

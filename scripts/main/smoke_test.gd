@@ -2989,6 +2989,9 @@ func _run() -> void:
 	_fq09c_shell._show_title()
 	var _fq09c_labels: Array = []
 	var _fq09c_buttons: Array = []
+	var _fq09c_title_backdrop_ok: bool = _fq09c_shell._title_backdrop != null \
+		and _fq09c_shell._title_backdrop.visible \
+		and _fq09c_shell._title_backdrop.texture != null
 	var _fq09c_stack: Array = [_fq09c_shell]
 	while not _fq09c_stack.is_empty():
 		var _fq09c_node: Node = _fq09c_stack.pop_back()
@@ -3002,8 +3005,9 @@ func _run() -> void:
 		"COHERONIA" in _fq09c_labels and "By Paul Peck" in _fq09c_labels
 		and "Where civilization pushes back." in _fq09c_labels
 		and "Prologue" in _fq09c_buttons and "Play" in _fq09c_buttons
-		and "Quit" in _fq09c_buttons,
-		"labels=%s buttons=%s" % [str(_fq09c_labels), str(_fq09c_buttons)])
+		and "Quit" in _fq09c_buttons and _fq09c_title_backdrop_ok,
+		"labels=%s buttons=%s backdrop=%s" % [str(_fq09c_labels),
+			str(_fq09c_buttons), str(_fq09c_title_backdrop_ok)])
 	_fq09c_shell.free()
 
 	# --- FQ-09W: scenic backdrop, backing walls, underground darkness ---
