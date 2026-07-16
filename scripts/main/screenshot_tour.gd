@@ -56,10 +56,24 @@ func _run() -> void:
 	await _shot("03_inventory")
 	hud.toggle_inventory_panel()
 
+	hud.toggle_character_panel()
+	await _shot("13_character")
+	hud.toggle_character_panel()
+
 	hud.refresh_town_panel()
 	hud.toggle_town_panel()
 	await _shot("04_town_hall")
 	hud.toggle_town_panel()
+
+	# Independent top modules: Map and Events remain visible together, with
+	# the contextual stack positioned below the taller surface.
+	if not hud._event_panel.visible:
+		hud._toggle_event_module()
+	hud.toggle_map()
+	hud.update_map(root.map_snapshot())
+	hud.set_interaction_prompt("[E] Town Hall")
+	await _shot("14_map_events_together")
+	hud.toggle_map()
 
 	root.player_level = 4
 	root.try_purchase_perk("stone_recovery")
@@ -77,6 +91,31 @@ func _run() -> void:
 	await _shot("10_vessel_damage_states")
 	player.health = player.max_health
 	player.attunement = player.max_attunement()
+	hud.update_health(player.health, player.max_health)
+	hud.update_attunement(player.attunement, player.max_attunement())
+
+	# FQ-21 visual regressions: prove that the dock action treatment covers the
+	# complete Town Hall cell, then prove that both vessel interiors drain
+	# without exposing a square/circular placeholder layer.
+	var town_button := hud.find_child("DockActionTownHall", true, false) as Button
+	if town_button != null:
+		# Apply the exact hover StyleBox as the normal state for a deterministic
+		# capture; OS mouse warping is unreliable with stretched viewports.
+		var normal_style := town_button.get_theme_stylebox("normal")
+		var hover_style := town_button.get_theme_stylebox("hover")
+		town_button.add_theme_stylebox_override("normal", hover_style)
+		await _shot("11_town_hall_hover")
+		town_button.add_theme_stylebox_override("normal", normal_style)
+	var regen_mult: float = player.attunement_regen_mult
+	player.attunement_regen_mult = 0.0
+	player.health = 0.0
+	player.attunement = 0.0
+	hud.update_health(player.health, player.max_health)
+	hud.update_attunement(player.attunement, player.max_attunement())
+	await _shot("12_vessels_empty")
+	player.health = player.max_health
+	player.attunement = player.max_attunement()
+	player.attunement_regen_mult = regen_mult
 	hud.update_health(player.health, player.max_health)
 	hud.update_attunement(player.attunement, player.max_attunement())
 
