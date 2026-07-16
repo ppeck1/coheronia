@@ -43,7 +43,7 @@ This page lists wiki surfaces that represent current live behavior or currently 
 
 | Surface | Current live state |
 |---|---|
-| Primary HUD | A native 19-asset layered dock kit is the preferred runtime path. Health, attunement, icons, counts, hotkeys, labels, and interaction states remain runtime-driven children positioned from one JSON contract. Map and Events are independent movable modules and can remain open together. |
+| Primary HUD | A native 19-asset layered dock kit is the preferred runtime path. Contract v2 positions every runtime child from JSON, protects vessel keep-outs, validates state-family geometry and alpha rules, and permits manifest-declared non-interactive decorative layers. Health, attunement, icons, counts, hotkeys, visible labels, actions, and interaction states remain runtime-driven. Map and Events are independent movable modules and can remain open together. |
 | Equipped character presentation | Crude helmet, torso, and feet have authored overlays for all ten current bodies. The basic pick, forged pick, and crude axe have authored three-phase swing overlays for all ten bodies. Other equipment retains a rig-aware procedural fallback. |
 | Opening presentation | All eight opening scenes have authored cel pools, with ten PNGs total. Deterministic plotted scenes remain available as fallback. |
 

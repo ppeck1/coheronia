@@ -54,10 +54,9 @@ var _save_label: Label   # no longer built (FQ-19); kept for the null-guarded se
 var _has_save_hint := false
 var _debug_label: Label
 var _top_left_box: Control
-# FQ-21: the dock is ONE full-width painted band (left cap · tiling plate ·
-# fixed center block · right cap), sliced whole from the mockup — never
-# stretched, never reassembled from small fragments (operator direction).
-# FQ-19's modular orb·panel·orb construction remains the fallback.
+# FQ-21 contract v2: the primary dock is one native-size layered kit whose
+# decorative chrome and runtime-content rectangles come from JSON. The sliced
+# FQ-21 band and FQ-19 modular orb/panel/orb construction remain fallbacks.
 var _bottom_dock: Control          # the whole band (registered HUD widget)
 var _dock_panel: Control           # the central block (band) / plate panel (fallback)
 var _dock_band_active := false
@@ -109,9 +108,9 @@ var _map_open := false
 var _hotbar_icons: Array[TextureRect] = []
 var _hotbar_slots: Array[PanelContainer] = []
 var _hotbar_counts: Array[Label] = []
-# FQ-19: per-slot wrapper margins — the selected slot rides 3px higher than
-# its neighbors (blueprint "raised selected slot" treatment).
-var _hotbar_cells: Array[MarginContainer] = []
+# Native-kit wrappers own JSON-positioned runtime children. Legacy
+# MarginContainer wrappers retain the raised-selected fallback treatment.
+var _hotbar_cells: Array[Control] = []
 var _hotbar_selected := -1
 # FQ-13P2: StyleBox (texture placeholder when art/generated/ui art exists, else
 # the code-drawn flat fallback) — either subclass assigns to a slot panel.
@@ -934,15 +933,21 @@ func _build_hud_kit(layout: Dictionary) -> void:
 	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(band)
 
-	var backplate := TextureRect.new()
-	backplate.name = "DockBackplate"
-	backplate.texture = _painted_texture("dock_backplate")
-	backplate.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	backplate.stretch_mode = TextureRect.STRETCH_KEEP
-	_place(backplate, _json_rect(dock_geo.get("backplate_rect")))
-	backplate.z_index = 0
-	backplate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	band.add_child(backplate)
+	# Decorative chrome is manifest-driven. New non-interactive layers can be
+	# added to JSON without another hud.gd branch; gameplay controls remain
+	# explicitly registered below.
+	var decorative_by_role: Dictionary = {}
+	for raw_layer in layout.get("decorative_layers", []):
+		if not raw_layer is Dictionary:
+			continue
+		var layer_def: Dictionary = raw_layer
+		var asset_file := str(layer_def.get("asset", ""))
+		var asset_id := asset_file.trim_suffix(".png")
+		var layer := _kit_layer(band, str(layer_def.get("name", asset_id)),
+			asset_id, _json_rect(layer_def.get("rect")),
+			int(layer_def.get("z", 0)))
+		decorative_by_role[str(layer_def.get("role", ""))] = layer
+	var backplate: TextureRect = decorative_by_role.get("backplate") as TextureRect
 	_dock_panel = backplate
 
 	var health_geo: Dictionary = layout.get("health", {})
@@ -995,15 +1000,13 @@ func _build_hud_kit(layout: Dictionary) -> void:
 	health_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	health_glass.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	attune_glass.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_kit_layer(band, "DockForegroundTrim", "dock_foreground_trim",
-		_json_rect(dock_geo.get("foreground_trim_rect")), 3)
-
 	_slot_normal_sb = _texture_style("slot_normal")
 	_slot_selected_sb = _texture_style("slot_selected")
 	var slot_rects: Array = layout.get("slots", [])
+	var slot_content: Dictionary = layout.get("slot_content", {})
 	for i in range(mini(5, slot_rects.size())):
 		var rect := _json_rect(slot_rects[i])
-		var cell := MarginContainer.new()
+		var cell := Control.new()
 		cell.name = "HotbarCell%d" % (i + 1)
 		_place(cell, rect)
 		cell.z_index = 4
@@ -1013,43 +1016,47 @@ func _build_hud_kit(layout: Dictionary) -> void:
 		slot.name = "HotbarSlot%d" % (i + 1)
 		slot.add_theme_stylebox_override("panel", _slot_normal_sb)
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_place(slot, Rect2(Vector2.ZERO, rect.size))
 		cell.add_child(slot)
-		var icon_center := CenterContainer.new()
-		icon_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		slot.add_child(icon_center)
 		var icon := TextureRect.new()
-		icon.custom_minimum_size = Vector2(30, 30)
+		icon.name = "RuntimeIcon"
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		icon_center.add_child(icon)
+		_place(icon, _json_rect(slot_content.get("icon_rect")))
+		cell.add_child(icon)
 		var count := Label.new()
+		count.name = "RuntimeCount"
 		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		count.size_flags_vertical = Control.SIZE_SHRINK_END
+		count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		count.add_theme_font_size_override("font_size", 11)
 		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		slot.add_child(count)
+		_place(count, _json_rect(slot_content.get("count_rect")))
+		cell.add_child(count)
 		var key_tag := Label.new()
+		key_tag.name = "RuntimeHotkey"
 		key_tag.text = str(i + 1)
 		key_tag.add_theme_font_size_override("font_size", 9)
 		key_tag.add_theme_color_override("font_color", Color(0.89, 0.75, 0.43))
-		key_tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		key_tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		key_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		slot.add_child(key_tag)
+		_place(key_tag, _json_rect(slot_content.get("hotkey_rect")))
+		cell.add_child(key_tag)
 		_hotbar_cells.append(cell)
 		_hotbar_slots.append(slot)
 		_hotbar_icons.append(icon)
 		_hotbar_counts.append(count)
 
 	var buttons: Dictionary = layout.get("buttons", {})
+	var button_content: Dictionary = layout.get("button_content", {})
 	_add_kit_button(band, buttons.get("inventory"), "Inventory",
-		"button_icon_inventory", func(): toggle_inventory_panel())
+		"button_icon_inventory", button_content, func(): toggle_inventory_panel())
 	_add_kit_button(band, buttons.get("character"), "Character",
-		"button_icon_character", func(): toggle_character_panel())
+		"button_icon_character", button_content, func(): toggle_character_panel())
 	_add_kit_button(band, buttons.get("skills"), "Skills",
-		"button_icon_skills", func(): toggle_skill_panel())
+		"button_icon_skills", button_content, func(): toggle_skill_panel())
 	_add_kit_button(band, buttons.get("town_hall"), "Town Hall",
-		"button_icon_town_hall", func(): toggle_town_panel())
+		"button_icon_town_hall", button_content, func(): toggle_town_panel())
 
 	var summary := PanelContainer.new()
 	summary.name = "SelectedItemChip"
@@ -1130,13 +1137,12 @@ func _kit_fx(parent: Control, node_name: String, texture: Texture2D,
 
 
 func _add_kit_button(parent: Control, rect_value: Variant, text: String,
-		icon_id: String, action: Callable) -> void:
+		icon_id: String, content: Dictionary, action: Callable) -> void:
 	var button := Button.new()
 	button.name = "DockAction" + text.replace(" ", "")
-	button.icon = _painted_texture(icon_id)
-	button.expand_icon = false
 	button.tooltip_text = "Open %s panel" % text
 	button.focus_mode = Control.FOCUS_ALL
+	button.clip_contents = true
 	button.add_theme_stylebox_override("normal", _texture_style("button_frame_normal"))
 	button.add_theme_stylebox_override("hover", _texture_style("button_frame_hover"))
 	button.add_theme_stylebox_override("pressed", _texture_style("button_frame_pressed"))
@@ -1145,6 +1151,25 @@ func _add_kit_button(parent: Control, rect_value: Variant, text: String,
 	button.z_index = 4
 	button.pressed.connect(action)
 	parent.add_child(button)
+	var icon := TextureRect.new()
+	icon.name = button.name + "Icon"
+	icon.texture = _painted_texture(icon_id)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(icon, _json_rect(content.get("icon_rect")))
+	button.add_child(icon)
+	var label := Label.new()
+	label.name = button.name + "Label"
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_color_override("font_color", Color(0.86, 0.84, 0.78))
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(label, _json_rect(content.get("label_rect")))
+	button.add_child(label)
 
 
 func _build_bottom_left() -> void:
@@ -1413,19 +1438,21 @@ func _load_hud_kit_layout() -> Dictionary:
 
 
 func _hud_kit_available(layout: Dictionary) -> bool:
-	if int(layout.get("version", 0)) < 1:
+	if int(layout.get("version", 0)) < 2:
 		return false
-	for asset_id in [
-			"dock_backplate", "dock_foreground_trim",
-			"health_frame", "health_glass_overlay", "health_fill_mask",
-			"attunement_frame", "attunement_glass_overlay",
-			"attunement_fill_mask", "slot_normal", "slot_selected",
-			"slot_hover", "slot_disabled", "button_frame_normal",
-			"button_frame_hover", "button_frame_pressed",
-			"button_icon_inventory", "button_icon_character",
-			"button_icon_skills", "button_icon_town_hall"]:
+	var required_assets: Array = layout.get("required_assets", [])
+	if required_assets.is_empty():
+		return false
+	for asset_file in required_assets:
+		var asset_id := str(asset_file).trim_suffix(".png")
 		if _painted_texture(asset_id) == null:
 			return false
+	var roles: Dictionary = {}
+	for raw_layer in layout.get("decorative_layers", []):
+		if raw_layer is Dictionary:
+			roles[str((raw_layer as Dictionary).get("role", ""))] = true
+	if not roles.has("backplate") or not roles.has("foreground_trim"):
+		return false
 	return true
 
 

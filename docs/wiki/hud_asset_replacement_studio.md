@@ -18,11 +18,41 @@ Do not delegate fill masks or runtime information as freeform art. Health, attun
 | Runtime copies used by Godot | `art/generated/ui_painted/` |
 | Geometry and required sizes | `art/source_templates/hud_dock/hud_dock_layout.json` |
 | Safe validation and promotion | `scripts/art/sync_hud_kit.py` |
+| Native composite and geometry-guide generator | `scripts/art/preview_hud_kit.py` |
 | Placeholder builder; do not rerun over authored art | `scripts/art/build_hud_kit_placeholders.py` |
 
 The source file is authoritative. Never paste a generated image directly into the runtime directory as the only copy.
 
 When all 19 assets and the layout are valid, `hud.gd` selects this native kit first. The FQ-21 sliced four-piece band and FQ-19 modular dock remain fallback paths rather than current art targets.
+
+## Contract V2: Replacement Versus Extension
+
+The 19 named files are drop-in replacements: preserve filename, size, alpha contract, and occupied geometry, then no gameplay code changes are required.
+
+Contract v2 also permits a genuinely new **non-interactive decorative layer**. Add its PNG to `asset_sizes` and `required_assets`, then declare its node name, full native rectangle, role, and integer z-index in `decorative_layers`. The runtime assembles those declared chrome layers without another custom `hud.gd` branch.
+
+Interactive components are deliberately different. A new button, slot behavior, meter, or command still needs a registered runtime action and a documented semantic component. A PNG may supply appearance, never behavior.
+
+The JSON also owns these internal runtime rectangles:
+
+- `slot_content.icon_rect`, `count_rect`, and `hotkey_rect`
+- `button_content.icon_rect` and `label_rect`
+- vessel fill, glass, value-label, selected-item chip, and mining-progress rectangles
+
+Do not move an art aperture or safe content window independently of these rectangles. If a deliberate geometry change is approved, update JSON and its tests in the same commit.
+
+Two source-only review aids live beside the editable PNGs:
+
+- `hud_dock_runtime_guide.png` is the color-coded runtime-content and trim keep-out template.
+- `hud_dock_composite_preview.png` composites the current art with representative runtime fills, values, icons, counts, hotkeys, labels, selected/hover/disabled states, and progress.
+
+Attach both aids to every image-editing task. They are never copied into the runtime directory.
+
+![HUD runtime geometry guide](../../art/source_templates/hud_dock/hud_dock_runtime_guide.png)
+
+![HUD source composite preview](../../art/source_templates/hud_dock/hud_dock_composite_preview.png)
+
+The current real-game comparison capture is [`docs/screenshots/10_vessel_damage_states.png`](../screenshots/10_vessel_damage_states.png).
 
 ## Non-Negotiable Export Rules
 
@@ -34,6 +64,10 @@ When all 19 assets and the layout are valid, `hud.gd` selects this native kit fi
 - Do not bake text, values, hotkeys, item images, counts, resource fill, selection, cooldowns, or tooltips into art.
 - Review at 100 percent scale. A beautiful zoomed image can still be unreadable or noisy in the game.
 - Keep visual hierarchy restrained: dark wood and iron support the content; brass is an accent, not a full outline on every object.
+- Judge backplate and trim with every runtime child visible. Decorative marks must not visually imply or duplicate slots, buttons, vessels, labels, or progress bars.
+- `dock_foreground_trim.png` must remain completely transparent inside both 160 x 160 vessel-frame keep-outs shown in `hud_dock_runtime_guide.png`; it renders above the vessel frames.
+- Slot and button state families must retain the exact occupied alpha silhouette of their normal state.
+- Button glyphs must preserve at least two transparent pixels around the occupied icon silhouette.
 
 ## File Contract
 
@@ -71,7 +105,7 @@ This order keeps shared geometry and material language consistent. Do not run ni
 
 ## Standard ChatGPT Handoff
 
-For each task, attach the current PNG and a current in-game screenshot. Tell ChatGPT to edit the attached PNG, not to create a complete interface. After it returns the image, verify the canvas and alpha before judging the style.
+For each task, attach the current PNG, `hud_dock_runtime_guide.png`, `hud_dock_composite_preview.png`, and a current in-game screenshot. Tell ChatGPT to create genuinely new artwork **inside the attached asset canvas**, not to create a complete interface or imitate the placeholder styling. After it returns the image, verify the canvas and alpha before judging the style.
 
 Use the asset-specific prompt below as the complete instruction for that task. If the result changes dimensions, loses transparency, adds labels, or changes the occupied geometry, reject it rather than repairing it by fractional scaling.
 
@@ -79,11 +113,11 @@ Use the asset-specific prompt below as the complete instruction for that task. I
 
 ### Dock Backplate
 
-> Edit the attached `dock_backplate.png` for Coheronia. Return exactly one 1280 x 176 RGBA PNG on the same canvas. Create a restrained dark-fantasy pixel-art structural bed in blackened iron and dark wood. It must sit behind every other HUD layer and visually connect the left and right vessels without drawing either vessel, any slot, any button, any icon, any label, any value, or any state. Preserve transparent areas outside the dock silhouette. Use hard integer-aligned pixel edges, quiet material variation, and no blur, bloom, outside shadow, canvas resize, or painted runtime content.
+> Create new artwork inside the attached `dock_backplate.png` canvas for Coheronia. Return exactly one 1280 x 176 RGBA PNG on the same canvas. Use the attached runtime guide and composite as immutable geometry references. Create a restrained original dark-fantasy pixel-art structural bed in blackened iron and dark smoked wood with sparse aged-brass accents. It must sit behind every other HUD layer and visually connect the left and right vessels without drawing or implying either vessel, any slot, any button, any icon, any label, any value, progress, or state. Preserve transparent areas outside the dock silhouette. Use hard integer-aligned pixel edges, quiet material variation, and no blur, bloom, outside shadow, canvas resize, named-game imitation, or painted runtime content.
 
 ### Dock Foreground Trim
 
-> Edit the attached `dock_foreground_trim.png` for Coheronia. Return exactly one 1280 x 176 RGBA PNG on the same canvas. Paint only the foreground top rail, bottom rail, seams, restrained rivets, and finishing trim that sit above the backplate. Most of the canvas must remain transparent so the backplate and runtime children show through. Keep the rail continuous and clean across the center with no notches around hotbar slots. Do not draw vessels, slots, buttons, icons, text, values, or a second opaque background. Use crisp pixel-art edges, consistent lighting, and no blur or canvas resize.
+> Create new artwork inside the attached `dock_foreground_trim.png` canvas for Coheronia. Return exactly one 1280 x 176 RGBA PNG on the same canvas. Use the attached runtime guide and composite as immutable geometry references. Paint only the foreground top rail, bottom rail, major seams, restrained rivets, and finishing hardware that sit above the backplate. Both 160 x 160 vessel keep-outs shown in the guide must remain fully transparent because this layer renders above their frames. Most of the canvas must remain transparent. Keep the center rails continuous and clean with no notches around hotbar slots. Do not draw or imply vessels, slots, buttons, icons, text, values, progress, or a second opaque background. Use original crisp pixel-art forms, consistent lighting, and no blur, named-game imitation, or canvas resize.
 
 ### Health Frame
 
@@ -164,6 +198,14 @@ If it passes, copy the validated source into the runtime directory:
 `python scripts/art/sync_hud_kit.py --sync --asset dock_backplate.png`
 
 For a completed family, omit `--asset` to check or sync the whole kit. The sync tool does not crop, rescale, repaint, or repair an image. A contract failure must go back to the image-editing task.
+
+Confirm that promoted runtime files exactly match their authored sources:
+
+`python scripts/art/sync_hud_kit.py --verify-runtime`
+
+Regenerate the native review aids:
+
+`python scripts/art/preview_hud_kit.py`
 
 After each coherent family, run the repository validator and inspect an in-game screenshot at the target window size. Run the full smoke suite before calling the HUD batch complete. Functional smoke does not replace visual review; both gates are required.
 

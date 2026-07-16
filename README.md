@@ -139,6 +139,7 @@ Or open the folder in the Godot editor and press Play.
 ```powershell
 python scripts/validate_repo.py
 python scripts/asset_audit.py --strict
+python scripts/art/sync_hud_kit.py --verify-runtime
 python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile public_repo
 
 $env:COHERONIA_SMOKE = "1"

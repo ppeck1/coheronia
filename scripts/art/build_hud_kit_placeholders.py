@@ -44,6 +44,10 @@ def _dock_layers() -> tuple[Image.Image, Image.Image]:
     t.line((88, 162, W - 89, 162), fill=(7, 9, 10, 255), width=3)
     for x in range(110, W - 100, 64):
         t.ellipse((x - 2, 48, x + 2, 52), fill=(151, 130, 89, 255))
+    # Foreground trim renders above vessel frames. Keep both complete vessel
+    # rectangles clear so a replacement rail can never butcher their chrome.
+    t.rectangle((8, 8, 167, 167), fill=(0, 0, 0, 0))
+    t.rectangle((1112, 8, 1271, 167), fill=(0, 0, 0, 0))
     return back, trim
 
 
@@ -162,12 +166,76 @@ def main() -> int:
     for name, image in assets.items():
         _save(name, image)
 
+    required_assets = sorted(assets)
     layout = {
-        "version": 1,
+        "version": 2,
         "native_size": [W, H],
+        "required_assets": required_assets,
         "asset_sizes": {
             name: [image.width, image.height]
             for name, image in sorted(assets.items())
+        },
+        "decorative_layers": [
+            {
+                "name": "DockBackplate",
+                "asset": "dock_backplate.png",
+                "rect": [0, 0, W, H],
+                "z": 0,
+                "role": "backplate",
+            },
+            {
+                "name": "DockForegroundTrim",
+                "asset": "dock_foreground_trim.png",
+                "rect": [0, 0, W, H],
+                "z": 3,
+                "role": "foreground_trim",
+            },
+        ],
+        "alpha_rules": {
+            "dock_backplate.png": {
+                "min_coverage": 0.25,
+                "max_coverage": 0.75,
+            },
+            "dock_foreground_trim.png": {
+                "min_coverage": 0.01,
+                "max_coverage": 0.15,
+                "transparent_rects": [[8, 8, 160, 160], [1112, 8, 160, 160]],
+            },
+            "health_fill_mask.png": {"binary_alpha": True},
+            "attunement_fill_mask.png": {"binary_alpha": True},
+            "health_glass_overlay.png": {"max_coverage": 0.15},
+            "attunement_glass_overlay.png": {"max_coverage": 0.15},
+            "button_icon_inventory.png": {"safe_padding": 2},
+            "button_icon_character.png": {"safe_padding": 2},
+            "button_icon_skills.png": {"safe_padding": 2},
+            "button_icon_town_hall.png": {"safe_padding": 2},
+        },
+        "mask_relationships": [
+            {
+                "mask": "health_fill_mask.png",
+                "frame": "health_frame.png",
+                "frame_offset": [26, 26],
+                "glass": "health_glass_overlay.png",
+            },
+            {
+                "mask": "attunement_fill_mask.png",
+                "frame": "attunement_frame.png",
+                "frame_offset": [26, 26],
+                "glass": "attunement_glass_overlay.png",
+            },
+        ],
+        "state_families": {
+            "slots": [
+                "slot_normal.png",
+                "slot_selected.png",
+                "slot_hover.png",
+                "slot_disabled.png",
+            ],
+            "buttons": [
+                "button_frame_normal.png",
+                "button_frame_hover.png",
+                "button_frame_pressed.png",
+            ],
         },
         "dock": {
             "rect": [0, 0, W, H],
@@ -188,11 +256,20 @@ def main() -> int:
             "label_rect": [1152, 79, 80, 18],
         },
         "slots": [[435 + i * 82, 58, 76, 84] for i in range(5)],
+        "slot_content": {
+            "icon_rect": [23, 20, 30, 30],
+            "count_rect": [45, 60, 24, 16],
+            "hotkey_rect": [7, 6, 16, 14],
+        },
         "buttons": {
             "inventory": [311, 48, 54, 104],
             "character": [371, 48, 54, 104],
             "skills": [851, 48, 54, 104],
             "town_hall": [911, 48, 54, 104],
+        },
+        "button_content": {
+            "icon_rect": [11, 16, 32, 32],
+            "label_rect": [3, 66, 48, 28],
         },
         "selected_item_chip_rect": [176, 8, 246, 32],
         "mining_progress_rect": [550, 28, 180, 10],

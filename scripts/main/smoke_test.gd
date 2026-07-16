@@ -1046,10 +1046,9 @@ func _run() -> void:
 	# (The contextual-stack check lives at the end of the suite: its real-time
 	# auto-hide waits must not shift the live music clip-switch timing.)
 
-	# FQ-21: the one-piece full-width painted band — four native-aspect
-	# pieces present (caps, tiling plate, center block), the band spanning
-	# the viewport width, five slot overlays, and geometry loaded from the
-	# slicer sidecar (the center block texture matches its declared size).
+	# FQ-21 contract v2: the native layered kit spans the viewport, loads its
+	# decorative layers from the manifest, and retains five runtime slots plus
+	# four registered action controls.
 	var _fq21_geometry: Dictionary = hud._load_hud_kit_layout()
 	var _fq21_block: TextureRect = hud._bottom_dock.find_child("DockBackplate", true, false)
 	var _fq21_pieces_ok: bool = hud._hud_kit_active and hud._dock_band_active \
@@ -1120,18 +1119,50 @@ func _run() -> void:
 		"DockActionTownHall", true, false) as Button
 	var _fq21_full_nav_cell: bool = _fq21_town_hit != null \
 		and _fq21_town_hit.size.y >= 80.0
+	var _fq21_town_label: Label = _fq21_town_hit.find_child(
+		"DockActionTownHallLabel", true, false) as Label if _fq21_town_hit != null else null
+	var _fq21_visible_nav_label: bool = _fq21_town_label != null \
+		and _fq21_town_label.text == "Town Hall"
+	var _fq21_slot0: Control = hud._bottom_dock.find_child(
+		"HotbarCell1", true, false) as Control
+	var _fq21_slot_icon: TextureRect = _fq21_slot0.find_child(
+		"RuntimeIcon", true, false) as TextureRect if _fq21_slot0 != null else null
+	var _fq21_icon_rect: Rect2 = hud._json_rect(_fq21_geometry.slot_content.icon_rect)
+	var _fq21_json_content: bool = int(_fq21_geometry.get("version", 0)) == 2 \
+		and _fq21_slot_icon != null \
+		and _fq21_slot_icon.position == _fq21_icon_rect.position \
+		and _fq21_slot_icon.size == _fq21_icon_rect.size
+	var _fq21_trim_tex: Texture2D = hud._painted_texture("dock_foreground_trim")
+	var _fq21_trim_img: Image = _fq21_trim_tex.get_image() if _fq21_trim_tex != null else null
+	var _fq21_trim_keepouts := _fq21_trim_img != null
+	if _fq21_trim_img != null:
+		for _fq21_vessel_name in ["health", "attunement"]:
+			var _fq21_keepout: Rect2 = hud._json_rect(
+				(_fq21_geometry[_fq21_vessel_name] as Dictionary).frame_rect)
+			for _fq21_y in range(int(_fq21_keepout.position.y), int(_fq21_keepout.end.y)):
+				for _fq21_x in range(int(_fq21_keepout.position.x), int(_fq21_keepout.end.x)):
+					if _fq21_trim_img.get_pixel(_fq21_x, _fq21_y).a > 0.01:
+						_fq21_trim_keepouts = false
+						break
+				if not _fq21_trim_keepouts:
+					break
+			if not _fq21_trim_keepouts:
+				break
 	var _fq21_native_integer: bool = _fq21_block != null \
 		and _fq21_block.size == _fq21_block.texture.get_size() \
 		and hud._bottom_dock.scale == Vector2.ONE
 	_check("fq21_hud_masking_and_cushion_geometry",
 		_fq21_frame_clear and _fq21_slots_uniform and _fq21_map_padded \
-		and _fq21_full_nav_cell and _fq21_native_integer,
-		"frame_clear=%s slot_size=%s selected=%s gap=%.1f map=%s nav_h=%.1f integer=%s" % [
+		and _fq21_full_nav_cell and _fq21_visible_nav_label \
+		and _fq21_json_content and _fq21_trim_keepouts and _fq21_native_integer,
+		"frame_clear=%s slot_size=%s selected=%s gap=%.1f map=%s nav_h=%.1f label=%s content=%s trim=%s integer=%s" % [
 			str(_fq21_frame_clear),
 			_fq21_slot_normal.get_size() if _fq21_slot_normal != null else Vector2.ZERO,
 			_fq21_slot_selected.get_size() if _fq21_slot_selected != null else Vector2.ZERO,
 			_fq21_slot_gap, hud._map_panel.custom_minimum_size,
 			_fq21_town_hit.size.y if _fq21_town_hit != null else 0.0,
+			str(_fq21_visible_nav_label), str(_fq21_json_content),
+			str(_fq21_trim_keepouts),
 			str(_fq21_native_integer)])
 
 	# FQ-21: vessel sockets — the future liquid mechanic's plug-in point.

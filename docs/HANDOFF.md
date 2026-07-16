@@ -3,6 +3,13 @@
 ## Current State (2026-07-16 public refresh)
 
 **The native HUD-kit stabilization is merged locally and verified at 321/321.**
+
+The follow-up contract-v2 hardening makes non-interactive decorative layers
+manifest-driven, positions every slot/button runtime child from JSON, restores
+visible runtime action labels, protects both vessel rectangles from foreground
+trim, validates alpha/state-family contracts, verifies source/runtime hashes,
+and generates a native composite plus color-coded authoring guide. Final chrome
+art remains intentionally provisional.
 The primary bottom dock now selects a 19-asset native RGBA kit plus one JSON
 geometry authority before the older FQ-21 sliced band and FQ-19 modular
 fallbacks. Health/attunement fills and all icons, counts, hotkeys, labels,

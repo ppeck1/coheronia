@@ -55,7 +55,7 @@ single `<id>.png` path is read; "Variants live" = the `_NN` pool is read.
 | structures | `visual_texture("structures", "town_hall")` | ✅ | ❌ | canonical only | drawn hall |
 | backgrounds | `world_backdrop.layer_texture` → `visual_texture("backgrounds", id)` | ✅ | ❌ | canonical only | gradient/silhouette |
 | back_walls | `world._make_wall_texture` → `visual_texture("back_walls", id)` | ✅ | ❌ | canonical only | darkened block texture |
-| ui | `hud._load_hud_kit_layout` / `_build_hud_kit` first, then legacy painted/modular paths | ✅ (19-asset native kit plus legacy hooks) | n/a | JSON-native dock geometry; runtime values/states remain children | FQ-21 sliced band -> FQ-19 modular/code fallback |
+| ui | `hud._load_hud_kit_layout` / `_build_hud_kit` first, then legacy painted/modular paths | ✅ (19-asset native kit plus legacy hooks) | n/a | Contract-v2 JSON owns outer and inner runtime rectangles, alpha rules, trim keep-outs, state families, and decorative layers; runtime values/actions remain children | FQ-21 sliced band -> FQ-19 modular/code fallback |
 | opening | `prologue.gd` authored-cel hook | ✅ eight pools / ten PNGs | frames = **animation** | ordered `(tick*8/TICK_HZ) % n` @ 8fps | `prologue_canvas` plot |
 
 ### HUD sub-surfaces
