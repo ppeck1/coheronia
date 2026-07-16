@@ -4,6 +4,84 @@
     1280,
     176
   ],
+  "asset_sizes": {
+    "attunement_fill_mask.png": [
+      108,
+      108
+    ],
+    "attunement_frame.png": [
+      160,
+      160
+    ],
+    "attunement_glass_overlay.png": [
+      108,
+      108
+    ],
+    "button_frame_hover.png": [
+      54,
+      104
+    ],
+    "button_frame_normal.png": [
+      54,
+      104
+    ],
+    "button_frame_pressed.png": [
+      54,
+      104
+    ],
+    "button_icon_character.png": [
+      32,
+      32
+    ],
+    "button_icon_inventory.png": [
+      32,
+      32
+    ],
+    "button_icon_skills.png": [
+      32,
+      32
+    ],
+    "button_icon_town_hall.png": [
+      32,
+      32
+    ],
+    "dock_backplate.png": [
+      1280,
+      176
+    ],
+    "dock_foreground_trim.png": [
+      1280,
+      176
+    ],
+    "health_fill_mask.png": [
+      108,
+      108
+    ],
+    "health_frame.png": [
+      160,
+      160
+    ],
+    "health_glass_overlay.png": [
+      108,
+      108
+    ],
+    "slot_disabled.png": [
+      76,
+      84
+    ],
+    "slot_hover.png": [
+      76,
+      84
+    ],
+    "slot_normal.png": [
+      76,
+      84
+    ],
+    "slot_selected.png": [
+      76,
+      84
+    ]
+  },
   "dock": {
     "rect": [
       0,

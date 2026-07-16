@@ -91,6 +91,7 @@ This wiki is generated from current Coheronia repo data and includes live, inter
   - `item_graph.md`
   - `skills.md`
   - `image_continuation.md`
+  - `hud_asset_replacement_studio.md`
 - Generated leaf pages now live under:
   - `docs/wiki/items/`
   - `docs/wiki/equipment/`
@@ -105,6 +106,7 @@ This wiki is generated from current Coheronia repo data and includes live, inter
 - [ITEM_GRAPH.md](../ITEM_GRAPH.md) is the strict acquisition and crafting graph audit.
 - [IMAGE_INVENTORY_MATRIX.md](../IMAGE_INVENTORY_MATRIX.md) is the full runtime image inventory.
 - [Image Continuation](image_continuation.md) is the wiki handoff page for future image work and public/IP-safety checks.
+- [HUD Asset Replacement Studio](hud_asset_replacement_studio.md) is the drop-in HUD template contract with a ready-to-paste ChatGPT instruction for every dock asset.
 - This page is the readable maintenance layer above those audits.
 
 ## Runtime Image And Placeholder Rules

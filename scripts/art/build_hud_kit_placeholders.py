@@ -165,6 +165,10 @@ def main() -> int:
     layout = {
         "version": 1,
         "native_size": [W, H],
+        "asset_sizes": {
+            name: [image.width, image.height]
+            for name, image in sorted(assets.items())
+        },
         "dock": {
             "rect": [0, 0, W, H],
             "backplate_rect": [0, 0, W, H],

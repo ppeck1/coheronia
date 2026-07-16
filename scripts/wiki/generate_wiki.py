@@ -757,6 +757,7 @@ def build_sidebar_links(html_path: Path) -> str:
         ("Bestiary", WIKI_DIR / "bestiary.html", "Live and planned enemy pages"),
         ("Character Types", WIKI_DIR / "character_types.html", "Species, roles, traits, and ancestries"),
         ("Crafting Stations", WIKI_DIR / "stations.html", "Station pages and hosted recipes"),
+        ("HUD Asset Studio", WIKI_DIR / "hud_asset_replacement_studio.html", "Drop-in dock art contract and image-editing briefs"),
         ("Wiki Overview", WIKI_DIR / "wiki.html", "Full planning and maintenance overview"),
     ]
     cards = []
