@@ -173,6 +173,14 @@ def validate_layout(layout: dict, sizes: dict[str, tuple[int, int]]) -> list[str
         button_size = (button_rects[0][2], button_rects[0][3])
         if any((rect[2], rect[3]) != button_size for rect in button_rects):
             raise ValueError("all button rectangles must share one size")
+        control_top = layout.get("control_rail_y")
+        if not isinstance(control_top, int):
+            raise ValueError("control_rail_y must be an integer")
+        if any(rect[1] != control_top for rect in slot_rects + button_rects):
+            raise ValueError(
+                "slot and button rectangles must use control_rail_y so dock controls "
+                "share the backplate rail top edge"
+            )
         button_content = layout.get("button_content", {})
         if not isinstance(button_content, dict):
             raise ValueError("button_content must be an object")

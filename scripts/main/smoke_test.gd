@@ -1176,6 +1176,17 @@ func _run() -> void:
 		and _fq21_slot_icon != null \
 		and _fq21_slot_icon.position == _fq21_icon_rect.position \
 		and _fq21_slot_icon.size == _fq21_icon_rect.size
+	var _fq21_control_rail_y := float(_fq21_geometry.get("control_rail_y", -1))
+	var _fq21_rail_aligned := _fq21_control_rail_y >= 0.0
+	for _fq21_control_name in ["HotbarCell1", "HotbarCell2", "HotbarCell3",
+			"HotbarCell4", "HotbarCell5", "DockActionInventory",
+			"DockActionCharacter", "DockActionSkills", "DockActionTownHall"]:
+		var _fq21_control: Control = hud._bottom_dock.find_child(
+			_fq21_control_name, true, false) as Control
+		if _fq21_control == null or not is_equal_approx(
+				_fq21_control.position.y, _fq21_control_rail_y):
+			_fq21_rail_aligned = false
+			break
 	var _fq21_trim_tex: Texture2D = hud._painted_texture("dock_foreground_trim")
 	var _fq21_trim_img: Image = _fq21_trim_tex.get_image() if _fq21_trim_tex != null else null
 	var _fq21_trim_keepouts := _fq21_trim_img != null
@@ -1198,14 +1209,16 @@ func _run() -> void:
 	_check("fq21_hud_masking_and_cushion_geometry",
 		_fq21_frame_clear and _fq21_slots_uniform and _fq21_map_padded \
 		and _fq21_full_nav_cell and _fq21_visible_nav_label \
-		and _fq21_json_content and _fq21_trim_keepouts and _fq21_native_integer,
-		"frame_clear=%s slot_size=%s selected=%s gap=%.1f map=%s nav_h=%.1f label=%s content=%s trim=%s integer=%s" % [
+		and _fq21_json_content and _fq21_rail_aligned \
+		and _fq21_trim_keepouts and _fq21_native_integer,
+		"frame_clear=%s slot_size=%s selected=%s gap=%.1f map=%s nav_h=%.1f label=%s content=%s rail_y=%.1f aligned=%s trim=%s integer=%s" % [
 			str(_fq21_frame_clear),
 			_fq21_slot_normal.get_size() if _fq21_slot_normal != null else Vector2.ZERO,
 			_fq21_slot_selected.get_size() if _fq21_slot_selected != null else Vector2.ZERO,
 			_fq21_slot_gap, hud._map_panel.custom_minimum_size,
 			_fq21_town_hit.size.y if _fq21_town_hit != null else 0.0,
 			str(_fq21_visible_nav_label), str(_fq21_json_content),
+			_fq21_control_rail_y, str(_fq21_rail_aligned),
 			str(_fq21_trim_keepouts),
 			str(_fq21_native_integer)])
 

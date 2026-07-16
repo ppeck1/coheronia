@@ -243,6 +243,7 @@ def main() -> int:
             "foreground_trim_rect": [0, 0, W, H],
             "safe_bottom": 8,
         },
+        "control_rail_y": 48,
         "health": {
             "frame_rect": [8, 8, 160, 160],
             "fill_rect": [34, 34, 108, 108],
@@ -255,7 +256,7 @@ def main() -> int:
             "glass_rect": [1138, 34, 108, 108],
             "label_rect": [1152, 79, 80, 18],
         },
-        "slots": [[435 + i * 82, 58, 76, 84] for i in range(5)],
+        "slots": [[435 + i * 82, 48, 76, 84] for i in range(5)],
         "slot_content": {
             "icon_rect": [23, 20, 30, 30],
             "count_rect": [45, 60, 24, 16],
