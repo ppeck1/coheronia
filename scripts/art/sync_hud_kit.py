@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -21,6 +22,8 @@ SOURCE = ROOT / "art" / "source_templates" / "hud_dock"
 GENERATED = ROOT / "art" / "generated" / "ui_painted"
 LAYOUT_NAME = "hud_dock_layout.json"
 MASK_NAMES = {"health_fill_mask.png", "attunement_fill_mask.png"}
+VARIANT_SEPARATOR = "__"
+THEME_ID_PATTERN = re.compile(r"[a-z0-9_]{1,48}")
 
 
 def load_contract() -> tuple[Path, dict, dict[str, tuple[int, int]]]:
@@ -37,6 +40,28 @@ def load_contract() -> tuple[Path, dict, dict[str, tuple[int, int]]]:
             raise ValueError(f"invalid size for {name}: {raw_size!r}")
         sizes[name] = (int(raw_size[0]), int(raw_size[1]))
     return layout_path, layout, sizes
+
+
+def discover_variants(
+    contract: dict[str, tuple[int, int]],
+) -> tuple[dict[str, tuple[str, str]], list[str]]:
+    variants: dict[str, tuple[str, str]] = {}
+    errors: list[str] = []
+    for path in sorted(SOURCE.glob(f"*{VARIANT_SEPARATOR}*.png")):
+        base_stem, separator, theme_id = path.stem.partition(VARIANT_SEPARATOR)
+        base_name = f"{base_stem}.png"
+        if separator != VARIANT_SEPARATOR or base_name not in contract:
+            errors.append(
+                f"{path.name}: themed HUD asset must extend a contracted base asset"
+            )
+            continue
+        if THEME_ID_PATTERN.fullmatch(theme_id) is None:
+            errors.append(
+                f"{path.name}: theme id must match [a-z0-9_] and be 1-48 characters"
+            )
+            continue
+        variants[path.name] = (base_name, theme_id)
+    return variants, errors
 
 
 def _rect(raw: object, label: str) -> tuple[int, int, int, int]:
@@ -65,6 +90,16 @@ def validate_layout(layout: dict, sizes: dict[str, tuple[int, int]]) -> list[str
     try:
         if int(layout.get("version", 0)) != 2:
             raise ValueError("layout version must be 2")
+        visual_variants = layout.get("visual_variants")
+        if not isinstance(visual_variants, dict):
+            raise ValueError("visual_variants must describe optional themed assets")
+        if visual_variants.get("separator") != VARIANT_SEPARATOR:
+            raise ValueError(
+                f"visual_variants.separator must remain {VARIANT_SEPARATOR!r}"
+            )
+        if visual_variants.get("fallback") != "required base asset" \
+                or visual_variants.get("asset_local") is not True:
+            raise ValueError("visual_variants must use asset-local required-base fallback")
         native_raw = layout.get("native_size")
         if not isinstance(native_raw, list) or len(native_raw) != 2:
             raise ValueError("native_size must be [width, height]")
@@ -230,63 +265,78 @@ def validate_asset(
     return errors
 
 
-def validate_relationships(layout: dict) -> list[str]:
+def validate_relationships(
+    layout: dict, theme_overrides: dict[str, dict[str, str]] | None = None
+) -> list[str]:
     errors: list[str] = []
-    cache: dict[str, Image.Image] = {}
+    contexts: list[tuple[str, dict[str, str]]] = [("default", {})]
+    contexts.extend(sorted((theme, assets) for theme, assets in
+                           (theme_overrides or {}).items()))
 
-    def opened(name: str) -> Image.Image:
-        if name not in cache:
-            with Image.open(SOURCE / name) as raw:
-                cache[name] = raw.convert("RGBA")
-        return cache[name]
+    for context_name, overrides in contexts:
+        cache: dict[str, Image.Image] = {}
 
-    for relationship in layout.get("mask_relationships", []):
-        try:
-            mask_name = str(relationship["mask"])
-            frame_name = str(relationship["frame"])
-            glass_name = str(relationship["glass"])
-            offset = relationship.get("frame_offset")
-            if not isinstance(offset, list) or len(offset) != 2:
-                raise ValueError(f"{frame_name}: frame_offset must be [x, y]")
-            ox, oy = int(offset[0]), int(offset[1])
-            mask = opened(mask_name).getchannel("A")
-            frame = opened(frame_name).getchannel("A")
-            glass = opened(glass_name).getchannel("A")
-            if glass.size != mask.size:
-                raise ValueError(f"{glass_name}: glass and mask dimensions differ")
-            for y in range(mask.height):
-                for x in range(mask.width):
-                    if mask.getpixel((x, y)) > 0:
-                        if not (0 <= x + ox < frame.width and 0 <= y + oy < frame.height):
-                            raise ValueError(f"{frame_name}: mask clearance exceeds frame canvas")
-                        if frame.getpixel((x + ox, y + oy)) > 0:
+        def opened(name: str) -> Image.Image:
+            resolved_name = overrides.get(name, name)
+            if resolved_name not in cache:
+                with Image.open(SOURCE / resolved_name) as raw:
+                    cache[resolved_name] = raw.convert("RGBA")
+            return cache[resolved_name]
+
+        for relationship in layout.get("mask_relationships", []):
+            try:
+                mask_name = str(relationship["mask"])
+                frame_name = str(relationship["frame"])
+                glass_name = str(relationship["glass"])
+                offset = relationship.get("frame_offset")
+                if not isinstance(offset, list) or len(offset) != 2:
+                    raise ValueError(f"{frame_name}: frame_offset must be [x, y]")
+                ox, oy = int(offset[0]), int(offset[1])
+                mask = opened(mask_name).getchannel("A")
+                frame = opened(frame_name).getchannel("A")
+                glass = opened(glass_name).getchannel("A")
+                if glass.size != mask.size:
+                    raise ValueError(f"{glass_name}: glass and mask dimensions differ")
+                for y in range(mask.height):
+                    for x in range(mask.width):
+                        if mask.getpixel((x, y)) > 0:
+                            if not (0 <= x + ox < frame.width
+                                    and 0 <= y + oy < frame.height):
+                                raise ValueError(
+                                    f"{frame_name}: mask clearance exceeds frame canvas"
+                                )
+                            if frame.getpixel((x + ox, y + oy)) > 0:
+                                raise ValueError(
+                                    f"{frame_name}: frame paints inside the runtime fill aperture"
+                                )
+                        if glass.getpixel((x, y)) > 0 and mask.getpixel((x, y)) == 0:
                             raise ValueError(
-                                f"{frame_name}: frame paints inside the runtime fill aperture"
+                                f"{glass_name}: glass paints outside its fill mask"
                             )
-                    if glass.getpixel((x, y)) > 0 and mask.getpixel((x, y)) == 0:
-                        raise ValueError(f"{glass_name}: glass paints outside its fill mask")
-        except (KeyError, OSError, ValueError) as exc:
-            errors.append(f"mask relationship: {exc}")
+            except (KeyError, OSError, ValueError) as exc:
+                errors.append(f"mask relationship ({context_name}): {exc}")
 
-    for family_name, names in layout.get("state_families", {}).items():
-        try:
-            if not isinstance(names, list) or len(names) < 2:
-                raise ValueError(f"{family_name}: state family needs at least two assets")
-            base = opened(str(names[0])).getchannel("A").point(lambda value: 255 if value else 0)
-            for name in names[1:]:
-                current = opened(str(name)).getchannel("A").point(
+        for family_name, names in layout.get("state_families", {}).items():
+            try:
+                if not isinstance(names, list) or len(names) < 2:
+                    raise ValueError(f"{family_name}: state family needs at least two assets")
+                base = opened(str(names[0])).getchannel("A").point(
                     lambda value: 255 if value else 0
                 )
-                if current.size != base.size or current.tobytes() != base.tobytes():
-                    raise ValueError(
-                        f"{family_name}: {name} changes the occupied silhouette"
+                for name in names[1:]:
+                    current = opened(str(name)).getchannel("A").point(
+                        lambda value: 255 if value else 0
                     )
-        except (OSError, ValueError) as exc:
-            errors.append(f"state family: {exc}")
+                    if current.size != base.size or current.tobytes() != base.tobytes():
+                        raise ValueError(
+                            f"{family_name}: {name} changes the occupied silhouette"
+                        )
+            except (OSError, ValueError) as exc:
+                errors.append(f"state family ({context_name}): {exc}")
     return errors
 
 
-def parse_args(asset_names: list[str]) -> argparse.Namespace:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Check or promote authored Coheronia HUD-kit assets without resizing them."
     )
@@ -301,8 +351,8 @@ def parse_args(asset_names: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--asset",
         action="append",
-        choices=asset_names,
-        help="limit the operation to one asset; repeat for several (default: all)",
+        help=("limit the operation to one base or <base>__<theme>.png asset; "
+              "repeat for several (default: all)"),
     )
     return parser.parse_args()
 
@@ -314,14 +364,25 @@ def main() -> int:
         print(f"HUD kit contract error: {exc}")
         return 1
 
-    args = parse_args(sorted(contract))
-    names = args.asset or sorted(contract)
-    errors: list[str] = validate_layout(layout, contract)
+    variants, variant_errors = discover_variants(contract)
+    available_names = set(contract) | set(variants)
+    args = parse_args()
+    names = args.asset or sorted(available_names)
+    errors: list[str] = validate_layout(layout, contract) + variant_errors
+    for name in names:
+        if name not in available_names:
+            errors.append(f"unknown HUD asset: {name}")
     alpha_rules = layout.get("alpha_rules", {})
     for name in names:
-        rule = alpha_rules.get(name) if isinstance(alpha_rules, dict) else None
-        errors.extend(validate_asset(SOURCE / name, contract[name], rule))
-    errors.extend(validate_relationships(layout))
+        if name not in available_names:
+            continue
+        base_name = variants.get(name, (name, ""))[0]
+        rule = alpha_rules.get(base_name) if isinstance(alpha_rules, dict) else None
+        errors.extend(validate_asset(SOURCE / name, contract[base_name], rule))
+    theme_overrides: dict[str, dict[str, str]] = {}
+    for variant_name, (base_name, theme_id) in variants.items():
+        theme_overrides.setdefault(theme_id, {})[base_name] = variant_name
+    errors.extend(validate_relationships(layout, theme_overrides))
     if errors:
         print("HUD kit validation failed:")
         for error in errors:
@@ -330,6 +391,11 @@ def main() -> int:
 
     if args.sync:
         GENERATED.mkdir(parents=True, exist_ok=True)
+        if args.asset is None:
+            expected_variants = set(variants)
+            for runtime_variant in GENERATED.glob(f"*{VARIANT_SEPARATOR}*.png"):
+                if runtime_variant.name not in expected_variants:
+                    runtime_variant.unlink()
         for name in names:
             shutil.copy2(SOURCE / name, GENERATED / name)
         shutil.copy2(layout_path, GENERATED / LAYOUT_NAME)
@@ -349,6 +415,15 @@ def main() -> int:
         ]
         if _sha256(layout_path) != _sha256(GENERATED / LAYOUT_NAME):
             mismatches.append(LAYOUT_NAME)
+        if args.asset is None:
+            unexpected_variants = sorted(
+                path.name for path in GENERATED.glob(f"*{VARIANT_SEPARATOR}*.png")
+                if path.name not in variants
+            )
+            mismatches.extend(
+                f"unexpected runtime themed asset: {name}"
+                for name in unexpected_variants
+            )
         if mismatches:
             print("HUD kit runtime verification failed:")
             for name in mismatches:

@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "visual_variants": {
+    "separator": "__",
+    "selection": "character.hud_visual_theme, then character.species",
+    "fallback": "required base asset",
+    "asset_local": true
+  },
   "native_size": [
     1280,
     176

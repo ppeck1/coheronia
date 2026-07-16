@@ -1077,6 +1077,50 @@ func _run() -> void:
 			str(_fq21_full_width), _fq21_nav_found, hud._hotbar_slots.size(),
 			str(_fq21_child_names)])
 
+	# Optional HUD themes resolve per static asset. Missing, unsafe-id, and
+	# wrong-size candidates must all fall back to the required base PNG, while
+	# a valid same-contract sibling is selected without changing gameplay data.
+	var _fq21_theme_valid_path := \
+		"res://art/generated/ui_painted/slot_normal__smoke_valid.png"
+	var _fq21_theme_invalid_path := \
+		"res://art/generated/ui_painted/slot_normal__smoke_invalid.png"
+	for _fq21_theme_tmp in [_fq21_theme_valid_path, _fq21_theme_invalid_path]:
+		if FileAccess.file_exists(_fq21_theme_tmp):
+			DirAccess.remove_absolute(_fq21_theme_tmp)
+	var _fq21_theme_base_before: Texture2D = BlockRegistry.visual_texture(
+		"ui_painted", "slot_normal")
+	var _fq21_theme_source: Image = _fq21_theme_base_before.get_image()
+	_fq21_theme_source.save_png(_fq21_theme_valid_path)
+	var _fq21_theme_bad := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	_fq21_theme_bad.fill(Color.WHITE)
+	_fq21_theme_bad.save_png(_fq21_theme_invalid_path)
+	var _fq21_theme_base: Texture2D = BlockRegistry.visual_texture(
+		"ui_painted", "slot_normal")
+	var _fq21_theme_valid: Texture2D = hud._painted_texture_for_theme(
+		"slot_normal", "smoke_valid")
+	var _fq21_theme_missing: Texture2D = hud._painted_texture_for_theme(
+		"slot_normal", "smoke_missing")
+	var _fq21_theme_invalid: Texture2D = hud._painted_texture_for_theme(
+		"slot_normal", "smoke_invalid")
+	var _fq21_theme_unsafe: Texture2D = hud._painted_texture_for_theme(
+		"slot_normal", "../outside")
+	var _fq21_theme_contract_ok: bool = _fq21_theme_valid != _fq21_theme_base \
+		and _fq21_theme_valid.get_size() == _fq21_theme_base.get_size() \
+		and _fq21_theme_missing == _fq21_theme_base \
+		and _fq21_theme_invalid == _fq21_theme_base \
+		and _fq21_theme_unsafe == _fq21_theme_base \
+		and not hud.hud_visual_theme_id().is_empty() \
+		and hud.hud_visual_theme_id() == hud._normalize_hud_visual_theme(
+			hud.hud_visual_theme_id())
+	DirAccess.remove_absolute(_fq21_theme_valid_path)
+	DirAccess.remove_absolute(_fq21_theme_invalid_path)
+	_check("fq21_hud_theme_asset_fallback", _fq21_theme_contract_ok,
+		"theme=%s valid=%s missing=%s invalid=%s unsafe=%s" % [
+			hud.hud_visual_theme_id(), str(_fq21_theme_valid != _fq21_theme_base),
+			str(_fq21_theme_missing == _fq21_theme_base),
+			str(_fq21_theme_invalid == _fq21_theme_base),
+			str(_fq21_theme_unsafe == _fq21_theme_base)])
+
 	# HUD v4: a legacy dock transform can never move/scale the anchored band.
 	var _fq21_layout_before: Variant = GameState.profile.get("hud_layout", {}).duplicate(true)
 	hud._bottom_dock.position += Vector2(60.0, 0.0)

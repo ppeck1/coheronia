@@ -29,6 +29,15 @@ Verify that source and runtime are byte-identical with:
 
 `python scripts/art/sync_hud_kit.py --verify-runtime`
 
+Optional visual themes use `<base-stem>__<theme-id>.png`, such as
+`slot_normal__dwarf.png` or `dock_foreground_trim__winter.png`. Theme ids are
+lowercase letters, digits, and underscores. Every themed file is validated
+against its required base asset, including size, alpha rules, keep-outs, mask
+relationships, and state-family silhouette. Packs may be partial: missing or
+invalid themed members fall back individually to the required base PNG.
+Whole-kit sync removes stale themed runtime copies that no longer have an
+authored source.
+
 Regenerate the two authoring aids after any accepted source change:
 
 `python scripts/art/preview_hud_kit.py`

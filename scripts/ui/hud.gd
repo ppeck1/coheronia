@@ -17,9 +17,12 @@ signal craft_station_requested(recipe_id: String)
 ## default 0.25); the HUD does not read player state directly so it keeps a
 ## small local const matching the documented default for the tint threshold.
 const LOW_HEALTH_TINT_FRACTION := 0.25
+const HUD_VISUAL_THEME_SEPARATOR := "__"
+const HUD_VISUAL_THEME_MAX_LENGTH := 48
 
 var player: CharacterBody2D
 var town_hall: Node2D
+var _hud_visual_theme := ""
 
 var _health_label: Label
 var _health_bar: ProgressBar
@@ -165,6 +168,7 @@ const HUD_LAYOUT_VERSION := 5
 
 
 func _ready() -> void:
+	_hud_visual_theme = _initial_hud_visual_theme()
 	_build_top_left()
 	_build_bottom_left()
 	_build_command_center_widget()
@@ -636,10 +640,68 @@ func _toggle_event_module() -> void:
 	_sync_command_center()
 
 
-## FQ-20: painted chrome sliced from the operator's blueprint mockup
-## (art/generated/ui_painted/, scripts/art/slice_hud_chrome.py).
+## Static painted UI supports optional per-theme siblings named
+## `<asset>__<theme>.png`. Every lookup is asset-local: a missing, unreadable,
+## wrong-size, or wrong-format themed PNG falls back to the required base PNG.
+## Runtime-owned item icons, values, fills, counts, and labels never pass
+## through this presentation-only resolver.
 func _painted_texture(id: String) -> Texture2D:
-	return BlockRegistry.visual_texture("ui_painted", id)
+	return _painted_texture_for_theme(id, _hud_visual_theme)
+
+
+func _painted_texture_for_theme(id: String, theme_id: String) -> Texture2D:
+	var fallback: Texture2D = BlockRegistry.visual_texture("ui_painted", id)
+	if fallback == null:
+		return null
+	var safe_theme := _normalize_hud_visual_theme(theme_id)
+	if safe_theme.is_empty():
+		return fallback
+	var themed: Texture2D = BlockRegistry.visual_texture(
+		"ui_painted", "%s%s%s" % [id, HUD_VISUAL_THEME_SEPARATOR, safe_theme])
+	if not _themed_texture_matches_fallback(themed, fallback):
+		return fallback
+	return themed
+
+
+func _themed_texture_matches_fallback(themed: Texture2D,
+		fallback: Texture2D) -> bool:
+	if themed == null or fallback == null or themed.get_size() != fallback.get_size():
+		return false
+	var themed_image: Image = themed.get_image()
+	var fallback_image: Image = fallback.get_image()
+	return themed_image != null and fallback_image != null \
+		and not themed_image.is_empty() and not fallback_image.is_empty() \
+		and themed_image.get_format() == fallback_image.get_format()
+
+
+func _initial_hud_visual_theme() -> String:
+	GameState.ensure_play_context()
+	var character: Dictionary = GameState.current_character
+	var explicit := str(character.get("hud_visual_theme", ""))
+	if not explicit.is_empty():
+		return _normalize_hud_visual_theme(explicit)
+	return _normalize_hud_visual_theme(str(character.get("species", "")))
+
+
+func _normalize_hud_visual_theme(raw_id: String) -> String:
+	var raw := raw_id.strip_edges().to_lower()
+	var normalized := ""
+	for index in range(raw.length()):
+		var code := raw.unicode_at(index)
+		if (code >= 97 and code <= 122) or (code >= 48 and code <= 57) \
+				or code == 95:
+			normalized += raw[index]
+		elif code == 32 or code == 45:
+			normalized += "_"
+		else:
+			return ""
+	if normalized.length() > HUD_VISUAL_THEME_MAX_LENGTH:
+		return ""
+	return normalized
+
+
+func hud_visual_theme_id() -> String:
+	return _hud_visual_theme
 
 
 ## Framed-module look, best available art first: the painted mockup frame

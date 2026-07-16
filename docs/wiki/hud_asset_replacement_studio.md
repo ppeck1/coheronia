@@ -29,6 +29,23 @@ When all 19 assets and the layout are valid, `hud.gd` selects this native kit fi
 
 The 19 named files are drop-in replacements: preserve filename, size, alpha contract, and occupied geometry, then no gameplay code changes are required.
 
+Every static asset also supports an optional themed sibling named
+`<base-stem>__<theme-id>.png`, for example `slot_normal__dwarf.png` or
+`dock_foreground_trim__winter.png`. Theme ids use lowercase letters, digits,
+and underscores. The HUD first reads the optional character
+`hud_visual_theme`; when it is absent, the character species/ancestry id is
+used. Resolution is asset-local: each valid themed PNG wins independently,
+while a missing, unreadable, wrong-size, wrong-format, or validator-rejected
+PNG falls back to the required base file. A partial theme pack is therefore
+safe and never needs transparent placeholder files.
+
+The base filenames remain the polished canonical/default appearance and must
+always be present. Themes are presentation only: they never replace runtime
+fills, values, labels, item icons, counts, hotkeys, cooldowns, selection data,
+or control behavior. An explicit environmental or player-selected
+`hud_visual_theme` can later override the ancestry default without changing
+the asset contract.
+
 Contract v2 also permits a genuinely new **non-interactive decorative layer**. Add its PNG to `asset_sizes` and `required_assets`, then declare its node name, full native rectangle, role, and integer z-index in `decorative_layers`. The runtime assembles those declared chrome layers without another custom `hud.gd` branch.
 
 Interactive components are deliberately different. A new button, slot behavior, meter, or command still needs a registered runtime action and a documented semantic component. A PNG may supply appearance, never behavior.
@@ -68,13 +85,16 @@ The current real-game comparison capture is [`docs/screenshots/10_vessel_damage_
 - `dock_foreground_trim.png` must remain completely transparent inside both 160 x 160 vessel-frame keep-outs shown in `hud_dock_runtime_guide.png`; it renders above the vessel frames.
 - Slot and button state families must retain the exact occupied alpha silhouette of their normal state.
 - Button glyphs must preserve at least two transparent pixels around the occupied icon silhouette.
+- Theme variants must use `<base-stem>__<theme-id>.png`, match the base file's
+  dimensions and alpha rules, and remain compatible with fallback members of
+  their vessel/state family.
 
 ## File Contract
 
 | Asset | Size | Static responsibility |
 |---|---:|---|
 | `dock_backplate.png` | 1280 x 176 | Dark structural bed behind all dock content |
-| `dock_foreground_trim.png` | 1280 x 176 | Top and bottom rails, seams, rivets, foreground finish |
+| `dock_foreground_trim.png` | 1280 x 176 | Sparse environmental dressing and seam concealment above the structural backplate |
 | `health_frame.png` | 160 x 160 | Left health-vessel chassis only |
 | `health_glass_overlay.png` | 108 x 108 | Transparent glass highlights over health fill |
 | `health_fill_mask.png` | 108 x 108 | Runtime clip geometry; normally do not edit |
@@ -117,7 +137,7 @@ Use the asset-specific prompt below as the complete instruction for that task. I
 
 ### Dock Foreground Trim
 
-> Create new artwork inside the attached `dock_foreground_trim.png` canvas for Coheronia. Return exactly one 1280 x 176 RGBA PNG on the same canvas. Use the attached runtime guide and composite as immutable geometry references. Paint only the foreground top rail, bottom rail, major seams, restrained rivets, and finishing hardware that sit above the backplate. Both 160 x 160 vessel keep-outs shown in the guide must remain fully transparent because this layer renders above their frames. Most of the canvas must remain transparent. Keep the center rails continuous and clean with no notches around hotbar slots. Do not draw or imply vessels, slots, buttons, icons, text, values, progress, or a second opaque background. Use original crisp pixel-art forms, consistent lighting, and no blur, named-game imitation, or canvas resize.
+> Create new artwork inside the attached `dock_foreground_trim.png` canvas for Coheronia. Return exactly one 1280 x 176 RGBA PNG on the same canvas. Use the attached runtime guide, current backplate, composite, and in-game screenshot as immutable geometry references. The backplate already owns the rails and structural hardware; do not redraw, trace, brighten, or duplicate them. Paint only sparse, low-contrast environmental dressing and seam concealment: a little dirt accumulation along portions of the bottom rail, two or three tiny stone/rubble clusters near major seams, occasional restrained moss or a short vine crossing otherwise empty structure, and subtle wear near the outer dock edges. Both 160 x 160 vessel keep-outs must remain fully transparent. Nothing may obstruct a button, slot, label, icon, count, hotkey, value, or control silhouette. Most of the canvas must remain transparent. Avoid continuous lines, symmetrical decoration, saturated green, bright highlights, large foliage, repeated motifs, glow, blur, shadows outside the dressing, an opaque background, named-game imitation, or canvas resize.
 
 ### Health Frame
 
@@ -193,11 +213,18 @@ Check one returned file before promoting it:
 
 `python scripts/art/sync_hud_kit.py --check --asset dock_backplate.png`
 
+The same command accepts a themed file, for example:
+
+`python scripts/art/sync_hud_kit.py --check --asset dock_foreground_trim__forest.png`
+
 If it passes, copy the validated source into the runtime directory:
 
 `python scripts/art/sync_hud_kit.py --sync --asset dock_backplate.png`
 
-For a completed family, omit `--asset` to check or sync the whole kit. The sync tool does not crop, rescale, repaint, or repair an image. A contract failure must go back to the image-editing task.
+For a completed family, omit `--asset` to check or sync the whole kit. Whole-kit
+sync also removes stale themed runtime copies that no longer exist in the
+authored source directory. The sync tool does not crop, rescale, repaint, or
+repair an image. A contract failure must go back to the image-editing task.
 
 Confirm that promoted runtime files exactly match their authored sources:
 

@@ -2,7 +2,7 @@
 
 ## Current State (2026-07-16 public refresh)
 
-**The native HUD-kit stabilization is merged locally and verified at 321/321.**
+**The native HUD-kit stabilization is merged locally and verified at 322/322.**
 
 The follow-up contract-v2 hardening makes non-interactive decorative layers
 manifest-driven, positions every slot/button runtime child from JSON, restores
@@ -17,6 +17,10 @@ selection, and FX remain runtime children. The command-center module row is a
 separate movable widget; Map and Events have independent defaults and can stay
 open together. A safe authored-source -> runtime promotion tool and one prompt
 per dock asset live in `docs/wiki/hud_asset_replacement_studio.md`.
+Every required static HUD asset is also the fallback for an optional
+`<base>__<theme>.png` sibling. Theme selection prefers an explicit character
+HUD theme and otherwise uses ancestry/species; incomplete or invalid theme
+packs fall back asset-by-asset without touching runtime content or behavior.
 
 The tree also contains eight authored opening-scene pools (ten PNGs) and 120
 body-specific player-gear PNGs: crude helmet/torso/feet plus three phases for
@@ -32,7 +36,7 @@ effects remain functional when the visual fallback is used.
 
 **Latest release evidence:** static validator, strict asset audit, pixel-asset
 verification (386 PNGs), public-profile capsule doctor, and diff check pass.
-An isolated Godot run passed 321/321 on the required rerun after the documented
+An isolated Godot run passed 322/322 on the required rerun after the documented
 single `fq09u1_live_clip_switch` cold-run flake.
 
 **Publication governance note:** the `public_repo` profile says not to commit

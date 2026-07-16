@@ -55,7 +55,7 @@ single `<id>.png` path is read; "Variants live" = the `_NN` pool is read.
 | structures | `visual_texture("structures", "town_hall")` | ✅ | ❌ | canonical only | drawn hall |
 | backgrounds | `world_backdrop.layer_texture` → `visual_texture("backgrounds", id)` | ✅ | ❌ | canonical only | gradient/silhouette |
 | back_walls | `world._make_wall_texture` → `visual_texture("back_walls", id)` | ✅ | ❌ | canonical only | darkened block texture |
-| ui | `hud._load_hud_kit_layout` / `_build_hud_kit` first, then legacy painted/modular paths | ✅ (19-asset native kit plus legacy hooks) | n/a | Contract-v2 JSON owns outer and inner runtime rectangles, alpha rules, trim keep-outs, state families, and decorative layers; runtime values/actions remain children | FQ-21 sliced band -> FQ-19 modular/code fallback |
+| ui | `hud._load_hud_kit_layout` / `_build_hud_kit` first, then legacy painted/modular paths | ✅ (19-asset native kit plus legacy hooks) | optional `<base>__<theme>.png` siblings | Contract-v2 JSON owns outer and inner runtime rectangles, alpha rules, trim keep-outs, state families, decorative layers, and asset-local theme fallback; explicit `hud_visual_theme` overrides ancestry/species, while runtime values/actions remain children | missing/invalid themed member -> required base asset -> FQ-21 sliced band -> FQ-19 modular/code fallback |
 | opening | `prologue.gd` authored-cel hook | ✅ eight pools / ten PNGs | frames = **animation** | ordered `(tick*8/TICK_HZ) % n` @ 8fps | `prologue_canvas` plot |
 
 ### HUD sub-surfaces
@@ -66,6 +66,9 @@ layers from `art/generated/ui_painted/`, with every rectangle owned by
 `art/source_templates/hud_dock/` and promotes through
 `scripts/art/sync_hud_kit.py`. Health/attunement fills, labels, item icons,
 counts, hotkeys, selection, hover/press state, and FX are runtime children.
+Optional themed siblings are selected independently and fall back to these
+required defaults whenever absent or contract-invalid, so partial ancestry,
+biome, settlement-state, or seasonal packs remain safe.
 The command-center module controls are outside the primary dock, and Map and
 Events may remain open together. The FQ-21/FQ-20/FQ-19 material below records
 fallback/history rather than the current art-authoring target.
