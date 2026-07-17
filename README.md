@@ -1,6 +1,6 @@
-# Coheronia
+# Coheronia — Systems-Driven Survival Settlement Sandbox
 
-**A side-view survival settlement sandbox where your civilization pushes back.**
+**A portfolio case study in data-driven Godot architecture, verified gameplay systems, and AI-orchestrated engineering.**
 
 Dig, build, and light a side-view frontier settlement — then keep it alive as a tiny civilization sim scores your shelter, food, light, and defenses in real time and answers with settlers, raids, and storms.
 
@@ -12,14 +12,24 @@ Dig, build, and light a side-view frontier settlement — then keep it alive as 
 
 Coheronia sits between a survival sandbox and a civilization pressure sim. Minute to minute you mine tunnels, roof the hall, place torches, and haul food home. The settlement model turns those physical acts into three live pressures — **Coherence, Load, and Resilience** — computed from real world state (shelter blocks, light sources, stockpile, threats), never faked. A coherent, fed, lit settlement attracts settlers and ratchets from Camp to Hamlet to Village; a neglected one starves, empties, and cracks under night raids and storms.
 
-It is also a **portfolio project in AI-orchestrated software engineering**: every increment was planned from a task queue, implemented, reviewed by an independent agent pass, and checked by an automated in-engine suite that has grown from 62 to 334 checks. The maintained handoff and verification commands live in this repository.
+It is also a **portfolio project in AI-orchestrated software engineering**: every increment is scoped in a task queue, implemented against explicit data authorities, reviewed independently, and checked in-engine. The repository exposes both the playable architecture and the evidence trail: state ownership, validation commands, variable matrix, handoff, and an inspectable project wiki.
+
+## Portfolio lens
+
+| Architecture concern | Concrete implementation | Evidence in this repository |
+|---|---|---|
+| **Simulation from world state** | Shelter, light, stockpile, threats, and population feed Coherence, Load, and Resilience. | [`scripts/settlement/`](scripts/settlement) · [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md) |
+| **Persistent state ownership** | Characters own inventory, loadout, and progression; worlds own terrain deltas and settlement simulation. | [`scripts/shell/`](scripts/shell) · [`scripts/inventory/`](scripts/inventory) |
+| **Data-first design** | Blocks, recipes, enemies, equipment, ancestries, and world presets are JSON authorities. | [`data/`](data) · [`scripts/validate_repo.py`](scripts/validate_repo.py) |
+| **Runtime UI composition** | HUD chrome is separate from live values; inventory mutations are validated at the UI boundary. | [`scripts/ui/hud.gd`](scripts/ui/hud.gd) · [`scripts/ui/inventory_slot_cell.gd`](scripts/ui/inventory_slot_cell.gd) |
+| **Verification as a feature** | Validators and an in-engine smoke harness exercise saves, physics, UI, and system contracts. | [`docs/HANDOFF.md`](docs/HANDOFF.md) · [`scripts/main/smoke_test.gd`](scripts/main/smoke_test.gd) |
 
 ## Screenshots
 
 | | |
 |---|---|
 | ![Night falls — torch light holds the line](docs/screenshots/02_night_torchlight.png)<br>*Night, torchlight, and real-time light occlusion* | ![Town Hall panel with stockpile and forge stations](docs/screenshots/04_town_hall.png)<br>*Town Hall: stockpile, station chain, and crafted-state controls* |
-| ![The inventory board with loadout, backpack, and dock](docs/screenshots/03_inventory.png)<br>*Open the inventory with **I** to manage carried stacks, loadout slots, and the five-slot dock* | ![Runtime-driven health and attunement vessels at partial charge](docs/screenshots/10_vessel_damage_states.png)<br>*The native HUD keeps vessel fills, values, slots, icons, counts, and actions live at runtime* |
+| ![The inventory board with loadout, backpack, and dock](docs/screenshots/03_inventory.png)<br>*Open the inventory with **I** to drag and drop carried stacks, dock assignments, and compatible equipment; use **Sort** to organize the backpack* | ![Runtime-driven health and attunement vessels at partial charge](docs/screenshots/10_vessel_damage_states.png)<br>*The native HUD keeps vessel fills, values, slots, icons, counts, and actions live at runtime* |
 
 *The in-world sprites, every current inventory/live-drop icon, all six live enemy families, all ten player bodies, the Town Hall, parallax backdrops, eight opening-scene cel pools, and 120 body-specific crude-gear/tool overlays are real generated pixel art. High-repetition terrain, flora, ores, enemies, and player bodies also have runtime-selected visual pools. Missing or unresolved images keep a procedural fallback, while the primary dock uses a 19-asset layered kit whose runtime values and states remain separate from its PNG chrome.*
 
@@ -46,11 +56,11 @@ Direct link: [gameplay](docs/screenshots/clips/coheronia.gameplay.07162026.1135.
 
 ## Explore the build wiki
 
-[Open the Coheronia Wiki](docs/wiki/wiki.md) for the repo-backed reference on live systems, inventory and crafting routes, HUD asset rules, image coverage, planned data, and known limitations. GitHub renders this Markdown entrypoint directly; the repository also includes a richer local [visual wiki wrapper](docs/wiki/index.html).
+[Open the Coheronia Wiki](docs/wiki/wiki.md) for the repo-backed reference on live systems, inventory and crafting routes, HUD asset rules, image coverage, planned data, and known limitations. For a portfolio presentation with the visual wiki embedded, visit [Coheronia on ppeck.me](https://ppeck.me/projects/coheronia/). GitHub renders this Markdown entrypoint directly; the repository also includes a richer local [visual wiki wrapper](docs/wiki/index.html).
 
 ## Feature highlights
 
-- **Persistent shell and inventory** — characters and worlds are separate persistent objects. Characters own their backpack, dock layout, hotbar selection, tools, and 12 gear slots and carry them between worlds; the openable **I** inventory board exposes the loadout, backpack, item detail, sorting, and five-slot dock while each world file owns its terrain history, settlement, threats, and progression.
+- **Persistent shell and inventory** — characters and worlds are separate persistent objects. Characters own their backpack, dock layout, hotbar selection, tools, and 12 gear slots and carry them between worlds; the openable **I** inventory board supports drag-and-drop backpack/dock organization, compatible equipment swaps, unequipping back to the backpack, item detail, sorting, and the five-slot dock while each world file owns its terrain history, settlement, threats, and progression.
 - **Deterministic, configurable world generation** — seed + settings always produce the same world: terrain amplitude/frequency, ore/tree/bush density on independent seed channels, three world sizes, and unified leafy trees the player walks in front of and harvests for wood, so the surface stays walkable.
 - **Survival loop with teeth** — hardness-timed mining with crack-stage feedback, tool tiers (forged pick, axe, crude sword and armor with flat mitigation), a metallurgy chain that smelts depth-banded ores into ingots at the furnace and forges iron gear at the anvil, berry bushes that need soil and regrow, plantable farming (till soil, sow seeds, ripen, harvest food) as a reliable food path, food, health, i-frames, collapse penalties, and passive recovery near the hall.
 - **A settlement that reacts** — day/night cycle, night threats scaled by six difficulty axes, raiders drawn to fat stockpiles (plus torchbearers that burn the hall faster), crop-eating thornrats that pressure your farms and ore ticks that cling to the veins, cave crawlers underground, storms mitigated by real roof coverage, population 1–8 that eats, leaves, and arrives based on computed Coherence.
@@ -111,7 +121,7 @@ terrain history, settlement, and progression. Persistence lives in
 
 This repo doubles as an experiment in disciplined AI-driven development:
 
-- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and now asserts 334 checks: mining frame counts, save/load round-trips, legacy-save migrations, UI panel contents, simultaneous Map/Events state, native HUD-kit layering and themed-asset fallback, a player physically walking past a tree, armor math to the decimal, a next-bar music crossfade actually reaching the requested clip, and a game event firing its stinger. The 2026-07-17 inventory-focused smoke passed 5/5; the full suite is currently 332/334 while its music clip-switch and inventory drag/sort checks are repaired.
+- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 334 checks across mining, save/load round-trips, legacy migrations, UI panel contents, Map/Events coexistence, HUD-kit layering, physics traversal, armor math, adaptive-music transitions, and event stingers. The recorded 2026-07-17 inventory-focused run passed 5/5; the last full run recorded 332/334, with the two red assertions tracked below rather than treated as green.
 - **Evidence over claims.** Increment scope, decisions, review findings, and validation state are summarized in [`docs/HANDOFF.md`](docs/HANDOFF.md). Historical raw protocol artifacts are still tracked; their fit with the current public-repository profile is explicitly flagged for owner review rather than silently presented as settled policy.
 - **Independent review loop.** Each change was reviewed by a separate agent pass before commit; findings (from save-corruption edge cases to invisible-tint rendering bugs) are documented and fixed in the ledgers.
 - **Task queue discipline.** Work follows [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) one bounded increment at a time — FQ-00 through FQ-09 plus the FQ-09R/S/V/C/W/A/M and U0–U3 refinements (skill-tree star map, variant art pools, the opening cinematic, backdrops and cave darkness, the asset roadmap, action effects, and the full adaptive-music arc) on top of the v0.1–v0.6 foundation, each documented in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md).
@@ -165,6 +175,14 @@ Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-r
 ## Architecture at a glance
 
 ```text
+data/*.json ───────► registries / validators ───────► world, player, settlement systems
+                                                    │
+shell profile ───► character state ───► inventory / equipment / dock ───► runtime HUD
+                                                    │
+world save ──────► terrain deltas + simulation ────┴──► smoke harness + evidence docs
+```
+
+```text
 scenes/shell + scripts/shell     persistent shell: characters, worlds, world builder
 scenes/main  + scripts/main      game root (day/night, storms, threats, progression),
                                  smoke suite, screenshot tour
@@ -200,8 +218,8 @@ continues in bounded increments:
 - **Gear presentation is not fully reliable yet.** The repository ships 120 body-specific PNGs for crude helmet/torso/feet overlays and three-phase basic-pick, forged-pick, and crude-axe swings. During some character/load transitions a matching overlay can fail to appear or align correctly, leaving the procedural fallback or an incomplete-looking character. Equipment data and effects still load; the defect is visual.
 - **Tool and weapon motion needs another pass.** Pick and axe art currently snaps through three authored poses. The anchors, arc continuity, mirroring, and timing need polish, and the sword does not yet have an equivalent authored attack sequence.
 - **The HUD architecture is stabilized, but the art is provisional.** The primary dock now separates static chrome from runtime values and uses JSON-owned native geometry. Some framed panel states still show padding, masking, or oversized opaque-region defects, particularly in automated captures; the legacy painted/sliced constructions remain fallback code, not the target design.
-- **Two full-smoke assertions are currently red.** The live clip-switch and inventory drag/sort checks failed in the 2026-07-17 332/334 full run. The focused inventory smoke passed 5/5, and the fresh inventory/HUD capture tour completed; the broader failures still need a runtime repair before the suite can be called fully green.
-- **Several systems remain intentionally shallow.** Inventory/equipment is read-only with no drag/drop or unequip flow; settlers are abstract population rather than NPCs; enemies walk and hop without pathfinding; the adaptive score is one suite still being balanced; and current finite maps have one surface biome.
+- **Two full-smoke assertions are currently red.** The live clip-switch and inventory drag/sort assertions failed in the recorded 2026-07-17 332/334 full run. The focused inventory smoke passed 5/5, and the board’s drag/drop and sort paths are implemented; the broader harness regression still needs repair before the suite can be called fully green.
+- **Several systems remain intentionally shallow.** Settlers are abstract population rather than NPCs; enemies walk and hop without pathfinding; the adaptive score is one suite still being balanced; and current finite maps have one surface biome.
 
 ---
 

@@ -1,6 +1,6 @@
 # Known Issues
 
-Updated: 2026-07-16
+Updated: 2026-07-17
 
 This page separates confirmed presentation defects from intentional scope limits. It is the public status surface for problems that are visible in the current build but do not invalidate the gameplay-state smoke suite.
 
@@ -15,7 +15,7 @@ This page separates confirmed presentation defects from intentional scope limits
 
 ## Intentional Current Limits
 
-- Inventory and equipment panels are read-only; drag/drop and unequip flows are not implemented.
+- Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The recorded full-smoke drag/sort assertion is currently red and remains a harness/runtime regression to repair; it is not evidence that the feature is absent.
 - Settlers are an abstract population model rather than individual NPC workers.
 - Enemies use direct walk-and-hop behavior without pathfinding.
 - The adaptive score is one authored suite and remains balance-in-progress.
