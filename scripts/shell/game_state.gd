@@ -7,6 +7,7 @@ extends Node
 const SHELL_PATH := "user://shell.json"
 const WORLDS_DIR := "user://worlds"
 const SHELL_VERSION := "0.4"
+const DEFAULT_DOCK_ASSIGNMENTS: Array[String] = ["dirt", "wood", "stone", "torch", "lantern"]
 
 var profile: Dictionary = {}
 var characters: Array = []
@@ -86,6 +87,8 @@ func create_character(char_data: Dictionary) -> Dictionary:
 		# Wave B: carried state lives on the character, not the world save.
 		"items_granted": false,
 		"carried_inventory": {},
+		"carried_inventory_layout": [],
+		"carried_dock_assignments": default_dock_assignments(),
 		"carried_slot": 0,
 		# Wave F: tool_tiers dict {pick, axe}; carried_tool_tier kept for legacy readers.
 		"carried_tool_tiers": {"pick": 1, "axe": 0},
@@ -120,6 +123,10 @@ func default_equipment() -> Dictionary:
 	return out
 
 
+func default_dock_assignments() -> Array:
+	return DEFAULT_DOCK_ASSIGNMENTS.duplicate()
+
+
 func delete_character(char_id: String) -> void:
 	for i in range(characters.size()):
 		if str(characters[i].get("id", "")) == char_id:
@@ -142,10 +149,14 @@ func get_character(char_id: String) -> Dictionary:
 ## FQ-03: equipment is the full gear dict (slot_id -> item_id); pass {} to
 ## leave the character's stored equipment untouched (legacy 4-arg callers).
 func save_character_carried(char_id: String, inv_dict: Dictionary,
-		slot: int, tool_tiers: Dictionary, equipment: Dictionary = {}) -> void:
+		slot: int, tool_tiers: Dictionary, equipment: Dictionary = {},
+		backpack_layout: Array = [], dock_assignments: Array = []) -> void:
 	for i in range(characters.size()):
 		if str(characters[i].get("id", "")) == char_id:
 			characters[i]["carried_inventory"] = inv_dict
+			characters[i]["carried_inventory_layout"] = backpack_layout.duplicate()
+			characters[i]["carried_dock_assignments"] = dock_assignments.duplicate() \
+				if not dock_assignments.is_empty() else default_dock_assignments()
 			characters[i]["carried_slot"] = slot
 			characters[i]["carried_tool_tiers"] = tool_tiers
 			characters[i]["carried_tool_tier"] = int(tool_tiers.get("pick", 1))
@@ -153,6 +164,9 @@ func save_character_carried(char_id: String, inv_dict: Dictionary,
 				characters[i]["equipment"] = equipment
 			if str(current_character.get("id", "")) == char_id:
 				current_character["carried_inventory"] = inv_dict
+				current_character["carried_inventory_layout"] = backpack_layout.duplicate()
+				current_character["carried_dock_assignments"] = dock_assignments.duplicate() \
+					if not dock_assignments.is_empty() else default_dock_assignments()
 				current_character["carried_slot"] = slot
 				current_character["carried_tool_tiers"] = tool_tiers
 				current_character["carried_tool_tier"] = int(tool_tiers.get("pick", 1))

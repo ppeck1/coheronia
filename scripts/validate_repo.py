@@ -345,9 +345,9 @@ for key in REQUIRED_PLAYER_DEFAULTS:
         fail(f"character_data.json player_defaults missing key: {key}")
 print("PASS character player_defaults")
 
-# FQ-03: equipment surface — exactly the 12 gear slots, coherent item defs.
+# FQ-03/FQ-23: equipment surface — stable gear slots, coherent item defs.
 equipment_data = json.loads((ROOT / "data/equipment.json").read_text(encoding="utf-8"))
-EXPECTED_SLOTS = ["weapon", "axe", "pickaxe", "helmet", "torso", "feet",
+EXPECTED_SLOTS = ["weapon", "offhand_weapon", "axe", "pickaxe", "helmet", "torso", "feet",
                   "ring_1", "ring_2", "ring_3", "ring_4", "amulet", "accessory"]
 slot_ids = [s.get("id") for s in (equipment_data.get("slots") or [])]
 if slot_ids != EXPECTED_SLOTS:

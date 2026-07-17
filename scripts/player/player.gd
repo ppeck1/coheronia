@@ -35,6 +35,7 @@ const DEFAULT_ATTUNEMENT_REGEN_PER_SEC := 2.0
 const DEFAULT_ATTUNEMENT_PULSE_COST := 15.0
 const DEFAULT_ATTUNEMENT_PULSE_COOLDOWN_SEC := 1.0
 const DEFAULT_ATTUNEMENT_PULSE_DURATION_SEC := 4.0
+const DEFAULT_DOCK_ASSIGNMENTS: Array[String] = ["dirt", "wood", "stone", "torch", "lantern"]
 
 var world: Node2D
 var health := 100.0
@@ -62,7 +63,9 @@ var trait_mine_mult := 1.0
 var reach_bonus := 0.0
 var bush_bonus_food := 0
 var growth_threshold_delta := 0.0
-var hotbar: Array[String] = ["dirt", "wood", "stone", "torch", "lantern"]
+## The dock/hotbar is a reference row into carried inventory stacks, not
+## separate storage. The name hotbar is kept for existing input/HUD paths.
+var hotbar: Array[String] = DEFAULT_DOCK_ASSIGNMENTS.duplicate()
 var selected_slot := 0
 
 # Ancestry effects (Phase B; reset in apply_character, set by apply_ancestry_effects).
@@ -155,6 +158,32 @@ func selected_item() -> String:
 	return hotbar[selected_slot]
 
 
+func set_dock_assignments(raw_assignments: Array) -> void:
+	hotbar.clear()
+	var seen := {}
+	for i in range(DEFAULT_DOCK_ASSIGNMENTS.size()):
+		var fallback: String = DEFAULT_DOCK_ASSIGNMENTS[i]
+		var item_id := fallback
+		if i < raw_assignments.size():
+			item_id = str(raw_assignments[i])
+		if not BlockRegistry.is_dock_assignable_item(item_id):
+			item_id = ""
+		if item_id != "" and seen.has(item_id):
+			item_id = fallback
+		if not BlockRegistry.is_dock_assignable_item(item_id):
+			item_id = ""
+		if item_id != "" and seen.has(item_id):
+			item_id = ""
+		hotbar.append(item_id)
+		if item_id != "":
+			seen[item_id] = true
+	selected_slot = clampi(selected_slot, 0, hotbar.size() - 1)
+
+
+func dock_assignments_to_array() -> Array:
+	return hotbar.duplicate()
+
+
 ## Applies a shell character (appearance, traits, role effects) to this
 ## player. Resets ancestry effects to defaults; call apply_ancestry_effects
 ## afterwards when an ancestry should be active.
@@ -245,6 +274,8 @@ func _physics_process(delta: float) -> void:
 		_try_eat_food()
 	if Input.is_action_just_pressed("attune_pulse"):
 		_try_attune_pulse()
+	if Input.is_action_just_pressed("swap_weapon"):
+		swap_weapon()
 	_update_passive_regen(delta)
 	_update_attunement_regen(delta)
 	_tick_pulse(delta)
@@ -412,7 +443,7 @@ func apply_equipment(raw: Dictionary) -> void:
 		player_visual.queue_redraw()
 
 
-## FQ-03: the full 12-slot gear picture used by the HUD and save path. The
+## FQ-03/FQ-23: the full gear picture used by the HUD and save path. The
 ## pickaxe/axe slots always reflect the live tool tiers so display and
 ## persistence can never drift from mining behavior.
 func equipped_dict() -> Dictionary:
@@ -423,10 +454,10 @@ func equipped_dict() -> Dictionary:
 
 
 ## FQ-03: equips item_id into slot_id ("" clears the slot). Tool slots route
-## to the live tool tiers via the item's effects and cannot be cleared —
-## picks/axes are gained through forging, and silently resetting a tier via
-## an unequip would be a footgun. Returns false for unknown slots, slot/item
-## mismatches, or clearing a tool slot.
+## to the live tool tiers via the item's effects.
+## clearing a tool slot sets its tier to 0, so inventory UI moves and mining
+## authority remain aligned. Returns false for unknown slots or slot/item
+## mismatches.
 func equip_item(slot_id: String, item_id: String) -> bool:
 	if BlockRegistry.equipment_slot(slot_id).is_empty():
 		return false
@@ -436,12 +467,14 @@ func equip_item(slot_id: String, item_id: String) -> bool:
 	match slot_id:
 		"pickaxe":
 			if item_id == "":
-				return false
-			tool_tier = int(effects.get("pick_tier", 1))
+				tool_tier = 0
+			else:
+				tool_tier = int(effects.get("pick_tier", 1))
 		"axe":
 			if item_id == "":
-				return false
-			axe_tier = int(effects.get("axe_tier", 0))
+				axe_tier = 0
+			else:
+				axe_tier = int(effects.get("axe_tier", 0))
 		_:
 			equipment[slot_id] = item_id
 	# FQ-05: gear can change max attunement; keep the current value legal.
@@ -449,6 +482,23 @@ func equip_item(slot_id: String, item_id: String) -> bool:
 	if player_visual != null:
 		player_visual.queue_redraw()
 	inventory_changed.emit()
+	return true
+
+
+func swap_weapon() -> bool:
+	var equipped: Dictionary = equipped_dict()
+	var active: String = str(equipped.get("weapon", ""))
+	var offhand: String = str(equipped.get("offhand_weapon", ""))
+	if active == "" and offhand == "":
+		return false
+	equipment["weapon"] = offhand
+	equipment["offhand_weapon"] = active
+	if player_visual != null:
+		player_visual.queue_redraw()
+	inventory_changed.emit()
+	var active_name: String = BlockRegistry.equipment_item_display_name(offhand) \
+		if offhand != "" else "bare hands"
+	player_event.emit("Switched weapon: %s." % active_name)
 	return true
 
 
@@ -471,6 +521,8 @@ func attunement_bonus_from_gear() -> float:
 	var total := 0.0
 	var equipped: Dictionary = equipped_dict()
 	for slot_id in equipped:
+		if str(slot_id) == "offhand_weapon":
+			continue
 		var item_id: String = str(equipped[slot_id])
 		if item_id != "":
 			total += float(BlockRegistry.equipment_item(item_id).get("effects", {}).get("attunement_bonus", 0.0))
@@ -568,6 +620,8 @@ func armor_total() -> float:
 	var total := 0.0
 	var equipped: Dictionary = equipped_dict()
 	for slot_id in equipped:
+		if str(slot_id) == "offhand_weapon":
+			continue
 		var item_id: String = str(equipped[slot_id])
 		if item_id != "":
 			total += float(BlockRegistry.equipment_item(item_id).get("effects", {}).get("armor", 0.0))

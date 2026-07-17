@@ -149,16 +149,19 @@ func craft_station(recipe_id: String, player: CharacterBody2D) -> bool:
 	if not station_built(str(recipe.get("station", ""))):
 		return false
 	var equip_slots: Dictionary = recipe.get("equip_slots", {})
-	for slot in equip_slots:
+	var resolved_equip_slots := _resolve_equip_slots(equip_slots, player)
+	if equip_slots.size() != resolved_equip_slots.size():
+		return false
+	for slot in resolved_equip_slots:
 		if str(player.equipped_dict().get(slot, "")) != "":
 			return false
-		if not BlockRegistry.item_fits_slot(str(equip_slots[slot]), str(slot)):
+		if not BlockRegistry.item_fits_slot(str(resolved_equip_slots[slot]), str(slot)):
 			return false
 	if not _consume_recipe_inputs(recipe_id):
 		return false
 	if not equip_slots.is_empty():
-		for slot in equip_slots:
-			player.equip_item(str(slot), str(equip_slots[slot]))
+		for slot in resolved_equip_slots:
+			player.equip_item(str(slot), str(resolved_equip_slots[slot]))
 	elif str(recipe.get("output_to", "inventory")) == "stockpile":
 		for out_id in recipe.get("outputs", {}):
 			stockpile[out_id] = int(stockpile.get(out_id, 0)) + int(recipe["outputs"][out_id])
@@ -167,6 +170,21 @@ func craft_station(recipe_id: String, player: CharacterBody2D) -> bool:
 		player.inventory_changed.emit()
 	stockpile_changed.emit()
 	return true
+
+
+func _resolve_equip_slots(equip_slots: Dictionary, player: CharacterBody2D) -> Dictionary:
+	var resolved := {}
+	var equipped: Dictionary = player.equipped_dict()
+	for raw_slot in equip_slots:
+		var slot: String = str(raw_slot)
+		var item_id: String = str(equip_slots[raw_slot])
+		if slot == "weapon" and str(equipped.get("weapon", "")) != "":
+			if str(equipped.get("offhand_weapon", "")) != "" \
+					or not BlockRegistry.item_fits_slot(item_id, "offhand_weapon"):
+				return {}
+			slot = "offhand_weapon"
+		resolved[slot] = item_id
+	return resolved
 
 
 ## Spends stockpile per the town_hall-station recipe to upgrade the
@@ -219,21 +237,32 @@ func _consume_recipe_inputs(recipe_id: String) -> bool:
 	return true
 
 
-## FQ-04: forges a crude sword into the weapon gear slot. Spends the
-## craft_sword recipe inputs. Player must not already carry a weapon.
+## FQ-04/FQ-23: forges a crude sword into the active weapon slot, or the
+## offhand weapon slot when the active weapon is already occupied. Both weapon
+## slots full means the craft is blocked before stockpile inputs are consumed.
 ## The item/slot fit is verified before inputs are consumed so a data
 ## regression (renamed item, failed equipment.json load) cannot eat the
 ## stockpile without equipping anything.
 func forge_sword(player: CharacterBody2D) -> bool:
-	if str(player.equipped_dict().get("weapon", "")) != "":
+	var target_slot: String = _first_open_weapon_slot(player)
+	if target_slot == "":
 		return false
-	if not BlockRegistry.item_fits_slot("sword_crude", "weapon"):
+	if not BlockRegistry.item_fits_slot("sword_crude", target_slot):
 		return false
 	if not _consume_recipe_inputs(SWORD_RECIPE_ID):
 		return false
-	player.equip_item("weapon", "sword_crude")
+	player.equip_item(target_slot, "sword_crude")
 	stockpile_changed.emit()
 	return true
+
+
+func _first_open_weapon_slot(player: CharacterBody2D) -> String:
+	var equipped: Dictionary = player.equipped_dict()
+	if str(equipped.get("weapon", "")) == "":
+		return "weapon"
+	if str(equipped.get("offhand_weapon", "")) == "":
+		return "offhand_weapon"
+	return ""
 
 
 ## FQ-04: forges the crude armor set (helmet + torso + feet) into the gear

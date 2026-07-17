@@ -37,6 +37,9 @@ func _run() -> void:
 	_check("town_hall_exists", not world.hall_info.is_empty()
 		and world.block_at(world.hall_info["core_cells"][0]) == "town_hall_core")
 	_check("town_hall_core_protected", not world.can_mine(world.hall_info["core_cells"][0], 99))
+	if OS.get_environment("COHERONIA_SMOKE_FOCUS") == "inventory":
+		await _run_inventory_focus(player, hud)
+		return
 
 	# --- Real input bindings (programmatic action_press below bypasses the
 	# InputMap, so verify keys/mouse are actually bound to the actions) ---
@@ -44,7 +47,7 @@ func _run() -> void:
 	for action in ["move_left", "move_right", "jump", "mine", "place", "interact",
 			"toggle_town", "craft", "save_game", "load_game", "toggle_inventory",
 			"debug_overlay", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5",
-			"eat_food", "attune_pulse", "toggle_skills"]:
+			"eat_food", "attune_pulse", "swap_weapon", "toggle_skills"]:
 		var has_device_event := false
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventKey or ev is InputEventMouseButton:
@@ -1968,8 +1971,8 @@ func _run() -> void:
 
 	# --- FQ-03: equipment data model and character-owned gear slots ---
 
-	# (a) equipment.json loads with the 12 expected slots, in order.
-	var _fq03_expected: Array = ["weapon", "axe", "pickaxe", "helmet", "torso",
+	# (a) equipment.json loads with the expected slots, in order.
+	var _fq03_expected: Array = ["weapon", "offhand_weapon", "axe", "pickaxe", "helmet", "torso",
 		"feet", "ring_1", "ring_2", "ring_3", "ring_4", "amulet", "accessory"]
 	var _fq03_slot_ids: Array = []
 	for _fq03_slot in BlockRegistry.equipment_slots():
@@ -1986,8 +1989,8 @@ func _run() -> void:
 		if str(_fq03_equip[_fq03_sid]) == "":
 			_fq03_empty_count += 1
 	_check("fq03_new_character_default_gear",
-		_fq03_equip.size() == 12 and str(_fq03_equip.get("pickaxe", "")) == "pick_basic"
-		and _fq03_empty_count == 11,
+		_fq03_equip.size() == 13 and str(_fq03_equip.get("pickaxe", "")) == "pick_basic"
+		and _fq03_empty_count == 12,
 		"equipment=%s" % str(_fq03_equip))
 	GameState.delete_character(str(_fq03_char["id"]))
 
@@ -2009,14 +2012,17 @@ func _run() -> void:
 	player.tool_tier = 2
 	player.axe_tier = 1
 
-	# (d) slot/item fit is enforced; tool slots cannot be cleared (no silent
-	# tier reset); equipping never touches the backpack.
+	# (d) slot/item fit is enforced; tool slots clear to tier 0 and restore
+	# from item effects; equipping never touches the backpack.
 	var _fq03_inv_total: int = player.inventory.total()
+	var _fq03_pick_cleared: bool = player.equip_item("pickaxe", "") and player.tool_tier == 0
+	var _fq03_pick_restored: bool = player.equip_item("pickaxe", "pick_forged") \
+		and player.tool_tier == 2
 	_check("fq03_equip_rejects_mismatch",
 		not player.equip_item("helmet", "ring_band")
 		and not player.equip_item("no_such_slot", "ring_band")
-		and not player.equip_item("pickaxe", "")
-		and player.tool_tier == 2
+		and _fq03_pick_cleared
+		and _fq03_pick_restored
 		and player.equip_item("ring_2", "ring_band")
 		and player.inventory.total() == _fq03_inv_total,
 		"ring_2=%s pick=%d inv_total %d→%d" % [str(player.equipment.get("ring_2", "")),
@@ -2101,15 +2107,32 @@ func _run() -> void:
 	var _fq04_wood_before: int = int(hall.stockpile.get("wood", 0))
 	var _fq04_stone_before: int = int(hall.stockpile.get("stone", 0))
 	var _fq04_sword_ok: bool = hall.forge_sword(player)
+	var _fq04_offhand_ok: bool = hall.forge_sword(player)
 	_check("fq04_forge_sword_equips",
 		_fq04_sword_ok and str(player.equipped_dict().get("weapon", "")) == "sword_crude"
+		and _fq04_offhand_ok and str(player.equipped_dict().get("offhand_weapon", "")) == "sword_crude"
 		and player.attack_damage() == 3
-		and int(hall.stockpile.get("wood", 0)) == _fq04_wood_before - 2
-		and int(hall.stockpile.get("stone", 0)) == _fq04_stone_before - 3
+		and int(hall.stockpile.get("wood", 0)) == _fq04_wood_before - 4
+		and int(hall.stockpile.get("stone", 0)) == _fq04_stone_before - 6
 		and not hall.forge_sword(player),
-		"attack=%d wood %d→%d stone %d→%d" % [player.attack_damage(),
+		"attack=%d weapon=%s offhand=%s wood %d→%d stone %d→%d" % [player.attack_damage(),
+			str(player.equipped_dict().get("weapon", "")),
+			str(player.equipped_dict().get("offhand_weapon", "")),
 			_fq04_wood_before, int(hall.stockpile.get("wood", 0)),
 			_fq04_stone_before, int(hall.stockpile.get("stone", 0))])
+	player.equip_item("offhand_weapon", "sword_iron")
+	var _fq04_swap_to_iron: bool = player.swap_weapon()
+	var _fq04_attack_iron: int = player.attack_damage()
+	var _fq04_swap_back: bool = player.swap_weapon()
+	_check("fq04_weapon_swap_uses_offhand",
+		_fq04_swap_to_iron and _fq04_attack_iron == 5 and _fq04_swap_back
+		and str(player.equipped_dict().get("weapon", "")) == "sword_crude"
+		and str(player.equipped_dict().get("offhand_weapon", "")) == "sword_iron"
+		and player.attack_damage() == 3,
+		"active=%s offhand=%s attack_mid=%d attack_now=%d" % [
+			str(player.equipped_dict().get("weapon", "")),
+			str(player.equipped_dict().get("offhand_weapon", "")),
+			_fq04_attack_iron, player.attack_damage()])
 
 	# (c) the sword kills a 3 hp slime in one real hit-path strike.
 	for _fq04_t in get_tree().get_nodes_in_group("threats"):
@@ -2170,6 +2193,7 @@ func _run() -> void:
 	_check("fq04_gear_round_trips_ancestry_intact",
 		_fq04_armor_wiped == 0.0
 		and str(player.equipped_dict().get("weapon", "")) == "sword_crude"
+		and str(player.equipped_dict().get("offhand_weapon", "")) == "sword_iron"
 		and player.armor_total() == 4.0
 		and absf(player.max_health - _fq04_max_health_before) < 0.001,
 		"armor wiped=%.0f restored=%.0f max_health=%.1f (expected %.1f)" % [
@@ -2183,12 +2207,14 @@ func _run() -> void:
 	_check("fq04_ui_shows_weapon_and_armor",
 		"Attack 3" in _fq04_panel and "Armor 4" in _fq04_panel
 		and "Weapon: Crude Sword" in _fq04_panel
+		and "Offhand: Iron Sword" in _fq04_panel
 		and "Torso: Crude Cuirass" in _fq04_panel,
 		"panel_head=%s" % _fq04_panel.left(60))
 
 	# Clear combat gear so the FQ-01 exact-damage checks below see the same
 	# unarmored player they were written against.
 	player.equip_item("weapon", "")
+	player.equip_item("offhand_weapon", "")
 	player.equip_item("helmet", "")
 	player.equip_item("torso", "")
 	player.equip_item("feet", "")
@@ -4173,6 +4199,220 @@ func _run() -> void:
 		hud.inventory_panel_open() and _fq09_grid_ok,
 		"dirt=%d wood=%d stone=%d" % [hud.inventory_grid_count("dirt"),
 			hud.inventory_grid_count("wood"), hud.inventory_grid_count("stone")])
+	var _fq09_board_backpack_ok: bool = hud.inventory_board_visible() \
+		and hud.backpack_cell_count("dirt") == 7 \
+		and hud.backpack_cell_count("wood") == 2 \
+		and hud.backpack_cell_total() == 2
+	_check("fq09_inventory_board_backpack_cells",
+		_fq09_board_backpack_ok,
+		"visible=%s dirt=%d wood=%d cells=%d" % [str(hud.inventory_board_visible()),
+			hud.backpack_cell_count("dirt"), hud.backpack_cell_count("wood"),
+			hud.backpack_cell_total()])
+	var _fq09_board_equipment_ok: bool = hud.equipment_slot_count() == 13 \
+		and hud.equipment_slot_item("pickaxe") != ""
+	_check("fq09_inventory_board_equipment_slots",
+		_fq09_board_equipment_ok,
+		"slots=%d pickaxe=%s weapon=%s" % [hud.equipment_slot_count(),
+			hud.equipment_slot_item("pickaxe"), hud.equipment_slot_item("weapon")])
+	var _fq09_board_dock_ok: bool = hud.dock_slot_item(0) == "dirt" \
+		and hud.dock_slot_count(0) == 7 \
+		and hud.dock_slot_item(1) == "wood" \
+		and hud.dock_slot_count(1) == 2 \
+		and hud.dock_selected_index() == player.selected_slot
+	_check("fq09_inventory_board_dock_slots",
+		_fq09_board_dock_ok,
+		"dock0=%s/%d dock1=%s/%d selected=%d" % [hud.dock_slot_item(0),
+			hud.dock_slot_count(0), hud.dock_slot_item(1), hud.dock_slot_count(1),
+			hud.dock_selected_index()])
+	var _fq09_detail: String = hud.selected_item_detail_text()
+	_check("fq09_inventory_board_selected_item_details",
+		_fq09_detail.find("Dirt") >= 0 and _fq09_detail.find("x7") >= 0,
+		"detail=%s" % _fq09_detail)
+	var _fq09_original_selected: int = player.selected_slot
+	hud._select_inventory_item("wood")
+	var _fq09_backpack_detail: String = hud.selected_item_detail_text()
+	hud._select_dock_slot(1)
+	var _fq09_dock_detail: String = hud.selected_item_detail_text()
+	var _fq09_click_ok: bool = player.selected_slot == 1 and hud.dock_selected_index() == 1 \
+		and _fq09_backpack_detail.find("Wood") >= 0 \
+		and _fq09_dock_detail.find("Wood") >= 0
+	hud._select_dock_slot(_fq09_original_selected)
+	_check("fq09_inventory_board_click_selects",
+		_fq09_click_ok,
+		"selected=%d backpack=%s dock=%s" % [
+			player.selected_slot, _fq09_backpack_detail, _fq09_dock_detail])
+	hud.drop_inventory_slot("backpack", 0, {
+		"source": "inventory_board", "kind": "backpack", "index": 1, "item_id": "wood"})
+	var _fq09_layout_swapped: Array = player.inventory.layout_to_array()
+	hud.drop_inventory_slot("dock", 4, {
+		"source": "inventory_board", "kind": "backpack", "index": 0, "item_id": "wood"})
+	var _fq09_dock_assigned: bool = hud.dock_slot_item(4) == "wood" \
+		and hud.dock_slot_item(1) == "lantern"
+	hud.drop_inventory_slot("dock", 1, {
+		"source": "inventory_board", "kind": "dock", "index": 4, "item_id": "wood"})
+	var _fq09_dock_restored: bool = hud.dock_slot_item(1) == "wood" \
+		and hud.dock_slot_item(4) == "lantern"
+	await get_tree().process_frame
+	var _fq09_dock_cell: Control = null
+	for _fq09_dock_child in hud._dock_assignment_row.get_children():
+		var _fq09_candidate := _fq09_dock_child as Control
+		if _fq09_candidate != null \
+				and str(_fq09_candidate.name) == "InventoryDockSlot1" \
+				and not _fq09_candidate.is_queued_for_deletion():
+			_fq09_dock_cell = _fq09_candidate
+			break
+	var _fq09_dock_drag_payload_ok := false
+	if _fq09_dock_cell != null:
+		_fq09_dock_drag_payload_ok = str(_fq09_dock_cell.get("slot_kind")) == "dock" \
+			and int(_fq09_dock_cell.get("slot_index")) == 1 \
+			and str(_fq09_dock_cell.get("item_id")) == "wood" \
+			and not _fq09_dock_cell.is_queued_for_deletion()
+	hud._sort_inventory_board()
+	var _fq09_layout_sorted: Array = player.inventory.layout_to_array()
+	var _fq09_drag_sort_ok: bool = str(_fq09_layout_swapped[0]) == "wood" \
+		and str(_fq09_layout_swapped[1]) == "dirt" \
+		and _fq09_dock_assigned and _fq09_dock_restored and _fq09_dock_drag_payload_ok \
+		and str(_fq09_layout_sorted[0]) == "dirt" \
+		and str(_fq09_layout_sorted[1]) == "wood"
+	hud._select_dock_slot(_fq09_original_selected)
+	_check("fq09_inventory_board_drag_and_sort",
+		_fq09_drag_sort_ok,
+		"swapped=%s/%s dock_assigned=%s dock_restored=%s drag_payload=%s sorted=%s/%s" % [
+			str(_fq09_layout_swapped[0]), str(_fq09_layout_swapped[1]),
+			str(_fq09_dock_assigned), str(_fq09_dock_restored),
+			str(_fq09_dock_drag_payload_ok),
+			str(_fq09_layout_sorted[0]), str(_fq09_layout_sorted[1])])
+	var _fq09_wood_before_clear: int = player.inventory.count("wood")
+	hud.drop_inventory_slot("backpack", 1, {
+		"source": "inventory_board", "kind": "dock", "index": 1, "item_id": "wood"})
+	var _fq09_dock_cleared: bool = hud.dock_slot_item(1) == "" \
+		and hud.dock_slot_count(1) == 0 \
+		and player.inventory.count("wood") == _fq09_wood_before_clear
+	var _fq09_hotbar_empty: bool = hud.hotbar_slot_empty(1)
+	var _fq09_empty_detail: String = hud.selected_item_detail_text()
+	var _fq09_saved_dock: Array = player.dock_assignments_to_array()
+	player.set_dock_assignments(_fq09_saved_dock)
+	var _fq09_blank_survives_normalize: bool = str(player.hotbar[1]) == ""
+	hud.drop_inventory_slot("dock", 1, {
+		"source": "inventory_board", "kind": "backpack", "index": 1, "item_id": "wood"})
+	var _fq09_dock_reassigned: bool = hud.dock_slot_item(1) == "wood" \
+		and player.inventory.count("wood") == _fq09_wood_before_clear
+	hud.drop_inventory_slot("backpack", 2, {
+		"source": "inventory_board", "kind": "dock", "index": 2, "item_id": "stone"})
+	var _fq09_zero_count_dock_cleared: bool = hud.dock_slot_item(2) == "" \
+		and player.inventory.count("stone") == 0
+	var _fq09_zero_count_hotbar_empty: bool = hud.hotbar_slot_empty(2)
+	player.hotbar[2] = "stone"
+	hud.update_inventory()
+	_check("fq09_inventory_board_dock_clears",
+		_fq09_dock_cleared and _fq09_blank_survives_normalize \
+		and _fq09_hotbar_empty and _fq09_dock_reassigned \
+		and _fq09_zero_count_dock_cleared and _fq09_zero_count_hotbar_empty,
+		"cleared=%s hotbar_empty=%s normalized=%s reassigned=%s zero_count=%s zero_hotbar_empty=%s detail=%s" % [
+			str(_fq09_dock_cleared), str(_fq09_hotbar_empty),
+			str(_fq09_blank_survives_normalize), str(_fq09_dock_reassigned),
+			str(_fq09_zero_count_dock_cleared), str(_fq09_zero_count_hotbar_empty),
+			_fq09_empty_detail])
+	player.equip_item("helmet", "")
+	player.inventory.add("helmet_iron", 1)
+	player.inventory.ensure_layout()
+	var _fq09_gear_source_index: int = player.inventory.layout_to_array().find("helmet_iron")
+	var _fq09_gear_before: int = player.inventory.count("helmet_iron")
+	hud.update_inventory()
+	var _fq09_gear_dock_payload := {
+		"source": "inventory_board", "kind": "backpack",
+		"index": _fq09_gear_source_index, "item_id": "helmet_iron"}
+	var _fq09_gear_dock_rejected: bool = not hud.can_drop_inventory_slot(
+		"dock", 0, _fq09_gear_dock_payload)
+	hud.drop_inventory_slot("dock", 0, _fq09_gear_dock_payload)
+	_fq09_gear_dock_rejected = _fq09_gear_dock_rejected \
+		and hud.dock_slot_item(0) != "helmet_iron"
+	player.inventory.add("tool_tier_2_pick", 1)
+	var _fq09_legacy_pick_index: int = player.inventory.layout_to_array().find("tool_tier_2_pick")
+	var _fq09_legacy_pick_payload := {
+		"source": "inventory_board", "kind": "backpack",
+		"index": _fq09_legacy_pick_index, "item_id": "tool_tier_2_pick"}
+	var _fq09_legacy_pick_dock_rejected: bool = not hud.can_drop_inventory_slot(
+		"dock", 0, _fq09_legacy_pick_payload)
+	hud.drop_inventory_slot("dock", 0, _fq09_legacy_pick_payload)
+	_fq09_legacy_pick_dock_rejected = _fq09_legacy_pick_dock_rejected \
+		and hud.dock_slot_item(0) != "tool_tier_2_pick"
+	var _fq09_legacy_pick_icon_ok: bool = BlockRegistry.item_icon("tool_tier_2_pick") \
+		.get_image().get_pixel(8, 8) == BlockRegistry.item_icon("pick").get_image().get_pixel(8, 8)
+	player.set_dock_assignments(["dirt", "tool_tier_2_pick", "stone", "torch", "lantern"])
+	var _fq09_legacy_pick_sanitized: bool = str(player.hotbar[1]) == ""
+	player.set_dock_assignments(["dirt", "wood", "stone", "torch", "lantern"])
+	hud.drop_inventory_slot("equipment", -1, {
+		"source": "inventory_board", "kind": "backpack",
+		"index": _fq09_gear_source_index, "item_id": "helmet_iron"}, "helmet")
+	var _fq09_gear_equipped: bool = hud.equipment_slot_item("helmet") == "helmet_iron" \
+		and player.inventory.count("helmet_iron") == _fq09_gear_before - 1
+	hud.drop_inventory_slot("backpack", _fq09_gear_source_index, {
+		"source": "inventory_board", "kind": "equipment", "index": -1,
+		"slot_id": "helmet", "item_id": "helmet_iron"})
+	var _fq09_gear_backpack: bool = hud.equipment_slot_item("helmet") == "" \
+		and player.inventory.count("helmet_iron") == _fq09_gear_before \
+		and _fq09_gear_source_index >= 0 \
+		and str(player.inventory.layout_to_array()[_fq09_gear_source_index]) == "helmet_iron"
+	_check("fq09_inventory_board_equipment_moves",
+		_fq09_gear_source_index >= 0 and _fq09_gear_equipped and _fq09_gear_backpack \
+		and _fq09_gear_dock_rejected and _fq09_legacy_pick_dock_rejected \
+		and _fq09_legacy_pick_icon_ok and _fq09_legacy_pick_sanitized,
+		"source=%d equipped=%s backpack=%s dock_reject=%s legacy_reject=%s legacy_icon=%s sanitized=%s count=%d" % [
+			_fq09_gear_source_index, str(_fq09_gear_equipped),
+			str(_fq09_gear_backpack), str(_fq09_gear_dock_rejected),
+			str(_fq09_legacy_pick_dock_rejected), str(_fq09_legacy_pick_icon_ok),
+			str(_fq09_legacy_pick_sanitized), player.inventory.count("helmet_iron")])
+	var _fq09_pick_icon_px: Color = BlockRegistry.item_icon("pick_forged") \
+		.get_image().get_pixel(8, 8)
+	var _fq09_pick_family_px: Color = BlockRegistry.item_icon("pick") \
+		.get_image().get_pixel(8, 8)
+	var _fq09_axe_icon_px: Color = BlockRegistry.item_icon("axe_crude") \
+		.get_image().get_pixel(8, 8)
+	var _fq09_axe_family_px: Color = BlockRegistry.item_icon("axe") \
+		.get_image().get_pixel(8, 8)
+	var _fq09_gear_icon_ok: bool = _fq09_pick_icon_px == _fq09_pick_family_px \
+		and _fq09_axe_icon_px == _fq09_axe_family_px
+	_check("fq09_inventory_board_equipment_icons",
+		_fq09_gear_icon_ok,
+		"pick=%s/%s axe=%s/%s" % [str(_fq09_pick_icon_px),
+			str(_fq09_pick_family_px), str(_fq09_axe_icon_px), str(_fq09_axe_family_px)])
+	var _fq09_tool_layout: Array = player.inventory.layout_to_array()
+	var _fq09_axe_target_index: int = _fq09_tool_layout.find("")
+	hud.drop_inventory_slot("backpack", _fq09_axe_target_index, {
+		"source": "inventory_board", "kind": "equipment", "index": -1,
+		"slot_id": "axe", "item_id": "axe_crude"})
+	var _fq09_axe_stowed: bool = player.axe_tier == 0 \
+		and player.inventory.count("axe_crude") == 1 \
+		and hud.equipment_slot_item("axe") == ""
+	hud.drop_inventory_slot("equipment", -1, {
+		"source": "inventory_board", "kind": "backpack",
+		"index": _fq09_axe_target_index, "item_id": "axe_crude"}, "axe")
+	var _fq09_axe_restored: bool = player.axe_tier == 1 \
+		and player.inventory.count("axe_crude") == 0 \
+		and hud.equipment_slot_item("axe") == "axe_crude"
+	_fq09_tool_layout = player.inventory.layout_to_array()
+	var _fq09_pick_target_index: int = _fq09_tool_layout.find("")
+	hud.drop_inventory_slot("backpack", _fq09_pick_target_index, {
+		"source": "inventory_board", "kind": "equipment", "index": -1,
+		"slot_id": "pickaxe", "item_id": "pick_forged"})
+	var _fq09_pick_stowed: bool = player.tool_tier == 0 \
+		and player.inventory.count("pick_forged") == 1 \
+		and hud.equipment_slot_item("pickaxe") == ""
+	hud.drop_inventory_slot("equipment", -1, {
+		"source": "inventory_board", "kind": "backpack",
+		"index": _fq09_pick_target_index, "item_id": "pick_forged"}, "pickaxe")
+	var _fq09_pick_restored: bool = player.tool_tier == 2 \
+		and player.inventory.count("pick_forged") == 0 \
+		and hud.equipment_slot_item("pickaxe") == "pick_forged"
+	_check("fq09_inventory_board_tool_moves",
+		_fq09_axe_target_index >= 0 and _fq09_pick_target_index >= 0 \
+		and _fq09_axe_stowed and _fq09_axe_restored \
+		and _fq09_pick_stowed and _fq09_pick_restored,
+		"axe=%s/%s pick=%s/%s" % [str(_fq09_axe_stowed),
+			str(_fq09_axe_restored), str(_fq09_pick_stowed), str(_fq09_pick_restored)])
+	if _finish_if_focus("inventory"):
+		return
 
 	# (c) the town stockpile grid mirrors the hall stockpile.
 	hall.stockpile["wood"] = 4
@@ -4390,6 +4630,68 @@ func _run() -> void:
 	print("SMOKE RESULT: %s (%d/%d passed)" % [
 		"PASS" if failed == 0 else "FAIL", _results.size() - failed, _results.size()])
 	get_tree().quit(0 if failed == 0 else 1)
+
+
+func _finish_if_focus(focus_id: String) -> bool:
+	if OS.get_environment("COHERONIA_SMOKE_FOCUS") != focus_id:
+		return false
+	var failed := 0
+	var failed_names: Array = []
+	for r in _results:
+		if not r[1]:
+			failed += 1
+			failed_names.append(r[0])
+	_write_result_file(failed, failed_names)
+	print("SMOKE FOCUS %s: %s (%d/%d passed)" % [
+		focus_id, "PASS" if failed == 0 else "FAIL",
+		_results.size() - failed, _results.size()])
+	get_tree().quit(0 if failed == 0 else 1)
+	return true
+
+
+func _run_inventory_focus(player: CharacterBody2D, hud: CanvasLayer) -> void:
+	player.inventory.from_dict({"dirt": 7, "wood": 2})
+	player.inventory.ensure_layout()
+	player.inventory.set_layout(["dirt", "wood"])
+	player.set_dock_assignments(["dirt", "wood", "stone", "torch", "lantern"])
+	if not hud.inventory_panel_open():
+		hud.toggle_inventory_panel()
+	else:
+		hud.update_inventory()
+	await get_tree().process_frame
+	var dock_cell_ok: bool = false
+	for child in hud._dock_assignment_row.get_children():
+		var cell: Control = child as Control
+		if cell == null or cell.is_queued_for_deletion():
+			continue
+		if str(cell.name) != "InventoryDockSlot1":
+			continue
+		dock_cell_ok = str(cell.get("slot_kind")) == "dock" \
+			and int(cell.get("slot_index")) == 1 \
+			and str(cell.get("item_id")) == "wood"
+		break
+	var wood_before: int = player.inventory.count("wood")
+	hud.drop_inventory_slot("backpack", 1, {
+		"source": "inventory_board", "kind": "dock", "index": 1, "item_id": "wood"})
+	var normal_clear_ok: bool = hud.dock_slot_item(1) == "" \
+		and hud.dock_slot_count(1) == 0 \
+		and player.inventory.count("wood") == wood_before \
+		and hud.hotbar_slot_empty(1)
+	player.hotbar[2] = "stone"
+	hud.update_inventory()
+	hud.drop_inventory_slot("backpack", 2, {
+		"source": "inventory_board", "kind": "dock", "index": 2, "item_id": "stone"})
+	var zero_clear_ok: bool = hud.dock_slot_item(2) == "" \
+		and hud.dock_slot_count(2) == 0 \
+		and player.inventory.count("stone") == 0 \
+		and hud.hotbar_slot_empty(2)
+	_check("focus_inventory_dock_to_backpack",
+		dock_cell_ok and normal_clear_ok and zero_clear_ok,
+		"cell=%s normal=%s zero=%s dock1=%s dock2=%s wood=%d stone=%d" % [
+			str(dock_cell_ok), str(normal_clear_ok), str(zero_clear_ok),
+			hud.dock_slot_item(1), hud.dock_slot_item(2),
+			player.inventory.count("wood"), player.inventory.count("stone")])
+	_finish_if_focus("inventory")
 
 
 func _write_result_file(failed: int, failed_names: Array) -> void:

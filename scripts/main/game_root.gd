@@ -161,6 +161,8 @@ func _grant_role_items() -> void:
 func _load_character_carried_state(saved_state: Dictionary) -> void:
 	if GameState.current_character.is_empty():
 		player.inventory.from_dict({})
+		player.inventory.set_layout([])
+		player.set_dock_assignments(GameState.default_dock_assignments())
 		player.selected_slot = 0
 		player.tool_tier = 1
 		player.axe_tier = 0
@@ -175,6 +177,11 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 		# Character record is authoritative.
 		player.inventory.from_dict(
 			Dictionary(GameState.current_character.get("carried_inventory", {})))
+		player.inventory.set_layout(
+			Array(GameState.current_character.get("carried_inventory_layout", [])))
+		player.set_dock_assignments(
+			Array(GameState.current_character.get("carried_dock_assignments",
+				GameState.default_dock_assignments())))
 		player.selected_slot = clampi(
 			int(GameState.current_character.get("carried_slot", 0)),
 			0, player.hotbar.size() - 1)
@@ -194,19 +201,25 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 				str(GameState.current_character.get("id", "")),
 				player.inventory.to_dict(), player.selected_slot,
 				{"pick": player.tool_tier, "axe": player.axe_tier},
-				player.equipped_dict())
+				player.equipped_dict(),
+				player.inventory.layout_to_array(),
+				player.dock_assignments_to_array())
 	else:
 		# Legacy character (no carried_inventory key): migrate from world save once.
 		var legacy: Dictionary = save_manager.legacy_player_carried(saved_state)
 		var migrated_from_world := not legacy.is_empty()
 		if migrated_from_world:
 			player.inventory.from_dict(legacy.get("inventory", {}))
+			player.inventory.set_layout([])
+			player.set_dock_assignments(GameState.default_dock_assignments())
 			player.selected_slot = clampi(int(legacy.get("selected_slot", 0)),
 				0, player.hotbar.size() - 1)
 			player.tool_tier = int(legacy.get("tool_tier", 1))
 			player.axe_tier = 0  # legacy migration: the axe must still be crafted
 		else:
 			player.inventory.from_dict({})
+			player.inventory.set_layout([])
+			player.set_dock_assignments(GameState.default_dock_assignments())
 			player.selected_slot = 0
 			player.tool_tier = 1
 			player.axe_tier = 0
@@ -217,7 +230,9 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 		GameState.save_character_carried(char_id,
 			player.inventory.to_dict(), player.selected_slot,
 			{"pick": player.tool_tier, "axe": player.axe_tier},
-			player.equipped_dict())
+			player.equipped_dict(),
+			player.inventory.layout_to_array(),
+			player.dock_assignments_to_array())
 		# FQ-00: a legacy world already granted this character's starter items
 		# under the pre-v0.6 format, and that inventory just became authoritative
 		# above. Mark items_granted so _grant_role_items() does not add a second
@@ -236,6 +251,9 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 func _apply_character_carried_state() -> void:
 	var char: Dictionary = GameState.current_character
 	player.inventory.from_dict(Dictionary(char.get("carried_inventory", {})))
+	player.inventory.set_layout(Array(char.get("carried_inventory_layout", [])))
+	player.set_dock_assignments(Array(char.get("carried_dock_assignments",
+		GameState.default_dock_assignments())))
 	player.selected_slot = clampi(
 		int(char.get("carried_slot", 0)), 0, player.hotbar.size() - 1)
 	# FQ-03: restore gear slots (tool slots re-derive from the tiers below).

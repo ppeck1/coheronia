@@ -101,11 +101,23 @@ func display_name(block_id: String) -> String:
 	var block: Dictionary = get_block(block_id)
 	if not block.is_empty():
 		return str(block.get("display_name", block_id))
+	var gear: Dictionary = equipment_item(block_id)
+	if not gear.is_empty():
+		return str(gear.get("display_name", block_id))
+	var legacy_name := legacy_item_display_name(block_id)
+	if legacy_name != "":
+		return legacy_name
 	return str(items_data.get(block_id, {}).get("display_name", block_id))
 
 
 ## FQ-09: one-line descriptor for tooltips ("" when none exists).
 func item_description(item_id: String) -> String:
+	var gear: Dictionary = equipment_item(item_id)
+	if not gear.is_empty():
+		return str(gear.get("description", ""))
+	var legacy_desc := legacy_item_description(item_id)
+	if legacy_desc != "":
+		return legacy_desc
 	return str(items_data.get(item_id, {}).get("description", ""))
 
 
@@ -277,6 +289,16 @@ func item_icon(item_id: String) -> Texture2D:
 		return _item_icon_cache[item_id]
 	var tex: Texture2D = visual_texture("items", item_id)
 	if tex == null:
+		var gear: Dictionary = equipment_item(item_id)
+		if not gear.is_empty():
+			var fallback_id := _equipment_icon_fallback_id(str(gear.get("slot_type", "")))
+			if fallback_id != "" and fallback_id != item_id:
+				tex = visual_texture("items", fallback_id)
+	if tex == null:
+		var legacy_fallback_id := legacy_item_icon_fallback_id(item_id)
+		if legacy_fallback_id != "" and legacy_fallback_id != item_id:
+			tex = visual_texture("items", legacy_fallback_id)
+	if tex == null:
 		var color := item_fallback_color(item_id)
 		var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 		img.fill(color)
@@ -287,6 +309,51 @@ func item_icon(item_id: String) -> Texture2D:
 		tex = ImageTexture.create_from_image(img)
 	_item_icon_cache[item_id] = tex
 	return tex
+
+
+func _equipment_icon_fallback_id(slot_type: String) -> String:
+	match slot_type:
+		"pickaxe":
+			return "pick"
+		"axe":
+			return "axe"
+		"weapon":
+			return "sword"
+		"helmet", "torso", "feet":
+			return "armor"
+		"ring", "amulet":
+			return "crystal"
+		"accessory":
+			return "authority_sigil"
+	return ""
+
+
+func legacy_item_icon_fallback_id(item_id: String) -> String:
+	if item_id.begins_with("tool_tier_") and item_id.ends_with("_pick"):
+		return "pick"
+	return ""
+
+
+func legacy_item_display_name(item_id: String) -> String:
+	if item_id.begins_with("tool_tier_") and item_id.ends_with("_pick"):
+		return "Forged Pick"
+	return ""
+
+
+func legacy_item_description(item_id: String) -> String:
+	if item_id.begins_with("tool_tier_") and item_id.ends_with("_pick"):
+		return "Legacy pick item. Move it to the pickaxe loadout slot."
+	return ""
+
+
+func is_dock_assignable_item(item_id: String) -> bool:
+	if item_id == "":
+		return true
+	if not equipment_item(item_id).is_empty():
+		return false
+	if legacy_item_icon_fallback_id(item_id) != "":
+		return false
+	return true
 
 
 ## FQ-09: swatch color for an item id (items.json "color" hex, else a stable
@@ -335,7 +402,7 @@ func item_fits_slot(item_id: String, slot_id: String) -> bool:
 	return str(item.get("slot_type", "")) == str(slot.get("accepts", ""))
 
 
-## Returns a full 12-slot equipment dict from a possibly partial/invalid raw
+## Returns a full equipment dict from a possibly partial/invalid raw
 ## dict: every known slot id is present; unknown slots are dropped; items that
 ## do not exist or do not fit their slot become "" (empty is always valid).
 func normalize_equipment(raw: Dictionary) -> Dictionary:

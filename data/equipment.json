@@ -2,6 +2,7 @@
   "schema_version": "0.1",
   "slots": [
     { "id": "weapon", "display_name": "Weapon", "accepts": "weapon" },
+    { "id": "offhand_weapon", "display_name": "Offhand", "accepts": "weapon" },
     { "id": "axe", "display_name": "Axe", "accepts": "axe" },
     { "id": "pickaxe", "display_name": "Pickaxe", "accepts": "pickaxe" },
     { "id": "helmet", "display_name": "Helmet", "accepts": "helmet" },
@@ -68,6 +69,12 @@
       "slot_type": "amulet",
       "description": "A crystal pendant that deepens attunement.",
       "effects": { "attunement_bonus": 10 }
+    },
+    "authority_sigil": {
+      "display_name": "Authority Sigil",
+      "slot_type": "accessory",
+      "description": "A command token for test loadouts. Adds a little armor and attunement.",
+      "effects": { "armor": 1, "attunement_bonus": 5 }
     },
     "sword_iron": {
       "display_name": "Iron Sword",

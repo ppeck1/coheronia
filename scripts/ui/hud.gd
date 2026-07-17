@@ -102,6 +102,7 @@ var _character_panel: PanelContainer
 var _character_info: Label
 # FQ-06: skill tree panel (K); preloaded script, no class_name (cache-safe).
 const SkillTreePanelScript := preload("res://scripts/ui/skill_tree_panel.gd")
+const InventorySlotCellScript := preload("res://scripts/ui/inventory_slot_cell.gd")
 var _skill_panel: PanelContainer
 # FQ-15: map/minimap panel (M); hidden until opened, fed a snapshot by game_root.
 const MapPanelScript := preload("res://scripts/ui/map_panel.gd")
@@ -123,6 +124,13 @@ var _slot_selected_sb: StyleBox
 # FQ-09: inventory panel item grid and town stockpile grid.
 var _inv_grid: GridContainer
 var _inv_grid_counts: Dictionary = {}    # item_id -> displayed count
+var _backpack_grid: GridContainer
+var _backpack_grid_counts: Dictionary = {}  # item_id -> displayed count on the board
+var _backpack_cell_total := 0
+var _equipment_grid: GridContainer
+var _equipment_slot_items: Dictionary = {}  # slot_id -> item_id on the board
+var _dock_assignment_row: HBoxContainer
+var _selected_item_detail: Label
 var _stock_grid: GridContainer
 var _stock_grid_counts: Dictionary = {}  # item_id -> displayed count
 # FQ-19: contextual right-band stack — entries appear only when relevant
@@ -2580,28 +2588,71 @@ func _build_inventory_panel() -> void:
 	_inv_panel.anchor_right = 0.5
 	_inv_panel.anchor_top = 0.5
 	_inv_panel.anchor_bottom = 0.5
-	_inv_panel.offset_left = -160
-	_inv_panel.offset_top = -190
-	_inv_panel.custom_minimum_size = Vector2(320, 300)
+	_inv_panel.offset_left = -430
+	_inv_panel.offset_top = -300
+	_inv_panel.custom_minimum_size = Vector2(860, 560)
 	_inv_panel.visible = false
 	add_child(_inv_panel)
 	var inventory_content := _module_content_host(_inv_panel, "ornate")
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(300, 280)
-	inventory_content.add_child(scroll)
 	var box := VBoxContainer.new()
-	box.custom_minimum_size = Vector2(300, 0)
-	scroll.add_child(box)
+	box.custom_minimum_size = Vector2(820, 520)
+	box.add_theme_constant_override("separation", 8)
+	inventory_content.add_child(box)
 	var title := _label(box, "INVENTORY")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	# FQ-09: icon grid above the detail text (hover a tile for its descriptor).
+	var summary := _label(box, "")
+	summary.name = "InventoryBoardSummary"
+	summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_inv_content = summary
+	_inv_content.visible = false
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 12)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(body)
+	var loadout := VBoxContainer.new()
+	loadout.custom_minimum_size = Vector2(310, 0)
+	loadout.add_theme_constant_override("separation", 6)
+	body.add_child(loadout)
+	var loadout_title := _label(loadout, "LOADOUT")
+	loadout_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_equipment_grid = GridContainer.new()
+	_equipment_grid.columns = 3
+	_equipment_grid.add_theme_constant_override("h_separation", 8)
+	_equipment_grid.add_theme_constant_override("v_separation", 8)
+	loadout.add_child(_equipment_grid)
+	var right := VBoxContainer.new()
+	right.custom_minimum_size = Vector2(490, 0)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.add_theme_constant_override("separation", 8)
+	body.add_child(right)
+	var backpack_header := HBoxContainer.new()
+	backpack_header.alignment = BoxContainer.ALIGNMENT_CENTER
+	backpack_header.add_theme_constant_override("separation", 8)
+	right.add_child(backpack_header)
+	var backpack_title := _label(backpack_header, "BACKPACK")
+	backpack_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var sort_button := Button.new()
+	sort_button.text = "Sort"
+	sort_button.custom_minimum_size = Vector2(58, 24)
+	sort_button.focus_mode = Control.FOCUS_NONE
+	sort_button.tooltip_text = "Sort carried stacks by type and name"
+	sort_button.pressed.connect(func() -> void: _sort_inventory_board())
+	backpack_header.add_child(sort_button)
 	_inv_grid = GridContainer.new()
-	_inv_grid.columns = 6
-	box.add_child(_inv_grid)
-	_inv_content = _label(box, "")
-	_inv_content.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_label(box, "Press I to close")
+	_inv_grid.columns = 7
+	_inv_grid.add_theme_constant_override("h_separation", 6)
+	_inv_grid.add_theme_constant_override("v_separation", 6)
+	_backpack_grid = _inv_grid
+	right.add_child(_backpack_grid)
+	_selected_item_detail = _label(right, "")
+	_selected_item_detail.custom_minimum_size = Vector2(0, 78)
+	_selected_item_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var dock_title := _label(right, "DOCK")
+	dock_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dock_assignment_row = HBoxContainer.new()
+	_dock_assignment_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_dock_assignment_row.add_theme_constant_override("separation", 8)
+	right.add_child(_dock_assignment_row)
 
 
 func toggle_inventory_panel() -> void:
@@ -2758,6 +2809,15 @@ func hotbar_slot_count(i: int) -> int:
 	return int(_hotbar_counts[i].text)
 
 
+func hotbar_slot_empty(i: int) -> bool:
+	if player == null or i < 0 or i >= player.hotbar.size() \
+			or i >= _hotbar_icons.size() or i >= _hotbar_counts.size():
+		return false
+	return str(player.hotbar[i]) == "" \
+		and _hotbar_icons[i].texture == null \
+		and _hotbar_counts[i].text == ""
+
+
 func hotbar_selected_index() -> int:
 	return _hotbar_selected
 
@@ -2776,9 +2836,50 @@ func get_inventory_panel_text() -> String:
 	return _inv_content.text
 
 
+func backpack_cell_count(item_id: String) -> int:
+	return int(_backpack_grid_counts.get(item_id, 0))
+
+
+func backpack_cell_total() -> int:
+	return _backpack_cell_total
+
+
+func equipment_slot_item(slot_id: String) -> String:
+	return str(_equipment_slot_items.get(slot_id, ""))
+
+
+func equipment_slot_count() -> int:
+	return _equipment_slot_items.size()
+
+
+func dock_slot_item(i: int) -> String:
+	if player == null or i < 0 or i >= player.hotbar.size():
+		return ""
+	return player.hotbar[i]
+
+
+func dock_slot_count(i: int) -> int:
+	var item_id: String = dock_slot_item(i)
+	return 0 if item_id == "" or player == null else player.inventory.count(item_id)
+
+
+func dock_selected_index() -> int:
+	return _hotbar_selected
+
+
+func selected_item_detail_text() -> String:
+	return _selected_item_detail.text if _selected_item_detail != null else ""
+
+
+func inventory_board_visible() -> bool:
+	return _inv_panel != null and _inv_panel.visible and _backpack_grid != null
+
+
 func _refresh_inventory_panel() -> void:
 	if player == null:
 		return
+	_refresh_inventory_board()
+	return
 	# FQ-09: rebuild the icon grid from the live counts.
 	for tile in _inv_grid.get_children():
 		tile.queue_free()
@@ -2809,12 +2910,634 @@ func _refresh_inventory_panel() -> void:
 	var equipped: Dictionary = player.equipped_dict()
 	for slot in BlockRegistry.equipment_slots():
 		var slot_id := str(slot.get("id", ""))
-		var item_id := str(equipped.get(slot_id, ""))
+		var item_id: String = str(equipped.get(slot_id, ""))
 		var item_name := "(empty)"
 		if item_id != "":
 			item_name = BlockRegistry.equipment_item_display_name(item_id)
 		lines.append("  %s: %s" % [str(slot.get("display_name", slot_id)), item_name])
 	_inv_content.text = "\n".join(lines)
+
+
+func _refresh_inventory_board() -> void:
+	player.set_dock_assignments(player.dock_assignments_to_array())
+	_clear_children(_backpack_grid)
+	_clear_children(_equipment_grid)
+	_clear_children(_dock_assignment_row)
+	_inv_grid_counts = {}
+	_backpack_grid_counts = {}
+	_backpack_cell_total = 0
+	player.inventory.ensure_layout()
+	var backpack_layout: Array = player.inventory.layout_to_array()
+	for backpack_index in range(backpack_layout.size()):
+		var raw_item_id: Variant = backpack_layout[backpack_index]
+		var item_id: String = str(raw_item_id)
+		if item_id == "":
+			_make_backpack_cell(_backpack_grid, backpack_index, "", 0)
+			continue
+		var count: int = player.inventory.count(item_id)
+		_backpack_cell_total += 1
+		_backpack_grid_counts[item_id] = count
+		_inv_grid_counts[item_id] = count
+		_make_backpack_cell(_backpack_grid, backpack_index, item_id, count)
+	var equipped: Dictionary = player.equipped_dict()
+	_equipment_slot_items = {}
+	for slot in _equipment_board_slots():
+		var slot_id: String = str(slot.get("id", ""))
+		var gear_id: String = str(equipped.get(slot_id, ""))
+		_equipment_slot_items[slot_id] = gear_id
+		_make_equipment_cell(_equipment_grid, slot, gear_id)
+	for i in range(player.hotbar.size()):
+		_make_dock_assignment_cell(_dock_assignment_row, i)
+	var selected_id: String = ""
+	if player.selected_slot >= 0 and player.selected_slot < player.hotbar.size():
+		selected_id = str(player.hotbar[player.selected_slot])
+	_refresh_selected_item_detail(selected_id)
+	var sorted_ids: Array = player.inventory.counts.keys()
+	sorted_ids.sort()
+	for item_id in sorted_ids:
+		if not _inv_grid_counts.has(item_id):
+			_inv_grid_counts[item_id] = player.inventory.count(item_id)
+	_inv_content.text = _inventory_summary_text(sorted_ids, equipped)
+
+
+func _inventory_summary_text(sorted_ids: Array, equipped: Dictionary) -> String:
+	var lines: Array[String] = []
+	if player.inventory.counts.is_empty():
+		lines.append("  (empty)")
+	else:
+		for item_id in sorted_ids:
+			lines.append("  %s x%d" % [
+				BlockRegistry.display_name(item_id),
+				player.inventory.counts[item_id]])
+	lines.append("")
+	var axe_text := ("tier %d" % player.axe_tier) if player.axe_tier > 0 else "(none)"
+	lines.append("  Pick tier %d / Axe %s" % [player.tool_tier, axe_text])
+	lines.append("")
+	lines.append("  -- EQUIPMENT --")
+	lines.append("  Attack %d / Armor %d" % [player.attack_damage(), int(player.armor_total())])
+	for slot in BlockRegistry.equipment_slots():
+		var slot_id: String = str(slot.get("id", ""))
+		var item_id: String = str(equipped.get(slot_id, ""))
+		var item_name := "(empty)"
+		if item_id != "":
+			item_name = BlockRegistry.equipment_item_display_name(item_id)
+		lines.append("  %s: %s" % [str(slot.get("display_name", slot_id)), item_name])
+	return "\n".join(lines)
+
+
+func _clear_children(parent: Control) -> void:
+	if parent == null:
+		return
+	for child in parent.get_children():
+		child.queue_free()
+
+
+func _make_backpack_cell(parent: Control, index: int, item_id: String, count: int) -> void:
+	var cell = InventorySlotCellScript.new()
+	cell.setup(self, "backpack", index, item_id, count)
+	cell.custom_minimum_size = Vector2(56, 52)
+	cell.mouse_filter = Control.MOUSE_FILTER_STOP
+	cell.add_theme_stylebox_override("panel", _slot_normal_sb)
+	parent.add_child(cell)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(box)
+	if item_id == "":
+		cell.tooltip_text = "Empty backpack cell"
+		cell.gui_input.connect(func(event: InputEvent) -> void:
+			if _is_left_click(event):
+				_set_selected_detail(["Empty backpack cell"]))
+		return
+	cell.tooltip_text = _item_tooltip(item_id)
+	cell.gui_input.connect(func(event: InputEvent) -> void:
+		if _is_left_click(event):
+			_select_inventory_item(item_id))
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(28, 26)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture = BlockRegistry.item_icon(item_id)
+	box.add_child(icon)
+	var count_label := Label.new()
+	count_label.text = "x%d" % count
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	count_label.add_theme_font_size_override("font_size", 11)
+	box.add_child(count_label)
+
+
+func _make_equipment_cell(parent: Control, slot: Dictionary, item_id: String) -> void:
+	var slot_id: String = str(slot.get("id", ""))
+	var accepts: String = str(slot.get("accepts", ""))
+	var cell = InventorySlotCellScript.new()
+	cell.setup(self, "equipment", -1, item_id, 1 if item_id != "" else 0, slot_id)
+	cell.custom_minimum_size = Vector2(88, 62)
+	cell.mouse_filter = Control.MOUSE_FILTER_STOP
+	cell.add_theme_stylebox_override("panel", _slot_selected_sb if item_id != "" else _slot_normal_sb)
+	parent.add_child(cell)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(box)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(28, 24)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture = _equipment_icon(item_id, accepts)
+	icon.self_modulate = Color(1, 1, 1, 1) if item_id != "" else Color(0.55, 0.58, 0.62, 0.72)
+	box.add_child(icon)
+	var label := Label.new()
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", 10)
+	label.text = _equipment_short_label(slot_id, item_id)
+	box.add_child(label)
+	cell.tooltip_text = _equipment_tooltip(slot, item_id)
+	cell.gui_input.connect(func(event: InputEvent) -> void:
+		if _is_left_click(event):
+			_select_equipment_slot(slot, item_id))
+
+
+func _make_dock_assignment_cell(parent: Control, index: int) -> void:
+	var item_id: String = str(player.hotbar[index])
+	var count_value: int = player.inventory.count(item_id)
+	var cell = InventorySlotCellScript.new()
+	cell.name = "InventoryDockSlot%d" % index
+	cell.setup(self, "dock", index, item_id, count_value)
+	cell.custom_minimum_size = Vector2(66, 54)
+	cell.mouse_filter = Control.MOUSE_FILTER_STOP
+	cell.add_theme_stylebox_override("panel", _slot_selected_sb if index == player.selected_slot else _slot_normal_sb)
+	cell.tooltip_text = "[%d] Empty dock slot" % (index + 1) if item_id == "" \
+		else "[%d] %s" % [index + 1, BlockRegistry.display_name(item_id)]
+	cell.gui_input.connect(func(event: InputEvent) -> void:
+		if _is_left_release(event):
+			_select_dock_slot(index))
+	parent.add_child(cell)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(box)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(26, 24)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture = BlockRegistry.item_icon(item_id)
+	box.add_child(icon)
+	if item_id == "":
+		icon.texture = null
+		icon.custom_minimum_size = Vector2(26, 18)
+		icon.self_modulate = Color(0.45, 0.48, 0.52, 0.5)
+	var count := Label.new()
+	count.text = "%d  Empty" % (index + 1) if item_id == "" \
+		else "%d  x%d" % [index + 1, count_value]
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	count.add_theme_font_size_override("font_size", 10)
+	box.add_child(count)
+
+
+func _is_left_click(event: InputEvent) -> bool:
+	var mouse_event: InputEventMouseButton = event as InputEventMouseButton
+	return mouse_event != null and mouse_event.button_index == MOUSE_BUTTON_LEFT \
+		and mouse_event.pressed
+
+
+func _is_left_release(event: InputEvent) -> bool:
+	var mouse_event: InputEventMouseButton = event as InputEventMouseButton
+	return mouse_event != null and mouse_event.button_index == MOUSE_BUTTON_LEFT \
+		and not mouse_event.pressed
+
+
+func _select_inventory_item(item_id: String) -> void:
+	if item_id == "":
+		_set_selected_detail(["Empty backpack cell"])
+		return
+	var lines: Array[String] = [
+		"%s x%d" % [BlockRegistry.display_name(item_id), player.inventory.count(item_id)]
+	]
+	var desc: String = BlockRegistry.item_description(item_id)
+	if desc != "":
+		lines.append(desc)
+	_set_selected_detail(lines)
+
+
+func _select_equipment_slot(slot: Dictionary, item_id: String) -> void:
+	var slot_name: String = str(slot.get("display_name", slot.get("id", "")))
+	if item_id == "":
+		var accepts: String = str(slot.get("accepts", "gear"))
+		var lines: Array[String] = [slot_name, "Empty", "Accepts: %s" % accepts.capitalize()]
+		if _is_tool_slot(str(slot.get("id", ""))):
+			lines.append("Drag a tool here to set the active tier.")
+		_set_selected_detail(lines)
+		return
+	var item: Dictionary = BlockRegistry.equipment_item(item_id)
+	var lines: Array[String] = [
+		slot_name,
+		BlockRegistry.equipment_item_display_name(item_id),
+	]
+	var desc: String = str(item.get("description", ""))
+	if desc != "":
+		lines.append(desc)
+	var effects: Dictionary = item.get("effects", {})
+	if not effects.is_empty():
+		var parts: Array[String] = []
+		for key in effects:
+			parts.append("%s %+d" % [str(key).capitalize().replace("_", " "), int(effects[key])])
+		lines.append(", ".join(parts))
+	if _is_tool_slot(str(slot.get("id", ""))):
+		lines.append("Drag to backpack to stow this tool.")
+	_set_selected_detail(lines)
+
+
+func _select_dock_slot(index: int) -> void:
+	if player == null or index < 0 or index >= player.hotbar.size():
+		return
+	player.selected_slot = index
+	if _inv_panel != null and _inv_panel.visible:
+		_refresh_dock_selection_styles()
+	else:
+		update_inventory()
+	var item_id: String = str(player.hotbar[index])
+	if item_id == "":
+		_set_selected_detail(["Dock %d" % (index + 1), "Empty"])
+	else:
+		_refresh_selected_item_detail(item_id)
+
+
+func _refresh_dock_selection_styles() -> void:
+	if player == null:
+		return
+	_hotbar_selected = player.selected_slot
+	for i in range(_hotbar_slots.size()):
+		var selected: bool = i == player.selected_slot
+		_hotbar_slots[i].add_theme_stylebox_override("panel",
+			_slot_selected_sb if selected else _slot_normal_sb)
+		if i < _hotbar_cells.size():
+			_hotbar_cells[i].add_theme_constant_override("margin_top", 0 if selected else 3)
+			_hotbar_cells[i].add_theme_constant_override("margin_bottom", 3 if selected else 0)
+	if _dock_assignment_row == null:
+		return
+	for child in _dock_assignment_row.get_children():
+		var cell: Control = child as Control
+		if cell == null or cell.is_queued_for_deletion():
+			continue
+		var name_text := str(cell.name)
+		if not name_text.begins_with("InventoryDockSlot"):
+			continue
+		var index_text := name_text.trim_prefix("InventoryDockSlot")
+		if not index_text.is_valid_int():
+			continue
+		var slot_index: int = int(index_text)
+		cell.add_theme_stylebox_override("panel",
+			_slot_selected_sb if slot_index == player.selected_slot else _slot_normal_sb)
+
+
+func can_drop_inventory_slot(target_kind: String, target_index: int, data: Variant,
+		target_slot_id: String = "") -> bool:
+	if player == null or not (data is Dictionary):
+		return false
+	var payload: Dictionary = data
+	if str(payload.get("source", "")) != "inventory_board":
+		return false
+	var source_kind: String = str(payload.get("kind", ""))
+	var item_id: String = str(payload.get("item_id", ""))
+	if item_id == "":
+		return false
+	var source_has_item := source_kind == "equipment"
+	if source_kind == "backpack":
+		source_has_item = player.inventory.count(item_id) > 0
+	elif source_kind == "dock":
+		source_has_item = _valid_dock_index(int(payload.get("index", -1))) \
+			and str(player.hotbar[int(payload.get("index", -1))]) == item_id
+	if not source_has_item:
+		return false
+	match target_kind:
+		"backpack":
+			return _valid_backpack_index(target_index) \
+				and (source_kind == "backpack" or source_kind == "equipment" \
+					or source_kind == "dock")
+		"dock":
+			return _valid_dock_index(target_index) \
+				and (source_kind == "dock" or (source_kind == "backpack" \
+					and _can_assign_dock_item(item_id)))
+		"equipment":
+			if target_slot_id == "":
+				return false
+			if source_kind == "backpack":
+				return _can_equip_backpack_item(target_slot_id, item_id)
+			if source_kind == "equipment":
+				var source_slot_id: String = str(payload.get("slot_id", ""))
+				return _can_swap_equipment_slots(source_slot_id, target_slot_id, item_id)
+	return false
+
+
+func drop_inventory_slot(target_kind: String, target_index: int, data: Variant,
+		target_slot_id: String = "") -> void:
+	if not can_drop_inventory_slot(target_kind, target_index, data, target_slot_id):
+		return
+	var payload: Dictionary = data
+	var source_kind: String = str(payload.get("kind", ""))
+	var source_index: int = int(payload.get("index", -1))
+	var item_id: String = str(payload.get("item_id", ""))
+	if target_kind == "backpack" and source_kind == "backpack":
+		_swap_backpack_slots(source_index, target_index)
+	elif target_kind == "backpack" and source_kind == "equipment":
+		_unequip_to_backpack(str(payload.get("slot_id", "")), item_id, target_index)
+	elif target_kind == "backpack" and source_kind == "dock":
+		_clear_dock_slot(source_index)
+	elif target_kind == "dock" and source_kind == "dock":
+		_swap_dock_slots(source_index, target_index)
+	elif target_kind == "dock" and source_kind == "backpack":
+		_assign_dock_item(target_index, item_id)
+	elif target_kind == "equipment" and source_kind == "backpack":
+		_equip_from_backpack(target_slot_id, item_id, source_index)
+	elif target_kind == "equipment" and source_kind == "equipment":
+		_swap_equipment_slots(str(payload.get("slot_id", "")), target_slot_id, item_id)
+
+
+func _swap_backpack_slots(source_index: int, target_index: int) -> void:
+	if not _valid_backpack_index(source_index) or not _valid_backpack_index(target_index) \
+			or source_index == target_index:
+		return
+	var layout: Array = player.inventory.layout_to_array()
+	var source_item: String = str(layout[source_index])
+	layout[source_index] = str(layout[target_index])
+	layout[target_index] = source_item
+	player.inventory.set_layout(layout)
+	update_inventory()
+	if source_item != "":
+		_select_inventory_item(source_item)
+
+
+func _swap_dock_slots(source_index: int, target_index: int) -> void:
+	if not _valid_dock_index(source_index) or not _valid_dock_index(target_index) \
+			or source_index == target_index:
+		return
+	var source_item: String = str(player.hotbar[source_index])
+	player.hotbar[source_index] = str(player.hotbar[target_index])
+	player.hotbar[target_index] = source_item
+	player.selected_slot = target_index
+	update_inventory()
+	_refresh_selected_item_detail(source_item)
+
+
+func _clear_dock_slot(source_index: int) -> void:
+	if not _valid_dock_index(source_index):
+		return
+	player.hotbar[source_index] = ""
+	player.selected_slot = source_index
+	update_inventory()
+	_set_selected_detail(["Dock %d" % (source_index + 1), "Empty"])
+
+
+func _assign_dock_item(target_index: int, item_id: String) -> void:
+	if not _valid_dock_index(target_index) or not _can_assign_dock_item(item_id):
+		return
+	var previous_item: String = str(player.hotbar[target_index])
+	var existing_index: int = player.hotbar.find(item_id)
+	if existing_index >= 0 and existing_index != target_index:
+		player.hotbar[existing_index] = previous_item
+	player.hotbar[target_index] = item_id
+	player.selected_slot = target_index
+	update_inventory()
+	_refresh_selected_item_detail(item_id)
+
+
+func _can_assign_dock_item(item_id: String) -> bool:
+	return item_id != "" and player.inventory.count(item_id) > 0 \
+		and BlockRegistry.is_dock_assignable_item(item_id)
+
+
+func _can_equip_backpack_item(slot_id: String, item_id: String) -> bool:
+	return item_id != "" and player.inventory.count(item_id) > 0 \
+		and BlockRegistry.item_fits_slot(item_id, slot_id)
+
+
+func _can_swap_equipment_slots(source_slot_id: String, target_slot_id: String,
+		item_id: String) -> bool:
+	if source_slot_id == "" or target_slot_id == "" or source_slot_id == target_slot_id:
+		return false
+	if _is_tool_slot(source_slot_id) or _is_tool_slot(target_slot_id):
+		return false
+	if not BlockRegistry.item_fits_slot(item_id, target_slot_id):
+		return false
+	var target_item: String = str(player.equipped_dict().get(target_slot_id, ""))
+	return BlockRegistry.item_fits_slot(target_item, source_slot_id)
+
+
+func _equip_from_backpack(slot_id: String, item_id: String, source_index: int) -> void:
+	if not _can_equip_backpack_item(slot_id, item_id):
+		return
+	var previous_item: String = str(player.equipped_dict().get(slot_id, ""))
+	var layout: Array = player.inventory.layout_to_array()
+	if _valid_layout_index(source_index, layout) and str(layout[source_index]) == item_id:
+		layout[source_index] = ""
+	if not player.inventory.remove(item_id):
+		return
+	if not player.equip_item(slot_id, item_id):
+		player.inventory.add(item_id)
+		return
+	if previous_item != "":
+		player.inventory.add(previous_item)
+		_place_item_in_backpack_layout(previous_item, source_index, layout)
+	update_inventory()
+	_select_equipment_slot(BlockRegistry.equipment_slot(slot_id), item_id)
+
+
+func _unequip_to_backpack(slot_id: String, item_id: String, target_index: int) -> void:
+	if slot_id == "" or item_id == "":
+		return
+	if str(player.equipped_dict().get(slot_id, "")) != item_id:
+		return
+	if not player.equip_item(slot_id, ""):
+		return
+	player.inventory.add(item_id)
+	_place_item_in_backpack_layout(item_id, target_index)
+	update_inventory()
+	_select_inventory_item(item_id)
+
+
+func _swap_equipment_slots(source_slot_id: String, target_slot_id: String,
+		item_id: String) -> void:
+	if not _can_swap_equipment_slots(source_slot_id, target_slot_id, item_id):
+		return
+	var equipped: Dictionary = player.equipped_dict()
+	var target_item: String = str(equipped.get(target_slot_id, ""))
+	player.equipment[source_slot_id] = target_item
+	player.equipment[target_slot_id] = item_id
+	player.inventory_changed.emit()
+	update_inventory()
+	_select_equipment_slot(BlockRegistry.equipment_slot(target_slot_id), item_id)
+
+
+func _place_item_in_backpack_layout(item_id: String, preferred_index: int,
+		base_layout: Array = []) -> void:
+	var layout: Array = base_layout.duplicate() if not base_layout.is_empty() \
+		else player.inventory.layout_to_array()
+	player.inventory.ensure_layout()
+	layout = _layout_without_item(layout, item_id)
+	var target_index: int = preferred_index
+	if not _valid_layout_index(target_index, layout) or str(layout[target_index]) != "":
+		target_index = _first_empty_layout_index(layout)
+	if target_index >= 0:
+		layout[target_index] = item_id
+	player.inventory.set_layout(layout)
+
+
+func _layout_without_item(layout: Array, item_id: String) -> Array:
+	var out: Array = layout.duplicate()
+	for i in range(out.size()):
+		if str(out[i]) == item_id:
+			out[i] = ""
+	return out
+
+
+func _first_empty_layout_index(layout: Array) -> int:
+	for i in range(layout.size()):
+		if str(layout[i]) == "":
+			return i
+	return layout.size()
+
+
+func _valid_layout_index(index: int, layout: Array) -> bool:
+	return index >= 0 and index < layout.size()
+
+
+func _is_tool_slot(slot_id: String) -> bool:
+	return slot_id == "pickaxe" or slot_id == "axe"
+
+
+func _sort_inventory_board() -> void:
+	if player == null:
+		return
+	var sorted_ids: Array = player.inventory.counts.keys()
+	sorted_ids.sort_custom(Callable(self, "_inventory_sort_less"))
+	var layout: Array[String] = []
+	for raw_item_id in sorted_ids:
+		layout.append(str(raw_item_id))
+	player.inventory.set_layout(layout)
+	update_inventory()
+	_set_selected_detail(["Backpack sorted"])
+
+
+func _inventory_sort_less(a: Variant, b: Variant) -> bool:
+	return _inventory_sort_key(str(a)) < _inventory_sort_key(str(b))
+
+
+func _inventory_sort_key(item_id: String) -> String:
+	var category := "9"
+	if BlockRegistry.is_placeable(item_id):
+		category = "0"
+	elif item_id == "ore" or item_id.ends_with("_ore") or item_id.ends_with("_ingot"):
+		category = "1"
+	elif item_id == "food" or item_id == "crop_seeds":
+		category = "2"
+	elif item_id == "slime_gel" or item_id == "meat" or item_id == "hide_scrap" \
+			or item_id == "thorn_quill" or item_id == "chitin" or item_id == "silk" \
+			or item_id == "eyes":
+		category = "3"
+	elif not BlockRegistry.equipment_item(item_id).is_empty():
+		category = "4"
+	return "%s|%s|%s" % [category, BlockRegistry.display_name(item_id).to_lower(), item_id]
+
+
+func _valid_backpack_index(index: int) -> bool:
+	return player != null and index >= 0 and index < player.inventory.layout_to_array().size()
+
+
+func _valid_dock_index(index: int) -> bool:
+	return player != null and index >= 0 and index < player.hotbar.size()
+
+
+func _set_selected_detail(lines: Array[String]) -> void:
+	if _selected_item_detail == null:
+		return
+	_selected_item_detail.text = "\n".join(lines)
+
+
+func _refresh_selected_item_detail(item_id: String) -> void:
+	if _selected_item_detail == null:
+		return
+	if item_id == "":
+		_selected_item_detail.text = ""
+		return
+	var desc: String = BlockRegistry.item_description(item_id)
+	var lines: Array[String] = [
+		"%s x%d" % [BlockRegistry.display_name(item_id), player.inventory.count(item_id)]
+	]
+	if desc != "":
+		lines.append(desc)
+	lines.append("Dock %d" % (player.selected_slot + 1))
+	_selected_item_detail.text = "\n".join(lines)
+
+
+func _item_tooltip(item_id: String) -> String:
+	var tip: String = BlockRegistry.display_name(item_id)
+	var desc: String = BlockRegistry.item_description(item_id)
+	if desc != "":
+		tip += "\n" + desc
+	return tip
+
+
+func _equipment_icon(item_id: String, accepts: String) -> Texture2D:
+	if item_id != "" and BlockRegistry.visual_texture("items", item_id) != null:
+		return BlockRegistry.item_icon(item_id)
+	var fallback := "armor"
+	match accepts:
+		"pickaxe":
+			fallback = "pick"
+		"axe":
+			fallback = "axe"
+		"weapon":
+			fallback = "sword"
+		"ring", "amulet":
+			fallback = "crystal"
+		"accessory":
+			fallback = "authority_sigil"
+	return BlockRegistry.item_icon(fallback)
+
+
+func _equipment_short_label(slot_id: String, item_id: String) -> String:
+	if item_id != "":
+		return BlockRegistry.equipment_item_display_name(item_id)
+	return str(BlockRegistry.equipment_slot(slot_id).get("display_name", slot_id))
+
+
+func _equipment_tooltip(slot: Dictionary, item_id: String) -> String:
+	var slot_name: String = str(slot.get("display_name", slot.get("id", "")))
+	if item_id == "":
+		return "%s\nEmpty" % slot_name
+	var item: Dictionary = BlockRegistry.equipment_item(item_id)
+	var tip: String = "%s\n%s" % [slot_name, BlockRegistry.equipment_item_display_name(item_id)]
+	var desc: String = str(item.get("description", ""))
+	if desc != "":
+		tip += "\n" + desc
+	var effects: Dictionary = item.get("effects", {})
+	if not effects.is_empty():
+		var parts: Array[String] = []
+		for key in effects:
+			parts.append("%s %+d" % [str(key).capitalize().replace("_", " "), int(effects[key])])
+		tip += "\n" + ", ".join(parts)
+	return tip
+
+
+func _equipment_board_slots() -> Array:
+	var by_id := {}
+	for slot in BlockRegistry.equipment_slots():
+		by_id[str(slot.get("id", ""))] = slot
+	var order := [
+		"weapon", "offhand_weapon", "pickaxe",
+		"axe", "helmet", "torso",
+		"feet", "ring_1", "ring_2",
+		"ring_3", "ring_4", "amulet",
+		"accessory",
+	]
+	var out: Array = []
+	for slot_id in order:
+		if by_id.has(slot_id):
+			out.append(by_id[slot_id])
+	return out
 
 
 func _build_debug_overlay() -> void:
@@ -3035,12 +3758,12 @@ func update_inventory() -> void:
 	# FQ-19: contextual selected-item entry — announced only when the live
 	# selection actually changes, then it fades out on its own.
 	if player.selected_slot < player.hotbar.size():
-		var selected_id: String = player.hotbar[player.selected_slot]
+		var selected_id: String = str(player.hotbar[player.selected_slot])
 		var announce := "%d:%s" % [player.selected_slot, selected_id]
 		if announce != _ctx_last_item:
 			var first := _ctx_last_item == ""
 			_ctx_last_item = announce
-			if _ctx_item_panel != null and not first:
+			if selected_id != "" and _ctx_item_panel != null and not first:
 				_ctx_item_label.text = "%s ×%d" % [
 					BlockRegistry.display_name(selected_id),
 					player.inventory.count(selected_id)]
@@ -3048,10 +3771,16 @@ func update_inventory() -> void:
 	for i in range(_hotbar_slots.size()):
 		if i >= player.hotbar.size():
 			continue
-		var item_id: String = player.hotbar[i]
-		_hotbar_icons[i].texture = BlockRegistry.item_icon(item_id)
-		_hotbar_counts[i].text = str(player.inventory.count(item_id))
-		_hotbar_slots[i].tooltip_text = "[%d] %s" % [i + 1, BlockRegistry.display_name(item_id)]
+		var item_id: String = str(player.hotbar[i])
+		if item_id == "":
+			_hotbar_icons[i].texture = null
+			_hotbar_counts[i].text = ""
+			_hotbar_slots[i].tooltip_text = "[%d] Empty dock slot" % (i + 1)
+		else:
+			_hotbar_icons[i].texture = BlockRegistry.item_icon(item_id)
+			_hotbar_counts[i].text = str(player.inventory.count(item_id))
+			_hotbar_slots[i].tooltip_text = "[%d] %s" % [
+				i + 1, BlockRegistry.display_name(item_id)]
 		var selected: bool = i == player.selected_slot
 		_hotbar_slots[i].add_theme_stylebox_override("panel",
 			_slot_selected_sb if selected else _slot_normal_sb)
@@ -3067,11 +3796,15 @@ func update_inventory() -> void:
 			parts.append("%s ×%d" % [BlockRegistry.display_name(extra_id).capitalize(), extra])
 	var _axe_hb_str := ("tier %d" % player.axe_tier) if player.axe_tier > 0 else "none"
 	# FQ-04: weapon/armor state in the toolbelt line.
-	var _weapon_id := str(player.equipped_dict().get("weapon", ""))
-	var _weapon_str := BlockRegistry.equipment_item_display_name(_weapon_id) \
+	var equipped: Dictionary = player.equipped_dict()
+	var _weapon_id: String = str(equipped.get("weapon", ""))
+	var _offhand_id: String = str(equipped.get("offhand_weapon", ""))
+	var _weapon_str: String = BlockRegistry.equipment_item_display_name(_weapon_id) \
 		if _weapon_id != "" else "none"
-	parts.append("Pick tier %d · Axe %s · Weapon %s · Armor %d" % [
-		player.tool_tier, _axe_hb_str, _weapon_str, int(player.armor_total())])
+	var _offhand_str: String = BlockRegistry.equipment_item_display_name(_offhand_id) \
+		if _offhand_id != "" else "none"
+	parts.append("Pick tier %d · Axe %s · Weapon %s · Stowed %s · Armor %d" % [
+		player.tool_tier, _axe_hb_str, _weapon_str, _offhand_str, int(player.armor_total())])
 	_hotbar_label.text = "  ".join(parts)
 	_refresh_stock()
 	if _inv_panel != null and _inv_panel.visible:
@@ -3129,8 +3862,10 @@ func refresh_town_panel() -> void:
 		# FQ-04: sword/armor buttons reflect the equipped gear state.
 		if _forge_sword_button != null:
 			var armed: bool = str(player.equipped_dict().get("weapon", "")) != ""
-			_forge_sword_button.disabled = armed
-			_forge_sword_button.text = "Sword forged" if armed \
+			var offhand_armed: bool = str(player.equipped_dict().get("offhand_weapon", "")) != ""
+			_forge_sword_button.disabled = armed and offhand_armed
+			_forge_sword_button.text = "Weapon slots full" if armed and offhand_armed \
+				else "Forge offhand sword (2 wood + 3 stone)" if armed \
 				else "Forge crude sword (2 wood + 3 stone)"
 		if _forge_armor_button != null:
 			var armored: bool = str(player.equipped_dict().get("torso", "")) != ""
@@ -3175,7 +3910,12 @@ func _rebuild_station_section() -> void:
 			rbtn.text = "  %s (%s)" % [rname, _cost_text(recipe.get("inputs", {}))]
 			var slot_blocked := false
 			for slot in recipe.get("equip_slots", {}):
-				if player != null and str(player.equipped_dict().get(slot, "")) != "":
+				if player == null:
+					slot_blocked = true
+				elif str(slot) == "weapon":
+					slot_blocked = str(player.equipped_dict().get("weapon", "")) != "" \
+						and str(player.equipped_dict().get("offhand_weapon", "")) != ""
+				elif str(player.equipped_dict().get(slot, "")) != "":
 					slot_blocked = true
 			rbtn.disabled = not _stock_has(recipe.get("inputs", {})) or slot_blocked
 			if slot_blocked:
