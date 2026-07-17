@@ -28,8 +28,8 @@ BOTH_EDGE_BLOCKS = {
 }
 HORIZONTAL_EDGE_BLOCKS = {"grass"}
 CUTOUT_BLOCKS = {
-    "berry_bush", "crop_ripe", "crop_seedling", "lantern", "torch",
-    "tree_leaves", "tree_trunk",
+	"berry_bush", "crop_ripe", "crop_seedling", "lantern", "torch",
+	"tree_trunk",
 }
 OPAQUE_BLOCKS = BOTH_EDGE_BLOCKS | HORIZONTAL_EDGE_BLOCKS | {"town_hall_core"}
 
