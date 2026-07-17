@@ -90,7 +90,8 @@ var _rule_checks: Dictionary = {}          # rule key -> CheckBox
 
 
 func _ready() -> void:
-	if OS.get_environment("COHERONIA_SMOKE") == "1":
+	if OS.get_environment("COHERONIA_SMOKE") == "1" \
+			or OS.get_environment("COHERONIA_HUD_QA") == "1":
 		GameState.ensure_play_context()
 		get_tree().change_scene_to_file.call_deferred("res://scenes/main/Main.tscn")
 		return

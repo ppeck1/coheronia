@@ -86,7 +86,7 @@ var _last_health := -1.0
 var _last_attunement := -1.0
 var _vessel_fx_tweens: Dictionary = {}   # TextureRect -> Tween
 var _vessel_pulse_tween: Tween
-var _module_toolbar: HBoxContainer
+var _module_toolbar: Control
 var _command_center_panel: PanelContainer
 # FQ-14: compact, state-driven current-goal panel (top-center; toggle_goals hides it).
 var _goal_panel: PanelContainer
@@ -219,9 +219,15 @@ func _process(_delta: float) -> void:
 ## from toggle chips in the central panel, not a separate screen-corner
 ## toolbar. `_module_toolbar` keeps its name as the row's identity.
 func _build_command_center(parent: Control) -> void:
-	_module_toolbar = HBoxContainer.new()
-	_module_toolbar.alignment = BoxContainer.ALIGNMENT_CENTER
-	_module_toolbar.add_theme_constant_override("separation", 4)
+	if _hud_kit_active:
+		_module_toolbar = Control.new()
+		_module_toolbar.custom_minimum_size = Vector2(340, 32)
+		_module_toolbar.size = Vector2(340, 32)
+	else:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 4)
+		_module_toolbar = row
 	parent.add_child(_module_toolbar)
 	_add_command_toggle("Crest", func(): _toggle_top_left_module())
 	_add_command_toggle("Goal", func(): _toggle_goal_module())
@@ -235,7 +241,7 @@ func _build_command_center(parent: Control) -> void:
 func _build_command_center_widget() -> void:
 	_command_center_panel = PanelContainer.new()
 	_command_center_panel.name = "HudModuleControls"
-	_command_center_panel.add_theme_stylebox_override("panel", _chip_style())
+	_command_center_panel.add_theme_stylebox_override("panel", _command_chip_style())
 	if _hud_kit_active and _bottom_dock != null:
 		var layout := _load_hud_kit_layout()
 		var rect := _json_rect(layout.get("module_toolbar_rect"))
@@ -266,11 +272,11 @@ func _add_command_toggle_with_state(text: String, action: Callable) -> void:
 	button.name = "CommandToggle" + text
 	button.text = text
 	button.toggle_mode = true
-	button.custom_minimum_size = Vector2(58, 22)
-	button.add_theme_font_size_override("font_size", 11)
-	button.add_theme_stylebox_override("normal", _chip_style(Color(0.72, 0.72, 0.72)))
-	button.add_theme_stylebox_override("hover", _chip_style())
-	button.add_theme_stylebox_override("pressed", _chip_style(Color(1.3, 1.12, 0.75)))
+	button.custom_minimum_size = Vector2(54, 18)
+	button.add_theme_font_size_override("font_size", 9)
+	button.add_theme_stylebox_override("normal", _command_chip_style(Color(0.72, 0.72, 0.72)))
+	button.add_theme_stylebox_override("hover", _command_chip_style())
+	button.add_theme_stylebox_override("pressed", _command_chip_style(Color(1.3, 1.12, 0.75)))
 	# These are HUD mouse/touch chips; keeping focus after a click lets ui_accept
 	# repeat through the focused Button and can reopen/close toggled panels.
 	button.focus_mode = Control.FOCUS_NONE
@@ -280,6 +286,23 @@ func _add_command_toggle_with_state(text: String, action: Callable) -> void:
 		_sync_command_center())
 	_module_toolbar.add_child(button)
 	_command_toggles[text] = button
+	_layout_command_toolbar()
+
+
+func _layout_command_toolbar() -> void:
+	if _module_toolbar == null or _module_toolbar is HBoxContainer:
+		return
+	var button_size := Vector2(58, 24)
+	var gap := 4.0
+	var count := _module_toolbar.get_child_count()
+	var total_width := button_size.x * count + gap * maxf(float(count - 1), 0.0)
+	var start_x := maxf((_module_toolbar.custom_minimum_size.x - total_width) * 0.5, 0.0)
+	for i in range(count):
+		var button := _module_toolbar.get_child(i) as Button
+		if button == null:
+			continue
+		button.position = Vector2(start_x + float(i) * (button_size.x + gap), 4.0)
+		button.size = button_size
 
 
 ## Mirror the live open/closed state onto the toggle chips (no signals).
@@ -327,6 +350,22 @@ func _editable_hud_widget_ids() -> Array[String]:
 	if not _dock_band_active:
 		ids.append("dock")
 	return ids
+
+
+func _hud_layout_locked(widget_id: String) -> bool:
+	return (widget_id == "dock" and _dock_band_active) \
+		or (widget_id == "modules" and _hud_kit_active)
+
+
+func _restore_native_module_toolbar_rect() -> void:
+	if not _hud_kit_active or _command_center_panel == null:
+		return
+	var layout := _load_hud_kit_layout()
+	var rect := _json_rect(layout.get("module_toolbar_rect"))
+	if rect == Rect2():
+		rect = Rect2(Vector2(458.0, 132.0), Vector2(364.0, 44.0))
+	_command_center_panel.custom_minimum_size = Vector2.ZERO
+	_place(_command_center_panel, rect)
 
 
 func _build_hud_edit_panel() -> void:
@@ -644,7 +683,9 @@ func _load_hud_layout() -> void:
 		var control: Control = _hud_widgets.get(widget_id)
 		if control == null:
 			continue
-		if widget_id == "dock" and _dock_band_active:
+		if _hud_layout_locked(widget_id):
+			if widget_id == "modules":
+				_restore_native_module_toolbar_rect()
 			_clamp_hud_widget(control)
 			continue
 		control.scale = Vector2.ONE
@@ -669,8 +710,11 @@ func _save_hud_layout() -> void:
 		var control: Control = _hud_widgets.get(widget_id)
 		if control == null:
 			continue
-		if widget_id == "dock" and _dock_band_active:
+		if _hud_layout_locked(widget_id):
+			if widget_id == "modules":
+				_restore_native_module_toolbar_rect()
 			_clamp_hud_widget(control)
+			continue
 		control.scale = Vector2.ONE
 		var delta: Vector2 = control.position - _hud_default_positions[widget_id]
 		var saved_visible := control.visible if widget_id in ["crest", "goal", "events"] else true
@@ -690,7 +734,9 @@ func reset_hud_layout() -> void:
 		if control == null:
 			continue
 		control.position = _hud_default_positions[widget_id]
-		if widget_id == "dock" and _dock_band_active:
+		if _hud_layout_locked(widget_id):
+			if widget_id == "modules":
+				_restore_native_module_toolbar_rect()
 			_clamp_hud_widget(control)
 			continue
 		_set_hud_widget_size(widget_id,
@@ -848,6 +894,32 @@ func _chip_style(tint: Color = Color.WHITE) -> StyleBox:
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(3)
 	sb.set_content_margin_all(5)
+	return sb
+
+
+## The module toggles live inside a 44px dock rail. Keep this compact so the
+## controls do not grow past the native kit rectangle and clip at the viewport.
+func _command_chip_style(tint: Color = Color.WHITE) -> StyleBox:
+	var painted: Texture2D = _painted_texture("chip_frame")
+	if painted != null:
+		var psb := StyleBoxTexture.new()
+		psb.texture = painted
+		psb.set_texture_margin_all(4)
+		psb.content_margin_left = 7
+		psb.content_margin_right = 7
+		psb.content_margin_top = 3
+		psb.content_margin_bottom = 3
+		psb.modulate_color = tint
+		return psb
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.06, 0.09, 0.86)
+	sb.border_color = Color(0.55, 0.42, 0.24, 0.9) * tint
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(2)
+	sb.content_margin_left = 4
+	sb.content_margin_right = 4
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
 	return sb
 
 
