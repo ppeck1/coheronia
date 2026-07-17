@@ -1315,12 +1315,19 @@ func _run() -> void:
 		if _fq20_map_child is NinePatchRect:
 			_fq20_map_single_frame = false
 			break
+	var _fq22_corner: Control = hud._top_left_box.find_child(
+		"CrestCornerOrnament", true, false) as Control
+	var _fq22_corner_clean: bool = _fq22_corner != null \
+		and _fq22_corner.position.x >= 0.0 and _fq22_corner.position.y >= 0.0 \
+		and _fq22_corner.find_child("*", true, false) == null
 	var _fq20_frames_ok: bool = _fq20_crest_sb is StyleBoxFlat \
 		and _fq20_events_sb is StyleBoxFlat \
-		and _fq20_map_single_frame
+		and _fq20_map_single_frame \
+		and _fq22_corner_clean
 	_check("fq22_module_chrome_contract", _fq20_frames_ok,
-		"crest=%s events=%s map_single_frame=%s" % [str(_fq20_crest_sb.get_class()),
-			str(_fq20_events_sb.get_class()), str(_fq20_map_single_frame)])
+		"crest=%s events=%s map_single_frame=%s corner_clean=%s" % [
+			str(_fq20_crest_sb.get_class()), str(_fq20_events_sb.get_class()),
+			str(_fq20_map_single_frame), str(_fq22_corner_clean)])
 
 	# FQ-20: the dock is the command center — five module toggle chips live
 	# inside the dock panel, drive the modules, and mirror external changes.

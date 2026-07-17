@@ -851,23 +851,30 @@ func _chip_style(tint: Color = Color.WHITE) -> StyleBox:
 	return sb
 
 
-## FQ-20: the mockup's diamond medallion pinned to a panel's top-left corner.
-## A PanelContainer stretches its direct children, so the ornament rides in a
-## layout-neutral holder and keeps its manual corner offset.
+## FQ-22: code-drawn crest corner ornament. The old painted crop carried
+## leftover alpha/masking debris outside the panel edge; keep this contained.
 func _add_corner_medallion(panel: Control) -> void:
-	var tex: Texture2D = _painted_texture("corner_medallion")
-	if tex == null:
-		return
 	var holder := Control.new()
+	holder.name = "CrestCornerOrnament"
+	holder.position = Vector2(5, 5)
+	holder.size = Vector2(24, 24)
+	holder.custom_minimum_size = holder.size
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.draw.connect(func() -> void:
+		var center := Vector2(10, 10)
+		var diamond := PackedVector2Array([
+			center + Vector2(0, -6),
+			center + Vector2(6, 0),
+			center + Vector2(0, 6),
+			center + Vector2(-6, 0),
+		])
+		var outline := PackedVector2Array([diamond[0], diamond[1], diamond[2], diamond[3], diamond[0]])
+		holder.draw_colored_polygon(diamond, Color(0.82, 0.66, 0.32, 0.98))
+		holder.draw_polyline(outline, Color(0.12, 0.10, 0.06, 0.95), 1.0)
+		holder.draw_line(Vector2(2, 2), Vector2(18, 2), Color(0.62, 0.53, 0.34, 0.8), 1.0)
+		holder.draw_line(Vector2(2, 2), Vector2(2, 18), Color(0.62, 0.53, 0.34, 0.8), 1.0)
+	)
 	panel.add_child(holder)
-	var ornament := TextureRect.new()
-	ornament.texture = tex
-	ornament.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	ornament.position = Vector2(-23, -23)
-	ornament.size = Vector2(44, 44)
-	ornament.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(ornament)
 
 
 func _build_top_left() -> void:
