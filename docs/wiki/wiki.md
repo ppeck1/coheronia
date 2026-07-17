@@ -1,6 +1,6 @@
 # Coheronia Wiki
 
-Generated: 2026-07-16
+Generated: 2026-07-17
 
 ## Scope
 
@@ -14,14 +14,18 @@ Generated: 2026-07-16
 
 | Field | Value |
 |---|---|
-| Generated | 2026-07-16 |
-| Source state | Public documentation refresh after native HUD-kit, authored gear-overlay, and opening-cel integration. |
+| Generated | 2026-07-17 |
+| Source state | Public documentation refresh after verified native HUD-kit, openable inventory board, authored gear-overlay, and opening-cel integration. |
 | Base repo commit | `250a677` before this publication refresh. |
 | Publication branch | `agent/update-public-docs-hud` |
-| Validator | PASS on 2026-07-16; see publication handoff for the final command set. |
-| Wiki link check | PASS on 2026-07-16 local recursive Markdown/HTML target check. |
+| Validator | PASS on 2026-07-17; see the README verification commands. |
+| Wiki link check | PASS on 2026-07-17: 5,330 local links across 367 Markdown/HTML files. |
 
 This wiki is generated from current Coheronia repo data and includes live, internal, and planned-data references. Planned-data pages are not live gameplay unless marked as live.
+
+## Fresh HUD and inventory evidence
+
+The 2026-07-17 deterministic capture tour refreshed the public screenshot set. `03_inventory.png` shows the live **I** inventory board (loadout, carried backpack, item detail, sort control, and five-slot dock); `10_vessel_damage_states.png` proves that the native health and attunement vessels drain independently while the HUD's runtime labels, icons, counts, hotkeys, and actions remain live. The gameplay video linked from the README predates this HUD and inventory board, so use these screenshots—not the video UI—as the current interface reference.
 
 ## Purpose
 
