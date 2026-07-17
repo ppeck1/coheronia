@@ -119,11 +119,10 @@ The current real-game comparison capture is [`docs/screenshots/10_vessel_damage_
 | `button_icon_skills.png` | 32 x 32 | Skills glyph only |
 | `button_icon_town_hall.png` | 32 x 32 | Town Hall glyph only |
 
-> **Current status:** `DockForegroundTrim` is disabled through
-> `hud_dock_layout.json` (`enabled: false`). The existing environmental
-> dressing appears detached in-game and needs another fit/anchoring pass.
-> Preserve the asset and its fallback contract, but do not re-enable it until a
-> new runtime capture confirms that it is visually attached to the dock.
+> **Current status:** `DockForegroundTrim` is enabled through
+> `hud_dock_layout.json` (`enabled: true`) after the organic upper-rail fit
+> pass. Preserve both 160 x 160 vessel keep-outs and re-check native runtime
+> captures after any trim replacement.
 
 ## Recommended Replacement Order
 
@@ -170,6 +169,10 @@ Use the asset-specific prompt below as the complete instruction for that task. I
 ### Attunement Glass Overlay
 
 > Edit the attached `attunement_glass_overlay.png` for Coheronia. Return exactly one 108 x 108 RGBA PNG. Create only subtle translucent glass facets and controlled highlights for the angular attunement aperture. The image must remain mostly transparent. Do not include blue fill, the outer frame, text, numbers, bloom, an opaque background, or details outside the aperture. Match the health glass lighting and pixel density while retaining a more crystalline faceted character. Keep the exact canvas and hard pixel-art edges.
+
+> Runtime note: health and attunement values render in the lower plaque areas
+> of their frames, not centered over the vessel apertures. Do not design glass
+> facets around center numbers or a placeholder spinning core.
 
 ### Attunement Fill Mask
 

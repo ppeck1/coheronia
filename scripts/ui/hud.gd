@@ -1188,9 +1188,9 @@ func _build_hud_kit(layout: Dictionary) -> void:
 	attune_fill.name = "AttunementFill"
 	attune_fill.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
 	attune_fill.texture_under = attune_mask
-	attune_fill.tint_under = Color(0.025, 0.045, 0.10, 0.92)
+	attune_fill.tint_under = Color(0.02, 0.04, 0.09, 0.78)
 	attune_fill.texture_progress = attune_mask
-	attune_fill.tint_progress = Color(0.12, 0.62, 0.96)
+	attune_fill.tint_progress = Color(0.28, 0.74, 1.0, 0.72)
 	attune_fill.max_value = 100.0
 	attune_fill.value = 100.0
 	_place(attune_fill, attune_fill_rect)
@@ -1298,18 +1298,6 @@ func _build_hud_kit(layout: Dictionary) -> void:
 	_place(_attunement_vessel_label, _json_rect(attune_geo.get("label_rect")))
 	_attunement_vessel_label.z_index = 5
 	_attunement_label = _attunement_vessel_label
-	var core := ColorRect.new()
-	core.name = "Core"
-	core.color = Color(0.82, 0.96, 1.0)
-	core.position = (attune_fill_rect.get_center() - Vector2(6, 6)).round()
-	core.size = Vector2(12, 12)
-	core.pivot_offset = Vector2(6, 6)
-	core.rotation = PI / 4.0
-	core.self_modulate = Color(0.4, 0.65, 0.85, 0.5)
-	core.z_index = 5
-	core.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	band.add_child(core)
-	_attunement_core = core
 	_health_fx = _kit_fx(band, "HealthFx", health_mask, health_fill_rect)
 	_attunement_fx = _kit_fx(band, "AttunementFx", attune_mask, attune_fill_rect)
 	_vessel_sockets = {
@@ -2044,7 +2032,6 @@ func _build_dock_band(geometry: Dictionary) -> void:
 	core.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	band.add_child(core)
 	_attunement_core = core
-	_attunement_frame = charge
 
 	# --- effect overlays (flash/glow/shimmer) above each vessel.
 	var health_fx := TextureRect.new()
@@ -2211,6 +2198,7 @@ func _vessel_value_label(parent: Control) -> Label:
 	var value := Label.new()
 	value.size = Vector2(80, 16)
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	value.add_theme_font_size_override("font_size", 12)
 	value.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
 	value.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))

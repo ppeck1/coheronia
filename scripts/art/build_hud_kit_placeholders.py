@@ -254,13 +254,13 @@ def main() -> int:
             "frame_rect": [8, 8, 160, 160],
             "fill_rect": [34, 34, 108, 108],
             "glass_rect": [34, 34, 108, 108],
-            "label_rect": [48, 79, 80, 18],
+            "label_rect": [56, 150, 68, 16],
         },
         "attunement": {
             "frame_rect": [1112, 8, 160, 160],
             "fill_rect": [1138, 34, 108, 108],
             "glass_rect": [1138, 34, 108, 108],
-            "label_rect": [1152, 79, 80, 18],
+            "label_rect": [1163, 150, 64, 16],
         },
         "slots": [[435 + i * 82, 48, 76, 84] for i in range(5)],
         "slot_content": {
