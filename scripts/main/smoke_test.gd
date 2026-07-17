@@ -1424,17 +1424,19 @@ func _run() -> void:
 	var _fq19v_pulse: bool = hud._attunement_frame != null \
 		and hud._attunement_frame.scale.x > 1.05
 	var _fq19v_core_removed: bool = hud._attunement_core == null
+	var _fq19v_constellation: bool = hud._attunement_constellation != null \
+		and hud._attunement_constellation.visible
 	hud.update_attunement(50.0, 50.0)
 	hud.update_health(player.health, player.max_health)
 	hud.update_attunement(player.attunement, player.max_attunement())
 	_check("fq19_vessel_liquid_and_effects",
 		_fq19v_masked and _fq19v_damage and _fq19v_recover and _fq19v_low
 		and _fq19v_zero and _fq19v_shimmer and _fq19v_pulse
-		and _fq19v_core_removed,
-		"masked=%s damage=%s recover=%s low=%s zero=%s shimmer=%s pulse=%s core_removed=%s" % [
+		and _fq19v_core_removed and _fq19v_constellation,
+		"masked=%s damage=%s recover=%s low=%s zero=%s shimmer=%s pulse=%s core_removed=%s constellation=%s" % [
 			str(_fq19v_masked), str(_fq19v_damage), str(_fq19v_recover),
 			str(_fq19v_low), str(_fq19v_zero), str(_fq19v_shimmer),
-			str(_fq19v_pulse), str(_fq19v_core_removed)])
+			str(_fq19v_pulse), str(_fq19v_core_removed), str(_fq19v_constellation)])
 
 	# --- Progression MVP: XP, player level, base levels, population cap ---
 

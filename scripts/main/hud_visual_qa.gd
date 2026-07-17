@@ -66,6 +66,7 @@ func _run() -> void:
 func _stage_settlement(root: Node2D, world: Node2D, player: CharacterBody2D, hall: Node2D) -> void:
 	player.tool_tier = 2
 	player.axe_tier = 1
+	player.attunement_regen_mult = 0.0
 	player.equip_item("weapon", "sword_crude")
 	player.equip_item("helmet", "helmet_crude")
 	player.equip_item("torso", "torso_crude")

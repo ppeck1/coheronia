@@ -55,6 +55,38 @@ def _masked_fill(mask_name: str, fraction: float, color: tuple[int, int, int, in
     return fill
 
 
+def _draw_attunement_constellation(
+    draw: ImageDraw.ImageDraw, origin: tuple[int, int], charge_ratio: float
+) -> None:
+    stars = [(33, 58), (47, 36), (61, 28), (78, 50), (57, 73), (39, 74)]
+    links = [(0, 1), (1, 2), (2, 3), (1, 4)]
+    link_shadow = (10, 59, 92, int(255 * (0.28 + 0.14 * charge_ratio)))
+    link_color = (191, 240, 255, int(255 * (0.18 + 0.24 * charge_ratio)))
+    for a, b in links:
+        ax, ay = stars[a]
+        bx, by = stars[b]
+        draw.line((origin[0] + ax, origin[1] + ay,
+                   origin[0] + bx, origin[1] + by), fill=link_shadow, width=3)
+        draw.line((origin[0] + ax, origin[1] + ay,
+                   origin[0] + bx, origin[1] + by), fill=link_color, width=2)
+    phases = [0.85, 0.48, 0.72, 0.35, 0.93, 0.56]
+    base_alpha = 0.40 + (0.90 - 0.40) * charge_ratio
+    for i, (x, y) in enumerate(stars):
+        alpha = max(0.18, min(0.95, base_alpha * phases[i]))
+        shadow = (8, 51, 87, int(255 * (0.34 + 0.22 * charge_ratio)))
+        color = (209, 245, 255, int(255 * alpha))
+        core = (250, 255, 255, int(255 * min(1.0, alpha + 0.12)))
+        arm = 4 if phases[i] > 0.76 else 3
+        px, py = origin[0] + x, origin[1] + y
+        draw.line((px - arm - 1, py, px + arm + 1, py), fill=shadow, width=3)
+        draw.line((px, py - arm - 1, px, py + arm + 1), fill=shadow, width=3)
+        draw.line((px - arm, py, px + arm, py), fill=color, width=2)
+        draw.line((px, py - arm, px, py + arm), fill=color, width=2)
+        halo_alpha = int(255 * min(0.58, alpha))
+        draw.ellipse((px - 2, py - 2, px + 2, py + 2), fill=(179, 232, 255, halo_alpha))
+        draw.rectangle((px - 1, py - 1, px, py), fill=core)
+
+
 def render_composite(layout: dict) -> Image.Image:
     width, height = map(int, layout["native_size"])
     canvas = Image.new("RGBA", (width, height), (69, 89, 119, 255))
@@ -77,6 +109,9 @@ def render_composite(layout: dict) -> Image.Image:
     for vessel, prefix in ((health, "health"), (attunement, "attunement")):
         _paste(canvas, _open_asset(f"{prefix}_frame.png"), vessel["frame_rect"])
         _paste(canvas, _open_asset(f"{prefix}_glass_overlay.png"), vessel["glass_rect"])
+    _draw_attunement_constellation(
+        ImageDraw.Draw(canvas), (int(attunement["glass_rect"][0]), int(attunement["glass_rect"][1])), 0.74
+    )
 
     for layer in layers:
         if int(layer["z"]) > 0:

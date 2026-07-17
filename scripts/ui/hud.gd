@@ -75,13 +75,14 @@ var _health_vessel_fill: Range
 var _attunement_vessel_fill: Range
 var _health_vessel_label: Label
 var _attunement_vessel_label: Label
-# FQ-19: vessel effect state — flash/glow overlays, the attunement frame for
-# the outward use-pulse, the rotating geometric core, and last-seen values so
-# damage/recovery/regeneration transitions can be detected.
+# FQ-19/FQ-21: vessel effect state — flash/glow overlays, the attunement frame
+# for the outward use-pulse, a runtime constellation canvas, and last-seen
+# values so damage/recovery/regeneration transitions can be detected.
 var _health_fx: TextureRect
 var _attunement_fx: TextureRect
 var _attunement_frame: Control
 var _attunement_core: Control
+var _attunement_constellation: Control
 var _last_health := -1.0
 var _last_attunement := -1.0
 var _vessel_fx_tweens: Dictionary = {}   # TextureRect -> Tween
@@ -198,12 +199,15 @@ func _process(_delta: float) -> void:
 		_mine_bar.visible = player.mine_progress_ratio() > 0.0
 		_mine_bar.value = player.mine_progress_ratio() * 100.0
 	# FQ-19: low-health heartbeat pulse on the vessel overlay (only when no
-	# one-shot flash/glow tween owns it) and the slow core rotation.
+	# one-shot flash/glow tween owns it). The attunement constellation redraws
+	# every frame so its small stars can twinkle out of phase.
 	if _low_health_active and _health_fx != null and not _vessel_fx_active(_health_fx):
 		var wave := 0.28 + 0.18 * sin(Time.get_ticks_msec() / 160.0)
 		_health_fx.self_modulate = Color(1.0, 0.25, 0.2, wave)
 	if _attunement_core != null:
 		_attunement_core.rotation += _delta * 0.8
+	if _attunement_constellation != null:
+		_attunement_constellation.queue_redraw()
 	if _hud_edit_mode:
 		# FQ-20: keep the outlines/grips tracking live drags and resizes.
 		if _hud_edit_overlay != null:
@@ -1188,9 +1192,9 @@ func _build_hud_kit(layout: Dictionary) -> void:
 	attune_fill.name = "AttunementFill"
 	attune_fill.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
 	attune_fill.texture_under = attune_mask
-	attune_fill.tint_under = Color(0.02, 0.04, 0.09, 0.78)
+	attune_fill.tint_under = Color(0.01, 0.03, 0.07, 0.96)
 	attune_fill.texture_progress = attune_mask
-	attune_fill.tint_progress = Color(0.28, 0.74, 1.0, 0.72)
+	attune_fill.tint_progress = Color(0.24, 0.72, 1.0, 0.94)
 	attune_fill.max_value = 100.0
 	attune_fill.value = 100.0
 	_place(attune_fill, attune_fill_rect)
@@ -1209,6 +1213,8 @@ func _build_hud_kit(layout: Dictionary) -> void:
 	_attunement_frame = attune_frame
 	var attune_glass := _kit_layer(band, "AttunementGlass",
 		"attunement_glass_overlay", _json_rect(attune_geo.get("glass_rect")), 2)
+	_attunement_constellation = _add_attunement_constellation(
+		band, _json_rect(attune_geo.get("glass_rect")))
 	# Keep explicit references alive for the layer contract and smoke hooks.
 	health_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	health_glass.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1335,6 +1341,51 @@ func _kit_fx(parent: Control, node_name: String, texture: Texture2D,
 	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(fx)
 	return fx
+
+
+func _add_attunement_constellation(parent: Control, rect: Rect2) -> Control:
+	var canvas := Control.new()
+	canvas.name = "AttunementConstellation"
+	_place(canvas, rect)
+	canvas.clip_contents = true
+	canvas.z_index = 3
+	canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.draw.connect(func() -> void: _draw_attunement_constellation(canvas))
+	parent.add_child(canvas)
+	return canvas
+
+
+func _draw_attunement_constellation(canvas: Control) -> void:
+	var charge_ratio := 1.0
+	if _attunement_vessel_fill != null and _attunement_vessel_fill.max_value > 0.0:
+		charge_ratio = clampf(
+			_attunement_vessel_fill.value / _attunement_vessel_fill.max_value, 0.0, 1.0)
+	var stars := [
+		Vector2(33, 58), Vector2(47, 36), Vector2(61, 28),
+		Vector2(78, 50), Vector2(57, 73), Vector2(39, 74),
+	]
+	var links := [[0, 1], [1, 2], [2, 3], [1, 4]]
+	var base_alpha := lerpf(0.40, 0.90, charge_ratio)
+	var t := Time.get_ticks_msec() / 1000.0
+	for link in links:
+		var a: Vector2 = stars[int(link[0])]
+		var b: Vector2 = stars[int(link[1])]
+		canvas.draw_line(a, b, Color(0.04, 0.23, 0.36, 0.28 + 0.14 * charge_ratio), 3.0)
+		canvas.draw_line(a, b, Color(0.75, 0.94, 1.0, 0.18 + 0.24 * charge_ratio), 1.5)
+	for i in range(stars.size()):
+		var p: Vector2 = stars[i]
+		var wave := 0.5 + 0.5 * sin(t * (1.7 + float(i) * 0.19) + float(i) * 1.31)
+		var alpha := clampf(base_alpha * (0.48 + 0.52 * wave), 0.18, 0.95)
+		var arm := 3.0 + (1.0 if wave > 0.76 else 0.0)
+		var shadow_color := Color(0.03, 0.20, 0.34, 0.34 + 0.22 * charge_ratio)
+		var star_color := Color(0.82, 0.96, 1.0, alpha)
+		var core_color := Color(0.98, 1.0, 1.0, minf(1.0, alpha + 0.12))
+		canvas.draw_line(p + Vector2(-arm - 1.0, 0), p + Vector2(arm + 1.0, 0), shadow_color, 3.0)
+		canvas.draw_line(p + Vector2(0, -arm - 1.0), p + Vector2(0, arm + 1.0), shadow_color, 3.0)
+		canvas.draw_line(p + Vector2(-arm, 0), p + Vector2(arm, 0), star_color, 2.0)
+		canvas.draw_line(p + Vector2(0, -arm), p + Vector2(0, arm), star_color, 2.0)
+		canvas.draw_circle(p, 2.0, Color(0.70, 0.91, 1.0, minf(0.58, alpha)))
+		canvas.draw_rect(Rect2(p - Vector2.ONE, Vector2(2, 2)), core_color)
 
 
 func _add_kit_button(parent: Control, rect_value: Variant, text: String,
