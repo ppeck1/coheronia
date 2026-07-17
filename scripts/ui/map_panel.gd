@@ -8,6 +8,8 @@ const PAD := 20.0
 const TITLE_H := 20.0
 
 const COL_BG := Color(0.03, 0.045, 0.07, 0.82)
+const COL_OUTER_FRAME := Color(0.58, 0.50, 0.32, 0.96)
+const COL_INNER_FRAME := Color(0.11, 0.16, 0.20, 0.95)
 const COL_FIELD_FRAME := Color(0.48, 0.52, 0.62, 0.72)
 const COL_UNSEEN := Color(0.10, 0.11, 0.15, 1.0)
 const COL_SEEN := Color(0.20, 0.24, 0.31, 1.0)
@@ -26,9 +28,11 @@ func set_snapshot(s: Dictionary) -> void:
 
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
-	# The map owns only its translucent field background. HUD chrome is a
-	# separate frame-only nine-slice, and PAD keeps content inside its bevel.
+	# The map owns one crisp runtime frame. HUD does not stack another frame
+	# over it, so content and chrome cannot drift out of alignment.
 	draw_rect(Rect2(Vector2.ZERO, size), COL_BG)
+	draw_rect(Rect2(Vector2.ZERO, size), COL_OUTER_FRAME, false, 2.0)
+	draw_rect(Rect2(Vector2(4, 4), size - Vector2(8, 8)), COL_INNER_FRAME, false, 1.0)
 	draw_string(font, Vector2(PAD, PAD + 12.0), "Map   ◆ Hall   ● You   ▪ Ore   ▪ Threat",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.85, 0.88, 0.95))
 

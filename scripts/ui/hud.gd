@@ -148,23 +148,27 @@ var _hud_drag_origin := Vector2.ZERO
 # FQ-20: corner-grip resize state + the edit overlay that draws widget
 # outlines and grips, and the dock command-center toggle chips.
 var _hud_resize_widget := ""
-var _hud_resize_origin_scale := 1.0
+var _hud_resize_origin_size := Vector2.ZERO
 var _hud_edit_overlay: Control
 var _command_toggles: Dictionary = {}   # label -> Button
+var _hud_default_sizes: Dictionary = {}
 const HUD_WIDGET_IDS := ["crest", "goal", "events", "map", "modules", "dock"]
 const HUD_EDITABLE_WIDGET_IDS := ["crest", "goal", "events", "map", "modules"]
-# FQ-20 direct manipulation: continuous resize via the corner grip.
-const HUD_MIN_SCALE := 0.5
-const HUD_MAX_SCALE := 2.0
-const HUD_SCALE_STEP := 0.1
+# FQ-20/FQ-22 direct manipulation: continuous resize via panel size, never
+# Control.scale. Fractional transforms blur HUD chrome and expose nine-slice seams.
+const HUD_MIN_SIZE_FACTOR := 0.5
+const HUD_MAX_SIZE_FACTOR := 2.0
+const HUD_SIZE_STEP := 0.1
 const HUD_SAFE_MARGIN := 12.0
 const HUD_GRIP_SIZE := 18.0
 # Layouts saved before the canvas_items stretch + split dock band (v2) or
-# before locks were retired for direct manipulation (v3), or before the
-# full-width dock became transform-invariant (v4), or before Map and Events
-# gained independent non-overlapping defaults (v5), were recorded against
-# different geometry. A mismatch falls back to the blueprint defaults.
-const HUD_LAYOUT_VERSION := 5
+# before locks were retired for direct manipulation (v3), before the
+# full-width dock became transform-invariant (v4), before Map and Events
+# gained independent non-overlapping defaults (v5), or before module controls
+# became dock-owned (v6), or before editable modules stopped persisting
+# fractional Control.scale transforms (v7), were recorded against different
+# geometry. A mismatch falls back to the blueprint defaults.
+const HUD_LAYOUT_VERSION := 7
 
 
 func _ready() -> void:
@@ -222,30 +226,42 @@ func _build_command_center(parent: Control) -> void:
 	_add_command_toggle("Crest", func(): _toggle_top_left_module())
 	_add_command_toggle("Goal", func(): _toggle_goal_module())
 	_add_command_toggle("Events", func(): _toggle_event_module())
-	_add_command_toggle("Map", func(): toggle_map())
+	_add_command_toggle_with_state("Map", func(pressed: bool): set_map_open(pressed))
 	_add_command_toggle("Edit", func(): toggle_hud_edit_mode())
 
 
-## Module visibility controls are intentionally independent from the primary
-## resource/action dock. This compact widget can be moved with HUD Edit mode
-## without changing the dock's authored height or layer stack.
+## Module visibility controls belong to the bottom dock when the native HUD kit
+## is active, so old saved profile positions cannot strand them in the playfield.
 func _build_command_center_widget() -> void:
 	_command_center_panel = PanelContainer.new()
 	_command_center_panel.name = "HudModuleControls"
-	_command_center_panel.anchor_left = 0.5
-	_command_center_panel.anchor_right = 0.5
-	_command_center_panel.anchor_top = 0.0
-	_command_center_panel.anchor_bottom = 0.0
-	_command_center_panel.offset_left = -182.0
-	_command_center_panel.offset_right = 182.0
-	_command_center_panel.offset_top = 100.0
-	_command_center_panel.offset_bottom = 134.0
 	_command_center_panel.add_theme_stylebox_override("panel", _chip_style())
-	add_child(_command_center_panel)
+	if _hud_kit_active and _bottom_dock != null:
+		var layout := _load_hud_kit_layout()
+		var rect := _json_rect(layout.get("module_toolbar_rect"))
+		if rect == Rect2():
+			rect = Rect2(Vector2(458.0, 132.0), Vector2(364.0, 44.0))
+		_place(_command_center_panel, rect)
+		_command_center_panel.z_index = 6
+		_bottom_dock.add_child(_command_center_panel)
+	else:
+		_command_center_panel.anchor_left = 0.5
+		_command_center_panel.anchor_right = 0.5
+		_command_center_panel.anchor_top = 0.0
+		_command_center_panel.anchor_bottom = 0.0
+		_command_center_panel.offset_left = -182.0
+		_command_center_panel.offset_right = 182.0
+		_command_center_panel.offset_top = 100.0
+		_command_center_panel.offset_bottom = 134.0
+		add_child(_command_center_panel)
 	_build_command_center(_command_center_panel)
 
 
 func _add_command_toggle(text: String, action: Callable) -> void:
+	_add_command_toggle_with_state(text, func(_pressed_state: bool): action.call())
+
+
+func _add_command_toggle_with_state(text: String, action: Callable) -> void:
 	var button := Button.new()
 	button.name = "CommandToggle" + text
 	button.text = text
@@ -255,10 +271,12 @@ func _add_command_toggle(text: String, action: Callable) -> void:
 	button.add_theme_stylebox_override("normal", _chip_style(Color(0.72, 0.72, 0.72)))
 	button.add_theme_stylebox_override("hover", _chip_style())
 	button.add_theme_stylebox_override("pressed", _chip_style(Color(1.3, 1.12, 0.75)))
-	button.focus_mode = Control.FOCUS_ALL
+	# These are HUD mouse/touch chips; keeping focus after a click lets ui_accept
+	# repeat through the focused Button and can reopen/close toggled panels.
+	button.focus_mode = Control.FOCUS_NONE
 	button.tooltip_text = "Show/hide %s" % text
-	button.toggled.connect(func(_pressed_state: bool):
-		action.call()
+	button.toggled.connect(func(pressed_state: bool):
+		action.call(pressed_state)
 		_sync_command_center())
 	_module_toolbar.add_child(button)
 	_command_toggles[text] = button
@@ -293,12 +311,16 @@ func _register_hud_widgets() -> void:
 		if control == null:
 			continue
 		_hud_default_positions[widget_id] = control.position
+		_hud_default_sizes[widget_id] = _hud_widget_size(control)
+		control.scale = Vector2.ONE
 		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _editable_hud_widget_ids() -> Array[String]:
 	var ids: Array[String] = []
 	for widget_id in HUD_EDITABLE_WIDGET_IDS:
+		if widget_id == "modules" and _hud_kit_active:
+			continue
 		ids.append(widget_id)
 	# The modular FQ-19 fallback remains a movable panel. Only FQ-21's
 	# anchored viewport band must be transform-invariant.
@@ -309,19 +331,19 @@ func _editable_hud_widget_ids() -> Array[String]:
 
 func _build_hud_edit_panel() -> void:
 	_hud_edit_panel = PanelContainer.new()
-	_hud_edit_panel.anchor_left = 1.0
-	_hud_edit_panel.anchor_right = 1.0
+	_hud_edit_panel.anchor_left = 0.5
+	_hud_edit_panel.anchor_right = 0.5
 	_hud_edit_panel.anchor_top = 1.0
 	_hud_edit_panel.anchor_bottom = 1.0
-	_hud_edit_panel.offset_left = -300.0
-	_hud_edit_panel.offset_right = -12.0
-	_hud_edit_panel.offset_top = -168.0
-	_hud_edit_panel.offset_bottom = -12.0
+	_hud_edit_panel.offset_left = -220.0
+	_hud_edit_panel.offset_right = 220.0
+	_hud_edit_panel.offset_top = -400.0
+	_hud_edit_panel.offset_bottom = -190.0
 	_hud_edit_panel.visible = false
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
 	_hud_edit_panel.add_child(box)
-	var title := _label(box, "HUD EDIT — drag to move, corner grip to resize")
+	var title := _label(box, "HUD EDIT - drag to move, corner grip to resize")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 12)
 	_hud_edit_select = OptionButton.new()
@@ -339,8 +361,8 @@ func _build_hud_edit_panel() -> void:
 	_add_edit_button(move_row, "↓", func(): _nudge_hud_widget(Vector2(0, 8)))
 	box.add_child(move_row)
 	var scale_row := HBoxContainer.new()
-	_add_edit_button(scale_row, "Scale −", func(): _scale_hud_widget(-HUD_SCALE_STEP))
-	_add_edit_button(scale_row, "Scale +", func(): _scale_hud_widget(HUD_SCALE_STEP))
+	_add_edit_button(scale_row, "Size -", func(): _scale_hud_widget(-HUD_SIZE_STEP))
+	_add_edit_button(scale_row, "Size +", func(): _scale_hud_widget(HUD_SIZE_STEP))
 	box.add_child(scale_row)
 	var action_row := HBoxContainer.new()
 	_add_edit_button(action_row, "Reset", func(): reset_hud_layout())
@@ -389,9 +411,9 @@ func _update_hud_edit_status() -> void:
 	if _hud_edit_status == null:
 		return
 	var control: Control = _hud_widgets.get(_hud_edit_selected)
-	var scale := 1.0 if control == null else control.scale.x
-	_hud_edit_status.text = "%s · %.2fx\nDrag any panel to move it; drag a corner grip to resize." % [
-		_hud_edit_selected.capitalize(), scale]
+	var size := Vector2.ZERO if control == null else _hud_widget_size(control)
+	_hud_edit_status.text = "%s - %dx%d\nDrag any panel to move it; drag a corner grip to resize." % [
+		_hud_edit_selected.capitalize(), int(size.x), int(size.y)]
 
 
 ## FQ-20: locks are gone — edit mode itself is the gate; everything drags.
@@ -408,18 +430,27 @@ func _scale_hud_widget(delta: float) -> void:
 	var control: Control = _hud_widgets.get(_hud_edit_selected)
 	if control == null:
 		return
-	var next_scale := clampf(control.scale.x + delta, HUD_MIN_SCALE, HUD_MAX_SCALE)
-	control.scale = Vector2.ONE * next_scale
+	_set_hud_widget_size(_hud_edit_selected, _hud_widget_size(control) * (1.0 + delta))
 	_clamp_hud_widget(control)
 	_update_hud_edit_status()
 
 
-## FQ-20: apply an absolute scale (corner-grip resize path).
-func _resize_hud_widget(widget_id: String, next_scale: float) -> void:
+## FQ-20/FQ-22: apply an absolute size factor against the widget default.
+func _resize_hud_widget(widget_id: String, next_factor: float) -> void:
 	var control: Control = _hud_widgets.get(widget_id)
 	if control == null:
 		return
-	control.scale = Vector2.ONE * clampf(next_scale, HUD_MIN_SCALE, HUD_MAX_SCALE)
+	var base_size: Vector2 = _hud_default_sizes.get(widget_id, _hud_widget_size(control))
+	_set_hud_widget_size(widget_id, base_size * next_factor)
+	_clamp_hud_widget(control)
+	_update_hud_edit_status()
+
+
+func _resize_hud_widget_to_size(widget_id: String, next_size: Vector2) -> void:
+	var control: Control = _hud_widgets.get(widget_id)
+	if control == null:
+		return
+	_set_hud_widget_size(widget_id, next_size)
 	_clamp_hud_widget(control)
 	_update_hud_edit_status()
 
@@ -429,22 +460,63 @@ func _hud_grip_rect(widget_id: String) -> Rect2:
 	var control: Control = _hud_widgets.get(widget_id)
 	if control == null or not control.visible:
 		return Rect2()
-	var rect := Rect2(control.global_position, control.size * control.scale)
+	var rect := control.get_global_rect()
 	return Rect2(rect.end - Vector2(HUD_GRIP_SIZE, HUD_GRIP_SIZE),
 		Vector2(HUD_GRIP_SIZE, HUD_GRIP_SIZE))
 
 
+func _hud_widget_size(control: Control) -> Vector2:
+	var measured := control.size
+	var minimum := control.custom_minimum_size
+	if minimum.x > measured.x:
+		measured.x = minimum.x
+	if minimum.y > measured.y:
+		measured.y = minimum.y
+	if measured.x <= 0.0:
+		measured.x = 160.0
+	if measured.y <= 0.0:
+		measured.y = 80.0
+	return measured.round()
+
+
+func _hud_min_size(widget_id: String, control: Control) -> Vector2:
+	var base: Vector2 = _hud_default_sizes.get(widget_id, _hud_widget_size(control))
+	return Vector2(maxf(base.x * HUD_MIN_SIZE_FACTOR, 120.0),
+		maxf(base.y * HUD_MIN_SIZE_FACTOR, 56.0)).round()
+
+
+func _hud_max_size(widget_id: String, control: Control) -> Vector2:
+	var viewport_size := get_viewport().get_visible_rect().size
+	var base: Vector2 = _hud_default_sizes.get(widget_id, _hud_widget_size(control))
+	return Vector2(minf(base.x * HUD_MAX_SIZE_FACTOR, viewport_size.x - HUD_SAFE_MARGIN * 2.0),
+		minf(base.y * HUD_MAX_SIZE_FACTOR, viewport_size.y - HUD_SAFE_MARGIN * 2.0)).round()
+
+
+func _set_hud_widget_size(widget_id: String, next_size: Vector2) -> void:
+	var control: Control = _hud_widgets.get(widget_id)
+	if control == null:
+		return
+	var min_size := _hud_min_size(widget_id, control)
+	var max_size := _hud_max_size(widget_id, control)
+	var clamped := Vector2(
+		clampf(next_size.x, min_size.x, max_size.x),
+		clampf(next_size.y, min_size.y, max_size.y)).round()
+	control.scale = Vector2.ONE
+	control.custom_minimum_size = clamped
+	control.size = clamped
+
+
 func _clamp_hud_widget(control: Control) -> void:
+	control.scale = Vector2.ONE
 	# The FQ-21 dock is an anchored viewport band, not a floating panel.
 	# Canonicalizing its parent transform prevents saved/editor transforms
 	# from scaling its full-width anchors and clipping either vessel.
 	if _dock_band_active and control == _bottom_dock:
 		control.position = _hud_default_positions.get("dock", control.position)
-		control.scale = Vector2.ONE
 		return
 	var viewport_size := get_viewport().get_visible_rect().size
-	var scaled_size := control.size * control.scale
-	var max_position := viewport_size - scaled_size - Vector2.ONE * HUD_SAFE_MARGIN
+	var widget_size := _hud_widget_size(control)
+	var max_position := viewport_size - widget_size - Vector2.ONE * HUD_SAFE_MARGIN
 	# A full-width widget (the FQ-21 band) has no horizontal slack; clamping
 	# with min > max would snap it to the margin.
 	if max_position.x >= HUD_SAFE_MARGIN:
@@ -455,6 +527,11 @@ func _clamp_hud_widget(control: Control) -> void:
 
 func _input(event: InputEvent) -> void:
 	if not _hud_edit_mode:
+		return
+	if event is InputEventKey and event.pressed and not event.echo \
+			and event.keycode == KEY_ESCAPE:
+		toggle_hud_edit_mode()
+		get_viewport().set_input_as_handled()
 		return
 	# Only mouse events carry a position; a key press while editing must not
 	# reach the base-InputEvent property (review finding, FQ-19 closeout).
@@ -491,7 +568,7 @@ func _input(event: InputEvent) -> void:
 				_hud_edit_selected = _hud_resize_widget
 				_hud_edit_select.select(_editable_hud_widget_ids().find(_hud_resize_widget))
 				_hud_drag_pointer = point
-				_hud_resize_origin_scale = (_hud_widgets[_hud_resize_widget] as Control).scale.x
+				_hud_resize_origin_size = _hud_widget_size(_hud_widgets[_hud_resize_widget])
 				_update_hud_edit_status()
 			else:
 				_hud_drag_widget = _hud_widget_at(point)
@@ -503,14 +580,13 @@ func _input(event: InputEvent) -> void:
 					_update_hud_edit_status()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and _hud_resize_widget != "":
-		# Continuous resize: scale follows the pointer's distance from the
-		# widget origin relative to where the grip drag started.
+		# Continuous resize follows pointer distance as explicit widget size.
 		var control: Control = _hud_widgets[_hud_resize_widget]
 		var origin: Vector2 = control.global_position
 		var start_span: float = maxf((_hud_drag_pointer - origin).length(), 1.0)
 		var now_span: float = (point - origin).length()
-		_resize_hud_widget(_hud_resize_widget,
-			snappedf(_hud_resize_origin_scale * now_span / start_span, 0.01))
+		_resize_hud_widget_to_size(_hud_resize_widget,
+			(_hud_resize_origin_size * snappedf(now_span / start_span, 0.01)).round())
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and _hud_drag_widget != "":
 		var control: Control = _hud_widgets[_hud_drag_widget]
@@ -544,7 +620,7 @@ func _draw_hud_edit_overlay() -> void:
 		var control: Control = _hud_widgets.get(widget_id)
 		if control == null or not control.visible:
 			continue
-		var rect := Rect2(control.global_position, control.size * control.scale)
+		var rect := control.get_global_rect()
 		var selected: bool = widget_id == _hud_edit_selected
 		var line := Color(0.95, 0.8, 0.35, 0.95) if selected else Color(0.7, 0.6, 0.35, 0.55)
 		_hud_edit_overlay.draw_rect(rect, line, false, 2.0 if selected else 1.0)
@@ -571,11 +647,14 @@ func _load_hud_layout() -> void:
 		if widget_id == "dock" and _dock_band_active:
 			_clamp_hud_widget(control)
 			continue
+		control.scale = Vector2.ONE
 		var delta_value: Variant = record.get("delta", [0.0, 0.0])
 		if delta_value is Array and delta_value.size() >= 2:
 			control.position = _hud_default_positions[widget_id] + Vector2(float(delta_value[0]), float(delta_value[1]))
-		var saved_scale := clampf(float(record.get("scale", 1.0)), HUD_MIN_SCALE, HUD_MAX_SCALE)
-		control.scale = Vector2.ONE * saved_scale
+		var saved_size: Variant = record.get("size", [])
+		if saved_size is Array and saved_size.size() >= 2:
+			_set_hud_widget_size(widget_id,
+				Vector2(float(saved_size[0]), float(saved_size[1])))
 		var saved_visible: Variant = record.get("visible", true)
 		if widget_id in ["crest", "goal", "events"] and saved_visible is bool:
 			control.visible = saved_visible
@@ -592,11 +671,13 @@ func _save_hud_layout() -> void:
 			continue
 		if widget_id == "dock" and _dock_band_active:
 			_clamp_hud_widget(control)
+		control.scale = Vector2.ONE
 		var delta: Vector2 = control.position - _hud_default_positions[widget_id]
 		var saved_visible := control.visible if widget_id in ["crest", "goal", "events"] else true
+		var saved_size := _hud_widget_size(control)
 		layout[widget_id] = {
 			"delta": [snappedf(delta.x, 1.0), snappedf(delta.y, 1.0)],
-			"scale": snappedf(control.scale.x, 0.01),
+			"size": [snappedf(saved_size.x, 1.0), snappedf(saved_size.y, 1.0)],
 			"visible": saved_visible,
 		}
 	GameState.profile["hud_layout"] = layout
@@ -609,6 +690,11 @@ func reset_hud_layout() -> void:
 		if control == null:
 			continue
 		control.position = _hud_default_positions[widget_id]
+		if widget_id == "dock" and _dock_band_active:
+			_clamp_hud_widget(control)
+			continue
+		_set_hud_widget_size(widget_id,
+			_hud_default_sizes.get(widget_id, _hud_widget_size(control)))
 		control.scale = Vector2.ONE
 		if widget_id in ["crest", "goal", "events"]:
 			control.visible = true
@@ -704,42 +790,32 @@ func hud_visual_theme_id() -> String:
 	return _hud_visual_theme
 
 
-## Framed-module look, best available art first: the painted mockup frame
-## (FQ-20), else the generated dock-backplate 9-slice (FQ-19), else the
-## code-drawn plate. `kind` picks the painted frame family.
+## Framed-module look: crisp runtime chrome, not stretched mockup crops.
+## The outer panel owns the border only; _module_content_host adds a separate
+## padded background layer for live text/bars/content.
 func _module_panel_style(kind: String = "plain") -> StyleBox:
-	var painted: Texture2D = _painted_texture(
-		"panel_frame_ornate" if kind == "ornate" else "panel_frame_plain")
-	if painted != null:
-		# The generated texture contains chrome only. Runtime background and
-		# content padding are deliberately independent from the painted frame.
-		var psb := StyleBoxTexture.new()
-		psb.texture = painted
-		psb.set_texture_margin_all(16 if kind == "ornate" else 10)
-		psb.content_margin_left = 24 if kind == "ornate" else 18
-		psb.content_margin_right = 24 if kind == "ornate" else 18
-		psb.content_margin_top = 20 if kind == "ornate" else 16
-		psb.content_margin_bottom = 20 if kind == "ornate" else 16
-		return psb
-	var backplate: Texture2D = BlockRegistry.visual_texture("ui", "dock_backplate")
-	if backplate != null:
-		var sbt := StyleBoxTexture.new()
-		sbt.texture = backplate
-		sbt.set_texture_margin_all(8)
-		sbt.set_content_margin_all(8)
-		return sbt
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.06, 0.09, 0.9)
-	sb.border_color = Color(0.55, 0.42, 0.24, 0.95)
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(4)
-	sb.set_content_margin_all(8)
+	sb.bg_color = Color(0.015, 0.021, 0.032, 0.84)
+	sb.border_color = Color(0.62, 0.53, 0.34, 0.96) if kind == "ornate" \
+		else Color(0.36, 0.47, 0.54, 0.92)
+	sb.set_border_width_all(3 if kind == "ornate" else 2)
+	sb.set_corner_radius_all(3)
+	sb.set_content_margin_all(8 if kind == "ornate" else 6)
+	sb.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
+	sb.shadow_size = 4
+	sb.shadow_offset = Vector2(0, 2)
+	sb.anti_aliasing = false
 	return sb
 
 
 func _module_background_style() -> StyleBoxFlat:
 	var background := StyleBoxFlat.new()
-	background.bg_color = Color(0.03, 0.045, 0.07, 0.78)
+	background.bg_color = Color(0.025, 0.035, 0.052, 0.88)
+	background.border_color = Color(0.11, 0.16, 0.20, 0.9)
+	background.set_border_width_all(1)
+	background.set_corner_radius_all(2)
+	background.set_content_margin_all(8)
+	background.anti_aliasing = false
 	return background
 
 
@@ -937,26 +1013,20 @@ func _build_map_panel() -> void:
 	_map_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_panel.visible = false
 	add_child(_map_panel)
-	# FQ-20: ornate painted border over the schematic map (draw_center off so
-	# the map content stays fully visible under the frame edges).
-	var map_frame_tex: Texture2D = _painted_texture("panel_frame_ornate")
-	if map_frame_tex != null:
-		var map_frame := NinePatchRect.new()
-		map_frame.texture = map_frame_tex
-		map_frame.patch_margin_left = 16
-		map_frame.patch_margin_right = 16
-		map_frame.patch_margin_top = 16
-		map_frame.patch_margin_bottom = 16
-		map_frame.draw_center = false
-		map_frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-		map_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_map_panel.add_child(map_frame)
 
 
 ## FQ-15: flip the map panel; returns the new visibility so game_root can decide
 ## whether to push a fresh snapshot.
 func toggle_map() -> bool:
-	_map_open = not _map_open
+	return set_map_open(not map_open())
+
+
+func set_map_open(open: bool) -> bool:
+	if _map_panel == null:
+		_map_open = false
+		_sync_command_center()
+		return false
+	_map_open = open
 	_map_panel.visible = _map_open
 	_sync_command_center()
 	return _map_open

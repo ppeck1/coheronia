@@ -952,6 +952,33 @@ func _run() -> void:
 		and _m15_r0 == 1 and _m15_r1 == 2,
 		"toggle=%s->%s r0=%d r1=%d" % [str(_m15_open0), str(_m15_open1), _m15_r0, _m15_r1])
 
+	hud.set_map_open(false)
+	var _m15_key := InputEventKey.new()
+	_m15_key.physical_keycode = KEY_M
+	_m15_key.pressed = true
+	var _m15_prev_edit_mode: bool = GameState.hud_edit_mode
+	GameState.hud_edit_mode = false
+	root._unhandled_input(_m15_key)
+	var _m15_key_opens: bool = hud.map_open()
+	root._unhandled_input(_m15_key)
+	var _m15_key_closes: bool = not hud.map_open()
+	var _m15_echo_key := InputEventKey.new()
+	_m15_echo_key.physical_keycode = KEY_M
+	_m15_echo_key.pressed = true
+	_m15_echo_key.echo = true
+	root._unhandled_input(_m15_echo_key)
+	var _m15_echo_blocked: bool = not hud.map_open()
+	GameState.hud_edit_mode = true
+	root._unhandled_input(_m15_key)
+	var _m15_key_blocked_in_edit: bool = not hud.map_open()
+	GameState.hud_edit_mode = _m15_prev_edit_mode
+	_check("fq15_map_key_respects_ui_boundary",
+		_m15_key_opens and _m15_key_closes and _m15_echo_blocked
+		and _m15_key_blocked_in_edit,
+		"opens=%s closes=%s echo_blocked=%s edit_blocked=%s" % [
+			str(_m15_key_opens), str(_m15_key_closes), str(_m15_echo_blocked),
+			str(_m15_key_blocked_in_edit)])
+
 	# Map and Events are independent adjacent modules; either can toggle while
 	# the other remains open, and contextual chips sit below the taller one.
 	var _fq19_events_before: bool = hud._event_panel != null and hud._event_panel.visible
@@ -1283,19 +1310,44 @@ func _run() -> void:
 	# frames on crest/events (distinct textures from the band pieces).
 	var _fq20_crest_sb: StyleBox = (hud._top_left_box as PanelContainer).get_theme_stylebox("panel")
 	var _fq20_events_sb: StyleBox = hud._event_panel.get_theme_stylebox("panel")
-	var _fq20_frames_ok: bool = _fq20_crest_sb is StyleBoxTexture \
-		and _fq20_events_sb is StyleBoxTexture \
-		and (_fq20_crest_sb as StyleBoxTexture).texture != _fq21_block.texture
-	_check("fq20_painted_chrome_consumed", _fq20_frames_ok,
-		"crest=%s events=%s" % [str(_fq20_crest_sb.get_class()),
-			str(_fq20_events_sb.get_class())])
+	var _fq20_map_single_frame := true
+	for _fq20_map_child in hud._map_panel.get_children():
+		if _fq20_map_child is NinePatchRect:
+			_fq20_map_single_frame = false
+			break
+	var _fq20_frames_ok: bool = _fq20_crest_sb is StyleBoxFlat \
+		and _fq20_events_sb is StyleBoxFlat \
+		and _fq20_map_single_frame
+	_check("fq22_module_chrome_contract", _fq20_frames_ok,
+		"crest=%s events=%s map_single_frame=%s" % [str(_fq20_crest_sb.get_class()),
+			str(_fq20_events_sb.get_class()), str(_fq20_map_single_frame)])
 
 	# FQ-20: the dock is the command center — five module toggle chips live
 	# inside the dock panel, drive the modules, and mirror external changes.
+	var _fq20_module_rect: Rect2 = hud._command_center_panel.get_global_rect() \
+		if hud._command_center_panel != null else Rect2()
+	var _fq20_dock_rect: Rect2 = hud._bottom_dock.get_global_rect() \
+		if hud._bottom_dock != null else Rect2()
+	var _fq20_dock_owned: bool = hud._bottom_dock != null \
+		and hud._command_center_panel != null \
+		and hud._bottom_dock.is_ancestor_of(hud._command_center_panel) \
+		and _fq20_dock_rect.encloses(_fq20_module_rect)
+	var _fq20_module_clear := _fq20_module_rect.size.x > 0.0
+	for _fq20_clear_name in ["HotbarCell1", "HotbarCell2", "HotbarCell3",
+			"HotbarCell4", "HotbarCell5", "DockActionInventory",
+			"DockActionCharacter", "DockActionSkills", "DockActionTownHall"]:
+		var _fq20_clear_control: Control = hud._bottom_dock.find_child(
+			_fq20_clear_name, true, false) as Control if hud._bottom_dock != null else null
+		if _fq20_clear_control == null \
+				or _fq20_module_rect.intersects(_fq20_clear_control.get_global_rect()):
+			_fq20_module_clear = false
+			break
 	var _fq20_cc_ok: bool = hud._module_toolbar != null \
 		and hud._command_center_panel != null \
 		and hud._command_center_panel.is_ancestor_of(hud._module_toolbar) \
-		and not hud._bottom_dock.is_ancestor_of(hud._module_toolbar) \
+		and hud._bottom_dock.is_ancestor_of(hud._module_toolbar) \
+		and _fq20_dock_owned \
+		and _fq20_module_clear \
 		and hud._command_toggles.size() == 5
 	var _fq20_crest_chip: Button = hud._command_toggles.get("Crest")
 	var _fq20_cc_before: bool = hud._top_left_box.visible
@@ -1308,10 +1360,30 @@ func _run() -> void:
 	var _fq20_cc_synced: bool = (hud._command_toggles["Goal"] as Button).button_pressed \
 		== hud._goal_panel.visible
 	hud._toggle_goal_module()
-	_check("fq20_detached_command_center",
-		_fq20_cc_ok and _fq20_cc_toggled and _fq20_cc_restored and _fq20_cc_synced,
-		"in_dock=%s toggled=%s restored=%s synced=%s" % [str(_fq20_cc_ok),
-			str(_fq20_cc_toggled), str(_fq20_cc_restored), str(_fq20_cc_synced)])
+	var _fq20_map_chip: Button = hud._command_toggles.get("Map") as Button
+	hud.set_map_open(false)
+	if _fq20_map_chip != null:
+		_fq20_map_chip.set_pressed_no_signal(false)
+		_fq20_map_chip.button_pressed = true
+	var _fq20_map_chip_opens: bool = _fq20_map_chip != null \
+		and hud.map_open() and _fq20_map_chip.button_pressed
+	if _fq20_map_chip != null:
+		_fq20_map_chip.button_pressed = false
+	var _fq20_map_chip_closes: bool = _fq20_map_chip != null \
+		and not hud.map_open() and not _fq20_map_chip.button_pressed
+	if _fq20_map_chip != null:
+		_fq20_map_chip.grab_focus()
+	var _fq20_map_chip_no_focus: bool = _fq20_map_chip != null \
+		and _fq20_map_chip.focus_mode == Control.FOCUS_NONE \
+		and not _fq20_map_chip.has_focus()
+	_check("fq20_docked_command_center",
+		_fq20_cc_ok and _fq20_cc_toggled and _fq20_cc_restored and _fq20_cc_synced
+		and _fq20_map_chip_opens and _fq20_map_chip_closes and _fq20_map_chip_no_focus,
+		"dock_owned=%s clear=%s rect=%s toggled=%s restored=%s synced=%s map_chip=%s/%s no_focus=%s" % [
+			str(_fq20_dock_owned), str(_fq20_module_clear), _fq20_module_rect,
+			str(_fq20_cc_toggled), str(_fq20_cc_restored), str(_fq20_cc_synced),
+			str(_fq20_map_chip_opens), str(_fq20_map_chip_closes),
+			str(_fq20_map_chip_no_focus)])
 
 	# FQ-19: resource vessels — masked liquid fill plus the damage / recovery /
 	# zero / regeneration / use-pulse / full-core effect states. Overlay tints
@@ -3946,37 +4018,62 @@ func _run() -> void:
 	# (a3) nonmodal HUD edit mode: direct manipulation (FQ-20 — no locks),
 	# bounded, profile-backed, with continuous corner-grip resize.
 	var _fq17_before_pos: Vector2 = hud._hud_widgets["crest"].position
+	var _fq17_before_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
 	hud.toggle_hud_edit_mode()
+	await get_tree().process_frame
 	var _fq17_enter_ok: bool = hud.is_hud_edit_mode() and GameState.hud_edit_mode \
 		and hud._hud_edit_overlay != null and hud._hud_edit_overlay.visible
+	var _fq17_edit_panel_rect: Rect2 = hud._hud_edit_panel.get_global_rect() \
+		if hud._hud_edit_panel != null else Rect2()
+	var _fq17_dock_rect: Rect2 = hud._bottom_dock.get_global_rect() \
+		if hud._bottom_dock != null else Rect2()
+	var _fq17_panel_above_dock: bool = _fq17_edit_panel_rect.size.x > 0.0 \
+		and _fq17_edit_panel_rect.end.y <= _fq17_dock_rect.position.y - 8.0 \
+		and absf(_fq17_edit_panel_rect.get_center().x
+			- get_viewport().get_visible_rect().size.x / 2.0) <= 1.0
 	hud._toggle_top_left_module()
 	var _fq17_visibility_saved: bool = not bool(GameState.profile["hud_layout"]["crest"]["visible"])
 	hud._toggle_top_left_module()
 	hud._hud_edit_selected = "crest"
 	hud._nudge_hud_widget(Vector2(8, 0))
 	hud._scale_hud_widget(0.25)
-	var _fq17_move_scale_ok: bool = hud._hud_widgets["crest"].position != _fq17_before_pos \
-		and is_equal_approx(hud._hud_widgets["crest"].scale.x, 1.25)
-	# FQ-20 continuous grip resize: absolute scale, clamped to [0.5, 2.0].
+	var _fq17_scaled_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
+	var _fq17_move_size_ok: bool = hud._hud_widgets["crest"].position != _fq17_before_pos \
+		and hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+		and _fq17_scaled_size.x > _fq17_before_size.x
+	# FQ-20/FQ-22 continuous grip resize: absolute size factor, clamped to
+	# [0.5, 2.0], while Control.scale remains one.
 	hud._resize_hud_widget("crest", 1.37)
-	var _fq20_resize_ok: bool = is_equal_approx(hud._hud_widgets["crest"].scale.x, 1.37)
+	var _fq20_resized_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
+	var _fq20_resize_ok: bool = hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+		and is_equal_approx(_fq20_resized_size.x, roundf(_fq17_before_size.x * 1.37))
 	hud._resize_hud_widget("crest", 9.0)
-	var _fq20_clamp_ok: bool = is_equal_approx(hud._hud_widgets["crest"].scale.x, 2.0)
+	var _fq20_clamped_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
+	var _fq20_clamp_ok: bool = hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+		and _fq20_clamped_size.x <= roundf(_fq17_before_size.x * 2.0)
 	var _fq20_grip_ok: bool = hud._hud_grip_rect("crest").size.x > 0.0
 	hud.reset_hud_layout()
 	var _fq17_reset_ok: bool = hud._hud_widgets["crest"].position == hud._hud_default_positions["crest"] \
-		and is_equal_approx(hud._hud_widgets["crest"].scale.x, 1.0)
-	hud.toggle_hud_edit_mode()
+		and hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+		and hud._hud_widget_size(hud._hud_widgets["crest"]) == _fq17_before_size
+	var _fq17_escape := InputEventKey.new()
+	_fq17_escape.keycode = KEY_ESCAPE
+	_fq17_escape.pressed = true
+	hud._input(_fq17_escape)
 	var _fq17_overlay_off: bool = not hud._hud_edit_overlay.visible
 	_check("fq17_hud_edit_direct_manipulation",
-		_fq17_enter_ok and _fq17_visibility_saved and _fq17_move_scale_ok
+		_fq17_enter_ok and _fq17_visibility_saved and _fq17_move_size_ok
 		and _fq20_resize_ok and _fq20_clamp_ok and _fq20_grip_ok
-		and _fq17_reset_ok and _fq17_overlay_off
+		and _fq17_reset_ok and _fq17_panel_above_dock and _fq17_overlay_off
 		and not GameState.hud_edit_mode,
-		"enter=%s visibility=%s moved_scaled=%s resize=%s clamp=%s grip=%s reset=%s overlay_off=%s" % [
-			str(_fq17_enter_ok), str(_fq17_visibility_saved), str(_fq17_move_scale_ok),
+		"enter=%s visibility=%s moved_resized=%s resize=%s clamp=%s grip=%s reset=%s before_size=%s scaled_size=%s resized_size=%s clamped_size=%s scale=%s pos=%s->%s panel=%s panel_rect=%s dock_rect=%s overlay_off=%s" % [
+			str(_fq17_enter_ok), str(_fq17_visibility_saved), str(_fq17_move_size_ok),
 			str(_fq20_resize_ok), str(_fq20_clamp_ok), str(_fq20_grip_ok),
-			str(_fq17_reset_ok), str(_fq17_overlay_off)])
+			str(_fq17_reset_ok), _fq17_before_size, _fq17_scaled_size,
+			_fq20_resized_size, _fq20_clamped_size, hud._hud_widgets["crest"].scale,
+			_fq17_before_pos, hud._hud_widgets["crest"].position,
+			str(_fq17_panel_above_dock), _fq17_edit_panel_rect, _fq17_dock_rect,
+			str(_fq17_overlay_off)])
 
 	# (a4) blueprint navigation actions are present and modal panels remain
 	# mutually exclusive when opened from the dock (not only keyboard input).
