@@ -4,11 +4,13 @@ extends Control
 ## it holds no game references and only shows scouted bands, so it is testable and
 ## never X-rays the world.
 
-const PAD := 10.0
+const PAD := 20.0
 const TITLE_H := 20.0
 
-const COL_BG := Color(0.06, 0.07, 0.10, 0.95)
-const COL_FRAME := Color(0.85, 0.72, 0.35, 0.85)
+const COL_BG := Color(0.03, 0.045, 0.07, 0.82)
+const COL_OUTER_FRAME := Color(0.58, 0.50, 0.32, 0.96)
+const COL_INNER_FRAME := Color(0.11, 0.16, 0.20, 0.95)
+const COL_FIELD_FRAME := Color(0.48, 0.52, 0.62, 0.72)
 const COL_UNSEEN := Color(0.10, 0.11, 0.15, 1.0)
 const COL_SEEN := Color(0.20, 0.24, 0.31, 1.0)
 const COL_HALL := Color(0.92, 0.76, 0.35)
@@ -26,10 +28,12 @@ func set_snapshot(s: Dictionary) -> void:
 
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
-	# Panel background + frame.
+	# The map owns one crisp runtime frame. HUD does not stack another frame
+	# over it, so content and chrome cannot drift out of alignment.
 	draw_rect(Rect2(Vector2.ZERO, size), COL_BG)
-	draw_rect(Rect2(Vector2.ZERO, size), COL_FRAME, false, 1.0)
-	draw_string(font, Vector2(PAD, PAD + 12.0), "Map — Town Hall ◆  You ●  ore ·  threat ·",
+	draw_rect(Rect2(Vector2.ZERO, size), COL_OUTER_FRAME, false, 2.0)
+	draw_rect(Rect2(Vector2(4, 4), size - Vector2(8, 8)), COL_INNER_FRAME, false, 1.0)
+	draw_string(font, Vector2(PAD, PAD + 12.0), "Map   ◆ Hall   ● You   ▪ Ore   ▪ Threat",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.85, 0.88, 0.95))
 
 	var w := int(snapshot.get("width", 0))
@@ -61,7 +65,7 @@ func _draw() -> void:
 	var pl: Vector2i = snapshot.get("player", Vector2i.ZERO)
 	_marker(origin + Vector2(pl.x * sx, pl.y * sy), 3.0, COL_PLAYER)
 
-	draw_rect(Rect2(origin, Vector2(draw_w, draw_h)), COL_FRAME, false, 1.0)
+	draw_rect(Rect2(origin, Vector2(draw_w, draw_h)), COL_FIELD_FRAME, false, 1.0)
 
 
 func _marker(at: Vector2, r: float, color: Color) -> void:

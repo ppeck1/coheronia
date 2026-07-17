@@ -17,9 +17,12 @@ signal craft_station_requested(recipe_id: String)
 ## default 0.25); the HUD does not read player state directly so it keeps a
 ## small local const matching the documented default for the tint threshold.
 const LOW_HEALTH_TINT_FRACTION := 0.25
+const HUD_VISUAL_THEME_SEPARATOR := "__"
+const HUD_VISUAL_THEME_MAX_LENGTH := 48
 
 var player: CharacterBody2D
 var town_hall: Node2D
+var _hud_visual_theme := ""
 
 var _health_label: Label
 var _health_bar: ProgressBar
@@ -39,7 +42,6 @@ var _mine_bar: ProgressBar
 var _log_label: Label
 var _event_panel: PanelContainer
 var _event_time_label: Label
-var _event_visible_before_map := true
 var _log_lines: Array[String] = []
 var _town_panel: PanelContainer
 var _town_info: Label
@@ -55,13 +57,13 @@ var _save_label: Label   # no longer built (FQ-19); kept for the null-guarded se
 var _has_save_hint := false
 var _debug_label: Label
 var _top_left_box: Control
-# FQ-21: the dock is ONE full-width painted band (left cap · tiling plate ·
-# fixed center block · right cap), sliced whole from the mockup — never
-# stretched, never reassembled from small fragments (operator direction).
-# FQ-19's modular orb·panel·orb construction remains the fallback.
+# FQ-21 contract v2: the primary dock is one native-size layered kit whose
+# decorative chrome and runtime-content rectangles come from JSON. The sliced
+# FQ-21 band and FQ-19 modular orb/panel/orb construction remain fallbacks.
 var _bottom_dock: Control          # the whole band (registered HUD widget)
 var _dock_panel: Control           # the central block (band) / plate panel (fallback)
 var _dock_band_active := false
+var _hud_kit_active := false
 # FQ-21 vessel sockets: future liquid mechanics plug in here — each socket
 # exposes the glass geometry plus the swappable fill node (any Range works;
 # update_health/update_attunement only ever drive the Range interface).
@@ -79,12 +81,13 @@ var _attunement_vessel_label: Label
 var _health_fx: TextureRect
 var _attunement_fx: TextureRect
 var _attunement_frame: Control
-var _attunement_core: ColorRect
+var _attunement_core: Control
 var _last_health := -1.0
 var _last_attunement := -1.0
 var _vessel_fx_tweens: Dictionary = {}   # TextureRect -> Tween
 var _vessel_pulse_tween: Tween
 var _module_toolbar: HBoxContainer
+var _command_center_panel: PanelContainer
 # FQ-14: compact, state-driven current-goal panel (top-center; toggle_goals hides it).
 var _goal_panel: PanelContainer
 var _goal_label: Label
@@ -108,9 +111,9 @@ var _map_open := false
 var _hotbar_icons: Array[TextureRect] = []
 var _hotbar_slots: Array[PanelContainer] = []
 var _hotbar_counts: Array[Label] = []
-# FQ-19: per-slot wrapper margins — the selected slot rides 3px higher than
-# its neighbors (blueprint "raised selected slot" treatment).
-var _hotbar_cells: Array[MarginContainer] = []
+# Native-kit wrappers own JSON-positioned runtime children. Legacy
+# MarginContainer wrappers retain the raised-selected fallback treatment.
+var _hotbar_cells: Array[Control] = []
 var _hotbar_selected := -1
 # FQ-13P2: StyleBox (texture placeholder when art/generated/ui art exists, else
 # the code-drawn flat fallback) — either subclass assigns to a slot panel.
@@ -145,26 +148,34 @@ var _hud_drag_origin := Vector2.ZERO
 # FQ-20: corner-grip resize state + the edit overlay that draws widget
 # outlines and grips, and the dock command-center toggle chips.
 var _hud_resize_widget := ""
-var _hud_resize_origin_scale := 1.0
+var _hud_resize_origin_size := Vector2.ZERO
 var _hud_edit_overlay: Control
 var _command_toggles: Dictionary = {}   # label -> Button
-const HUD_WIDGET_IDS := ["crest", "goal", "events", "map", "dock"]
-# FQ-20 direct manipulation: continuous resize via the corner grip.
-const HUD_MIN_SCALE := 0.5
-const HUD_MAX_SCALE := 2.0
-const HUD_SCALE_STEP := 0.1
+var _hud_default_sizes: Dictionary = {}
+const HUD_WIDGET_IDS := ["crest", "goal", "events", "map", "modules", "dock"]
+const HUD_EDITABLE_WIDGET_IDS := ["crest", "goal", "events", "map", "modules"]
+# FQ-20/FQ-22 direct manipulation: continuous resize via panel size, never
+# Control.scale. Fractional transforms blur HUD chrome and expose nine-slice seams.
+const HUD_MIN_SIZE_FACTOR := 0.5
+const HUD_MAX_SIZE_FACTOR := 2.0
+const HUD_SIZE_STEP := 0.1
 const HUD_SAFE_MARGIN := 12.0
 const HUD_GRIP_SIZE := 18.0
 # Layouts saved before the canvas_items stretch + split dock band (v2) or
-# before locks were retired for direct manipulation (v3) were recorded
-# against different geometry; a version mismatch falls back to the blueprint
-# defaults (one-time reset; new edits re-save under this version).
-const HUD_LAYOUT_VERSION := 3
+# before locks were retired for direct manipulation (v3), before the
+# full-width dock became transform-invariant (v4), before Map and Events
+# gained independent non-overlapping defaults (v5), or before module controls
+# became dock-owned (v6), or before editable modules stopped persisting
+# fractional Control.scale transforms (v7), were recorded against different
+# geometry. A mismatch falls back to the blueprint defaults.
+const HUD_LAYOUT_VERSION := 7
 
 
 func _ready() -> void:
+	_hud_visual_theme = _initial_hud_visual_theme()
 	_build_top_left()
 	_build_bottom_left()
+	_build_command_center_widget()
 	_build_log()
 	_build_context_stack()
 	_build_town_panel()
@@ -215,11 +226,42 @@ func _build_command_center(parent: Control) -> void:
 	_add_command_toggle("Crest", func(): _toggle_top_left_module())
 	_add_command_toggle("Goal", func(): _toggle_goal_module())
 	_add_command_toggle("Events", func(): _toggle_event_module())
-	_add_command_toggle("Map", func(): toggle_map())
+	_add_command_toggle_with_state("Map", func(pressed: bool): set_map_open(pressed))
 	_add_command_toggle("Edit", func(): toggle_hud_edit_mode())
 
 
+## Module visibility controls belong to the bottom dock when the native HUD kit
+## is active, so old saved profile positions cannot strand them in the playfield.
+func _build_command_center_widget() -> void:
+	_command_center_panel = PanelContainer.new()
+	_command_center_panel.name = "HudModuleControls"
+	_command_center_panel.add_theme_stylebox_override("panel", _chip_style())
+	if _hud_kit_active and _bottom_dock != null:
+		var layout := _load_hud_kit_layout()
+		var rect := _json_rect(layout.get("module_toolbar_rect"))
+		if rect == Rect2():
+			rect = Rect2(Vector2(458.0, 132.0), Vector2(364.0, 44.0))
+		_place(_command_center_panel, rect)
+		_command_center_panel.z_index = 6
+		_bottom_dock.add_child(_command_center_panel)
+	else:
+		_command_center_panel.anchor_left = 0.5
+		_command_center_panel.anchor_right = 0.5
+		_command_center_panel.anchor_top = 0.0
+		_command_center_panel.anchor_bottom = 0.0
+		_command_center_panel.offset_left = -182.0
+		_command_center_panel.offset_right = 182.0
+		_command_center_panel.offset_top = 100.0
+		_command_center_panel.offset_bottom = 134.0
+		add_child(_command_center_panel)
+	_build_command_center(_command_center_panel)
+
+
 func _add_command_toggle(text: String, action: Callable) -> void:
+	_add_command_toggle_with_state(text, func(_pressed_state: bool): action.call())
+
+
+func _add_command_toggle_with_state(text: String, action: Callable) -> void:
 	var button := Button.new()
 	button.name = "CommandToggle" + text
 	button.text = text
@@ -229,10 +271,12 @@ func _add_command_toggle(text: String, action: Callable) -> void:
 	button.add_theme_stylebox_override("normal", _chip_style(Color(0.72, 0.72, 0.72)))
 	button.add_theme_stylebox_override("hover", _chip_style())
 	button.add_theme_stylebox_override("pressed", _chip_style(Color(1.3, 1.12, 0.75)))
-	button.focus_mode = Control.FOCUS_ALL
+	# These are HUD mouse/touch chips; keeping focus after a click lets ui_accept
+	# repeat through the focused Button and can reopen/close toggled panels.
+	button.focus_mode = Control.FOCUS_NONE
 	button.tooltip_text = "Show/hide %s" % text
-	button.toggled.connect(func(_pressed_state: bool):
-		action.call()
+	button.toggled.connect(func(pressed_state: bool):
+		action.call(pressed_state)
 		_sync_command_center())
 	_module_toolbar.add_child(button)
 	_command_toggles[text] = button
@@ -259,6 +303,7 @@ func _register_hud_widgets() -> void:
 		"goal": _goal_panel,
 		"events": _event_panel if _event_panel != null else _log_label,
 		"map": _map_panel,
+		"modules": _command_center_panel,
 		"dock": _bottom_dock,
 	}
 	for widget_id in HUD_WIDGET_IDS:
@@ -266,28 +311,43 @@ func _register_hud_widgets() -> void:
 		if control == null:
 			continue
 		_hud_default_positions[widget_id] = control.position
+		_hud_default_sizes[widget_id] = _hud_widget_size(control)
+		control.scale = Vector2.ONE
 		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+func _editable_hud_widget_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for widget_id in HUD_EDITABLE_WIDGET_IDS:
+		if widget_id == "modules" and _hud_kit_active:
+			continue
+		ids.append(widget_id)
+	# The modular FQ-19 fallback remains a movable panel. Only FQ-21's
+	# anchored viewport band must be transform-invariant.
+	if not _dock_band_active:
+		ids.append("dock")
+	return ids
 
 
 func _build_hud_edit_panel() -> void:
 	_hud_edit_panel = PanelContainer.new()
-	_hud_edit_panel.anchor_left = 1.0
-	_hud_edit_panel.anchor_right = 1.0
+	_hud_edit_panel.anchor_left = 0.5
+	_hud_edit_panel.anchor_right = 0.5
 	_hud_edit_panel.anchor_top = 1.0
 	_hud_edit_panel.anchor_bottom = 1.0
-	_hud_edit_panel.offset_left = -300.0
-	_hud_edit_panel.offset_right = -12.0
-	_hud_edit_panel.offset_top = -168.0
-	_hud_edit_panel.offset_bottom = -12.0
+	_hud_edit_panel.offset_left = -220.0
+	_hud_edit_panel.offset_right = 220.0
+	_hud_edit_panel.offset_top = -400.0
+	_hud_edit_panel.offset_bottom = -190.0
 	_hud_edit_panel.visible = false
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
 	_hud_edit_panel.add_child(box)
-	var title := _label(box, "HUD EDIT — drag to move, corner grip to resize")
+	var title := _label(box, "HUD EDIT - drag to move, corner grip to resize")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 12)
 	_hud_edit_select = OptionButton.new()
-	for widget_id in HUD_WIDGET_IDS:
+	for widget_id in _editable_hud_widget_ids():
 		_hud_edit_select.add_item(widget_id.capitalize())
 		_hud_edit_select.set_item_metadata(_hud_edit_select.item_count - 1, widget_id)
 	_hud_edit_select.item_selected.connect(func(index: int):
@@ -301,8 +361,8 @@ func _build_hud_edit_panel() -> void:
 	_add_edit_button(move_row, "↓", func(): _nudge_hud_widget(Vector2(0, 8)))
 	box.add_child(move_row)
 	var scale_row := HBoxContainer.new()
-	_add_edit_button(scale_row, "Scale −", func(): _scale_hud_widget(-HUD_SCALE_STEP))
-	_add_edit_button(scale_row, "Scale +", func(): _scale_hud_widget(HUD_SCALE_STEP))
+	_add_edit_button(scale_row, "Size -", func(): _scale_hud_widget(-HUD_SIZE_STEP))
+	_add_edit_button(scale_row, "Size +", func(): _scale_hud_widget(HUD_SIZE_STEP))
 	box.add_child(scale_row)
 	var action_row := HBoxContainer.new()
 	_add_edit_button(action_row, "Reset", func(): reset_hud_layout())
@@ -328,7 +388,7 @@ func toggle_hud_edit_mode() -> void:
 		_hud_edit_panel.visible = _hud_edit_mode
 	if _hud_edit_overlay != null:
 		_hud_edit_overlay.visible = _hud_edit_mode
-	for widget_id in HUD_WIDGET_IDS:
+	for widget_id in _editable_hud_widget_ids():
 		var control: Control = _hud_widgets.get(widget_id)
 		if control != null:
 			control.mouse_filter = Control.MOUSE_FILTER_STOP if _hud_edit_mode else Control.MOUSE_FILTER_IGNORE
@@ -351,9 +411,9 @@ func _update_hud_edit_status() -> void:
 	if _hud_edit_status == null:
 		return
 	var control: Control = _hud_widgets.get(_hud_edit_selected)
-	var scale := 1.0 if control == null else control.scale.x
-	_hud_edit_status.text = "%s · %.2fx\nDrag any panel to move it; drag a corner grip to resize." % [
-		_hud_edit_selected.capitalize(), scale]
+	var size := Vector2.ZERO if control == null else _hud_widget_size(control)
+	_hud_edit_status.text = "%s - %dx%d\nDrag any panel to move it; drag a corner grip to resize." % [
+		_hud_edit_selected.capitalize(), int(size.x), int(size.y)]
 
 
 ## FQ-20: locks are gone — edit mode itself is the gate; everything drags.
@@ -370,18 +430,27 @@ func _scale_hud_widget(delta: float) -> void:
 	var control: Control = _hud_widgets.get(_hud_edit_selected)
 	if control == null:
 		return
-	var next_scale := clampf(control.scale.x + delta, HUD_MIN_SCALE, HUD_MAX_SCALE)
-	control.scale = Vector2.ONE * next_scale
+	_set_hud_widget_size(_hud_edit_selected, _hud_widget_size(control) * (1.0 + delta))
 	_clamp_hud_widget(control)
 	_update_hud_edit_status()
 
 
-## FQ-20: apply an absolute scale (corner-grip resize path).
-func _resize_hud_widget(widget_id: String, next_scale: float) -> void:
+## FQ-20/FQ-22: apply an absolute size factor against the widget default.
+func _resize_hud_widget(widget_id: String, next_factor: float) -> void:
 	var control: Control = _hud_widgets.get(widget_id)
 	if control == null:
 		return
-	control.scale = Vector2.ONE * clampf(next_scale, HUD_MIN_SCALE, HUD_MAX_SCALE)
+	var base_size: Vector2 = _hud_default_sizes.get(widget_id, _hud_widget_size(control))
+	_set_hud_widget_size(widget_id, base_size * next_factor)
+	_clamp_hud_widget(control)
+	_update_hud_edit_status()
+
+
+func _resize_hud_widget_to_size(widget_id: String, next_size: Vector2) -> void:
+	var control: Control = _hud_widgets.get(widget_id)
+	if control == null:
+		return
+	_set_hud_widget_size(widget_id, next_size)
 	_clamp_hud_widget(control)
 	_update_hud_edit_status()
 
@@ -391,15 +460,63 @@ func _hud_grip_rect(widget_id: String) -> Rect2:
 	var control: Control = _hud_widgets.get(widget_id)
 	if control == null or not control.visible:
 		return Rect2()
-	var rect := Rect2(control.global_position, control.size * control.scale)
+	var rect := control.get_global_rect()
 	return Rect2(rect.end - Vector2(HUD_GRIP_SIZE, HUD_GRIP_SIZE),
 		Vector2(HUD_GRIP_SIZE, HUD_GRIP_SIZE))
 
 
-func _clamp_hud_widget(control: Control) -> void:
+func _hud_widget_size(control: Control) -> Vector2:
+	var measured := control.size
+	var minimum := control.custom_minimum_size
+	if minimum.x > measured.x:
+		measured.x = minimum.x
+	if minimum.y > measured.y:
+		measured.y = minimum.y
+	if measured.x <= 0.0:
+		measured.x = 160.0
+	if measured.y <= 0.0:
+		measured.y = 80.0
+	return measured.round()
+
+
+func _hud_min_size(widget_id: String, control: Control) -> Vector2:
+	var base: Vector2 = _hud_default_sizes.get(widget_id, _hud_widget_size(control))
+	return Vector2(maxf(base.x * HUD_MIN_SIZE_FACTOR, 120.0),
+		maxf(base.y * HUD_MIN_SIZE_FACTOR, 56.0)).round()
+
+
+func _hud_max_size(widget_id: String, control: Control) -> Vector2:
 	var viewport_size := get_viewport().get_visible_rect().size
-	var scaled_size := control.size * control.scale
-	var max_position := viewport_size - scaled_size - Vector2.ONE * HUD_SAFE_MARGIN
+	var base: Vector2 = _hud_default_sizes.get(widget_id, _hud_widget_size(control))
+	return Vector2(minf(base.x * HUD_MAX_SIZE_FACTOR, viewport_size.x - HUD_SAFE_MARGIN * 2.0),
+		minf(base.y * HUD_MAX_SIZE_FACTOR, viewport_size.y - HUD_SAFE_MARGIN * 2.0)).round()
+
+
+func _set_hud_widget_size(widget_id: String, next_size: Vector2) -> void:
+	var control: Control = _hud_widgets.get(widget_id)
+	if control == null:
+		return
+	var min_size := _hud_min_size(widget_id, control)
+	var max_size := _hud_max_size(widget_id, control)
+	var clamped := Vector2(
+		clampf(next_size.x, min_size.x, max_size.x),
+		clampf(next_size.y, min_size.y, max_size.y)).round()
+	control.scale = Vector2.ONE
+	control.custom_minimum_size = clamped
+	control.size = clamped
+
+
+func _clamp_hud_widget(control: Control) -> void:
+	control.scale = Vector2.ONE
+	# The FQ-21 dock is an anchored viewport band, not a floating panel.
+	# Canonicalizing its parent transform prevents saved/editor transforms
+	# from scaling its full-width anchors and clipping either vessel.
+	if _dock_band_active and control == _bottom_dock:
+		control.position = _hud_default_positions.get("dock", control.position)
+		return
+	var viewport_size := get_viewport().get_visible_rect().size
+	var widget_size := _hud_widget_size(control)
+	var max_position := viewport_size - widget_size - Vector2.ONE * HUD_SAFE_MARGIN
 	# A full-width widget (the FQ-21 band) has no horizontal slack; clamping
 	# with min > max would snap it to the margin.
 	if max_position.x >= HUD_SAFE_MARGIN:
@@ -410,6 +527,11 @@ func _clamp_hud_widget(control: Control) -> void:
 
 func _input(event: InputEvent) -> void:
 	if not _hud_edit_mode:
+		return
+	if event is InputEventKey and event.pressed and not event.echo \
+			and event.keycode == KEY_ESCAPE:
+		toggle_hud_edit_mode()
+		get_viewport().set_input_as_handled()
 		return
 	# Only mouse events carry a position; a key press while editing must not
 	# reach the base-InputEvent property (review finding, FQ-19 closeout).
@@ -429,42 +551,42 @@ func _input(event: InputEvent) -> void:
 		return
 	if _hud_edit_panel != null and _hud_edit_panel.get_global_rect().has_point(point):
 		return
-	# The command-center chips must stay clickable while editing (that is
+	# The module-controls widget must stay clickable while editing (that is
 	# where Edit is toggled back off).
-	if _module_toolbar != null and _module_toolbar.get_global_rect().has_point(point):
+	if _command_center_panel != null \
+			and _command_center_panel.get_global_rect().has_point(point):
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			# Corner grip first: resize wins over move when both hit.
 			_hud_resize_widget = ""
-			for widget_id in HUD_WIDGET_IDS:
+			for widget_id in _editable_hud_widget_ids():
 				if _hud_grip_rect(widget_id).has_point(point):
 					_hud_resize_widget = widget_id
 					break
 			if _hud_resize_widget != "":
 				_hud_edit_selected = _hud_resize_widget
-				_hud_edit_select.select(HUD_WIDGET_IDS.find(_hud_resize_widget))
+				_hud_edit_select.select(_editable_hud_widget_ids().find(_hud_resize_widget))
 				_hud_drag_pointer = point
-				_hud_resize_origin_scale = (_hud_widgets[_hud_resize_widget] as Control).scale.x
+				_hud_resize_origin_size = _hud_widget_size(_hud_widgets[_hud_resize_widget])
 				_update_hud_edit_status()
 			else:
 				_hud_drag_widget = _hud_widget_at(point)
 				if _hud_drag_widget != "":
 					_hud_edit_selected = _hud_drag_widget
-					_hud_edit_select.select(HUD_WIDGET_IDS.find(_hud_drag_widget))
+					_hud_edit_select.select(_editable_hud_widget_ids().find(_hud_drag_widget))
 					_hud_drag_pointer = point
 					_hud_drag_origin = (_hud_widgets[_hud_drag_widget] as Control).position
 					_update_hud_edit_status()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and _hud_resize_widget != "":
-		# Continuous resize: scale follows the pointer's distance from the
-		# widget origin relative to where the grip drag started.
+		# Continuous resize follows pointer distance as explicit widget size.
 		var control: Control = _hud_widgets[_hud_resize_widget]
 		var origin: Vector2 = control.global_position
 		var start_span: float = maxf((_hud_drag_pointer - origin).length(), 1.0)
 		var now_span: float = (point - origin).length()
-		_resize_hud_widget(_hud_resize_widget,
-			snappedf(_hud_resize_origin_scale * now_span / start_span, 0.01))
+		_resize_hud_widget_to_size(_hud_resize_widget,
+			(_hud_resize_origin_size * snappedf(now_span / start_span, 0.01)).round())
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and _hud_drag_widget != "":
 		var control: Control = _hud_widgets[_hud_drag_widget]
@@ -475,7 +597,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _hud_widget_at(point: Vector2) -> String:
-	for widget_id in HUD_WIDGET_IDS:
+	for widget_id in _editable_hud_widget_ids():
 		var control: Control = _hud_widgets.get(widget_id)
 		if control != null and control.visible and control.get_global_rect().has_point(point):
 			return widget_id
@@ -494,11 +616,11 @@ func _build_hud_edit_overlay() -> void:
 
 
 func _draw_hud_edit_overlay() -> void:
-	for widget_id in HUD_WIDGET_IDS:
+	for widget_id in _editable_hud_widget_ids():
 		var control: Control = _hud_widgets.get(widget_id)
 		if control == null or not control.visible:
 			continue
-		var rect := Rect2(control.global_position, control.size * control.scale)
+		var rect := control.get_global_rect()
 		var selected: bool = widget_id == _hud_edit_selected
 		var line := Color(0.95, 0.8, 0.35, 0.95) if selected else Color(0.7, 0.6, 0.35, 0.55)
 		_hud_edit_overlay.draw_rect(rect, line, false, 2.0 if selected else 1.0)
@@ -510,8 +632,10 @@ func _draw_hud_edit_overlay() -> void:
 func _load_hud_layout() -> void:
 	var saved: Variant = GameState.profile.get("hud_layout", {})
 	if not saved is Dictionary:
+		_clamp_hud_widget(_bottom_dock)
 		return
 	if int(saved.get("version", 0)) != HUD_LAYOUT_VERSION:
+		_clamp_hud_widget(_bottom_dock)
 		return
 	for widget_id in HUD_WIDGET_IDS:
 		var record: Variant = saved.get(widget_id, {})
@@ -520,11 +644,17 @@ func _load_hud_layout() -> void:
 		var control: Control = _hud_widgets.get(widget_id)
 		if control == null:
 			continue
+		if widget_id == "dock" and _dock_band_active:
+			_clamp_hud_widget(control)
+			continue
+		control.scale = Vector2.ONE
 		var delta_value: Variant = record.get("delta", [0.0, 0.0])
 		if delta_value is Array and delta_value.size() >= 2:
 			control.position = _hud_default_positions[widget_id] + Vector2(float(delta_value[0]), float(delta_value[1]))
-		var saved_scale := clampf(float(record.get("scale", 1.0)), HUD_MIN_SCALE, HUD_MAX_SCALE)
-		control.scale = Vector2.ONE * saved_scale
+		var saved_size: Variant = record.get("size", [])
+		if saved_size is Array and saved_size.size() >= 2:
+			_set_hud_widget_size(widget_id,
+				Vector2(float(saved_size[0]), float(saved_size[1])))
 		var saved_visible: Variant = record.get("visible", true)
 		if widget_id in ["crest", "goal", "events"] and saved_visible is bool:
 			control.visible = saved_visible
@@ -539,13 +669,15 @@ func _save_hud_layout() -> void:
 		var control: Control = _hud_widgets.get(widget_id)
 		if control == null:
 			continue
+		if widget_id == "dock" and _dock_band_active:
+			_clamp_hud_widget(control)
+		control.scale = Vector2.ONE
 		var delta: Vector2 = control.position - _hud_default_positions[widget_id]
 		var saved_visible := control.visible if widget_id in ["crest", "goal", "events"] else true
-		if widget_id == "events" and _map_open:
-			saved_visible = _event_visible_before_map
+		var saved_size := _hud_widget_size(control)
 		layout[widget_id] = {
 			"delta": [snappedf(delta.x, 1.0), snappedf(delta.y, 1.0)],
-			"scale": snappedf(control.scale.x, 0.01),
+			"size": [snappedf(saved_size.x, 1.0), snappedf(saved_size.y, 1.0)],
 			"visible": saved_visible,
 		}
 	GameState.profile["hud_layout"] = layout
@@ -558,11 +690,15 @@ func reset_hud_layout() -> void:
 		if control == null:
 			continue
 		control.position = _hud_default_positions[widget_id]
+		if widget_id == "dock" and _dock_band_active:
+			_clamp_hud_widget(control)
+			continue
+		_set_hud_widget_size(widget_id,
+			_hud_default_sizes.get(widget_id, _hud_widget_size(control)))
 		control.scale = Vector2.ONE
 		if widget_id in ["crest", "goal", "events"]:
-			control.visible = not (widget_id == "events" and _map_open)
+			control.visible = true
 	_goal_visible = true
-	_event_visible_before_map = true
 	_save_hud_layout()
 	_update_hud_edit_status()
 	_sync_command_center()
@@ -585,55 +721,111 @@ func _toggle_goal_module() -> void:
 
 func _toggle_event_module() -> void:
 	if _event_panel != null:
-		var current_preference: bool = _event_visible_before_map if _map_open else _event_panel.visible
-		var next_visible := not current_preference
-		if _map_open:
-			_event_visible_before_map = next_visible
-			# Map owns the top-right zone while open. Persist the user's intended
-			# Events preference without persisting the temporary hidden state.
-			_event_panel.visible = next_visible
-			_save_hud_layout()
-			_event_panel.visible = false
-		else:
-			_event_panel.visible = next_visible
-			_save_hud_layout()
+		_event_panel.visible = not _event_panel.visible
+		_save_hud_layout()
 	_sync_command_center()
 
 
-## FQ-20: painted chrome sliced from the operator's blueprint mockup
-## (art/generated/ui_painted/, scripts/art/slice_hud_chrome.py).
+## Static painted UI supports optional per-theme siblings named
+## `<asset>__<theme>.png`. Every lookup is asset-local: a missing, unreadable,
+## wrong-size, or wrong-format themed PNG falls back to the required base PNG.
+## Runtime-owned item icons, values, fills, counts, and labels never pass
+## through this presentation-only resolver.
 func _painted_texture(id: String) -> Texture2D:
-	return BlockRegistry.visual_texture("ui_painted", id)
+	return _painted_texture_for_theme(id, _hud_visual_theme)
 
 
-## Framed-module look, best available art first: the painted mockup frame
-## (FQ-20), else the generated dock-backplate 9-slice (FQ-19), else the
-## code-drawn plate. `kind` picks the painted frame family.
+func _painted_texture_for_theme(id: String, theme_id: String) -> Texture2D:
+	var fallback: Texture2D = BlockRegistry.visual_texture("ui_painted", id)
+	if fallback == null:
+		return null
+	var safe_theme := _normalize_hud_visual_theme(theme_id)
+	if safe_theme.is_empty():
+		return fallback
+	var themed: Texture2D = BlockRegistry.visual_texture(
+		"ui_painted", "%s%s%s" % [id, HUD_VISUAL_THEME_SEPARATOR, safe_theme])
+	if not _themed_texture_matches_fallback(themed, fallback):
+		return fallback
+	return themed
+
+
+func _themed_texture_matches_fallback(themed: Texture2D,
+		fallback: Texture2D) -> bool:
+	if themed == null or fallback == null or themed.get_size() != fallback.get_size():
+		return false
+	var themed_image: Image = themed.get_image()
+	var fallback_image: Image = fallback.get_image()
+	return themed_image != null and fallback_image != null \
+		and not themed_image.is_empty() and not fallback_image.is_empty() \
+		and themed_image.get_format() == fallback_image.get_format()
+
+
+func _initial_hud_visual_theme() -> String:
+	GameState.ensure_play_context()
+	var character: Dictionary = GameState.current_character
+	var explicit := str(character.get("hud_visual_theme", ""))
+	if not explicit.is_empty():
+		return _normalize_hud_visual_theme(explicit)
+	return _normalize_hud_visual_theme(str(character.get("species", "")))
+
+
+func _normalize_hud_visual_theme(raw_id: String) -> String:
+	var raw := raw_id.strip_edges().to_lower()
+	var normalized := ""
+	for index in range(raw.length()):
+		var code := raw.unicode_at(index)
+		if (code >= 97 and code <= 122) or (code >= 48 and code <= 57) \
+				or code == 95:
+			normalized += raw[index]
+		elif code == 32 or code == 45:
+			normalized += "_"
+		else:
+			return ""
+	if normalized.length() > HUD_VISUAL_THEME_MAX_LENGTH:
+		return ""
+	return normalized
+
+
+func hud_visual_theme_id() -> String:
+	return _hud_visual_theme
+
+
+## Framed-module look: crisp runtime chrome, not stretched mockup crops.
+## The outer panel owns the border only; _module_content_host adds a separate
+## padded background layer for live text/bars/content.
 func _module_panel_style(kind: String = "plain") -> StyleBox:
-	var painted: Texture2D = _painted_texture(
-		"panel_frame_ornate" if kind == "ornate" else "panel_frame_plain")
-	if painted != null:
-		# Content margins sit WELL inside the border art (border + 8px of
-		# air) — text on the frame bevel was the operator's padding finding.
-		var psb := StyleBoxTexture.new()
-		psb.texture = painted
-		psb.set_texture_margin_all(16 if kind == "ornate" else 10)
-		psb.set_content_margin_all(24 if kind == "ornate" else 18)
-		return psb
-	var backplate: Texture2D = BlockRegistry.visual_texture("ui", "dock_backplate")
-	if backplate != null:
-		var sbt := StyleBoxTexture.new()
-		sbt.texture = backplate
-		sbt.set_texture_margin_all(8)
-		sbt.set_content_margin_all(8)
-		return sbt
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.06, 0.09, 0.9)
-	sb.border_color = Color(0.55, 0.42, 0.24, 0.95)
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(4)
-	sb.set_content_margin_all(8)
+	sb.bg_color = Color(0.015, 0.021, 0.032, 0.84)
+	sb.border_color = Color(0.62, 0.53, 0.34, 0.96) if kind == "ornate" \
+		else Color(0.36, 0.47, 0.54, 0.92)
+	sb.set_border_width_all(3 if kind == "ornate" else 2)
+	sb.set_corner_radius_all(3)
+	sb.set_content_margin_all(8 if kind == "ornate" else 6)
+	sb.shadow_color = Color(0.0, 0.0, 0.0, 0.45)
+	sb.shadow_size = 4
+	sb.shadow_offset = Vector2(0, 2)
+	sb.anti_aliasing = false
 	return sb
+
+
+func _module_background_style() -> StyleBoxFlat:
+	var background := StyleBoxFlat.new()
+	background.bg_color = Color(0.025, 0.035, 0.052, 0.88)
+	background.border_color = Color(0.11, 0.16, 0.20, 0.9)
+	background.set_border_width_all(1)
+	background.set_corner_radius_all(2)
+	background.set_content_margin_all(8)
+	background.anti_aliasing = false
+	return background
+
+
+func _module_content_host(panel: PanelContainer, kind: String = "plain") -> PanelContainer:
+	panel.add_theme_stylebox_override("panel", _module_panel_style(kind))
+	var host := PanelContainer.new()
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_theme_stylebox_override("panel", _module_background_style())
+	panel.add_child(host)
+	return host
 
 
 ## FQ-20: small chip framing (contextual entries, command-center toggles) —
@@ -659,23 +851,30 @@ func _chip_style(tint: Color = Color.WHITE) -> StyleBox:
 	return sb
 
 
-## FQ-20: the mockup's diamond medallion pinned to a panel's top-left corner.
-## A PanelContainer stretches its direct children, so the ornament rides in a
-## layout-neutral holder and keeps its manual corner offset.
+## FQ-22: code-drawn crest corner ornament. The old painted crop carried
+## leftover alpha/masking debris outside the panel edge; keep this contained.
 func _add_corner_medallion(panel: Control) -> void:
-	var tex: Texture2D = _painted_texture("corner_medallion")
-	if tex == null:
-		return
 	var holder := Control.new()
+	holder.name = "CrestCornerOrnament"
+	holder.position = Vector2(5, 5)
+	holder.size = Vector2(24, 24)
+	holder.custom_minimum_size = holder.size
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.draw.connect(func() -> void:
+		var center := Vector2(10, 10)
+		var diamond := PackedVector2Array([
+			center + Vector2(0, -6),
+			center + Vector2(6, 0),
+			center + Vector2(0, 6),
+			center + Vector2(-6, 0),
+		])
+		var outline := PackedVector2Array([diamond[0], diamond[1], diamond[2], diamond[3], diamond[0]])
+		holder.draw_colored_polygon(diamond, Color(0.82, 0.66, 0.32, 0.98))
+		holder.draw_polyline(outline, Color(0.12, 0.10, 0.06, 0.95), 1.0)
+		holder.draw_line(Vector2(2, 2), Vector2(18, 2), Color(0.62, 0.53, 0.34, 0.8), 1.0)
+		holder.draw_line(Vector2(2, 2), Vector2(2, 18), Color(0.62, 0.53, 0.34, 0.8), 1.0)
+	)
 	panel.add_child(holder)
-	var ornament := TextureRect.new()
-	ornament.texture = tex
-	ornament.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	ornament.position = Vector2(-23, -23)
-	ornament.size = Vector2(44, 44)
-	ornament.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(ornament)
 
 
 func _build_top_left() -> void:
@@ -686,12 +885,12 @@ func _build_top_left() -> void:
 	crest.position = Vector2(16, 14)
 	crest.custom_minimum_size = Vector2(250, 0)
 	crest.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	crest.add_theme_stylebox_override("panel", _module_panel_style("ornate"))
+	var crest_content := _module_content_host(crest, "ornate")
 	_add_corner_medallion(crest)
 	add_child(crest)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
-	crest.add_child(box)
+	crest_content.add_child(box)
 	_crest_title = Label.new()
 	_crest_title.text = "◆ Camp · Lv.1"
 	_crest_title.add_theme_font_size_override("font_size", 14)
@@ -757,11 +956,11 @@ func _build_goal_panel() -> void:
 	_goal_panel.offset_right = 180.0
 	_goal_panel.offset_top = 8.0
 	_goal_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_goal_panel.add_theme_stylebox_override("panel", _module_panel_style())
+	var goal_content := _module_content_host(_goal_panel)
 	add_child(_goal_panel)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 5)
-	_goal_panel.add_child(col)
+	goal_content.add_child(col)
 	_goal_label = Label.new()
 	_goal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_goal_label.add_theme_font_size_override("font_size", 14)
@@ -806,46 +1005,36 @@ func goal_panel_visible() -> bool:
 ## FQ-15/FQ-16: a compact, hidden-by-default schematic mini-map placeholder.
 func _build_map_panel() -> void:
 	_map_panel = MapPanelScript.new()
-	_map_panel.custom_minimum_size = Vector2(240, 140)
-	_map_panel.size = Vector2(240, 140)
+	_map_panel.custom_minimum_size = Vector2(320, 168)
+	_map_panel.size = Vector2(320, 168)
 	_map_panel.anchor_left = 1.0
 	_map_panel.anchor_right = 1.0
 	_map_panel.anchor_top = 0.0
 	_map_panel.anchor_bottom = 0.0
-	_map_panel.offset_left = -252.0
-	_map_panel.offset_right = -12.0
+	# Map and Events are independent modules. Keep a fixed 12px gutter between
+	# their defaults so both can remain visible without state-dependent jumps.
+	_map_panel.offset_left = -704.0
+	_map_panel.offset_right = -384.0
 	_map_panel.offset_top = 96.0
-	_map_panel.offset_bottom = 236.0
+	_map_panel.offset_bottom = 264.0
 	_map_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_map_panel.visible = false
 	add_child(_map_panel)
-	# FQ-20: ornate painted border over the schematic map (draw_center off so
-	# the map content stays fully visible under the frame edges).
-	var map_frame_tex: Texture2D = _painted_texture("panel_frame_ornate")
-	if map_frame_tex != null:
-		var map_frame := NinePatchRect.new()
-		map_frame.texture = map_frame_tex
-		map_frame.patch_margin_left = 16
-		map_frame.patch_margin_right = 16
-		map_frame.patch_margin_top = 16
-		map_frame.patch_margin_bottom = 16
-		map_frame.draw_center = false
-		map_frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-		map_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_map_panel.add_child(map_frame)
 
 
 ## FQ-15: flip the map panel; returns the new visibility so game_root can decide
 ## whether to push a fresh snapshot.
 func toggle_map() -> bool:
-	_map_open = not _map_open
+	return set_map_open(not map_open())
+
+
+func set_map_open(open: bool) -> bool:
+	if _map_panel == null:
+		_map_open = false
+		_sync_command_center()
+		return false
+	_map_open = open
 	_map_panel.visible = _map_open
-	if _event_panel != null:
-		if _map_open:
-			_event_visible_before_map = _event_panel.visible
-			_event_panel.visible = false
-		else:
-			_event_panel.visible = _event_visible_before_map
 	_sync_command_center()
 	return _map_open
 
@@ -859,7 +1048,278 @@ func map_open() -> bool:
 	return _map_open and _map_panel != null and _map_panel.visible
 
 
+## Native-size layered HUD kit. Every positioned rectangle comes from
+## hud_dock_layout.json; the only runtime-authored visuals are live content.
+func _build_hud_kit(layout: Dictionary) -> void:
+	_hud_kit_active = true
+	_dock_band_active = true
+	var native_size := _json_vec(layout.get("native_size"))
+	var dock_geo: Dictionary = layout.get("dock", {})
+	var dock_rect := _json_rect(dock_geo.get("rect"))
+	if native_size == Vector2.ZERO:
+		native_size = dock_rect.size
+	var band := Control.new()
+	band.name = "HudDockKit"
+	_bottom_dock = band
+	band.anchor_left = 0.5
+	band.anchor_right = 0.5
+	band.anchor_top = 1.0
+	band.anchor_bottom = 1.0
+	band.offset_left = -native_size.x / 2.0
+	band.offset_right = native_size.x / 2.0
+	band.offset_top = -native_size.y
+	band.offset_bottom = 0.0
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(band)
+
+	# Decorative chrome is manifest-driven. New non-interactive layers can be
+	# added to JSON without another hud.gd branch; gameplay controls remain
+	# explicitly registered below.
+	var decorative_by_role: Dictionary = {}
+	for raw_layer in layout.get("decorative_layers", []):
+		if not raw_layer is Dictionary:
+			continue
+		var layer_def: Dictionary = raw_layer
+		if not bool(layer_def.get("enabled", true)):
+			continue
+		var asset_file := str(layer_def.get("asset", ""))
+		var asset_id := asset_file.trim_suffix(".png")
+		var layer := _kit_layer(band, str(layer_def.get("name", asset_id)),
+			asset_id, _json_rect(layer_def.get("rect")),
+			int(layer_def.get("z", 0)))
+		decorative_by_role[str(layer_def.get("role", ""))] = layer
+	var backplate: TextureRect = decorative_by_role.get("backplate") as TextureRect
+	_dock_panel = backplate
+
+	var health_geo: Dictionary = layout.get("health", {})
+	var health_fill_rect := _json_rect(health_geo.get("fill_rect"))
+	var health_mask: Texture2D = _painted_texture("health_fill_mask")
+	var health_fill := TextureProgressBar.new()
+	health_fill.name = "HealthFill"
+	health_fill.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
+	health_fill.texture_under = health_mask
+	health_fill.tint_under = Color(0.025, 0.035, 0.05, 0.94)
+	health_fill.texture_progress = health_mask
+	health_fill.tint_progress = Color(0.82, 0.11, 0.09)
+	health_fill.max_value = 100.0
+	health_fill.value = 100.0
+	_place(health_fill, health_fill_rect)
+	health_fill.z_index = 1
+	health_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(health_fill)
+	_health_vessel_fill = health_fill
+
+	var attune_geo: Dictionary = layout.get("attunement", {})
+	var attune_fill_rect := _json_rect(attune_geo.get("fill_rect"))
+	var attune_mask: Texture2D = _painted_texture("attunement_fill_mask")
+	var attune_fill := TextureProgressBar.new()
+	attune_fill.name = "AttunementFill"
+	attune_fill.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
+	attune_fill.texture_under = attune_mask
+	attune_fill.tint_under = Color(0.025, 0.045, 0.10, 0.92)
+	attune_fill.texture_progress = attune_mask
+	attune_fill.tint_progress = Color(0.12, 0.62, 0.96)
+	attune_fill.max_value = 100.0
+	attune_fill.value = 100.0
+	_place(attune_fill, attune_fill_rect)
+	attune_fill.z_index = 1
+	attune_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(attune_fill)
+	_attunement_vessel_fill = attune_fill
+
+	var health_frame := _kit_layer(band, "HealthFrame", "health_frame",
+		_json_rect(health_geo.get("frame_rect")), 2)
+	var health_glass := _kit_layer(band, "HealthGlass",
+		"health_glass_overlay", _json_rect(health_geo.get("glass_rect")), 2)
+	var attune_frame := _kit_layer(band, "AttunementFrame",
+		"attunement_frame", _json_rect(attune_geo.get("frame_rect")), 2)
+	attune_frame.pivot_offset = attune_frame.size / 2.0
+	_attunement_frame = attune_frame
+	var attune_glass := _kit_layer(band, "AttunementGlass",
+		"attunement_glass_overlay", _json_rect(attune_geo.get("glass_rect")), 2)
+	# Keep explicit references alive for the layer contract and smoke hooks.
+	health_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	health_glass.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	attune_glass.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_slot_normal_sb = _texture_style("slot_normal")
+	_slot_selected_sb = _texture_style("slot_selected")
+	var slot_rects: Array = layout.get("slots", [])
+	var slot_content: Dictionary = layout.get("slot_content", {})
+	for i in range(mini(5, slot_rects.size())):
+		var rect := _json_rect(slot_rects[i])
+		var cell := Control.new()
+		cell.name = "HotbarCell%d" % (i + 1)
+		_place(cell, rect)
+		cell.z_index = 4
+		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		band.add_child(cell)
+		var slot := PanelContainer.new()
+		slot.name = "HotbarSlot%d" % (i + 1)
+		slot.add_theme_stylebox_override("panel", _slot_normal_sb)
+		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_place(slot, Rect2(Vector2.ZERO, rect.size))
+		cell.add_child(slot)
+		var icon := TextureRect.new()
+		icon.name = "RuntimeIcon"
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_place(icon, _json_rect(slot_content.get("icon_rect")))
+		cell.add_child(icon)
+		var count := Label.new()
+		count.name = "RuntimeCount"
+		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		count.add_theme_font_size_override("font_size", 11)
+		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_place(count, _json_rect(slot_content.get("count_rect")))
+		cell.add_child(count)
+		var key_tag := Label.new()
+		key_tag.name = "RuntimeHotkey"
+		key_tag.text = str(i + 1)
+		key_tag.add_theme_font_size_override("font_size", 9)
+		key_tag.add_theme_color_override("font_color", Color(0.89, 0.75, 0.43))
+		key_tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		key_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_place(key_tag, _json_rect(slot_content.get("hotkey_rect")))
+		cell.add_child(key_tag)
+		_hotbar_cells.append(cell)
+		_hotbar_slots.append(slot)
+		_hotbar_icons.append(icon)
+		_hotbar_counts.append(count)
+
+	var buttons: Dictionary = layout.get("buttons", {})
+	var button_content: Dictionary = layout.get("button_content", {})
+	_add_kit_button(band, buttons.get("inventory"), "Inventory",
+		"button_icon_inventory", button_content, func(): toggle_inventory_panel())
+	_add_kit_button(band, buttons.get("character"), "Character",
+		"button_icon_character", button_content, func(): toggle_character_panel())
+	_add_kit_button(band, buttons.get("skills"), "Skills",
+		"button_icon_skills", button_content, func(): toggle_skill_panel())
+	_add_kit_button(band, buttons.get("town_hall"), "Town Hall",
+		"button_icon_town_hall", button_content, func(): toggle_town_panel())
+
+	var summary := PanelContainer.new()
+	summary.name = "SelectedItemChip"
+	summary.add_theme_stylebox_override("panel", _chip_style())
+	_place(summary, _json_rect(layout.get("selected_item_chip_rect")))
+	summary.z_index = 5
+	summary.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(summary)
+	_hotbar_label = Label.new()
+	_hotbar_label.add_theme_font_size_override("font_size", 11)
+	_hotbar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	summary.add_child(_hotbar_label)
+	_mine_bar = ProgressBar.new()
+	_mine_bar.name = "MiningProgress"
+	_mine_bar.show_percentage = false
+	_mine_bar.visible = false
+	_place(_mine_bar, _json_rect(layout.get("mining_progress_rect")))
+	_mine_bar.z_index = 5
+	band.add_child(_mine_bar)
+
+	_health_vessel_label = _vessel_value_label(band)
+	_place(_health_vessel_label, _json_rect(health_geo.get("label_rect")))
+	_health_vessel_label.z_index = 5
+	_health_label = _health_vessel_label
+	_attunement_vessel_label = _vessel_value_label(band)
+	_place(_attunement_vessel_label, _json_rect(attune_geo.get("label_rect")))
+	_attunement_vessel_label.z_index = 5
+	_attunement_label = _attunement_vessel_label
+	var core := ColorRect.new()
+	core.name = "Core"
+	core.color = Color(0.82, 0.96, 1.0)
+	core.position = (attune_fill_rect.get_center() - Vector2(6, 6)).round()
+	core.size = Vector2(12, 12)
+	core.pivot_offset = Vector2(6, 6)
+	core.rotation = PI / 4.0
+	core.self_modulate = Color(0.4, 0.65, 0.85, 0.5)
+	core.z_index = 5
+	core.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.add_child(core)
+	_attunement_core = core
+	_health_fx = _kit_fx(band, "HealthFx", health_mask, health_fill_rect)
+	_attunement_fx = _kit_fx(band, "AttunementFx", attune_mask, attune_fill_rect)
+	_vessel_sockets = {
+		"health": {"glass_center": health_fill_rect.get_center(),
+			"glass_diameter": int(health_fill_rect.size.x), "fill": health_fill},
+		"attunement": {"crystal_center": attune_fill_rect.get_center(),
+			"crystal_diameter": int(attune_fill_rect.size.x), "fill": attune_fill},
+	}
+
+
+func _kit_layer(parent: Control, node_name: String, asset_id: String,
+		rect: Rect2, layer: int) -> TextureRect:
+	var control := TextureRect.new()
+	control.name = node_name
+	control.texture = _painted_texture(asset_id)
+	control.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	control.stretch_mode = TextureRect.STRETCH_KEEP
+	_place(control, rect)
+	control.z_index = layer
+	control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(control)
+	return control
+
+
+func _kit_fx(parent: Control, node_name: String, texture: Texture2D,
+		rect: Rect2) -> TextureRect:
+	var fx := TextureRect.new()
+	fx.name = node_name
+	fx.texture = texture
+	fx.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fx.stretch_mode = TextureRect.STRETCH_KEEP
+	_place(fx, rect)
+	fx.self_modulate = Color(1, 1, 1, 0)
+	fx.z_index = 6
+	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(fx)
+	return fx
+
+
+func _add_kit_button(parent: Control, rect_value: Variant, text: String,
+		icon_id: String, content: Dictionary, action: Callable) -> void:
+	var button := Button.new()
+	button.name = "DockAction" + text.replace(" ", "")
+	button.tooltip_text = "Open %s panel" % text
+	button.focus_mode = Control.FOCUS_ALL
+	button.clip_contents = true
+	button.add_theme_stylebox_override("normal", _texture_style("button_frame_normal"))
+	button.add_theme_stylebox_override("hover", _texture_style("button_frame_hover"))
+	button.add_theme_stylebox_override("pressed", _texture_style("button_frame_pressed"))
+	button.add_theme_stylebox_override("focus", _texture_style("button_frame_hover"))
+	_place(button, _json_rect(rect_value))
+	button.z_index = 4
+	button.pressed.connect(action)
+	parent.add_child(button)
+	var icon := TextureRect.new()
+	icon.name = button.name + "Icon"
+	icon.texture = _painted_texture(icon_id)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(icon, _json_rect(content.get("icon_rect")))
+	button.add_child(icon)
+	var label := Label.new()
+	label.name = button.name + "Label"
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_color_override("font_color", Color(0.86, 0.84, 0.78))
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(label, _json_rect(content.get("label_rect")))
+	button.add_child(label)
+
+
 func _build_bottom_left() -> void:
+	# Primary path: a native-size layered HUD kit plus one integer geometry
+	# contract. The sliced blueprint composition remains below as fallback.
+	var kit_layout := _load_hud_kit_layout()
+	if _hud_kit_available(kit_layout):
+		_build_hud_kit(kit_layout)
+		return
 	# FQ-21: the one-piece full-width painted band when its pieces and the
 	# geometry sidecar exist; the FQ-19 modular construction is the fallback.
 	var band_geometry := _load_band_geometry()
@@ -1030,7 +1490,6 @@ func _build_bottom_left() -> void:
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.add_theme_color_override("font_color", Color(0.72, 0.75, 0.82))
 	# FQ-20: the command center row — module open/close chips live here.
-	_build_command_center(box)
 	var attunement_vessel := _make_resource_vessel("orb_attunement_frame",
 		Color(0.08, 0.60, 0.95), true)
 	attunement_vessel.name = "AttunementVessel"
@@ -1038,7 +1497,7 @@ func _build_bottom_left() -> void:
 	_attunement_vessel_label = attunement_vessel.get_node("Value") as Label
 	_attunement_fx = attunement_vessel.get_node("Fx") as TextureRect
 	_attunement_frame = attunement_vessel.get_node("Frame") as Control
-	_attunement_core = attunement_vessel.get_node("Core") as ColorRect
+	_attunement_core = attunement_vessel.get_node("Core") as Control
 	_attunement_label = _attunement_vessel_label
 	attunement_vessel.size_flags_vertical = Control.SIZE_SHRINK_END
 	band.add_child(attunement_vessel)
@@ -1094,6 +1553,7 @@ const PAINTED_ORB_GEOMETRY := {
 }
 const PAINTED_ORB_WIDTH := 112.0
 const DOCK_BAND_SCALE := 0.8   # band display px per mockup art px
+const DOCK_BOTTOM_CUSHION := 8.0
 var _glass_mask_cache: Dictionary = {}   # diameter -> ImageTexture
 var _scaled_tex_cache: Dictionary = {}   # "id@scale" -> ImageTexture
 
@@ -1107,6 +1567,55 @@ func _load_band_geometry() -> Dictionary:
 		return {}
 	var parsed: Variant = JSON.parse_string(raw)
 	return parsed if parsed is Dictionary else {}
+
+
+func _load_hud_kit_layout() -> Dictionary:
+	var raw := FileAccess.get_file_as_string(
+		"res://art/generated/ui_painted/hud_dock_layout.json")
+	if raw.is_empty():
+		return {}
+	var parsed: Variant = JSON.parse_string(raw)
+	return parsed if parsed is Dictionary else {}
+
+
+func _hud_kit_available(layout: Dictionary) -> bool:
+	if int(layout.get("version", 0)) < 2:
+		return false
+	var required_assets: Array = layout.get("required_assets", [])
+	if required_assets.is_empty():
+		return false
+	for asset_file in required_assets:
+		var asset_id := str(asset_file).trim_suffix(".png")
+		if _painted_texture(asset_id) == null:
+			return false
+	var roles: Dictionary = {}
+	for raw_layer in layout.get("decorative_layers", []):
+		if raw_layer is Dictionary:
+			roles[str((raw_layer as Dictionary).get("role", ""))] = true
+	if not roles.has("backplate") or not roles.has("foreground_trim"):
+		return false
+	return true
+
+
+func _json_rect(value: Variant) -> Rect2:
+	if value is Array and (value as Array).size() >= 4:
+		return Rect2(float(value[0]), float(value[1]),
+			float(value[2]), float(value[3]))
+	return Rect2()
+
+
+func _place(control: Control, rect: Rect2) -> void:
+	# HUD-kit coordinates are native integer pixels. No per-asset scale or
+	# fractional resizing is introduced by the runtime assembler.
+	control.position = rect.position.round()
+	control.size = rect.size.round()
+
+
+func _texture_style(asset_id: String, draw_center: bool = true) -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = _painted_texture(asset_id)
+	style.draw_center = draw_center
+	return style
 
 
 func _json_vec(pair: Variant) -> Vector2:
@@ -1298,8 +1807,11 @@ func _build_dock_band(geometry: Dictionary) -> void:
 	var right_size: Vector2 = _json_vec(right_geo.get("size")) * s
 	var block_size: Vector2 = _json_vec(block_geo.get("size")) * s
 	var left_y: float = float(left_geo.get("y_offset", 0)) * s
+	var right_y: float = float(right_geo.get("y_offset", 0)) * s
 	var plate_y: float = float(block_geo.get("y_offset", 0)) * s
-	var band_h: float = right_size.y
+	var band_h: float = maxf(left_y + left_size.y,
+		maxf(right_y + right_size.y, plate_y + block_size.y)) \
+		+ DOCK_BOTTOM_CUSHION
 
 	var band := Control.new()
 	_bottom_dock = band
@@ -1323,13 +1835,16 @@ func _build_dock_band(geometry: Dictionary) -> void:
 	health_fill.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
 	health_fill.texture_under = health_mask
 	health_fill.tint_under = Color(0.02, 0.04, 0.08, 0.88)
-	health_fill.texture_progress = health_mask
-	health_fill.tint_progress = Color(0.82, 0.12, 0.10)
+	var health_liquid_tex: Texture2D = _scaled_texture("health_liquid", s)
+	health_fill.texture_progress = health_liquid_tex if health_liquid_tex != null else health_mask
+	health_fill.tint_progress = Color.WHITE if health_liquid_tex != null \
+		else Color(0.82, 0.12, 0.10)
 	health_fill.max_value = 100.0
 	health_fill.value = 100.0
 	health_fill.position = Vector2(0, left_y) + health_glass_center \
 		- Vector2(health_glass_d, health_glass_d) / 2.0
 	health_fill.size = Vector2(health_glass_d, health_glass_d)
+	health_fill.z_index = 1
 	health_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	band.add_child(health_fill)
 	_health_vessel_fill = health_fill
@@ -1342,6 +1857,7 @@ func _build_dock_band(geometry: Dictionary) -> void:
 	left_cap.stretch_mode = TextureRect.STRETCH_SCALE
 	left_cap.position = Vector2(0, left_y)
 	left_cap.size = left_size
+	left_cap.z_index = 2
 	left_cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	band.add_child(left_cap)
 
@@ -1358,6 +1874,7 @@ func _build_dock_band(geometry: Dictionary) -> void:
 	tile_left.offset_right = -block_size.x / 2.0 + 1.0
 	tile_left.offset_top = tile_y
 	tile_left.offset_bottom = tile_y + tile_h
+	tile_left.z_index = 0
 	tile_left.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	band.add_child(tile_left)
 
@@ -1371,6 +1888,7 @@ func _build_dock_band(geometry: Dictionary) -> void:
 	tile_right.offset_right = -right_size.x + 1.0
 	tile_right.offset_top = tile_y
 	tile_right.offset_bottom = tile_y + tile_h
+	tile_right.z_index = 0
 	tile_right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	band.add_child(tile_right)
 
@@ -1386,6 +1904,7 @@ func _build_dock_band(geometry: Dictionary) -> void:
 	block.offset_right = block_size.x / 2.0
 	block.offset_top = plate_y
 	block.offset_bottom = plate_y + block_size.y
+	block.z_index = 0
 	block.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	band.add_child(block)
 
@@ -1398,50 +1917,62 @@ func _build_dock_band(geometry: Dictionary) -> void:
 	right_cap.anchor_right = 1.0
 	right_cap.offset_left = -right_size.x
 	right_cap.offset_right = 0.0
-	right_cap.offset_top = 0.0
-	right_cap.offset_bottom = right_size.y
+	right_cap.offset_top = right_y
+	right_cap.offset_bottom = right_y + right_size.y
 	right_cap.pivot_offset = right_size / 2.0
+	right_cap.z_index = 2
 	right_cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	band.add_child(right_cap)
 	_attunement_frame = right_cap
 
-	# --- attunement charge overlay + core OVER the baked crystal.
+	# --- attunement charge follows the crystal facets; no circular matte.
 	var crystal_center: Vector2 = _json_vec(right_geo.get("crystal_center")) * s
 	var crystal_d: int = int(round(float(right_geo.get("crystal_radius", 40)) * s * 2.0))
-	var crystal_mask: Texture2D = _glass_mask_texture(crystal_d)
+	var crystal_mask: Texture2D = _scaled_texture("attunement_charge", s)
+	if crystal_mask == null:
+		crystal_mask = _glass_mask_texture(crystal_d)
 	var charge := TextureProgressBar.new()
 	charge.name = "AttunementFill"
 	charge.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
 	charge.texture_under = crystal_mask
-	charge.tint_under = Color(0.0, 0.02, 0.1, 0.62)
+	charge.tint_under = Color(0.08, 0.12, 0.20, 0.42)
 	charge.texture_progress = crystal_mask
-	charge.tint_progress = Color(0.5, 0.9, 1.0, 0.42)
+	charge.tint_progress = Color.WHITE
 	charge.max_value = 100.0
 	charge.value = 100.0
 	charge.anchor_left = 1.0
 	charge.anchor_right = 1.0
 	charge.offset_left = -right_size.x + crystal_center.x - crystal_d / 2.0
 	charge.offset_right = charge.offset_left + crystal_d
-	charge.offset_top = crystal_center.y - crystal_d / 2.0
+	charge.offset_top = right_y + crystal_center.y - crystal_d / 2.0
 	charge.offset_bottom = charge.offset_top + crystal_d
+	charge.pivot_offset = Vector2(crystal_d, crystal_d) / 2.0
+	charge.z_index = 1
 	charge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	band.add_child(charge)
 	_attunement_vessel_fill = charge
-	var core := ColorRect.new()
+	var core := TextureRect.new()
 	core.name = "Core"
-	core.color = Color(0.82, 0.96, 1.0)
+	core.texture = _scaled_texture("attunement_core", s)
+	core.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	core.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var core_size := Vector2(27, 27)
+	if core.texture != null:
+		core_size = core.texture.get_size()
+	var core_center := Vector2(crystal_center.x, right_y + crystal_center.y)
 	core.anchor_left = 1.0
 	core.anchor_right = 1.0
-	core.offset_left = -right_size.x + crystal_center.x - 7.0
-	core.offset_right = core.offset_left + 14.0
-	core.offset_top = crystal_center.y - 7.0
-	core.offset_bottom = core.offset_top + 14.0
-	core.pivot_offset = Vector2(7, 7)
-	core.rotation = PI / 4.0
+	core.offset_left = -right_size.x + core_center.x - core_size.x / 2.0
+	core.offset_right = core.offset_left + core_size.x
+	core.offset_top = core_center.y - core_size.y / 2.0
+	core.offset_bottom = core.offset_top + core_size.y
+	core.pivot_offset = core_size / 2.0
 	core.self_modulate = Color(0.4, 0.65, 0.85, 0.5)
+	core.z_index = 3
 	core.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	band.add_child(core)
 	_attunement_core = core
+	_attunement_frame = charge
 
 	# --- effect overlays (flash/glow/shimmer) above each vessel.
 	var health_fx := TextureRect.new()
@@ -1450,6 +1981,7 @@ func _build_dock_band(geometry: Dictionary) -> void:
 	health_fx.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	health_fx.position = health_fill.position
 	health_fx.size = health_fill.size
+	health_fx.z_index = 3
 	health_fx.self_modulate = Color(1, 1, 1, 0)
 	health_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	band.add_child(health_fx)
@@ -1464,23 +1996,40 @@ func _build_dock_band(geometry: Dictionary) -> void:
 	attune_fx.offset_right = charge.offset_right
 	attune_fx.offset_top = charge.offset_top
 	attune_fx.offset_bottom = charge.offset_bottom
+	attune_fx.z_index = 3
 	attune_fx.self_modulate = Color(1, 1, 1, 0)
 	attune_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	band.add_child(attune_fx)
 	_attunement_fx = attune_fx
+	# Persistent glass/refraction sits above liquid and transient FX, while
+	# the punched iron cap remains the physical foreground rim.
+	var health_glass_tex: Texture2D = _scaled_texture("health_glass", s)
+	if health_glass_tex != null:
+		var health_glass := TextureRect.new()
+		health_glass.name = "HealthGlass"
+		health_glass.texture = health_glass_tex
+		health_glass.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		health_glass.stretch_mode = TextureRect.STRETCH_SCALE
+		health_glass.position = health_fill.position
+		health_glass.size = health_fill.size
+		health_glass.z_index = 3
+		health_glass.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		band.add_child(health_glass)
 
 	# --- numeric values ON the glass (blueprint: "83 / 100" on the orb).
 	_health_vessel_label = _vessel_value_label(band)
 	_health_vessel_label.position = Vector2(0, left_y) \
 		+ health_glass_center - Vector2(40, 8)
+	_health_vessel_label.z_index = 4
 	_health_label = _health_vessel_label
 	_attunement_vessel_label = _vessel_value_label(band)
 	_attunement_vessel_label.anchor_left = 1.0
 	_attunement_vessel_label.anchor_right = 1.0
 	_attunement_vessel_label.offset_left = -right_size.x + crystal_center.x - 40.0
 	_attunement_vessel_label.offset_right = _attunement_vessel_label.offset_left + 80.0
-	_attunement_vessel_label.offset_top = crystal_center.y - 8.0
-	_attunement_vessel_label.offset_bottom = crystal_center.y + 8.0
+	_attunement_vessel_label.offset_top = right_y + crystal_center.y - 8.0
+	_attunement_vessel_label.offset_bottom = right_y + crystal_center.y + 8.0
+	_attunement_vessel_label.z_index = 4
 	_attunement_label = _attunement_vessel_label
 
 	# --- FQ-21 vessel sockets: the future liquid mechanic swaps the fill
@@ -1488,7 +2037,8 @@ func _build_dock_band(geometry: Dictionary) -> void:
 	_vessel_sockets = {
 		"health": {"glass_center": Vector2(0, left_y) + health_glass_center,
 			"glass_diameter": health_glass_d, "fill": health_fill},
-		"attunement": {"crystal_center": crystal_center,
+		"attunement": {"crystal_center": Vector2(crystal_center.x,
+			right_y + crystal_center.y),
 			"crystal_diameter": crystal_d, "fill": charge},
 	}
 
@@ -1560,13 +2110,6 @@ func _build_dock_band(geometry: Dictionary) -> void:
 		func(): toggle_town_panel())
 
 	# --- command center chips between the pedestals, under the plate.
-	_build_command_center(band)
-	_module_toolbar.anchor_left = 0.5
-	_module_toolbar.anchor_right = 0.5
-	_module_toolbar.offset_left = -180.0
-	_module_toolbar.offset_right = 180.0
-	_module_toolbar.offset_top = plate_y + block_size.y + 3.0
-	_module_toolbar.offset_bottom = band_h - 2.0
 
 	# --- floating summary chip above the plate (mockup floating-chip style).
 	var summary_chip := PanelContainer.new()
@@ -1606,7 +2149,7 @@ func _vessel_value_label(parent: Control) -> Label:
 	return value
 
 
-## Invisible click zone over a baked button (hover = soft sheen).
+## Full nav-cell click zone over a baked button (glyph + label + pedestal).
 func _add_band_button(block: Control, zone: Variant, s: float, text: String,
 		action: Callable) -> void:
 	if not (zone is Array) or (zone as Array).size() < 4:
@@ -1615,14 +2158,25 @@ func _add_band_button(block: Control, zone: Variant, s: float, text: String,
 	button.name = "DockAction" + text.replace(" ", "")
 	button.position = Vector2(float(zone[0]), float(zone[1])) * s
 	button.size = Vector2(float(zone[2]), float(zone[3])) * s
-	button.tooltip_text = "Open %s panel" % text
+	button.tooltip_text = text
 	button.focus_mode = Control.FOCUS_ALL
 	button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
-	button.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
 	var sheen := StyleBoxFlat.new()
-	sheen.bg_color = Color(1, 1, 1, 0.12)
-	sheen.set_corner_radius_all(4)
+	sheen.bg_color = Color(0.95, 0.78, 0.35, 0.16)
+	sheen.border_color = Color(0.95, 0.78, 0.35, 0.72)
+	sheen.set_border_width_all(1)
+	sheen.set_corner_radius_all(3)
 	button.add_theme_stylebox_override("hover", sheen)
+	var pressed := sheen.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color(0.95, 0.72, 0.25, 0.28)
+	pressed.set_border_width_all(2)
+	button.add_theme_stylebox_override("pressed", pressed)
+	var focus := StyleBoxFlat.new()
+	focus.bg_color = Color(0, 0, 0, 0)
+	focus.border_color = Color(0.95, 0.8, 0.4, 0.9)
+	focus.set_border_width_all(1)
+	focus.set_corner_radius_all(3)
+	button.add_theme_stylebox_override("focus", focus)
 	button.pressed.connect(action)
 	block.add_child(button)
 
@@ -1755,9 +2309,9 @@ func _position_context_stack() -> void:
 		return
 	var top := 244.0
 	if _event_panel != null and _event_panel.visible:
-		top = maxf(top, _event_panel.position.y + _event_panel.size.y + 8.0)
+		top = maxf(top, _event_panel.get_global_rect().end.y + 8.0)
 	if _map_panel != null and _map_panel.visible:
-		top = maxf(top, _map_panel.position.y + _map_panel.size.y + 8.0)
+		top = maxf(top, _map_panel.get_global_rect().end.y + 8.0)
 	_context_stack.offset_top = top
 	_context_stack.offset_bottom = top
 
@@ -1808,11 +2362,11 @@ func _build_log() -> void:
 	_event_panel.custom_minimum_size = Vector2(360, 140)
 	_event_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# FQ-19: same framed-module language as the crest/goal panels.
-	_event_panel.add_theme_stylebox_override("panel", _module_panel_style())
+	var event_content := _module_content_host(_event_panel)
 	add_child(_event_panel)
 	var event_box := VBoxContainer.new()
 	event_box.add_theme_constant_override("separation", 4)
-	_event_panel.add_child(event_box)
+	event_content.add_child(event_box)
 	var event_title := _label(event_box, "EVENTS")
 	event_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_event_time_label = _label(event_box, "Day 1 · Day")
@@ -1839,10 +2393,11 @@ func _build_town_panel() -> void:
 	_town_panel.custom_minimum_size = Vector2(320, 360)
 	_town_panel.visible = false
 	add_child(_town_panel)
+	var town_content := _module_content_host(_town_panel, "ornate")
 	# FQ-11: the station chain grows the panel past a fixed height — scroll it.
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_town_panel.add_child(scroll)
+	town_content.add_child(scroll)
 	var box := VBoxContainer.new()
 	box.custom_minimum_size = Vector2(300, 0)
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1919,10 +2474,11 @@ func _build_inventory_panel() -> void:
 	_inv_panel.custom_minimum_size = Vector2(320, 300)
 	_inv_panel.visible = false
 	add_child(_inv_panel)
+	var inventory_content := _module_content_host(_inv_panel, "ornate")
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.custom_minimum_size = Vector2(300, 280)
-	_inv_panel.add_child(scroll)
+	inventory_content.add_child(scroll)
 	var box := VBoxContainer.new()
 	box.custom_minimum_size = Vector2(300, 0)
 	scroll.add_child(box)
@@ -1987,9 +2543,10 @@ func _build_character_panel() -> void:
 	_character_panel.custom_minimum_size = Vector2(320, 300)
 	_character_panel.visible = false
 	add_child(_character_panel)
+	var character_content := _module_content_host(_character_panel, "ornate")
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)
-	_character_panel.add_child(box)
+	character_content.add_child(box)
 	var title := _label(box, "CHARACTER")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_character_info = _label(box, "")

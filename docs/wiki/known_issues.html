@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Known Issues | Coheronia Wiki</title>
+  <link rel="stylesheet" href="wiki_theme.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="kicker">Coheronia Wiki</div>
+      <h1>Known Issues</h1>
+      <p>HTML wiki page generated from the current repo-backed markdown source. This keeps browsing in HTML while preserving markdown as the maintainable source format.</p>
+      <div class="top-actions">
+        <a href="index.html">Wiki Home</a>
+        <a href="known_issues.md">View Markdown Source</a>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2>Browse</h2>
+          <p>Move through the wiki by category pages and leaf pages without dropping into raw markdown.</p>
+        </div>
+        <div class="sidebar-section">
+          <h3>Sections</h3>
+          <div class="nav-stack">
+            <a class="nav-card" href="index.html">Home<small>Front page and overall wiki entry</small></a>
+<a class="nav-card" href="items.html">Items<small>Category page for all item entries</small></a>
+<a class="nav-card" href="equipment.html">Equipment<small>Gear families and leaf pages</small></a>
+<a class="nav-card" href="weapons.html">Weapons<small>Weapon-specific browse page</small></a>
+<a class="nav-card" href="blocks.html">Blocks<small>Block registry and leaf pages</small></a>
+<a class="nav-card" href="bestiary.html">Bestiary<small>Live and planned enemy pages</small></a>
+<a class="nav-card" href="character_types.html">Character Types<small>Species, roles, traits, and ancestries</small></a>
+<a class="nav-card" href="stations.html">Crafting Stations<small>Station pages and hosted recipes</small></a>
+<a class="nav-card" href="hud_asset_replacement_studio.html">HUD Asset Studio<small>Drop-in dock art contract and image-editing briefs</small></a>
+<a class="nav-card" href="known_issues.html">Known Issues<small>Active presentation defects and intentional limits</small></a>
+<a class="nav-card" href="wiki.html">Wiki Overview<small>Full planning and maintenance overview</small></a>
+          </div>
+        </div>
+      </aside>
+      <main class="content">
+        <div class="content-inner">
+          <div class="breadcrumbs"><a href="index.html">Wiki</a><span class="sep">/</span><a href="known_issues.html">Known Issues</a><span class="sep">/</span><span>wiki/known_issues.md</span></div>
+          <div class="article">
+            <div class="meta-note">Generated HTML Page</div>
+            <h1 id="known-issues">Known Issues</h1>
+<p>Updated: 2026-07-16</p>
+<p>This page separates confirmed presentation defects from intentional scope limits. It is the public status surface for problems that are visible in the current build but do not invalidate the gameplay-state smoke suite.</p>
+<h2 id="active-presentation-defects">Active Presentation Defects</h2>
+<div class="table-wrap"><table><thead><tr><th>Surface</th><th>Current behavior</th><th>Gameplay impact</th><th>Next work</th></tr></thead><tbody><tr><td>Equipped character overlays</td><td>A matching body-specific gear PNG can intermittently fail to appear or align after some character, load, world-transition, or forge refresh paths.</td><td>Equipment state and effects still load; the rig-aware procedural fallback prevents a crash, but the character may look incomplete or mismatched.</td><td>Reproduce across all ten bodies and authoritative state transitions, then force/verify the presentation refresh.</td></tr><tr><td>Pick and axe swings</td><td>The basic pick, forged pick, and crude axe each have three authored phases for all ten body ids, but the animation snaps between them and some anchors/arcs need refinement.</td><td>Mining and chopping timing remain correct; the defect is readability and polish.</td><td>Review left/right mirroring, hand anchors, phase timing, and continuous arc perception without changing mechanics.</td></tr><tr><td>Sword attack presentation</td><td>Crude and iron swords use gameplay combat behavior without a matching authored multi-phase attack family.</td><td>Combat functions, but weapon motion is visually behind the tool-overlay program.</td><td>Establish a sword swing contract and verify it across bodies and facing directions.</td></tr><tr><td>HUD and framed-panel chrome</td><td>The primary dock geometry is stable and runtime content is separated, but current chrome remains provisional. Some framed panel states and automated captures can expose padding, mask, or oversized opaque-region defects.</td><td>Controls remain functional; affected views look unfinished or can obscure more of the world than intended.</td><td>Replace dock assets through the HUD Asset Replacement Studio and inspect every open-panel combination at target window sizes.</td></tr></tbody></table></div>
+<h2 id="intentional-current-limits">Intentional Current Limits</h2>
+<ul><li>Inventory and equipment panels are read-only; drag/drop and unequip flows are not implemented.</li><li>Settlers are an abstract population model rather than individual NPC workers.</li><li>Enemies use direct walk-and-hop behavior without pathfinding.</li><li>The adaptive score is one authored suite and remains balance-in-progress.</li><li>Current finite maps provide one surface biome; deeper biome/system expansion remains planned work.</li></ul>
+<h2 id="what-is-already-stabilized">What Is Already Stabilized</h2>
+<ul><li>The primary dock uses a native 19-asset layered kit and one JSON geometry authority.</li><li>Health, attunement, item icons, counts, hotkeys, labels, fill levels, and states are runtime-driven rather than baked into PNGs.</li><li>Map and Events are independent modules and can remain open together.</li><li>The command-center row is outside the primary dock chrome.</li><li>A missing HUD kit returns to legacy fallback paths instead of breaking gameplay.</li></ul>
+<h2 id="reporting-and-verification-standard">Reporting And Verification Standard</h2>
+<ul><li>Record whether a problem changes gameplay state or only presentation.</li><li>Include the body id, equipment ids, facing direction, action phase, and transition that preceded a gear defect.</li><li>For HUD defects, include the viewport size, open module/panel set, saved-layout version, and an uncropped screenshot.</li><li>Do not mark a visual issue fixed from smoke alone. Require native-size screenshot review in addition to validators and the in-engine suite.</li></ul>
+<h2 id="related-pages">Related Pages</h2>
+<ul><li><a href="current_live.html">Current Live</a></li><li><a href="hud_asset_replacement_studio.html">HUD Asset Replacement Studio</a></li><li><a href="image_continuation.html">Image Continuation</a></li><li><a href="wiki.html">Wiki Overview</a></li></ul>
+          </div>
+          <div class="footer-note">
+            Source markdown: <a href="known_issues.md">known_issues.md</a>.
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

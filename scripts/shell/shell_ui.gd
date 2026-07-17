@@ -53,6 +53,7 @@ const RULES_FUTURE := [
 var _built := false
 var _screen: Screen = Screen.TITLE
 var _content: VBoxContainer
+var _title_backdrop: TextureRect
 var _selected_char_id: String = ""
 var _prologue: Control = null   # FQ-09C: live prologue overlay, null when idle
 
@@ -171,6 +172,14 @@ func _build_base() -> void:
 	bg.color = BG_COLOR
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
+	_title_backdrop = TextureRect.new()
+	_title_backdrop.texture = _title_backdrop_texture()
+	_title_backdrop.visible = _title_backdrop.texture != null
+	_title_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_title_backdrop.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_title_backdrop.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_title_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_title_backdrop)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 40)
@@ -185,9 +194,23 @@ func _build_base() -> void:
 
 
 func _clear_content() -> void:
+	_set_title_backdrop_visible(false)
 	for child in _content.get_children():
 		_content.remove_child(child)
 		child.queue_free()
+
+
+func _title_backdrop_texture() -> Texture2D:
+	var plates: Array = BlockRegistry.visual_variant_textures(
+		"opening", "opening_08_title_card")
+	if not plates.is_empty():
+		return plates[0] as Texture2D
+	return null
+
+
+func _set_title_backdrop_visible(enabled: bool) -> void:
+	if _title_backdrop != null:
+		_title_backdrop.visible = enabled and _title_backdrop.texture != null
 
 
 # ---------- SCREEN 1: title ----------
@@ -195,6 +218,7 @@ func _clear_content() -> void:
 func _show_title() -> void:
 	_screen = Screen.TITLE
 	_clear_content()
+	_set_title_backdrop_visible(true)
 	_spacer(_content)
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

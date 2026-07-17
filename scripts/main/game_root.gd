@@ -435,14 +435,10 @@ func _process(delta: float) -> void:
 	if _depth_check_timer >= _DEPTH_CHECK_INTERVAL:
 		_depth_check_timer = 0.0
 		_check_depth_xp()
-	# FQ-15: reveal the map band around the player as they explore, and drive the
-	# map panel (open on toggle_map, then refresh a few times a second while open).
+	# FQ-15: reveal the map band around the player as they explore, and refresh
+	# the map panel a few times a second while open.
 	if _map_state != null:
 		_map_state.reveal_around(world.cell_of(player.global_position), _scout_reveal_radius())
-	if Input.is_action_just_pressed("toggle_map"):
-		if hud.toggle_map():
-			_map_refresh_timer = 0.0
-			hud.update_map(map_snapshot())
 	if hud.map_open():
 		_map_refresh_timer += delta
 		if _map_refresh_timer >= 0.3:
@@ -488,6 +484,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		if hud.character_panel_open():
 			hud.toggle_character_panel()
 		hud.toggle_skill_panel()
+	elif event.is_action_pressed("toggle_map"):
+		if event is InputEventKey and event.echo:
+			get_viewport().set_input_as_handled()
+			return
+		if hud.toggle_map():
+			_map_refresh_timer = 0.0
+			hud.update_map(map_snapshot())
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("interact") or event.is_action_pressed("toggle_town"):
 		_try_interact()
 	elif event.is_action_pressed("ui_cancel"):

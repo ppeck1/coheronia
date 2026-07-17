@@ -1,35 +1,35 @@
 ﻿# Coheronia Image Inventory Matrix
 
-Generated: 2026-07-15
+Generated: 2026-07-16
 
 ## Scope
 
-- Audit target: `B:\dev\Coheronia\coheronia_fable_oneshot_repo` only.
-- Wrapper-only images outside the real repo were excluded from the main inventory: `B:\dev\Coheronia\screenshot.071526.0746.jpg` and the loose `B:\dev\Coheronia\Coheronia_Dump\*.png` files.
+- Audit target: this repository only.
+- Wrapper-only and local working images outside the repository were excluded.
 - `.import` sidecars were excluded; this report inventories authored image assets and screenshot/reference images.
 
 ## Headline Summary
 
-- Runtime PNGs present in `art/generated/`: **189**
-- Pixel-contract PNGs verified by `scripts/art/verify_pixel_assets.py`: **186** (`backgrounds` are validated separately by `scripts/validate_repo.py`)
-- Runtime asset families/base ids present: **100**
-- Documentation screenshots present: **9**
+- Runtime PNGs present in `art/generated/`: **399**
+- Pixel-contract PNGs verified by `scripts/art/verify_pixel_assets.py`: **386** (large backgrounds/opening and contract-specific surfaces use their dedicated checks)
+- Documentation screenshots present: **10**
 - SVG icons/reference vectors present: **2**
-- Validation status: `scripts/asset_audit.py --strict`, `scripts/art/verify_pixel_assets.py`, and `scripts/validate_repo.py` all passed on 2026-07-15.
-- Immediate creation need: no currently-live runtime surface is broken or uncovered; the remaining work is mostly deferred/planned art (`opening`, `player_gear`, future background/wall families, and future-system art from the roadmap).
+- Validation status: `scripts/asset_audit.py --strict`, `scripts/art/verify_pixel_assets.py`, and `scripts/validate_repo.py` all passed on 2026-07-16.
+- Immediate presentation need: harden gear-overlay refresh/alignment, refine tool/weapon swings, and replace provisional HUD chrome through its native kit contract. Gameplay-safe procedural and legacy fallbacks remain available.
 
 ## Category Matrix
 
 | Category | Base ids present | PNG files present | Current status | Target size | Helpful note | Notes |
 |---|---:|---:|---|---|---|---|
-| blocks | 20 | 71 | Live and covered | 16x16 px | World tile; missing art falls back to generated block texture. |  |
-| items | 43 | 43 | Live and covered | 16x16 px | Inventory/drop icon; missing art falls back to generated swatch icon. |  |
+| blocks | 20 | 77 | Live and covered | 16x16 px | World tile; missing art falls back to generated block texture. |  |
+| items | 81 | 81 | Current and planned-data icon set authored | 16x16 px | Inventory/drop icon; missing art falls back to generated swatch icon. |  |
 | enemies | 6 | 24 | Live and covered | 16x16 px | Enemy sprite; missing art falls back to code-drawn hostile shape. |  |
 | players | 10 | 30 | Live and covered | 16x32 px | Player body; appearance recolor and Look selector consume these pools. |  |
-| player_gear | 0 | 0 | Deferred category; hooks live, no files yet | 16x32 px | Optional equipment overlays; missing art falls back to procedural gear/arm/tool presentation. |  |
+| player_gear | 60 naming bases | 120 | Partially authored and live | 16x32 px | 30 crude-armor statics + 90 three-phase pick/axe overlays; unresolved equipment falls back procedurally. |  |
 | structures | 1 | 1 | Live and covered | 56x48 px | Town Hall structure sprite; missing art falls back to procedural hall rendering. |  |
 | ui | 15 | 15 | 10 live, 5 placeholder-authored | 32x32 px | HUD / panel hooks; some are live, others are reserved placeholders. |  |
-| opening | 0 | 0 | Deferred category; hooks live, no files yet | 640 px wide | Optional cel-shot frame pools; missing art falls back to plotted prologue scenes. |  |
+| ui_painted | 36 | 36 | Native 19-asset HUD kit live; older painted/sliced assets retained as fallbacks | mixed native RGBA | `hud_dock_layout.json` owns primary dock geometry; see the HUD Asset Replacement Studio. |  |
+| opening | 8 | 10 | Eight authored scene pools live | 640 px wide | Scene 1 has three frames; the other seven have one; missing art falls back to plotted scenes. |  |
 | backgrounds | 3 | 3 | Live and covered | 640 px wide | Backdrop layers; missing art falls back to code-drawn sky and silhouettes. |  |
 | back_walls | 2 | 2 | Live and covered | 16x16 px | Natural backing-wall tile; missing art falls back to darkened block texture. |  |
 
@@ -142,17 +142,9 @@ Generated: 2026-07-15
 
 | Surface | Id / convention | Current state | When it matters | Size / shape | Helpful note | Notes |
 |---|---|---|---|---|---|---|
-| player_gear | <item_id>_<body_id>.png | No PNGs present; safe fallback active | Any time you want authored per-body equipment overlays | 16x32 transparent | Live hook already exists; body-specific overlays are preferred over generic gear. |  |
-| player_gear | <item_id>.png | No PNGs present; safe fallback active | Only after body-specific alignment is understood | 16x32 transparent | Generic overlay is a fallback path, but the repo guidance says it is less safe until checked on all bodies. |  |
-| player_gear | <tool_id>_<body_id>_swing_<phase>.png | No PNGs present; safe fallback active | If authored swing overlays are desired | 16x32 transparent, phases 0/1/2 | Live hook exists for swing phases 0, 1, and 2; missing art falls back to the code-drawn arm/tool. |  |
-| opening | opening_01_first_star | No frames present; plotted fallback live | Optional FQ-09C art pass | 640x360 | Wordless only; engine owns all text overlays. |  |
-| opening | opening_02_unraveling_roads | No frames present; plotted fallback live | Optional FQ-09C art pass | 640x360 | Wordless only; engine owns all text overlays. |  |
-| opening | opening_03_scattered_peoples | No frames present; plotted fallback live | Optional FQ-09C art pass | 640x360 | Wordless only; engine owns all text overlays. |  |
-| opening | opening_04_darkness_measures_light | No frames present; plotted fallback live | Optional FQ-09C art pass | 640x360 | Wordless only; engine owns all text overlays. |  |
-| opening | opening_05_first_hall_raised | No frames present; plotted fallback live | Optional FQ-09C art pass | 640x360 | Wordless only; engine owns all text overlays. |  |
-| opening | opening_06_attunement_pulse | No frames present; plotted fallback live | Optional FQ-09C art pass | 640x360 | Wordless only; engine owns all text overlays. |  |
-| opening | opening_07_civilization_pushes_back | No frames present; plotted fallback live | Optional FQ-09C art pass | 640x360 | Wordless only; engine owns all text overlays. |  |
-| opening | opening_08_title_card | No frames present; plotted fallback live | Optional FQ-09C art pass | 640x360 | Wordless only; engine owns all text overlays. |  |
+| player_gear | uncovered `<item_id>_<body_id>.png` | Crude helmet/torso/feet are authored across ten bodies; swords, iron armor, rings, amulet, and accessory remain procedural | When an uncovered equipment family is approved | 16x32 transparent | Validate each body and transition; do not overwrite current families casually. |  |
+| player_gear | `<tool_id>_<body_id>_swing_<phase>.png` | Basic/forged pick and crude axe cover phases 0/1/2 across ten bodies; sword sequence absent | Motion/alignment polish or approved weapon expansion | 16x32 transparent | Current known issue is stepped motion and intermittent resolution/alignment, not an empty directory. |  |
+| opening | `opening_<scene_id>_NN.png` | Eight scene pools / ten PNGs present; plotted fallback live | Approved animation or scene-variant expansion | 640x360 | Wordless only; engine owns all text overlays. |  |
 | backgrounds | cave_far | Planned only; no file yet | When cave backdrop wiring expands beyond current surface layers | 640 px wide scenic layer | Not an immediate gap; roadmap marks this as future environment art. |  |
 | backgrounds | deep_cavern_far | Planned only; no file yet | When deep-cavern backdrop wiring lands | 640 px wide scenic layer | Not an immediate gap; roadmap marks this as future environment art. |  |
 | back_walls | ore_cave_wall | Planned only; no file yet | When ore-cave environment visuals are scoped | 16x16 seamless opaque tile | Future wall family, not a broken current asset. |  |
@@ -180,6 +172,7 @@ Generated: 2026-07-15
 | docs/screenshots/07_character_create.png | Screenshot | Yes | README / documentation capture | Documentation-only image. |  |
 | docs/screenshots/08_world_create.png | Screenshot | Yes | README / documentation capture | Documentation-only image. |  |
 | docs/screenshots/09_underground_midday_torch.png | Screenshot | Yes | README / documentation capture | Documentation-only image. |  |
+| docs/screenshots/10_vessel_damage_states.png | Screenshot | Yes | README / HUD runtime-state capture | Documentation-only image. |  |
 
 ## Notes
 

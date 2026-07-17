@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HUD Asset Replacement Studio | Coheronia Wiki</title>
+  <link rel="stylesheet" href="wiki_theme.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="kicker">Coheronia Wiki</div>
+      <h1>HUD Asset Replacement Studio</h1>
+      <p>HTML wiki page generated from the current repo-backed markdown source. This keeps browsing in HTML while preserving markdown as the maintainable source format.</p>
+      <div class="top-actions">
+        <a href="index.html">Wiki Home</a>
+        <a href="hud_asset_replacement_studio.md">View Markdown Source</a>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2>Browse</h2>
+          <p>Move through the wiki by category pages and leaf pages without dropping into raw markdown.</p>
+        </div>
+        <div class="sidebar-section">
+          <h3>Sections</h3>
+          <div class="nav-stack">
+            <a class="nav-card" href="index.html">Home<small>Front page and overall wiki entry</small></a>
+<a class="nav-card" href="items.html">Items<small>Category page for all item entries</small></a>
+<a class="nav-card" href="equipment.html">Equipment<small>Gear families and leaf pages</small></a>
+<a class="nav-card" href="weapons.html">Weapons<small>Weapon-specific browse page</small></a>
+<a class="nav-card" href="blocks.html">Blocks<small>Block registry and leaf pages</small></a>
+<a class="nav-card" href="bestiary.html">Bestiary<small>Live and planned enemy pages</small></a>
+<a class="nav-card" href="character_types.html">Character Types<small>Species, roles, traits, and ancestries</small></a>
+<a class="nav-card" href="stations.html">Crafting Stations<small>Station pages and hosted recipes</small></a>
+<a class="nav-card" href="hud_asset_replacement_studio.html">HUD Asset Studio<small>Drop-in dock art contract and image-editing briefs</small></a>
+<a class="nav-card" href="known_issues.html">Known Issues<small>Active presentation defects and intentional limits</small></a>
+<a class="nav-card" href="wiki.html">Wiki Overview<small>Full planning and maintenance overview</small></a>
+          </div>
+        </div>
+      </aside>
+      <main class="content">
+        <div class="content-inner">
+          <div class="breadcrumbs"><a href="index.html">Wiki</a><span class="sep">/</span><a href="hud_asset_replacement_studio.html">Hud Asset Replacement Studio</a><span class="sep">/</span><span>wiki/hud_asset_replacement_studio.md</span></div>
+          <div class="article">
+            <div class="meta-note">Generated HTML Page</div>
+            <h1 id="hud-asset-replacement-studio">HUD Asset Replacement Studio</h1>
+<p>Updated: 2026-07-16</p>
+<p>This is the handoff page for replacing the primary bottom-dock artwork with ChatGPT or another image editor. The kit is intentionally drop-in: artwork can change without changing gameplay code when the filename, canvas, alpha, and layout contract stay intact.</p>
+<h2 id="is-chatgpt-image-editing-advisable">Is ChatGPT Image Editing Advisable?</h2>
+<p>Yes, for the painted chrome. Use image editing against the existing PNG rather than asking for a new full HUD composition. Work one asset or one tightly coupled state family at a time, validate every export, and judge it inside the running game at native size.</p>
+<p>Do not delegate fill masks or runtime information as freeform art. Health, attunement, item icons, counts, hotkeys, selected state, cooldowns, and values remain runtime children. The two mask PNGs are geometry and should normally remain unchanged.</p>
+<h2 id="authoring-and-runtime-boundary">Authoring And Runtime Boundary</h2>
+<div class="table-wrap"><table><thead><tr><th>Purpose</th><th>Path</th></tr></thead><tbody><tr><td>Drop edited source PNGs here</td><td><code>art/source_templates/hud_dock/</code></td></tr><tr><td>Runtime copies used by Godot</td><td><code>art/generated/ui_painted/</code></td></tr><tr><td>Geometry and required sizes</td><td><code>art/source_templates/hud_dock/hud_dock_layout.json</code></td></tr><tr><td>Safe validation and promotion</td><td><code>scripts/art/sync_hud_kit.py</code></td></tr><tr><td>Native composite and geometry-guide generator</td><td><code>scripts/art/preview_hud_kit.py</code></td></tr><tr><td>Placeholder builder; do not rerun over authored art</td><td><code>scripts/art/build_hud_kit_placeholders.py</code></td></tr></tbody></table></div>
+<p>The source file is authoritative. Never paste a generated image directly into the runtime directory as the only copy.</p>
+<p>When all 19 assets and the layout are valid, <code>hud.gd</code> selects this native kit first. The FQ-21 sliced four-piece band and FQ-19 modular dock remain fallback paths rather than current art targets.</p>
+<h2 id="contract-v2-replacement-versus-extension">Contract V2: Replacement Versus Extension</h2>
+<p>The 19 named files are drop-in replacements: preserve filename, size, alpha contract, and occupied geometry, then no gameplay code changes are required.</p>
+<p>Contract v2 also permits a genuinely new <strong>non-interactive decorative layer</strong>. Add its PNG to <code>asset_sizes</code> and <code>required_assets</code>, then declare its node name, full native rectangle, role, and integer z-index in <code>decorative_layers</code>. The runtime assembles those declared chrome layers without another custom <code>hud.gd</code> branch.</p>
+<p>Interactive components are deliberately different. A new button, slot behavior, meter, or command still needs a registered runtime action and a documented semantic component. A PNG may supply appearance, never behavior.</p>
+<p>The JSON also owns these internal runtime rectangles:</p>
+<ul><li><code>slot_content.icon_rect</code>, <code>count_rect</code>, and <code>hotkey_rect</code></li><li><code>button_content.icon_rect</code> and <code>label_rect</code></li><li>vessel fill, glass, value-label, selected-item chip, and mining-progress rectangles</li></ul>
+<p>Do not move an art aperture or safe content window independently of these rectangles. If a deliberate geometry change is approved, update JSON and its tests in the same commit.</p>
+<p>Two source-only review aids live beside the editable PNGs:</p>
+<ul><li><code>hud_dock_runtime_guide.png</code> is the color-coded runtime-content and trim keep-out template.</li><li><code>hud_dock_composite_preview.png</code> composites the current art with representative runtime fills, values, icons, counts, hotkeys, labels, selected/hover/disabled states, and progress.</li></ul>
+<p>Attach both aids to every image-editing task. They are never copied into the runtime directory.</p>
+<figure class="hero-figure"><img class="hero-image" src="../../art/source_templates/hud_dock/hud_dock_runtime_guide.png" alt="HUD runtime geometry guide"><figcaption>HUD runtime geometry guide</figcaption></figure>
+<figure class="hero-figure"><img class="hero-image" src="../../art/source_templates/hud_dock/hud_dock_composite_preview.png" alt="HUD source composite preview"><figcaption>HUD source composite preview</figcaption></figure>
+<p>The current real-game comparison capture is <a href="../screenshots/10_vessel_damage_states.png"><code>docs/screenshots/10_vessel_damage_states.png</code></a>.</p>
+<h2 id="non-negotiable-export-rules">Non-Negotiable Export Rules</h2>
+<ul><li>Keep the exact filename and exact pixel dimensions in the table below.</li><li>Export a real RGBA PNG. Do not use JPEG, indexed color, or a flattened background.</li><li>Keep the canvas size fixed. Do not crop, expand, rotate, or rescale the canvas.</li><li>Use hard pixel edges and integer-aligned details. Avoid blur, glow haze, and fractional resampling.</li><li>Preserve transparent space. Nothing may spill outside its intended canvas.</li><li>Do not bake text, values, hotkeys, item images, counts, resource fill, selection, cooldowns, or tooltips into art.</li><li>Review at 100 percent scale. A beautiful zoomed image can still be unreadable or noisy in the game.</li><li>Keep visual hierarchy restrained: dark wood and iron support the content; brass is an accent, not a full outline on every object.</li><li>Judge backplate and trim with every runtime child visible. Decorative marks must not visually imply or duplicate slots, buttons, vessels, labels, or progress bars.</li><li><code>dock_foreground_trim.png</code> must remain completely transparent inside both 160 x 160 vessel-frame keep-outs shown in <code>hud_dock_runtime_guide.png</code>; it renders above the vessel frames.</li><li>The environmental trim must occupy between 0.2 and 5 percent of its canvas.</li><li>The environmental trim must sit on the upper backplate rail; its lowest occupied alpha ends at native <code>y=50</code>, with nothing dressed along the lower rail.</li><li>Slot and button state families must retain the exact occupied alpha silhouette of their normal state.</li><li>Button glyphs must preserve at least two transparent pixels around the occupied icon silhouette.</li></ul>
+<h2 id="file-contract">File Contract</h2>
+<div class="table-wrap"><table><thead><tr><th>Asset</th><th>Size</th><th>Static responsibility</th></tr></thead><tbody><tr><td><code>dock_backplate.png</code></td><td>1280 x 176</td><td>Dark structural bed behind all dock content</td></tr><tr><td><code>dock_foreground_trim.png</code></td><td>1280 x 176</td><td>Sparse environmental dressing resting on the upper structural rail</td></tr><tr><td><code>health_frame.png</code></td><td>160 x 160</td><td>Left health-vessel chassis only</td></tr><tr><td><code>health_glass_overlay.png</code></td><td>108 x 108</td><td>Transparent glass highlights over health fill</td></tr><tr><td><code>health_fill_mask.png</code></td><td>108 x 108</td><td>Runtime clip geometry; normally do not edit</td></tr><tr><td><code>attunement_frame.png</code></td><td>160 x 160</td><td>Right attunement-vessel chassis only</td></tr><tr><td><code>attunement_glass_overlay.png</code></td><td>108 x 108</td><td>Transparent glass highlights over attunement fill</td></tr><tr><td><code>attunement_fill_mask.png</code></td><td>108 x 108</td><td>Runtime clip geometry; normally do not edit</td></tr><tr><td><code>slot_normal.png</code></td><td>76 x 84</td><td>Default hotbar slot frame</td></tr><tr><td><code>slot_selected.png</code></td><td>76 x 84</td><td>Selected variant of the same slot geometry</td></tr><tr><td><code>slot_hover.png</code></td><td>76 x 84</td><td>Hover variant of the same slot geometry</td></tr><tr><td><code>slot_disabled.png</code></td><td>76 x 84</td><td>Disabled variant of the same slot geometry</td></tr><tr><td><code>button_frame_normal.png</code></td><td>54 x 104</td><td>Default side-action button frame</td></tr><tr><td><code>button_frame_hover.png</code></td><td>54 x 104</td><td>Hover variant of the same button geometry</td></tr><tr><td><code>button_frame_pressed.png</code></td><td>54 x 104</td><td>Pressed variant of the same button geometry</td></tr><tr><td><code>button_icon_inventory.png</code></td><td>32 x 32</td><td>Inventory glyph only</td></tr><tr><td><code>button_icon_character.png</code></td><td>32 x 32</td><td>Character glyph only</td></tr><tr><td><code>button_icon_skills.png</code></td><td>32 x 32</td><td>Skills glyph only</td></tr><tr><td><code>button_icon_town_hall.png</code></td><td>32 x 32</td><td>Town Hall glyph only</td></tr></tbody></table></div>
+<blockquote><p><strong>Current status:</strong> <code>DockForegroundTrim</code> is disabled through <code>hud_dock_layout.json</code> (<code>enabled: false</code>). The existing environmental dressing appears detached in-game and needs another fit and anchoring pass. Preserve the asset and fallback contract, but do not re-enable it until a fresh runtime capture confirms that it is visually attached to the dock.</p></blockquote>
+<h2 id="recommended-replacement-order">Recommended Replacement Order</h2>
+<ul><li>Establish <code>dock_backplate.png</code> and <code>dock_foreground_trim.png</code> together.</li><li>Refine the two vessel frames and their glass overlays; keep the existing masks unless the apertures deliberately change.</li><li>Approve <code>slot_normal.png</code>, then derive selected, hover, and disabled from that exact base.</li><li>Approve <code>button_frame_normal.png</code>, then derive hover and pressed from that exact base.</li><li>Finish with the four button glyphs as a matched icon family.</li></ul>
+<p>This order keeps shared geometry and material language consistent. Do not run nineteen unrelated generations and expect their borders, lighting, and perspective to match.</p>
+<h2 id="standard-chatgpt-handoff">Standard ChatGPT Handoff</h2>
+<p>For each task, attach the current PNG, <code>hud_dock_runtime_guide.png</code>, <code>hud_dock_composite_preview.png</code>, and a current in-game screenshot. Tell ChatGPT to create genuinely new artwork <strong>inside the attached asset canvas</strong>, not to create a complete interface or imitate the placeholder styling. After it returns the image, verify the canvas and alpha before judging the style.</p>
+<p>Use the asset-specific prompt below as the complete instruction for that task. If the result changes dimensions, loses transparency, adds labels, or changes the occupied geometry, reject it rather than repairing it by fractional scaling.</p>
+<h2 id="per-asset-chatgpt-instructions">Per-Asset ChatGPT Instructions</h2>
+<h3 id="dock-backplate">Dock Backplate</h3>
+<blockquote><p>Create new artwork inside the attached <code>dock_backplate.png</code> canvas for Coheronia. Return exactly one 1280 x 176 RGBA PNG on the same canvas. Use the attached runtime guide and composite as immutable geometry references. Create a restrained original dark-fantasy pixel-art structural bed in blackened iron and dark smoked wood with sparse aged-brass accents. It must sit behind every other HUD layer and visually connect the left and right vessels without drawing or implying either vessel, any slot, any button, any icon, any label, any value, progress, or state. Preserve transparent areas outside the dock silhouette. Use hard integer-aligned pixel edges, quiet material variation, and no blur, bloom, outside shadow, canvas resize, named-game imitation, or painted runtime content.</p></blockquote>
+<h3 id="dock-foreground-trim">Dock Foreground Trim</h3>
+<blockquote><p>Create new artwork inside the attached <code>dock_foreground_trim.png</code> canvas for Coheronia. Return exactly one 1280 x 176 RGBA PNG on the same canvas. Use the attached runtime guide, current backplate, composite, and in-game screenshot as immutable geometry references. The backplate already owns the rails and structural hardware; do not redraw or duplicate them. Paint only sparse, low-contrast environmental dressing resting on the upper backplate rail. The lowest occupied alpha must end at native y=50; do not place dressing on the lower rail. Use a little dirt accumulation, two or three tiny stone/rubble clusters, restrained moss or a short vine, and subtle wear. Both vessel keep-outs must remain fully transparent. Nothing may obstruct runtime controls or information. Most of the canvas must remain transparent. Avoid continuous lines, symmetry, saturation, bright highlights, repeated motifs, glow, blur, opaque backgrounds, named-game imitation, or canvas resize.</p></blockquote>
+<h3 id="health-frame">Health Frame</h3>
+<blockquote><p>Edit the attached <code>health_frame.png</code> for Coheronia. Return exactly one 160 x 160 RGBA PNG on the same canvas. Refine the left-side circular health-vessel chassis in blackened steel, dark iron, and restrained aged-brass accents. Preserve the central 108 x 108 fill aperture and the right-facing dock connection implied by the source. The aperture and exterior canvas must remain transparent. Draw only static frame hardware; do not draw red liquid, health text, numbers, glass shine, glow, or status effects. Use crisp pixel-art edges and do not resize or shift the vessel.</p></blockquote>
+<h3 id="health-glass-overlay">Health Glass Overlay</h3>
+<blockquote><p>Edit the attached <code>health_glass_overlay.png</code> for Coheronia. Return exactly one 108 x 108 RGBA PNG. Create only subtle translucent glass reflections and a small amount of surface depth for the circular health aperture. The image must remain overwhelmingly transparent and must not contain a red fill, frame, border, text, numbers, glow cloud, or opaque background. Highlights must stay inside the aperture and remain readable over any runtime fill level. Use crisp controlled pixels without blur and keep the exact canvas.</p></blockquote>
+<h3 id="health-fill-mask">Health Fill Mask</h3>
+<blockquote><p>Treat the attached <code>health_fill_mask.png</code> as engineering geometry, not decorative art. Return exactly one 108 x 108 RGBA PNG only if a replacement is explicitly required. Preserve the same centered circular silhouette, using fully opaque white inside and fully transparent pixels outside, with no gray, feathering, texture, shadow, color, decoration, or canvas change. This file clips the runtime-driven health fill and should otherwise remain unchanged.</p></blockquote>
+<h3 id="attunement-frame">Attunement Frame</h3>
+<blockquote><p>Edit the attached <code>attunement_frame.png</code> for Coheronia. Return exactly one 160 x 160 RGBA PNG on the same canvas. Refine the right-side faceted attunement-vessel chassis as a deliberate counterpart to the health frame, using the same blackened metal, aged-brass accent weight, lighting direction, and pixel density. Preserve the central 108 x 108 faceted fill aperture and the left-facing dock connection implied by the source. Keep the aperture and exterior canvas transparent. Do not draw blue liquid, text, numbers, glass shine, glow, or runtime effects. Do not resize or shift the vessel.</p></blockquote>
+<h3 id="attunement-glass-overlay">Attunement Glass Overlay</h3>
+<blockquote><p>Edit the attached <code>attunement_glass_overlay.png</code> for Coheronia. Return exactly one 108 x 108 RGBA PNG. Create only subtle translucent glass facets and controlled highlights for the angular attunement aperture. The image must remain mostly transparent. Do not include blue fill, the outer frame, text, numbers, bloom, an opaque background, or details outside the aperture. Match the health glass lighting and pixel density while retaining a more crystalline faceted character. Keep the exact canvas and hard pixel-art edges.</p></blockquote>
+<h3 id="attunement-fill-mask">Attunement Fill Mask</h3>
+<blockquote><p>Treat the attached <code>attunement_fill_mask.png</code> as engineering geometry, not decorative art. Return exactly one 108 x 108 RGBA PNG only if a replacement is explicitly required. Preserve the same centered faceted silhouette, using fully opaque white inside and fully transparent pixels outside, with no gray, feathering, texture, shadow, color, decoration, or canvas change. This file clips the runtime-driven attunement fill and should otherwise remain unchanged.</p></blockquote>
+<h3 id="normal-hotbar-slot">Normal Hotbar Slot</h3>
+<blockquote><p>Edit the attached <code>slot_normal.png</code> for Coheronia. Return exactly one 76 x 84 RGBA PNG on the same canvas. Create the approved default hotbar-slot frame with a quiet blackened-metal and dark-wood construction. Preserve a large clean interior window for runtime item art, count, and hotkey children. The outside silhouette and interior window placement must remain fixed so all five slots align without gaps or notches. Do not draw an item, count, hotkey, selection, cooldown, tooltip, or glow. Use restrained contrast and crisp pixel-art edges.</p></blockquote>
+<h3 id="selected-hotbar-slot">Selected Hotbar Slot</h3>
+<blockquote><p>Edit the attached <code>slot_selected.png</code> using the approved <code>slot_normal.png</code> as the immutable geometry base. Return exactly one 76 x 84 RGBA PNG. Preserve every structural pixel and the same clean runtime-content window; add only a clear selected-state treatment through restrained warm brass, a focused inner highlight, or similarly compact emphasis. Do not make the frame thicker, change its silhouette, add an item, count, hotkey, cooldown, text, or large glow. The state must read at 100 percent scale without looking like a different slot design.</p></blockquote>
+<h3 id="hover-hotbar-slot">Hover Hotbar Slot</h3>
+<blockquote><p>Edit the attached <code>slot_hover.png</code> using the approved <code>slot_normal.png</code> as the immutable geometry base. Return exactly one 76 x 84 RGBA PNG. Preserve every structural pixel and the runtime-content window; add only a subtle cool or neutral hover response that is visibly weaker than the selected state. Do not alter the silhouette, frame thickness, or interior geometry, and do not add an item, count, hotkey, tooltip, text, or glow cloud. Keep hard pixel edges and the exact canvas.</p></blockquote>
+<h3 id="disabled-hotbar-slot">Disabled Hotbar Slot</h3>
+<blockquote><p>Edit the attached <code>slot_disabled.png</code> using the approved <code>slot_normal.png</code> as the immutable geometry base. Return exactly one 76 x 84 RGBA PNG. Preserve all structural geometry and the content window while reducing contrast and saturation enough to communicate disabled state. Do not erase the frame, change its size, add an X, lock, item, count, hotkey, text, or opaque wash outside the slot. It must remain part of the same slot family and retain crisp pixel edges.</p></blockquote>
+<h3 id="normal-action-button-frame">Normal Action Button Frame</h3>
+<blockquote><p>Edit the attached <code>button_frame_normal.png</code> for Coheronia. Return exactly one 54 x 104 RGBA PNG on the same canvas. Create a compact vertical action-button chassis that belongs to the dock but reads as a complete button across its full hit area. Preserve a clean centered region for a 32 x 32 runtime icon and a lower label child. Do not draw the icon, label, hover, press, tooltip, or runtime state. Keep the outer silhouette, content alignment, and dimensions stable so Inventory, Character, Skills, and Town Hall share one frame.</p></blockquote>
+<h3 id="hover-action-button-frame">Hover Action Button Frame</h3>
+<blockquote><p>Edit the attached <code>button_frame_hover.png</code> using the approved <code>button_frame_normal.png</code> as the immutable geometry base. Return exactly one 54 x 104 RGBA PNG. Preserve every structural pixel and the full button silhouette; add a restrained hover highlight across the entire button, not only the icon area. Do not add an icon, text, tooltip, glow cloud, or change in dimensions. The response should be clear at 100 percent scale and visually weaker than the pressed state.</p></blockquote>
+<h3 id="pressed-action-button-frame">Pressed Action Button Frame</h3>
+<blockquote><p>Edit the attached <code>button_frame_pressed.png</code> using the approved <code>button_frame_normal.png</code> as the immutable geometry base. Return exactly one 54 x 104 RGBA PNG. Preserve the exact silhouette and content regions; create a convincing pressed state through a compact inset, darker top edge, brighter lower edge, or similarly pixel-precise treatment across the whole button. Do not shift the eventual runtime icon or label, add text, draw an icon, or change the canvas.</p></blockquote>
+<h3 id="inventory-button-icon">Inventory Button Icon</h3>
+<blockquote><p>Edit the attached <code>button_icon_inventory.png</code> as one member of a four-icon Coheronia HUD family. Return exactly one 32 x 32 RGBA PNG with a transparent background. Draw a simple readable inventory or satchel glyph in muted warm metal or parchment tones, using the same lighting, outline weight, and pixel density as the other three icons. Center it optically with safe transparent padding. Do not include a button frame, label, text, glow, shadow outside the glyph, or canvas resize.</p></blockquote>
+<h3 id="character-button-icon">Character Button Icon</h3>
+<blockquote><p>Edit the attached <code>button_icon_character.png</code> as one member of a four-icon Coheronia HUD family. Return exactly one 32 x 32 RGBA PNG with a transparent background. Draw a simple readable character, helm, or bust glyph in the same muted warm palette, lighting, outline weight, and pixel density as the Inventory, Skills, and Town Hall glyphs. Center it optically with safe transparent padding. Do not include a button frame, label, text, glow, or canvas resize.</p></blockquote>
+<h3 id="skills-button-icon">Skills Button Icon</h3>
+<blockquote><p>Edit the attached <code>button_icon_skills.png</code> as one member of a four-icon Coheronia HUD family. Return exactly one 32 x 32 RGBA PNG with a transparent background. Draw a simple readable skill, spark, or constellation glyph in the same muted warm palette, lighting, outline weight, and pixel density as the other dock icons. Keep the silhouette compact and centered with safe transparent padding. Do not include a button frame, label, text, large magical glow, or canvas resize.</p></blockquote>
+<h3 id="town-hall-button-icon">Town Hall Button Icon</h3>
+<blockquote><p>Edit the attached <code>button_icon_town_hall.png</code> as one member of a four-icon Coheronia HUD family. Return exactly one 32 x 32 RGBA PNG with a transparent background. Draw a simple readable civic hall or peaked-roof glyph that echoes the in-world Town Hall without becoming a miniature screenshot. Match the Inventory, Character, and Skills icons in palette, lighting, outline weight, and pixel density. Center it with safe transparent padding. Do not include a button frame, label, text, glow, or canvas resize.</p></blockquote>
+<h2 id="validation-and-promotion-loop">Validation And Promotion Loop</h2>
+<p>Check one returned file before promoting it:</p>
+<p><code>python scripts/art/sync_hud_kit.py --check --asset dock_backplate.png</code></p>
+<p>If it passes, copy the validated source into the runtime directory:</p>
+<p><code>python scripts/art/sync_hud_kit.py --sync --asset dock_backplate.png</code></p>
+<p>For a completed family, omit <code>--asset</code> to check or sync the whole kit. The sync tool does not crop, rescale, repaint, or repair an image. A contract failure must go back to the image-editing task.</p>
+<p>Confirm that promoted runtime files exactly match their authored sources:</p>
+<p><code>python scripts/art/sync_hud_kit.py --verify-runtime</code></p>
+<p>Regenerate the native review aids:</p>
+<p><code>python scripts/art/preview_hud_kit.py</code></p>
+<p>After each coherent family, run the repository validator and inspect an in-game screenshot at the target window size. Run the full smoke suite before calling the HUD batch complete. Functional smoke does not replace visual review; both gates are required.</p>
+<h2 id="visual-review-checklist">Visual Review Checklist</h2>
+<ul><li>The dock occupies one intentional band and does not appear cut off at the bottom.</li><li>The backplate is continuous behind the center controls; the trim has no slot-shaped notches.</li><li>Health and attunement frames sit around their fills instead of appearing pasted over the dock.</li><li>The two vessels feel related, while health remains round and attunement remains faceted.</li><li>All five slot interiors align; selected, hover, and disabled states do not change geometry.</li><li>Action hover and press treatments cover the entire button silhouette.</li><li>Runtime icons, labels, hotkeys, counts, and values remain sharp and unobstructed.</li><li>The command-center widget stays separate from the primary dock chrome.</li></ul>
+<h2 id="related-pages">Related Pages</h2>
+<ul><li><a href="wiki.html">Wiki Overview</a></li><li><a href="image_continuation.html">Image Continuation</a></li><li><a href="../UI_ASSET_GAPS.html">UI Asset Gaps</a></li></ul>
+          </div>
+          <div class="footer-note">
+            Source markdown: <a href="hud_asset_replacement_studio.md">hud_asset_replacement_studio.md</a>.
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

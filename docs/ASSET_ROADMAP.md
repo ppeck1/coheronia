@@ -109,20 +109,22 @@ it cannot offer absent/no-op values.
 ### Equipment overlays and UI placeholders
 
 Equipment panels are text-only, so 16x16 equipment item icons have no live
-consumer and remain deferred. `player_visual` does have live 16x32 overlay
-hooks (`<item_id>_<body_id>.png`, then generic `<item_id>.png`, plus three
-tool-swing phases), but no player-gear PNGs ship yet. The procedural rig-aware
-fallback is safer than a generic overlay until each overlay is checked against
-all ten body shapes.
+consumer and remain deferred. `player_visual` has live 16x32 overlay hooks
+(`<item_id>_<body_id>.png`, then generic `<item_id>.png`, plus three tool-swing
+phases). The repository now ships 120 body-specific PNGs: crude helmet/torso/
+feet across all ten bodies and phases 0/1/2 for the basic pick, forged pick,
+and crude axe. Swords, iron armor, rings, amulet, and accessory remain on the
+procedural fallback. Cross-body load/transition alignment and the stepped
+three-pose motion remain active polish issues.
 
-`art/generated/ui/` contains fifteen 32x32 hooks. The health and attunement
-frames are consumed by the live bottom dock; the remaining button, invalid-slot,
-cursor, and fill-mask files remain replaceable hooks. FQ-14 goals and the FQ-15
-mini-map are currently code-drawn and toggleable, with final glyph art deferred.
-The nonmodal modules now support a default-locked, profile-backed Edit HUD mode
-with bounded move, discrete scale, lock, and reset controls. Modal inventory,
-town, and skills panels remain fixed so gameplay input ownership stays
-deterministic.
+`art/generated/ui/` contains fifteen 32x32 legacy/reserved hooks. The primary
+bottom dock now consumes the native 19-asset `ui_painted` kit plus
+`hud_dock_layout.json`; authored source and per-file replacement prompts live
+under `art/source_templates/hud_dock/` and
+`docs/wiki/hud_asset_replacement_studio.md`. Health/attunement fill, values,
+icons, counts, hotkeys, and state remain runtime children. The FQ-21 sliced
+band and FQ-19 modular path are fallbacks. Nonmodal modules use profile-backed
+move/resize/edit behavior; Map and Events can remain open together.
 
 ### Backing walls — `art/generated/back_walls/<id>.png`, 16x16, seamless
 
@@ -156,6 +158,8 @@ permanent fallback): `opening_01_first_star`, `opening_02_unraveling_roads`,
 `opening_03_scattered_peoples`, `opening_04_darkness_measures_light`,
 `opening_05_first_hall_raised`, `opening_06_attunement_pulse`,
 `opening_07_civilization_pushes_back`, `opening_08_title_card`.
+All eight pools are currently authored: scene 1 has three frames and the other
+seven scenes have one static cel each, for ten PNGs total.
 Priority P3, in storyboard order. Every frame is wordless; scene copy,
 title, and `By Paul Peck` remain engine labels. Composition, beats, and
 palette per scene are locked in `docs/OPENING_STORYBOARD.md` — frames
@@ -178,7 +182,7 @@ Keep meaningful action above the lower-quarter text band.
 | Back walls | ore_cave_wall, fungal_wall, crystal_wall, timber_wall | with their environments | 16x16 seamless |
 | Backgrounds | cave_far, deep_cavern_far | with cave backdrop wiring | 640x360 |
 | Ancestry sprites (deep/planned) | deep_dwarf, deep_elf, deep_goblin, gnome, deep_gnome, lizardfolk, dragonkin (6 dragonkin types) | phase C-E ancestries | 16x32 |
-| UI replacement art | goals/map glyphs plus reserved orb/dock/button/cursor hooks | future HUD image-consumer pass | 32x32 |
+| UI replacement art | native dock chrome and framed panels | current HUD polish pass via HUD Asset Replacement Studio | contract-specific native canvases |
 
 ## Prompt Packs
 

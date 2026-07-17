@@ -786,10 +786,12 @@ func _run() -> void:
 	# deliberately empty) and the gold selection stylebox stays textured.
 	# Sample a NON-selected slot — the selected one wears the gold texture.
 	var _p2_slot0 = hud._hotbar_slots[(player.selected_slot + 1) % 5].get_theme_stylebox("panel")
-	var _p2_normal_ok: bool = (hud._slot_normal_sb is StyleBoxEmpty) \
-		if hud._dock_band_active else (hud._slot_normal_sb is StyleBoxTexture)
-	var _p2_slot0_ok: bool = _p2_slot0 is StyleBoxEmpty \
-		if hud._dock_band_active else _p2_slot0 is StyleBoxTexture
+	var _p2_normal_ok: bool = hud._slot_normal_sb is StyleBoxTexture \
+		if hud._hud_kit_active else ((hud._slot_normal_sb is StyleBoxEmpty) \
+		if hud._dock_band_active else (hud._slot_normal_sb is StyleBoxTexture))
+	var _p2_slot0_ok: bool = _p2_slot0 is StyleBoxTexture \
+		if hud._hud_kit_active else ((_p2_slot0 is StyleBoxEmpty) \
+		if hud._dock_band_active else _p2_slot0 is StyleBoxTexture)
 	_check("fq13p2_slot_frame_consumed",
 		_p2_normal_ok
 		and hud._slot_selected_sb is StyleBoxTexture
@@ -950,38 +952,71 @@ func _run() -> void:
 		and _m15_r0 == 1 and _m15_r1 == 2,
 		"toggle=%s->%s r0=%d r1=%d" % [str(_m15_open0), str(_m15_open1), _m15_r0, _m15_r1])
 
-	# FQ-19: the framed events module owns the map's top-right zone. Opening the
-	# map hides events temporarily and restores the prior visibility on close.
+	hud.set_map_open(false)
+	var _m15_key := InputEventKey.new()
+	_m15_key.physical_keycode = KEY_M
+	_m15_key.pressed = true
+	var _m15_prev_edit_mode: bool = GameState.hud_edit_mode
+	GameState.hud_edit_mode = false
+	root._unhandled_input(_m15_key)
+	var _m15_key_opens: bool = hud.map_open()
+	root._unhandled_input(_m15_key)
+	var _m15_key_closes: bool = not hud.map_open()
+	var _m15_echo_key := InputEventKey.new()
+	_m15_echo_key.physical_keycode = KEY_M
+	_m15_echo_key.pressed = true
+	_m15_echo_key.echo = true
+	root._unhandled_input(_m15_echo_key)
+	var _m15_echo_blocked: bool = not hud.map_open()
+	GameState.hud_edit_mode = true
+	root._unhandled_input(_m15_key)
+	var _m15_key_blocked_in_edit: bool = not hud.map_open()
+	GameState.hud_edit_mode = _m15_prev_edit_mode
+	_check("fq15_map_key_respects_ui_boundary",
+		_m15_key_opens and _m15_key_closes and _m15_echo_blocked
+		and _m15_key_blocked_in_edit,
+		"opens=%s closes=%s echo_blocked=%s edit_blocked=%s" % [
+			str(_m15_key_opens), str(_m15_key_closes), str(_m15_echo_blocked),
+			str(_m15_key_blocked_in_edit)])
+
+	# Map and Events are independent adjacent modules; either can toggle while
+	# the other remains open, and contextual chips sit below the taller one.
 	var _fq19_events_before: bool = hud._event_panel != null and hud._event_panel.visible
 	if hud._event_panel != null:
 		hud._event_panel.visible = true
 		hud._save_hud_layout()
 	var _fq19_map_open: bool = hud.toggle_map()
-	var _fq19_hidden: bool = _fq19_map_open and not hud._event_panel.visible
+	var _fq19_together: bool = _fq19_map_open and hud._event_panel.visible
 	hud._toggle_event_module()
-	var _fq19_preference_toggle_hidden: bool = not hud._event_panel.visible
-	hud.toggle_map()
-	var _fq19_restored: bool = not hud._event_panel.visible
+	var _fq19_event_off_map_on: bool = not hud._event_panel.visible and hud.map_open()
 	hud._toggle_event_module()
-	var _fq19_preference_restored: bool = hud._event_panel.visible
+	var _fq19_event_on_map_on: bool = hud._event_panel.visible and hud.map_open()
 	var _fq19_event_rect: Rect2 = hud._event_panel.get_global_rect() if hud._event_panel != null else Rect2()
+	var _fq19_map_rect: Rect2 = hud._map_panel.get_global_rect() if hud._map_panel != null else Rect2()
+	hud._position_context_stack()
+	var _fq19_stack_clear: bool = hud._context_stack.offset_top >= \
+		maxf(_fq19_event_rect.end.y, _fq19_map_rect.end.y) + 8.0
+	hud.toggle_map()
+	var _fq19_event_survives_close: bool = hud._event_panel.visible and not hud.map_open()
 	var _fq19_viewport: Vector2 = get_viewport().get_visible_rect().size
 	if hud._event_panel != null:
 		hud._event_panel.visible = _fq19_events_before
 		hud._save_hud_layout()
-	_check("fq19_events_map_exclusion",
-		_fq19_hidden and _fq19_preference_toggle_hidden and _fq19_restored
-		and _fq19_preference_restored
+	_check("fq19_map_events_coexist",
+		_fq19_together and _fq19_event_off_map_on and _fq19_event_on_map_on
+		and _fq19_event_survives_close and not _fq19_event_rect.intersects(_fq19_map_rect)
+		and _fq19_stack_clear
 		and hud._event_panel.custom_minimum_size.x >= 320.0
 		and hud._event_panel.custom_minimum_size.y >= 120.0
 		and _fq19_event_rect.position.x >= 8.0
 		and _fq19_event_rect.end.x <= _fq19_viewport.x - 8.0
 		and _fq19_event_rect.position.y >= 8.0
 		and _fq19_event_rect.end.y <= _fq19_viewport.y - 8.0,
-		"hidden=%s pref_off=%s restored=%s pref_on=%s size=%s rect=%s viewport=%s" % [str(_fq19_hidden),
-			str(_fq19_preference_toggle_hidden), str(_fq19_restored), str(_fq19_preference_restored),
+		"together=%s event_off=%s event_on=%s survives=%s event=%s map=%s stack=%.1f viewport=%s" % [
+			str(_fq19_together), str(_fq19_event_off_map_on), str(_fq19_event_on_map_on),
+			str(_fq19_event_survives_close),
 			str(hud._event_panel.custom_minimum_size if hud._event_panel != null else Vector2.ZERO),
-			str(_fq19_event_rect), str(_fq19_viewport)])
+			str(_fq19_map_rect), hud._context_stack.offset_top, str(_fq19_viewport)])
 	hud.update_time(5, true, 2)
 	var _fq19_time_ok: bool = hud._time_label == null and hud._event_time_label != null \
 		and hud._event_time_label.text.contains("Day 5") \
@@ -1038,33 +1073,201 @@ func _run() -> void:
 	# (The contextual-stack check lives at the end of the suite: its real-time
 	# auto-hide waits must not shift the live music clip-switch timing.)
 
-	# FQ-21: the one-piece full-width painted band — four native-aspect
-	# pieces present (caps, tiling plate, center block), the band spanning
-	# the viewport width, five slot overlays, and geometry loaded from the
-	# slicer sidecar (the center block texture matches its declared size).
-	var _fq21_geometry: Dictionary = hud._load_band_geometry()
-	var _fq21_block: TextureRect = hud._bottom_dock.find_child("BandCenterBlock", true, false)
-	var _fq21_pieces_ok: bool = hud._dock_band_active \
-		and hud._bottom_dock.find_child("BandLeftCap", true, false) != null \
-		and hud._bottom_dock.find_child("BandRightCap", true, false) != null \
-		and hud._bottom_dock.find_child("BandTileLeft", true, false) != null \
+	# FQ-21 contract v2: the native layered kit spans the viewport, loads its
+	# decorative layers from the manifest, and retains five runtime slots plus
+	# four registered action controls.
+	var _fq21_geometry: Dictionary = hud._load_hud_kit_layout()
+	var _fq21_block: TextureRect = hud._bottom_dock.find_child("DockBackplate", true, false)
+	var _fq21_trim_enabled := true
+	for _fq21_layer_raw in _fq21_geometry.get("decorative_layers", []):
+		if _fq21_layer_raw is Dictionary \
+				and str((_fq21_layer_raw as Dictionary).get("role", "")) == "foreground_trim":
+			_fq21_trim_enabled = bool((_fq21_layer_raw as Dictionary).get("enabled", true))
+			break
+	var _fq21_trim_node: Node = hud._bottom_dock.find_child(
+		"DockForegroundTrim", true, false)
+	var _fq21_trim_toggle_ok: bool = (_fq21_trim_enabled and _fq21_trim_node != null) \
+		or (not _fq21_trim_enabled and _fq21_trim_node == null)
+	var _fq21_pieces_ok: bool = hud._hud_kit_active and hud._dock_band_active \
 		and _fq21_block != null and _fq21_block.texture != null \
+		and _fq21_trim_toggle_ok \
+		and hud._bottom_dock.find_child("HealthFrame", true, false) != null \
+		and hud._bottom_dock.find_child("AttunementFrame", true, false) != null \
 		and _fq21_block.texture.get_size().is_equal_approx(
-			Vector2(float(_fq21_geometry.center_block.size[0]),
-				float(_fq21_geometry.center_block.size[1])))
+			Vector2(float(_fq21_geometry.native_size[0]),
+				float(_fq21_geometry.native_size[1])))
 	var _fq21_full_width: bool = hud._bottom_dock.size.x >= \
 		get_viewport().get_visible_rect().size.x - 1.0
 	var _fq21_nav_found := 0
+	var _fq21_child_names: Array[String] = []
+	for _fq21_child in hud._bottom_dock.get_children():
+		_fq21_child_names.append(str(_fq21_child.name))
 	for _fq21_name in ["DockActionInventory", "DockActionCharacter",
 			"DockActionSkills", "DockActionTownHall"]:
 		var _fq21_btn: Node = hud._bottom_dock.find_child(_fq21_name, true, false)
 		if _fq21_btn is Button and (_fq21_btn as Button).tooltip_text != "":
 			_fq21_nav_found += 1
-	_check("fq21_dock_band_one_piece",
+	_check("fq21_hud_kit_primary",
 		_fq21_pieces_ok and _fq21_full_width and _fq21_nav_found == 4
 		and hud._hotbar_slots.size() == 5,
-		"pieces=%s full_width=%s nav=%d slots=%d" % [str(_fq21_pieces_ok),
-			str(_fq21_full_width), _fq21_nav_found, hud._hotbar_slots.size()])
+		"pieces=%s trim_enabled=%s trim_toggle=%s full_width=%s nav=%d slots=%d children=%s" % [
+			str(_fq21_pieces_ok), str(_fq21_trim_enabled), str(_fq21_trim_toggle_ok),
+			str(_fq21_full_width), _fq21_nav_found, hud._hotbar_slots.size(),
+			str(_fq21_child_names)])
+
+	# Optional HUD themes resolve per static asset. Missing, unsafe-id, and
+	# wrong-size candidates must all fall back to the required base PNG, while
+	# a valid same-contract sibling is selected without changing gameplay data.
+	var _fq21_theme_valid_path := \
+		"res://art/generated/ui_painted/slot_normal__smoke_valid.png"
+	var _fq21_theme_invalid_path := \
+		"res://art/generated/ui_painted/slot_normal__smoke_invalid.png"
+	for _fq21_theme_tmp in [_fq21_theme_valid_path, _fq21_theme_invalid_path]:
+		if FileAccess.file_exists(_fq21_theme_tmp):
+			DirAccess.remove_absolute(_fq21_theme_tmp)
+	var _fq21_theme_base_before: Texture2D = BlockRegistry.visual_texture(
+		"ui_painted", "slot_normal")
+	var _fq21_theme_source: Image = _fq21_theme_base_before.get_image()
+	_fq21_theme_source.save_png(_fq21_theme_valid_path)
+	var _fq21_theme_bad := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	_fq21_theme_bad.fill(Color.WHITE)
+	_fq21_theme_bad.save_png(_fq21_theme_invalid_path)
+	var _fq21_theme_base: Texture2D = BlockRegistry.visual_texture(
+		"ui_painted", "slot_normal")
+	var _fq21_theme_valid: Texture2D = hud._painted_texture_for_theme(
+		"slot_normal", "smoke_valid")
+	var _fq21_theme_missing: Texture2D = hud._painted_texture_for_theme(
+		"slot_normal", "smoke_missing")
+	var _fq21_theme_invalid: Texture2D = hud._painted_texture_for_theme(
+		"slot_normal", "smoke_invalid")
+	var _fq21_theme_unsafe: Texture2D = hud._painted_texture_for_theme(
+		"slot_normal", "../outside")
+	var _fq21_theme_contract_ok: bool = _fq21_theme_valid != _fq21_theme_base \
+		and _fq21_theme_valid.get_size() == _fq21_theme_base.get_size() \
+		and _fq21_theme_missing == _fq21_theme_base \
+		and _fq21_theme_invalid == _fq21_theme_base \
+		and _fq21_theme_unsafe == _fq21_theme_base \
+		and not hud.hud_visual_theme_id().is_empty() \
+		and hud.hud_visual_theme_id() == hud._normalize_hud_visual_theme(
+			hud.hud_visual_theme_id())
+	DirAccess.remove_absolute(_fq21_theme_valid_path)
+	DirAccess.remove_absolute(_fq21_theme_invalid_path)
+	_check("fq21_hud_theme_asset_fallback", _fq21_theme_contract_ok,
+		"theme=%s valid=%s missing=%s invalid=%s unsafe=%s" % [
+			hud.hud_visual_theme_id(), str(_fq21_theme_valid != _fq21_theme_base),
+			str(_fq21_theme_missing == _fq21_theme_base),
+			str(_fq21_theme_invalid == _fq21_theme_base),
+			str(_fq21_theme_unsafe == _fq21_theme_base)])
+
+	# HUD v4: a legacy dock transform can never move/scale the anchored band.
+	var _fq21_layout_before: Variant = GameState.profile.get("hud_layout", {}).duplicate(true)
+	hud._bottom_dock.position += Vector2(60.0, 0.0)
+	hud._bottom_dock.scale = Vector2.ONE * 1.4
+	GameState.profile["hud_layout"] = {
+		"version": 3,
+		"dock": {"delta": [60.0, 0.0], "scale": 1.4, "visible": true},
+	}
+	hud._load_hud_layout()
+	var _fq21_dock_rect := Rect2(hud._bottom_dock.global_position,
+		hud._bottom_dock.size * hud._bottom_dock.scale)
+	var _fq21_dock_invariant: bool = hud._bottom_dock.scale.is_equal_approx(Vector2.ONE) \
+		and is_equal_approx(_fq21_dock_rect.position.x, 0.0) \
+		and is_equal_approx(_fq21_dock_rect.end.x, get_viewport().get_visible_rect().size.x)
+	GameState.profile["hud_layout"] = _fq21_layout_before
+	_check("fq21_dock_layout_v5_invariant", _fq21_dock_invariant,
+		"rect=%s scale=%s viewport=%s" % [_fq21_dock_rect, hud._bottom_dock.scale,
+			get_viewport().get_visible_rect().size])
+
+	# Frame-only chrome, padded map, and explicit uniform slot geometry guard
+	# the masking/cushion regressions from the operator capture.
+	var _fq21_plain_tex: Texture2D = hud._painted_texture("health_frame")
+	var _fq21_plain_img: Image = _fq21_plain_tex.get_image() if _fq21_plain_tex != null else null
+	var _fq21_frame_clear: bool = _fq21_plain_img != null and \
+		_fq21_plain_img.get_pixel(int(_fq21_plain_img.get_width() / 2),
+			int(_fq21_plain_img.get_height() / 2)).a <= 0.01
+	var _fq21_slots: Array = _fq21_geometry.get("slots", [])
+	var _fq21_slot_gap := 0.0
+	if _fq21_slots.size() >= 2:
+		_fq21_slot_gap = float(_fq21_slots[1][0]) - float(_fq21_slots[0][0]) \
+			- float(_fq21_slots[0][2])
+	var _fq21_slot_normal: Texture2D = hud._painted_texture("slot_normal")
+	var _fq21_slot_selected: Texture2D = hud._painted_texture("slot_selected")
+	var _fq21_slots_uniform: bool = _fq21_slot_normal != null and _fq21_slot_selected != null \
+		and _fq21_slot_normal.get_size() == _fq21_slot_selected.get_size() \
+		and _fq21_slot_gap >= 6.0
+	var _fq21_map_padded: bool = hud._map_panel.custom_minimum_size.x >= 320.0 \
+		and hud._map_panel.custom_minimum_size.y >= 168.0
+	var _fq21_town_hit: Button = hud._bottom_dock.find_child(
+		"DockActionTownHall", true, false) as Button
+	var _fq21_full_nav_cell: bool = _fq21_town_hit != null \
+		and _fq21_town_hit.size.y >= 80.0
+	var _fq21_town_label: Label = _fq21_town_hit.find_child(
+		"DockActionTownHallLabel", true, false) as Label if _fq21_town_hit != null else null
+	var _fq21_visible_nav_label: bool = _fq21_town_label != null \
+		and _fq21_town_label.text == "Town Hall"
+	var _fq21_slot0: Control = hud._bottom_dock.find_child(
+		"HotbarCell1", true, false) as Control
+	var _fq21_slot_icon: TextureRect = _fq21_slot0.find_child(
+		"RuntimeIcon", true, false) as TextureRect if _fq21_slot0 != null else null
+	var _fq21_icon_rect: Rect2 = hud._json_rect(_fq21_geometry.slot_content.icon_rect)
+	var _fq21_json_content: bool = int(_fq21_geometry.get("version", 0)) == 2 \
+		and _fq21_slot_icon != null \
+		and _fq21_slot_icon.position == _fq21_icon_rect.position \
+		and _fq21_slot_icon.size == _fq21_icon_rect.size
+	var _fq21_control_rail_y := float(_fq21_geometry.get("control_rail_y", -1))
+	var _fq21_rail_aligned := _fq21_control_rail_y >= 0.0
+	for _fq21_control_name in ["HotbarCell1", "HotbarCell2", "HotbarCell3",
+			"HotbarCell4", "HotbarCell5", "DockActionInventory",
+			"DockActionCharacter", "DockActionSkills", "DockActionTownHall"]:
+		var _fq21_control: Control = hud._bottom_dock.find_child(
+			_fq21_control_name, true, false) as Control
+		if _fq21_control == null or not is_equal_approx(
+				_fq21_control.position.y, _fq21_control_rail_y):
+			_fq21_rail_aligned = false
+			break
+	var _fq21_trim_tex: Texture2D = hud._painted_texture("dock_foreground_trim")
+	var _fq21_trim_img: Image = _fq21_trim_tex.get_image() if _fq21_trim_tex != null else null
+	var _fq21_alpha_rules: Dictionary = _fq21_geometry.get("alpha_rules", {})
+	var _fq21_trim_rule: Dictionary = _fq21_alpha_rules.get("dock_foreground_trim.png", {})
+	var _fq21_trim_baseline_y := int(_fq21_trim_rule.get("alpha_baseline_y", -1))
+	var _fq21_trim_used: Rect2i = _fq21_trim_img.get_used_rect() \
+		if _fq21_trim_img != null else Rect2i()
+	var _fq21_trim_on_upper_rail: bool = _fq21_trim_baseline_y >= 0 \
+		and _fq21_trim_used.end.y == _fq21_trim_baseline_y
+	var _fq21_trim_keepouts := _fq21_trim_img != null
+	if _fq21_trim_img != null:
+		for _fq21_vessel_name in ["health", "attunement"]:
+			var _fq21_keepout: Rect2 = hud._json_rect(
+				(_fq21_geometry[_fq21_vessel_name] as Dictionary).frame_rect)
+			for _fq21_y in range(int(_fq21_keepout.position.y), int(_fq21_keepout.end.y)):
+				for _fq21_x in range(int(_fq21_keepout.position.x), int(_fq21_keepout.end.x)):
+					if _fq21_trim_img.get_pixel(_fq21_x, _fq21_y).a > 0.01:
+						_fq21_trim_keepouts = false
+						break
+				if not _fq21_trim_keepouts:
+					break
+			if not _fq21_trim_keepouts:
+				break
+	var _fq21_native_integer: bool = _fq21_block != null \
+		and _fq21_block.size == _fq21_block.texture.get_size() \
+		and hud._bottom_dock.scale == Vector2.ONE
+	_check("fq21_hud_masking_and_cushion_geometry",
+		_fq21_frame_clear and _fq21_slots_uniform and _fq21_map_padded \
+		and _fq21_full_nav_cell and _fq21_visible_nav_label \
+		and _fq21_json_content and _fq21_rail_aligned \
+		and _fq21_trim_on_upper_rail and _fq21_trim_keepouts \
+		and _fq21_native_integer,
+		"frame_clear=%s slot_size=%s selected=%s gap=%.1f map=%s nav_h=%.1f label=%s content=%s rail_y=%.1f aligned=%s trim_baseline=%d trim_end=%d trim=%s integer=%s" % [
+			str(_fq21_frame_clear),
+			_fq21_slot_normal.get_size() if _fq21_slot_normal != null else Vector2.ZERO,
+			_fq21_slot_selected.get_size() if _fq21_slot_selected != null else Vector2.ZERO,
+			_fq21_slot_gap, hud._map_panel.custom_minimum_size,
+			_fq21_town_hit.size.y if _fq21_town_hit != null else 0.0,
+			str(_fq21_visible_nav_label), str(_fq21_json_content),
+			_fq21_control_rail_y, str(_fq21_rail_aligned),
+			_fq21_trim_baseline_y, _fq21_trim_used.end.y,
+			str(_fq21_trim_keepouts),
+			str(_fq21_native_integer)])
 
 	# FQ-21: vessel sockets — the future liquid mechanic's plug-in point.
 	# Both sockets expose glass geometry + a Range fill, and a replacement
@@ -1074,6 +1277,14 @@ func _run() -> void:
 	var _fq21_sockets_ok: bool = _fq21_health_socket.get("fill") is Range \
 		and int(_fq21_health_socket.get("glass_diameter", 0)) > 0 \
 		and _fq21_attune_socket.get("fill") is Range
+	var _fq21_live_health := _fq21_health_socket.get("fill") as TextureProgressBar
+	var _fq21_live_attune := _fq21_attune_socket.get("fill") as TextureProgressBar
+	var _fq21_layered_vessels: bool = _fq21_live_health != null \
+		and _fq21_live_health.texture_progress == hud._painted_texture("health_fill_mask") \
+		and hud._bottom_dock.find_child("HealthGlass", true, false) != null \
+		and _fq21_live_attune != null \
+		and _fq21_live_attune.texture_under == hud._painted_texture("attunement_fill_mask") \
+		and _fq21_live_attune.texture_progress == hud._painted_texture("attunement_fill_mask")
 	var _fq21_stub := ProgressBar.new()
 	_fq21_stub.show_percentage = false
 	var _fq21_swap_ok: bool = hud.replace_vessel_fill("health", _fq21_stub)
@@ -1081,8 +1292,7 @@ func _run() -> void:
 	var _fq21_drive_ok: bool = is_equal_approx(_fq21_stub.value, 41.0)
 	# Swap a fresh masked fill back in so later checks see the real vessel.
 	var _fq21_restored := TextureProgressBar.new()
-	var _fq21_mask: Texture2D = hud._glass_mask_texture(
-		int(_fq21_health_socket.get("glass_diameter", 60)))
+	var _fq21_mask: Texture2D = hud._painted_texture("health_fill_mask")
 	_fq21_restored.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
 	_fq21_restored.texture_under = _fq21_mask
 	_fq21_restored.tint_under = Color(0.02, 0.04, 0.08, 0.88)
@@ -1091,25 +1301,60 @@ func _run() -> void:
 	hud.replace_vessel_fill("health", _fq21_restored)
 	hud.update_health(player.health, player.max_health)
 	_check("fq21_vessel_socket",
-		_fq21_sockets_ok and _fq21_swap_ok and _fq21_drive_ok,
-		"sockets=%s swap=%s drive=%s" % [str(_fq21_sockets_ok),
-			str(_fq21_swap_ok), str(_fq21_drive_ok)])
+		_fq21_sockets_ok and _fq21_layered_vessels \
+		and _fq21_swap_ok and _fq21_drive_ok,
+		"sockets=%s layered=%s swap=%s drive=%s" % [str(_fq21_sockets_ok),
+			str(_fq21_layered_vessels), str(_fq21_swap_ok), str(_fq21_drive_ok)])
 
 	# FQ-20: painted mockup chrome consumed elsewhere — painted module
 	# frames on crest/events (distinct textures from the band pieces).
 	var _fq20_crest_sb: StyleBox = (hud._top_left_box as PanelContainer).get_theme_stylebox("panel")
 	var _fq20_events_sb: StyleBox = hud._event_panel.get_theme_stylebox("panel")
-	var _fq20_frames_ok: bool = _fq20_crest_sb is StyleBoxTexture \
-		and _fq20_events_sb is StyleBoxTexture \
-		and (_fq20_crest_sb as StyleBoxTexture).texture != _fq21_block.texture
-	_check("fq20_painted_chrome_consumed", _fq20_frames_ok,
-		"crest=%s events=%s" % [str(_fq20_crest_sb.get_class()),
-			str(_fq20_events_sb.get_class())])
+	var _fq20_map_single_frame := true
+	for _fq20_map_child in hud._map_panel.get_children():
+		if _fq20_map_child is NinePatchRect:
+			_fq20_map_single_frame = false
+			break
+	var _fq22_corner: Control = hud._top_left_box.find_child(
+		"CrestCornerOrnament", true, false) as Control
+	var _fq22_corner_clean: bool = _fq22_corner != null \
+		and _fq22_corner.position.x >= 0.0 and _fq22_corner.position.y >= 0.0 \
+		and _fq22_corner.find_child("*", true, false) == null
+	var _fq20_frames_ok: bool = _fq20_crest_sb is StyleBoxFlat \
+		and _fq20_events_sb is StyleBoxFlat \
+		and _fq20_map_single_frame \
+		and _fq22_corner_clean
+	_check("fq22_module_chrome_contract", _fq20_frames_ok,
+		"crest=%s events=%s map_single_frame=%s corner_clean=%s" % [
+			str(_fq20_crest_sb.get_class()), str(_fq20_events_sb.get_class()),
+			str(_fq20_map_single_frame), str(_fq22_corner_clean)])
 
 	# FQ-20: the dock is the command center — five module toggle chips live
 	# inside the dock panel, drive the modules, and mirror external changes.
+	var _fq20_module_rect: Rect2 = hud._command_center_panel.get_global_rect() \
+		if hud._command_center_panel != null else Rect2()
+	var _fq20_dock_rect: Rect2 = hud._bottom_dock.get_global_rect() \
+		if hud._bottom_dock != null else Rect2()
+	var _fq20_dock_owned: bool = hud._bottom_dock != null \
+		and hud._command_center_panel != null \
+		and hud._bottom_dock.is_ancestor_of(hud._command_center_panel) \
+		and _fq20_dock_rect.encloses(_fq20_module_rect)
+	var _fq20_module_clear := _fq20_module_rect.size.x > 0.0
+	for _fq20_clear_name in ["HotbarCell1", "HotbarCell2", "HotbarCell3",
+			"HotbarCell4", "HotbarCell5", "DockActionInventory",
+			"DockActionCharacter", "DockActionSkills", "DockActionTownHall"]:
+		var _fq20_clear_control: Control = hud._bottom_dock.find_child(
+			_fq20_clear_name, true, false) as Control if hud._bottom_dock != null else null
+		if _fq20_clear_control == null \
+				or _fq20_module_rect.intersects(_fq20_clear_control.get_global_rect()):
+			_fq20_module_clear = false
+			break
 	var _fq20_cc_ok: bool = hud._module_toolbar != null \
+		and hud._command_center_panel != null \
+		and hud._command_center_panel.is_ancestor_of(hud._module_toolbar) \
 		and hud._bottom_dock.is_ancestor_of(hud._module_toolbar) \
+		and _fq20_dock_owned \
+		and _fq20_module_clear \
 		and hud._command_toggles.size() == 5
 	var _fq20_crest_chip: Button = hud._command_toggles.get("Crest")
 	var _fq20_cc_before: bool = hud._top_left_box.visible
@@ -1122,10 +1367,30 @@ func _run() -> void:
 	var _fq20_cc_synced: bool = (hud._command_toggles["Goal"] as Button).button_pressed \
 		== hud._goal_panel.visible
 	hud._toggle_goal_module()
-	_check("fq20_dock_command_center",
-		_fq20_cc_ok and _fq20_cc_toggled and _fq20_cc_restored and _fq20_cc_synced,
-		"in_dock=%s toggled=%s restored=%s synced=%s" % [str(_fq20_cc_ok),
-			str(_fq20_cc_toggled), str(_fq20_cc_restored), str(_fq20_cc_synced)])
+	var _fq20_map_chip: Button = hud._command_toggles.get("Map") as Button
+	hud.set_map_open(false)
+	if _fq20_map_chip != null:
+		_fq20_map_chip.set_pressed_no_signal(false)
+		_fq20_map_chip.button_pressed = true
+	var _fq20_map_chip_opens: bool = _fq20_map_chip != null \
+		and hud.map_open() and _fq20_map_chip.button_pressed
+	if _fq20_map_chip != null:
+		_fq20_map_chip.button_pressed = false
+	var _fq20_map_chip_closes: bool = _fq20_map_chip != null \
+		and not hud.map_open() and not _fq20_map_chip.button_pressed
+	if _fq20_map_chip != null:
+		_fq20_map_chip.grab_focus()
+	var _fq20_map_chip_no_focus: bool = _fq20_map_chip != null \
+		and _fq20_map_chip.focus_mode == Control.FOCUS_NONE \
+		and not _fq20_map_chip.has_focus()
+	_check("fq20_docked_command_center",
+		_fq20_cc_ok and _fq20_cc_toggled and _fq20_cc_restored and _fq20_cc_synced
+		and _fq20_map_chip_opens and _fq20_map_chip_closes and _fq20_map_chip_no_focus,
+		"dock_owned=%s clear=%s rect=%s toggled=%s restored=%s synced=%s map_chip=%s/%s no_focus=%s" % [
+			str(_fq20_dock_owned), str(_fq20_module_clear), _fq20_module_rect,
+			str(_fq20_cc_toggled), str(_fq20_cc_restored), str(_fq20_cc_synced),
+			str(_fq20_map_chip_opens), str(_fq20_map_chip_closes),
+			str(_fq20_map_chip_no_focus)])
 
 	# FQ-19: resource vessels — masked liquid fill plus the damage / recovery /
 	# zero / regeneration / use-pulse / full-core effect states. Overlay tints
@@ -2911,6 +3176,9 @@ func _run() -> void:
 	_fq09c_shell._show_title()
 	var _fq09c_labels: Array = []
 	var _fq09c_buttons: Array = []
+	var _fq09c_title_backdrop_ok: bool = _fq09c_shell._title_backdrop != null \
+		and _fq09c_shell._title_backdrop.visible \
+		and _fq09c_shell._title_backdrop.texture != null
 	var _fq09c_stack: Array = [_fq09c_shell]
 	while not _fq09c_stack.is_empty():
 		var _fq09c_node: Node = _fq09c_stack.pop_back()
@@ -2924,8 +3192,9 @@ func _run() -> void:
 		"COHERONIA" in _fq09c_labels and "By Paul Peck" in _fq09c_labels
 		and "Where civilization pushes back." in _fq09c_labels
 		and "Prologue" in _fq09c_buttons and "Play" in _fq09c_buttons
-		and "Quit" in _fq09c_buttons,
-		"labels=%s buttons=%s" % [str(_fq09c_labels), str(_fq09c_buttons)])
+		and "Quit" in _fq09c_buttons and _fq09c_title_backdrop_ok,
+		"labels=%s buttons=%s backdrop=%s" % [str(_fq09c_labels),
+			str(_fq09c_buttons), str(_fq09c_title_backdrop_ok)])
 	_fq09c_shell.free()
 
 	# --- FQ-09W: scenic backdrop, backing walls, underground darkness ---
@@ -3756,37 +4025,62 @@ func _run() -> void:
 	# (a3) nonmodal HUD edit mode: direct manipulation (FQ-20 — no locks),
 	# bounded, profile-backed, with continuous corner-grip resize.
 	var _fq17_before_pos: Vector2 = hud._hud_widgets["crest"].position
+	var _fq17_before_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
 	hud.toggle_hud_edit_mode()
+	await get_tree().process_frame
 	var _fq17_enter_ok: bool = hud.is_hud_edit_mode() and GameState.hud_edit_mode \
 		and hud._hud_edit_overlay != null and hud._hud_edit_overlay.visible
+	var _fq17_edit_panel_rect: Rect2 = hud._hud_edit_panel.get_global_rect() \
+		if hud._hud_edit_panel != null else Rect2()
+	var _fq17_dock_rect: Rect2 = hud._bottom_dock.get_global_rect() \
+		if hud._bottom_dock != null else Rect2()
+	var _fq17_panel_above_dock: bool = _fq17_edit_panel_rect.size.x > 0.0 \
+		and _fq17_edit_panel_rect.end.y <= _fq17_dock_rect.position.y - 8.0 \
+		and absf(_fq17_edit_panel_rect.get_center().x
+			- get_viewport().get_visible_rect().size.x / 2.0) <= 1.0
 	hud._toggle_top_left_module()
 	var _fq17_visibility_saved: bool = not bool(GameState.profile["hud_layout"]["crest"]["visible"])
 	hud._toggle_top_left_module()
 	hud._hud_edit_selected = "crest"
 	hud._nudge_hud_widget(Vector2(8, 0))
 	hud._scale_hud_widget(0.25)
-	var _fq17_move_scale_ok: bool = hud._hud_widgets["crest"].position != _fq17_before_pos \
-		and is_equal_approx(hud._hud_widgets["crest"].scale.x, 1.25)
-	# FQ-20 continuous grip resize: absolute scale, clamped to [0.5, 2.0].
+	var _fq17_scaled_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
+	var _fq17_move_size_ok: bool = hud._hud_widgets["crest"].position != _fq17_before_pos \
+		and hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+		and _fq17_scaled_size.x > _fq17_before_size.x
+	# FQ-20/FQ-22 continuous grip resize: absolute size factor, clamped to
+	# [0.5, 2.0], while Control.scale remains one.
 	hud._resize_hud_widget("crest", 1.37)
-	var _fq20_resize_ok: bool = is_equal_approx(hud._hud_widgets["crest"].scale.x, 1.37)
+	var _fq20_resized_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
+	var _fq20_resize_ok: bool = hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+		and is_equal_approx(_fq20_resized_size.x, roundf(_fq17_before_size.x * 1.37))
 	hud._resize_hud_widget("crest", 9.0)
-	var _fq20_clamp_ok: bool = is_equal_approx(hud._hud_widgets["crest"].scale.x, 2.0)
+	var _fq20_clamped_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
+	var _fq20_clamp_ok: bool = hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+		and _fq20_clamped_size.x <= roundf(_fq17_before_size.x * 2.0)
 	var _fq20_grip_ok: bool = hud._hud_grip_rect("crest").size.x > 0.0
 	hud.reset_hud_layout()
 	var _fq17_reset_ok: bool = hud._hud_widgets["crest"].position == hud._hud_default_positions["crest"] \
-		and is_equal_approx(hud._hud_widgets["crest"].scale.x, 1.0)
-	hud.toggle_hud_edit_mode()
+		and hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+		and hud._hud_widget_size(hud._hud_widgets["crest"]) == _fq17_before_size
+	var _fq17_escape := InputEventKey.new()
+	_fq17_escape.keycode = KEY_ESCAPE
+	_fq17_escape.pressed = true
+	hud._input(_fq17_escape)
 	var _fq17_overlay_off: bool = not hud._hud_edit_overlay.visible
 	_check("fq17_hud_edit_direct_manipulation",
-		_fq17_enter_ok and _fq17_visibility_saved and _fq17_move_scale_ok
+		_fq17_enter_ok and _fq17_visibility_saved and _fq17_move_size_ok
 		and _fq20_resize_ok and _fq20_clamp_ok and _fq20_grip_ok
-		and _fq17_reset_ok and _fq17_overlay_off
+		and _fq17_reset_ok and _fq17_panel_above_dock and _fq17_overlay_off
 		and not GameState.hud_edit_mode,
-		"enter=%s visibility=%s moved_scaled=%s resize=%s clamp=%s grip=%s reset=%s overlay_off=%s" % [
-			str(_fq17_enter_ok), str(_fq17_visibility_saved), str(_fq17_move_scale_ok),
+		"enter=%s visibility=%s moved_resized=%s resize=%s clamp=%s grip=%s reset=%s before_size=%s scaled_size=%s resized_size=%s clamped_size=%s scale=%s pos=%s->%s panel=%s panel_rect=%s dock_rect=%s overlay_off=%s" % [
+			str(_fq17_enter_ok), str(_fq17_visibility_saved), str(_fq17_move_size_ok),
 			str(_fq20_resize_ok), str(_fq20_clamp_ok), str(_fq20_grip_ok),
-			str(_fq17_reset_ok), str(_fq17_overlay_off)])
+			str(_fq17_reset_ok), _fq17_before_size, _fq17_scaled_size,
+			_fq20_resized_size, _fq20_clamped_size, hud._hud_widgets["crest"].scale,
+			_fq17_before_pos, hud._hud_widgets["crest"].position,
+			str(_fq17_panel_above_dock), _fq17_edit_panel_rect, _fq17_dock_rect,
+			str(_fq17_overlay_off)])
 
 	# (a4) blueprint navigation actions are present and modal panels remain
 	# mutually exclusive when opened from the dock (not only keyboard input).

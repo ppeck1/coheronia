@@ -63,6 +63,14 @@ UI_PAINTED_CONSUMED = {
     # FQ-21: the one-piece full-width band (the pre-band ids above stay
     # consumed by the modular fallback path).
     "dock_left_cap", "dock_right_cap", "dock_center_block", "dock_mid_tile",
+    # Native-size layered HUD kit. The sliced ids remain live fallback assets.
+    "dock_backplate", "dock_foreground_trim",
+    "health_frame", "health_glass_overlay", "health_fill_mask",
+    "attunement_frame", "attunement_glass_overlay", "attunement_fill_mask",
+    "slot_normal", "slot_selected", "slot_hover", "slot_disabled",
+    "button_frame_normal", "button_frame_hover", "button_frame_pressed",
+    "button_icon_inventory", "button_icon_character", "button_icon_skills",
+    "button_icon_town_hall",
 }
 
 # Reserved UI hook ids (FQ-13P). Absence => PLACEHOLDER_REQUIRED, not an error.

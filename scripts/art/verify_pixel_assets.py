@@ -96,7 +96,8 @@ def _skin_palette_hits(image: Image.Image, rig: dict):
 def _verify_painted(problems: list[str]) -> int:
     """FQ-20 painted-chrome lane: free-size RGBA renders sliced from the
     blueprint mockup. Exempt from the pixel-art palette/alpha contract; must
-    simply be readable RGBA, bounded (<=320px), and non-empty."""
+    simply be readable RGBA, bounded to the native 1280px HUD width, and
+    non-empty."""
     directory = ASSET_ROOT / "ui_painted"
     checked = 0
     if not directory.is_dir():
@@ -109,8 +110,9 @@ def _verify_painted(problems: list[str]) -> int:
         except Exception as exc:  # pragma: no cover - exercised on bad files
             problems.append(f"{rel}: unreadable PNG ({exc})")
             continue
-        # FQ-21: the one-piece band center block is legitimately wide.
-        if image.width > 700 or image.height > 320:
+        # The layered HUD-kit backplate/trim are native 1280px-wide surfaces;
+        # all other chrome remains comfortably inside the same hard ceiling.
+        if image.width > 1280 or image.height > 320:
             problems.append(f"{rel}: {image.width}x{image.height} exceeds chrome bounds")
         if _alpha_bbox(image) is None:
             problems.append(f"{rel}: fully transparent")
