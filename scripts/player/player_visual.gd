@@ -299,7 +299,7 @@ func _draw_optional_overlay(item_id: String) -> void:
 		return
 	var tex := _gear_texture(item_id)
 	if tex != null:
-		draw_texture_rect(tex, BODY_RECT, false)
+		draw_texture_rect(tex, _gear_rect("accessory"), false)
 	else:
 		# A small back bundle is the safe generic accessory fallback.
 		draw_rect(Rect2(-7, -3, 4, 9), Color(0.31, 0.20, 0.12))
@@ -310,7 +310,7 @@ func _draw_feet(item_id: String) -> void:
 		return
 	var tex := _gear_texture(item_id)
 	if tex != null:
-		draw_texture_rect(tex, BODY_RECT, false)
+		draw_texture_rect(tex, _gear_rect("feet"), false)
 		return
 	var rig := _rig()
 	var width := float(rig.get("feet_width", 4))
@@ -325,7 +325,7 @@ func _draw_torso(item_id: String) -> void:
 		return
 	var tex := _gear_texture(item_id)
 	if tex != null:
-		draw_texture_rect(tex, BODY_RECT, false)
+		draw_texture_rect(tex, _gear_rect("torso"), false)
 		return
 	var center := _rig_point("torso", Vector2(0, -4))
 	var size := _rig_point("torso_size", Vector2(10, 8))
@@ -339,7 +339,7 @@ func _draw_helmet(item_id: String) -> void:
 		return
 	var tex := _gear_texture(item_id)
 	if tex != null:
-		draw_texture_rect(tex, BODY_RECT, false)
+		draw_texture_rect(tex, _gear_rect("helmet"), false)
 		return
 	var center := _rig_point("helmet", Vector2(0, -12))
 	var size := _rig_point("helmet_size", Vector2(8, 4))
@@ -354,7 +354,7 @@ func _draw_idle_weapon(item_id: String) -> void:
 		return
 	var tex := _gear_texture(item_id)
 	if tex != null:
-		draw_texture_rect(tex, BODY_RECT, false)
+		draw_texture_rect(tex, _gear_rect("weapon"), false)
 		return
 	# Sheathed at the right hip; this mirrors naturally with the visual root.
 	draw_line(Vector2(4, 2), Vector2(7, 12), Color(0.72, 0.74, 0.77), 2.0)
@@ -393,6 +393,25 @@ func _rig_point(key: String, fallback: Vector2) -> Vector2:
 	if raw is Array and raw.size() >= 2:
 		return Vector2(float(raw[0]), float(raw[1]))
 	return fallback
+
+
+## Per-rig, per-slot pixel shift for authored gear overlays (data-owned
+## rig.gear_offset). It aligns an overlay baked for a generic head/body height
+## to a shorter rig — e.g. the goblin/dwarf crude helmet, whose art sits high in
+## the 16x32 frame, is nudged down onto the head. Absent/unlisted slots return
+## [0,0], so already-aligned bodies never move. Presentation only.
+func gear_overlay_offset(slot: String) -> Vector2:
+	var offsets: Dictionary = _rig().get("gear_offset", {})
+	var raw: Variant = offsets.get(slot, [])
+	if raw is Array and raw.size() >= 2:
+		return Vector2(float(raw[0]), float(raw[1]))
+	return Vector2.ZERO
+
+
+## The draw rect for a gear slot's overlay: the body rect shifted by the slot's
+## alignment offset. Consumers must draw authored overlays through this.
+func _gear_rect(slot: String) -> Rect2:
+	return Rect2(BODY_RECT.position + gear_overlay_offset(slot), BODY_RECT.size)
 
 
 func _gear_texture(item_id: String) -> Texture2D:

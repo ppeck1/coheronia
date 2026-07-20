@@ -85,6 +85,24 @@ For each drawn slot, `_gear_texture(item_id)` resolves in order:
 `gear_uses_procedural_fallback(item_id)` reports whether a slot fell through to
 the procedural path.
 
+## Overlay Alignment
+
+Authored overlays are drawn full-frame over the 16x32 body, so each PNG carries
+its own placement. When an overlay is baked for a generic head/body height it
+can float on a shorter rig -- the crude helmet sat ~6px above the head on the
+goblin and dwarf bodies. A data-owned per-rig, per-slot offset corrects this
+without editing any PNG: `rigs.<species>.gear_offset` maps a drawn slot
+(`helmet`/`torso`/`feet`/`accessory`/`weapon`) to an `[dx, dy]` pixel shift
+applied to that slot's overlay draw rect (`gear_overlay_offset(slot)` /
+`_gear_rect(slot)`). Absent or unlisted slots resolve to `[0, 0]`, so
+already-aligned bodies never move. Goblin and dwarf carry a `helmet` nudge of
+`[0, 5]`; every other body/slot is identity. `scripts/art/verify_gear_alignment.py`
+enforces helmet/head contact (the helmet opaque top, after its offset, lands
+within 4px of the body's opaque top) across all ten body ids. The non-human
+crude *torso* overlays sit at the waist (a plausible loincloth style rather than
+a clear placement bug); whether they should be re-authored for a chest garment
+is left to the art lane, not a code transform.
+
 ## Refresh Boundaries
 
 `refresh_presentation()` re-resolves the body from the current character fields

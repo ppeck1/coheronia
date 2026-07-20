@@ -623,6 +623,18 @@ for species_id in EXPECTED_PLAYER_SPECIES:
     for scalar_key in ["feet_y", "feet_width"]:
         if not isinstance(rig.get(scalar_key), (int, float)):
             fail(f"player_visuals.json rig {species_id}.{scalar_key} must be numeric")
+    # PR-03B: optional per-slot gear overlay alignment offsets. Each entry must
+    # be a [dx, dy] int pair for a known drawn slot; absent = identity.
+    gear_offset = rig.get("gear_offset", {})
+    if not isinstance(gear_offset, dict):
+        fail(f"player_visuals.json rig {species_id}.gear_offset must be an object")
+    for slot_id, offset in gear_offset.items():
+        if slot_id not in ["helmet", "torso", "feet", "accessory", "weapon"]:
+            fail(f"player_visuals.json rig {species_id}.gear_offset has unknown slot: {slot_id}")
+        if not isinstance(offset, list) or len(offset) != 2 \
+                or not all(isinstance(value, int) for value in offset):
+            fail(f"player_visuals.json rig {species_id}.gear_offset.{slot_id} must be [dx, dy] ints")
+print("PASS player visual gear overlay offsets")
 
 player_asset_hashes = set()
 for species_id in EXPECTED_PLAYER_SPECIES:

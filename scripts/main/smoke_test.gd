@@ -2927,6 +2927,31 @@ func _run() -> void:
 		_pr03_gear_survives_miss and _pr03_recovers,
 		"miss=%s recover=%s snap=%s" % [str(_pr03_gear_survives_miss),
 			str(_pr03_recovers), str(_pr03_recovered_snap)])
+
+	# PR-03B: the data-owned per-rig gear alignment offset is read and applied.
+	# The goblin/dwarf crude helmet floats ~6px above the shorter head at
+	# identity, so their rig carries a +5 helmet nudge; aligned bodies and
+	# unlisted slots stay at zero. (Pixel head-contact is enforced by
+	# scripts/art/verify_gear_alignment.py.)
+	player.apply_character({"species": "goblin", "body_variant": "masculine",
+		"appearance": "tan"})
+	var _pr03b_goblin_helmet: Vector2 = _pv.gear_overlay_offset("helmet")
+	var _pr03b_goblin_torso: Vector2 = _pv.gear_overlay_offset("torso")
+	player.apply_character({"species": "dwarf", "body_variant": "feminine",
+		"appearance": "tan"})
+	var _pr03b_dwarf_helmet: Vector2 = _pv.gear_overlay_offset("helmet")
+	player.apply_character({"species": "human", "body_variant": "masculine",
+		"appearance": "tan"})
+	var _pr03b_human_helmet: Vector2 = _pv.gear_overlay_offset("helmet")
+	_check("pr03b_gear_overlay_offset_applied",
+		_pr03b_goblin_helmet == Vector2(0, 5) \
+		and _pr03b_dwarf_helmet == Vector2(0, 5) \
+		and _pr03b_goblin_torso == Vector2.ZERO \
+		and _pr03b_human_helmet == Vector2.ZERO,
+		"goblin_helmet=%s dwarf_helmet=%s goblin_torso=%s human_helmet=%s" % [
+			str(_pr03b_goblin_helmet), str(_pr03b_dwarf_helmet),
+			str(_pr03b_goblin_torso), str(_pr03b_human_helmet)])
+
 	# Restore the state the earlier gear test left for the sections below.
 	player.apply_character({"species": "human", "body_variant": "masculine",
 		"appearance": "tan"})

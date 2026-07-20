@@ -9,6 +9,7 @@
   "appearance_mode": "palette_skin_until_masks",
   "gear_asset_convention": "Optional transparent 16x32 overlays live at art/generated/player_gear/<item_id>_<body_id>.png, then <item_id>.png. Missing overlays use code-drawn presentation and never hide the body. body_id resolves canonical variant ids to filenames via body_variant_asset_suffix (masculine -> <species>, feminine -> <species>_female).",
   "tool_swing_asset_convention": "Optional transparent 16x32 swing overlays resolve as <tool_id>_<body_id>_swing_<phase>.png, then <tool_id>_swing_<phase>.png for phases 0, 1, and 2. Missing overlays use the code-drawn arm and tool.",
+  "gear_overlay_offset_convention": "Optional per-rig gear_offset maps a gear slot (helmet/torso/feet/accessory/weapon) to an [dx, dy] pixel shift applied when the authored overlay art is drawn, so an overlay baked for a generic head/body height aligns to a shorter rig. Absent or unlisted slots default to [0, 0] (no shift), so already-aligned bodies never move. Presentation only.",
   "live_species": ["human", "dwarf", "elf", "goblin", "orc"],
   "default_rig": {
     "shoulder": [5, -8],
@@ -40,7 +41,8 @@
       "torso": [0, 1],
       "torso_size": [12, 8],
       "feet_y": 11,
-      "feet_width": 5
+      "feet_width": 5,
+      "gear_offset": {"helmet": [0, 5]}
     },
     "elf": {
       "skin_palette": ["f4da8c", "f5c261", "deaf48"],
@@ -62,7 +64,8 @@
       "torso": [0, 1],
       "torso_size": [8, 7],
       "feet_y": 11,
-      "feet_width": 3
+      "feet_width": 3,
+      "gear_offset": {"helmet": [0, 5]}
     },
     "orc": {
       "skin_palette": ["a68f38", "d4b261", "7b7123"],
