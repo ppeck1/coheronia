@@ -1,6 +1,33 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-16 public refresh)
+## Current State (2026-07-20 presentation recovery planning)
+
+**The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
+the native HUD-kit stabilization is merged. The active planning authority is
+`docs/PRESENTATION_RECOVERY_MATRIX.md` (rows PR-00 through PR-10 with
+code-vs-art lane separation, the locked masculine/feminine terminology
+compatibility plan, and the image-production follow-up matrix). The queue's
+"Presentation Recovery Arc" section in `docs/FABLE_TASK_QUEUE.md` mirrors it.
+
+**Verified 2026-07-20 baseline** (branch `main`, commit `f545daf`): static
+validator PASS, strict asset audit PASS (clean), HUD-kit runtime verify PASS
+(19 hashes + layout), Capsule Doctor `public_repo` PASS (healthy), and a
+fresh waited-GUI Godot 4.6.1 smoke at **332/334 FAIL**. The two red checks
+are `fq17_hud_edit_direct_manipulation` (`grip=false reset=false`) and
+`fq09_inventory_board_drag_and_sort` (`drag_payload=false`) -- earlier docs
+that named `fq09u1_live_clip_switch` as one of the red pair are corrected:
+the clip switch passed this run. Repairing the two red checks is PR-00 and
+precedes any presentation fix. Until they are green, the suite must not be
+described as passing.
+
+**Terminology caution:** body-variant ids remain `default`/`female` across
+runtime, data, validator, smoke, and 150 PNG filenames. The migration to
+canonical `masculine`/`feminine` (aliases `default` -> `masculine`,
+`female` -> `feminine`; new saves write canonical after the increment lands)
+is PR-01 and must follow the matrix's compatibility plan -- never a blind
+rename.
+
+## Historical State (2026-07-16 public refresh)
 
 **The native HUD-kit stabilization is merged locally and verified at 322/322.**
 
@@ -712,16 +739,17 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 - **Legacy migration is conservative**: a pre-v0.6 character (no `carried_inventory` key) adopts the world save's player inventory/hotbar/pick tier once, then the character record is authoritative. Legacy `carried_tool_tier` maps to `{pick: N, axe: 0}` — the axe must still be crafted; nobody gets one free.
 - Unsupported-bush cleanup during load grants no drops (avoids inventory changes on load); mining the support does grant drops (keeps the food loop fair).
 
-## Validation Status
+## Validation Status (2026-07-20)
 
 | Check | State | Evidence |
 |---|---|---|
-| Repo identity | PASS | `main...origin/main`; project_id `coheronia-game` |
-| JSON/scaffold validator | PASS | `python scripts/validate_repo.py` incl. the FQ-09C prologue authorship locks, the FQ-09W backgrounds/back_walls categories, the FQ-09U3 stinger OGGs, and the Codex art contracts (Town Hall structure/core, surface sky, backdrop strips, player-visual bodies/rigs/collision) |
-| Strict runtime-asset audit | PASS | All 20 block, 43 item/live-drop, six live-enemy, and ten player-body canonicals resolve; 17/6/10 authored pools complete; no fallback-only ids, sequence gaps, or oversize pools |
-| Pixel-art verifier | PASS 186 PNGs | Exact dimensions, <=16 colors, alpha/corners, material seams, player body scale/ground line, and every rig's exact skin palette in every Look |
-| Capsule doctor | PASS | `public_repo` profile: healthy |
-| Automated smoke | PASS 306/306 | isolated waited Windows Godot process wrote fresh `smoke_results.json` at 2026-07-14 15:04; all twenty player Looks recolored successfully (`variant_failures=[]`) (… -> 296 FQ-13P3 player cosmetics -> 298 FQ-13P4 frame semantics -> 302 FQ-14 goal panel -> 306 FQ-15 map/scouting) |
+| Repo identity | PASS | `main...origin/main` at `f545daf`; project_id `coheronia-game` |
+| JSON/scaffold validator | PASS | `python scripts/validate_repo.py` 2026-07-20 -- all file/json/contract checks green, `INFO 0 optional visual assets pending` |
+| Strict runtime-asset audit | PASS | `python scripts/asset_audit.py --strict` 2026-07-20 -- "Clean: no findings or data bugs."; all block/item/enemy/player/gear/ui/opening/background categories LIVE or intentionally reserved |
+| HUD-kit runtime verify | PASS | `python scripts/art/sync_hud_kit.py --verify-runtime` 2026-07-20 -- 19 source/runtime hashes + layout verified |
+| Pixel-art verifier | PASS 386 PNGs | `python scripts/art/verify_pixel_assets.py` 2026-07-20 -- size/palette/alpha/edge contracts satisfied (painted chrome via the FQ-20 light pass) |
+| Capsule doctor | PASS | `public_repo` profile 2026-07-20: healthy |
+| Automated smoke | **FAIL 332/334** | isolated waited Windows Godot 4.6.1 run wrote fresh `smoke_results.json` 2026-07-20 11:46. Red: `fq17_hud_edit_direct_manipulation` (`grip=false reset=false`; enter/move/resize/clamp true) and `fq09_inventory_board_drag_and_sort` (`drag_payload=false`; swap/dock/sort true). Tracked as PR-00 in `docs/PRESENTATION_RECOVERY_MATRIX.md`. `fq09u1_live_clip_switch` PASSED this run -- older notes naming it as red are superseded. |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls). Authored-art closeout: isolated hidden/windowed tour wrote and visually passed all nine frames at 2026-07-14 15:04, including varied terrain/flora and inventory icons. |
 
@@ -798,43 +826,28 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 ## Next Action
 
-Use `docs/FABLE_TASK_QUEUE.md` as the active queue for future Fable/Claude Code
-increments. FQ-00 through FQ-09 plus FQ-09R, FQ-09S, FQ-09V, FQ-09C, FQ-09W,
-FQ-09A, FQ-09U0, FQ-09M, FQ-09U1, FQ-09U2, FQ-09U3, FQ-10, FQ-11, FQ-12,
-FQ-13, the **FQ-13P** visual-consolidation arc (P0–P4), FQ-14, and **FQ-15** are
-complete — the full adaptive-music arc plays live, the underground carries six
-depth-banded ore families that feed a workbench/furnace/anvil station chain,
-farming closes a reliable food loop, three new live enemies add distinct combat
-pressure (crop-eating thornrat, ore-vein ore tick, hall-burning raider
-torchbearer), the FQ-13P arc consolidated the visual pipeline (runtime
-asset/variant audit + `scripts/asset_audit.py`, consumed enemy sprite variants,
-deliberate UI placeholders, a character-owned player cosmetic pool, and the
-variant-vs-animation `frame_semantics`), and **FQ-14** adds a state-driven
-current-goal panel: a compact top-center panel (toggle with **O**) that walks
-gather → light the hall → deposit → forge a tool/build a station → survive the
-night, latching prefix-monotonically from real state (`goal_tracker.gd` +
-`game_root._goal_snapshot`), so it never regresses and re-derives the right step
-after a reload without any saved tutorial flag. The operator playtest pass is
-`docs/PLAYTEST_CHECKLIST.md`. **FQ-15** adds a scoutable map: a schematic panel
-(**M**) that reveals the world band by band *as the player explores* (never
-X-rayed), marking the Town Hall, player, ore pockets, and live enemy pressure
-inside scouted bands only; discovered regions persist compactly in the world
-save (`map_state.gd` + `save_manager`), and the explorer `biome_reveal` perk
-(`map_discovery_speed`) widens each step's scouted band — the scouting hook for
-future exploration perks. The queue no longer has a strict head; the next moves
-are the big-ticket playability items in `docs/FABLE_TASK_QUEUE.md` (pause/
-settings/keybinds, save-slot management, build-preview tint, a quest/contracts
-layer on the goal system, a subject/NPC labor MVP). Art production continues in
-parallel via
-`docs/ASSET_ROADMAP.md`; the exact completed coverage, production contract, and
-gated image work are in `docs/HANDOFF_ART_INTEGRATION_2026-07-14.md`.
+FQ-00 through FQ-21 are complete (full lineage in `docs/FABLE_TASK_QUEUE.md`
+and the historical sections above). The active queue is the **presentation
+recovery arc** planned in `docs/PRESENTATION_RECOVERY_MATRIX.md`:
 
-Before the next feature increment, perform the still-manual operator
-playthrough in `docs/PLAYTEST_CHECKLIST.md` and review the new terrain/enemy/
-player variety in motion. The recommended product choices remain pause/settings
-and keybinds, save-slot management, build-preview tint, local contracts on the
-goal system, or the first subject/NPC labor slice. The recommended art work is
-to verify the existing body-specific gear across the cross-body alignment
-matrix, smooth tool anchors and arcs, author the missing sword sequence, and
-replace provisional HUD chrome through the documented asset contract without
-changing runtime content.
+1. **PR-00 first**: repair the two red smoke checks
+   (`fq17_hud_edit_direct_manipulation`, `fq09_inventory_board_drag_and_sort`)
+   without weakening assertions, so every later row closes against a green
+   334-check suite.
+2. Then the code-lane presentation rows in matrix order: terminology
+   migration (PR-01, strictly per its compatibility plan -- runtime and
+   validator expect `default`/`female` until that increment lands),
+   preview/rendering contract, gear-overlay refresh/alignment, action
+   animation code half, selection preview, Character HUD rebuild, backdrop
+   contour skirt, and skill panel resize.
+3. Rows marked **art** (new swing/sword/iron-gear frames, HUD chrome
+   replacement) are image production through the matrix's image-production
+   table and `docs/wiki/hud_asset_replacement_studio.md` -- never code-lane
+   work.
+
+Big-ticket playability items (pause/settings/keybinds, save-slot management,
+build-preview tint, quest/contracts, subject/NPC labor MVP) remain queued in
+`docs/FABLE_TASK_QUEUE.md` behind the recovery arc. The operator playtest
+pass is `docs/PLAYTEST_CHECKLIST.md`. Close every increment with validator,
+Capsule Doctor, a freshness-checked waited Godot smoke, screenshot review
+for visual changes, and real pass/fail evidence in the docs.

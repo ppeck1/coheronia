@@ -1,6 +1,6 @@
 # Known Issues
 
-Updated: 2026-07-17
+Updated: 2026-07-20
 
 This page separates confirmed presentation defects from intentional scope limits. It is the public status surface for problems that are visible in the current build but do not invalidate the gameplay-state smoke suite.
 
@@ -15,7 +15,7 @@ This page separates confirmed presentation defects from intentional scope limits
 
 ## Intentional Current Limits
 
-- Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The recorded full-smoke drag/sort assertion is currently red and remains a harness/runtime regression to repair; it is not evidence that the feature is absent.
+- Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The full-smoke drag/sort assertion (`fq09_inventory_board_drag_and_sort`, `drag_payload=false` while swap/dock/sort pass) and the HUD edit-mode assertion (`fq17_hud_edit_direct_manipulation`, `grip=false reset=false`) were red in the fresh 2026-07-20 332/334 run; both are harness/runtime regressions tracked as PR-00 in `docs/PRESENTATION_RECOVERY_MATRIX.md`, not evidence that the features are absent.
 - Settlers are an abstract population model rather than individual NPC workers.
 - Enemies use direct walk-and-hop behavior without pathfinding.
 - The adaptive score is one authored suite and remains balance-in-progress.

@@ -990,15 +990,47 @@ ahead of FQ-00 through FQ-03 unless the operator explicitly changes priority.
 | Weather readability | Storm danger should be visible before damage lands. | FQ-01 |
 | Balancing dashboard | Speeds tuning for XP, ore, damage, hunger, raids. | Several systems live |
 
+## Presentation Recovery Arc (Active)
+
+FQ-00 through FQ-21 are complete (see the table above). The active work is
+the presentation recovery arc planned in
+`docs/PRESENTATION_RECOVERY_MATRIX.md` -- that file is the row-level
+authority for scope, lanes, and acceptance. Summary:
+
+| ID | Lane | Row | State |
+|---|---|---|---|
+| PR-00 | code | Smoke harness truth repair (`fq17_hud_edit_direct_manipulation`, `fq09_inventory_board_drag_and_sort` red; suite 332/334 FAIL on 2026-07-20) | Open -- first priority |
+| PR-01 | code | Terminology migration: canonical `masculine`/`feminine`, legacy aliases `default`/`female` (compatibility plan locked in the matrix; do not blind-replace) | Planned |
+| PR-02 | code | Character preview/rendering contract | Planned |
+| PR-03 | code | Gear overlay refresh/alignment defect | Planned |
+| PR-04 | code + art | Directional action animation (code: anchors/mirroring/timing with existing art; art: new frames via image matrix) | Planned |
+| PR-05 | code | Menu and character-selection preview through the shared render path | Planned |
+| PR-06 | code + art | Character HUD rebuild on runtime children | Planned |
+| PR-07 | code | Backdrop seam/contour skirt | Planned |
+| PR-08 | code | Skill panel resize | Planned |
+| PR-09 | code | Later skill expansion | Deferred (after PR-08) |
+| PR-10 | art | HUD chrome/image follow-up via the HUD Asset Replacement Studio | Art lane only |
+
+Lane rule: `code` rows are Claude/code-safe (code, data contracts,
+validators, diagnostics, docs). `art` rows require separate image
+production and are queued in the matrix's image-production follow-up table
+with exact asset ids, sizes, defects, contract paths, and acceptance
+checks -- a code lane never produces final PNGs.
+
 ## Current Fable Continuation
 
 ```text
 You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 
-Read README.md, docs/HANDOFF.md, docs/VARIABLE_MATRIX.md, and
-docs/FABLE_TASK_QUEUE.md. FQ-09C, FQ-09W, FQ-09A, FQ-09M, FQ-09U1, and
-FQ-09U2 are done. The queue head is FQ-09U3 (music stingers, ducking, and
-audio settings) per docs/WORK_ORDER_FQ_09U_ADAPTIVE_MUSIC.md — the five
-rendered stingers are in-repo and the StingerPlayer child is reserved.
-Take only that item; FQ-10 follows.
+Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md, and
+docs/PRESENTATION_RECOVERY_MATRIX.md. FQ-00 through FQ-21 are done; the
+native HUD-kit stabilization is merged. The active queue is the
+presentation recovery arc: take PR-00 (make fq17_hud_edit_direct_manipulation
+and fq09_inventory_board_drag_and_sort green without weakening assertions)
+before any presentation row. PR-01 (masculine/feminine terminology
+migration) must follow its locked compatibility plan -- runtime and
+validator still expect default/female until that increment lands. Rows
+marked art are image production and are NOT code-lane work. Close every
+row with validator, Capsule Doctor, a waited Godot smoke, and real
+pass/fail evidence in the docs.
 ```
