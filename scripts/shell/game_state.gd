@@ -38,7 +38,7 @@ func load_shell() -> void:
 				if raw_character is Dictionary:
 					var character: Dictionary = raw_character.duplicate(true)
 					character["body_variant"] = normalize_body_variant(
-						str(character.get("body_variant", "default")))
+						str(character.get("body_variant", "masculine")))
 					# FQ-13P3: legacy characters (saved before cosmetic variants)
 					# get a deterministic default from their id, so they never
 					# change appearance across loads.
@@ -77,7 +77,7 @@ func create_character(char_data: Dictionary) -> Dictionary:
 		"id": _make_id("char"),
 		"name": str(char_data.get("name", "Nameless")),
 		"species": str(char_data.get("species", "human")),
-		"body_variant": normalize_body_variant(str(char_data.get("body_variant", "default"))),
+		"body_variant": normalize_body_variant(str(char_data.get("body_variant", "masculine"))),
 		# FQ-13P3: character-owned cosmetic body variant (presentation-only).
 		"visual_variant": maxi(0, int(char_data.get("visual_variant", 0))),
 		"appearance": str(char_data.get("appearance", "tan")),

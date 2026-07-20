@@ -1,6 +1,6 @@
 # Human
 
-Generated: 2026-07-15
+Generated: 2026-07-20
 
 > `Character species` page.
 
@@ -13,7 +13,7 @@ Generated: 2026-07-15
 | Abilities | none |
 | Weaknesses | none |
 | Lifespan | standard |
-| Visual families | Default: 1 canonical image + 2 variants; Female: 1 canonical image + 2 variants |
+| Visual families | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants |
 
 ## Summary
 
@@ -21,11 +21,11 @@ Human is a live playable species definition from `data/character_data.json`.
 
 ## Body Art
 
-### Default body (human)
+### Masculine body (human)
 
-![Human Default - human (Canonical image)](../../../../art/generated/players/human.png)
-![Human Default - human_01 (Variant 1)](../../../../art/generated/players/human_01.png)
-![Human Default - human_02 (Variant 2)](../../../../art/generated/players/human_02.png)
+![Human Masculine - human (Canonical image)](../../../../art/generated/players/human.png)
+![Human Masculine - human_01 (Variant 1)](../../../../art/generated/players/human_01.png)
+![Human Masculine - human_02 (Variant 2)](../../../../art/generated/players/human_02.png)
 
 | Asset id | Role | File |
 |---|---|---|
@@ -33,11 +33,11 @@ Human is a live playable species definition from `data/character_data.json`.
 | `human_01` | Variant 1 | `../../../../art/generated/players/human_01.png` |
 | `human_02` | Variant 2 | `../../../../art/generated/players/human_02.png` |
 
-### Female body (human_female)
+### Feminine body (human_female)
 
-![Human Female - human_female (Canonical image)](../../../../art/generated/players/human_female.png)
-![Human Female - human_female_01 (Variant 1)](../../../../art/generated/players/human_female_01.png)
-![Human Female - human_female_02 (Variant 2)](../../../../art/generated/players/human_female_02.png)
+![Human Feminine - human_female (Canonical image)](../../../../art/generated/players/human_female.png)
+![Human Feminine - human_female_01 (Variant 1)](../../../../art/generated/players/human_female_01.png)
+![Human Feminine - human_female_02 (Variant 2)](../../../../art/generated/players/human_female_02.png)
 
 | Asset id | Role | File |
 |---|---|---|

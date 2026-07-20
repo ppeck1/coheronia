@@ -61,23 +61,37 @@ func appearance_def(appearance_id: String) -> Dictionary:
 	return {"body": "ebd48c", "trim": "59402e"}
 
 
-## Character-owned body variants are intentionally small and stable. Legacy,
-## missing, or invalid values return the configured default.
+## Character-owned body variants are intentionally small and stable. Canonical
+## ids are masculine/feminine; legacy ids (default -> masculine, female ->
+## feminine) are aliased through data. Missing or invalid values return the
+## configured default. This is the single alias authority — every caller
+## (game_state, player, shell UI, smoke) routes body variants through here.
 func normalize_body_variant(body_variant: String) -> String:
-	var allowed: Array = player_visuals.get("body_variants", ["default", "female"])
-	if body_variant in allowed:
-		return body_variant
-	return str(player_visuals.get("default_body_variant", "default"))
+	var aliases: Dictionary = player_visuals.get("body_variant_aliases", {})
+	var canonical := str(aliases.get(body_variant, body_variant))
+	var allowed: Array = player_visuals.get("body_variants", ["masculine", "feminine"])
+	if canonical in allowed:
+		return canonical
+	return str(player_visuals.get("default_body_variant", "masculine"))
 
 
-## Asset id for a live species/body variant. An unknown species returns "" so
-## presentation uses its procedural fallback rather than another ancestry.
+## Asset id for a live species/body variant. Canonical variant ids resolve to
+## the existing PNG filenames via body_variant_asset_suffix (masculine ->
+## <species>, feminine -> <species>_female) so no art was renamed for the
+## terminology migration. An unknown species returns "" so presentation uses
+## its procedural fallback rather than another ancestry.
 func player_body_id(species_id: String, body_variant: String) -> String:
 	var live_species: Array = player_visuals.get("live_species", [])
 	if species_id not in live_species:
 		return ""
 	var normalized := normalize_body_variant(body_variant)
-	return species_id if normalized == "default" else "%s_%s" % [species_id, normalized]
+	var suffixes: Dictionary = player_visuals.get("body_variant_asset_suffix", {})
+	return "%s%s" % [species_id, str(suffixes.get(normalized, ""))]
+
+
+## The configured canonical default body variant (masculine).
+func default_body_variant() -> String:
+	return str(player_visuals.get("default_body_variant", "masculine"))
 
 
 func _load_json(path: String) -> Dictionary:

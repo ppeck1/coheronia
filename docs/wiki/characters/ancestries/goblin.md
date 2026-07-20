@@ -1,6 +1,6 @@
-﻿# Goblin
+# Goblin
 
-Generated: 2026-07-15
+Generated: 2026-07-20
 
 > `Ancestry` page. Current status: `planned`.
 
@@ -14,21 +14,21 @@ Generated: 2026-07-15
 | Spawn band | surface_shallow |
 | Preferred biomes | surface_ruins, early_caves, hills |
 | Description | Resourceful scavengers who turned Coheronia's ruins into workshops and traps. |
-| Visual families | Default: 1 canonical image + 2 variants; Female: 1 canonical image + 2 variants |
+| Visual families | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants |
 
 ## Summary
 
-Goblin is a validated ancestry definition loaded from `data/ancestries.json`. The matching species is live/playable through `data/character_data.json`; expanded ancestry-system fields remain planned.
+Goblin is a planned ancestry definition loaded from `data/ancestries.json`.
 
 ## Body Art Reference
 
 This ancestry currently maps to live player body art, so the current wiki mirrors those authored visuals here.
 
-### Default body (goblin)
+### Masculine body (goblin)
 
-![Goblin Default - goblin (Canonical image)](../../../../art/generated/players/goblin.png)
-![Goblin Default - goblin_01 (Variant 1)](../../../../art/generated/players/goblin_01.png)
-![Goblin Default - goblin_02 (Variant 2)](../../../../art/generated/players/goblin_02.png)
+![Goblin Masculine - goblin (Canonical image)](../../../../art/generated/players/goblin.png)
+![Goblin Masculine - goblin_01 (Variant 1)](../../../../art/generated/players/goblin_01.png)
+![Goblin Masculine - goblin_02 (Variant 2)](../../../../art/generated/players/goblin_02.png)
 
 | Asset id | Role | File |
 |---|---|---|
@@ -36,11 +36,11 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 | `goblin_01` | Variant 1 | `../../../../art/generated/players/goblin_01.png` |
 | `goblin_02` | Variant 2 | `../../../../art/generated/players/goblin_02.png` |
 
-### Female body (goblin_female)
+### Feminine body (goblin_female)
 
-![Goblin Female - goblin_female (Canonical image)](../../../../art/generated/players/goblin_female.png)
-![Goblin Female - goblin_female_01 (Variant 1)](../../../../art/generated/players/goblin_female_01.png)
-![Goblin Female - goblin_female_02 (Variant 2)](../../../../art/generated/players/goblin_female_02.png)
+![Goblin Feminine - goblin_female (Canonical image)](../../../../art/generated/players/goblin_female.png)
+![Goblin Feminine - goblin_female_01 (Variant 1)](../../../../art/generated/players/goblin_female_01.png)
+![Goblin Feminine - goblin_female_02 (Variant 2)](../../../../art/generated/players/goblin_female_02.png)
 
 | Asset id | Role | File |
 |---|---|---|

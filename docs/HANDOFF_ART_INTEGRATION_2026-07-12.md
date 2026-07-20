@@ -30,14 +30,14 @@ There are 55 generated PNG assets in the repository:
 | Blocks | 11 | `berry_bush`, `dirt`, `grass`, `lantern`, `ore`, `stone`, `torch`, `town_hall_core`, `tree_leaves`, `tree_trunk`, `wood` |
 | Enemies | 12 | `surface_slime`, `cave_crawler`, and `raider_basic`, each with base plus `_01`, `_02`, and `_03` variants |
 | Items | 16 | `armor`, `axe`, `berry_bush`, `dirt`, `food`, `grass`, `lantern`, `ore`, `pick`, `slime_gel`, `stone`, `sword`, `tiny_core`, `torch`, `wet_fiber`, `wood` |
-| Players | 10 | human, dwarf, elf, goblin, and orc, each with default and `_female` body variants |
+| Players | 10 | human, dwarf, elf, goblin, and orc, each with a masculine (`<species>`) and feminine (`<species>_female`) body — the `_female` filename suffix is retained; the variant ids were later renamed to `masculine`/`feminine` (PR-01) |
 | Structures | 1 | `town_hall` |
 
 Important art decisions already applied:
 
 - Base player bodies wear simple clothing and no armor. Equipped armor is a separate overlay concern.
-- The female dwarf has no beard.
-- The female goblin has visible hair.
+- The feminine dwarf has no beard.
+- The feminine goblin has visible hair.
 - Ore was revised to read more distinctly from ordinary stone at play scale.
 - Enemy variants are slight silhouette/palette/detail variations rather than unrelated redesigns.
 - Elf appearance masks were corrected so Pale, Umber, and Ash recolor skin only;
@@ -52,7 +52,7 @@ Important art decisions already applied:
 - `data/player_visuals.json` defines body ids, palettes, and optional gear naming.
 - `scripts/player/player_visual.gd` loads the 16x32 body art, performs constrained species/appearance recoloring, resolves body-specific or generic gear overlays, and retains procedural gear fallbacks.
 - `scenes/player/Player.tscn` contains the `PlayerVisual` child.
-- Character creation and save/load preserve the selected default/female body variant.
+- Character creation and save/load preserve the selected masculine/feminine body variant.
 - Facing and a three-phase raise/mid/strike swing are wired for the pick and axe. This supports visible arm/tool action today. A later appendage-separated rig can improve articulation without changing the current input/action contract.
 - The player collision shape remains 12x28; visual art did not change gameplay collision.
 

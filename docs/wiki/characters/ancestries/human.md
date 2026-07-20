@@ -1,6 +1,6 @@
-﻿# Human
+# Human
 
-Generated: 2026-07-15
+Generated: 2026-07-20
 
 > `Ancestry` page. Current status: `planned`.
 
@@ -14,21 +14,21 @@ Generated: 2026-07-15
 | Spawn band | surface |
 | Preferred biomes | plains, forest, riverlands, hills |
 | Description | Coheronia's founding settlers, known for their adaptability and talent for civic organisation. |
-| Visual families | Default: 1 canonical image + 2 variants; Female: 1 canonical image + 2 variants |
+| Visual families | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants |
 
 ## Summary
 
-Human is a validated ancestry definition loaded from `data/ancestries.json`. The matching species is live/playable through `data/character_data.json`; expanded ancestry-system fields remain planned.
+Human is a planned ancestry definition loaded from `data/ancestries.json`.
 
 ## Body Art Reference
 
 This ancestry currently maps to live player body art, so the current wiki mirrors those authored visuals here.
 
-### Default body (human)
+### Masculine body (human)
 
-![Human Default - human (Canonical image)](../../../../art/generated/players/human.png)
-![Human Default - human_01 (Variant 1)](../../../../art/generated/players/human_01.png)
-![Human Default - human_02 (Variant 2)](../../../../art/generated/players/human_02.png)
+![Human Masculine - human (Canonical image)](../../../../art/generated/players/human.png)
+![Human Masculine - human_01 (Variant 1)](../../../../art/generated/players/human_01.png)
+![Human Masculine - human_02 (Variant 2)](../../../../art/generated/players/human_02.png)
 
 | Asset id | Role | File |
 |---|---|---|
@@ -36,11 +36,11 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 | `human_01` | Variant 1 | `../../../../art/generated/players/human_01.png` |
 | `human_02` | Variant 2 | `../../../../art/generated/players/human_02.png` |
 
-### Female body (human_female)
+### Feminine body (human_female)
 
-![Human Female - human_female (Canonical image)](../../../../art/generated/players/human_female.png)
-![Human Female - human_female_01 (Variant 1)](../../../../art/generated/players/human_female_01.png)
-![Human Female - human_female_02 (Variant 2)](../../../../art/generated/players/human_female_02.png)
+![Human Feminine - human_female (Canonical image)](../../../../art/generated/players/human_female.png)
+![Human Feminine - human_female_01 (Variant 1)](../../../../art/generated/players/human_female_01.png)
+![Human Feminine - human_female_02 (Variant 2)](../../../../art/generated/players/human_female_02.png)
 
 | Asset id | Role | File |
 |---|---|---|

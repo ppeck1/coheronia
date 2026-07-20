@@ -1,6 +1,6 @@
-﻿# Elf
+# Elf
 
-Generated: 2026-07-15
+Generated: 2026-07-20
 
 > `Ancestry` page. Current status: `planned`.
 
@@ -14,21 +14,21 @@ Generated: 2026-07-15
 | Spawn band | surface |
 | Preferred biomes | forest, ancient_forest, riverlands |
 | Description | Forest-keepers who guided early Coheronia's growth through harmony with the land. |
-| Visual families | Default: 1 canonical image + 2 variants; Female: 1 canonical image + 2 variants |
+| Visual families | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants |
 
 ## Summary
 
-Elf is a validated ancestry definition loaded from `data/ancestries.json`. The matching species is live/playable through `data/character_data.json`; expanded ancestry-system fields remain planned.
+Elf is a planned ancestry definition loaded from `data/ancestries.json`.
 
 ## Body Art Reference
 
 This ancestry currently maps to live player body art, so the current wiki mirrors those authored visuals here.
 
-### Default body (elf)
+### Masculine body (elf)
 
-![Elf Default - elf (Canonical image)](../../../../art/generated/players/elf.png)
-![Elf Default - elf_01 (Variant 1)](../../../../art/generated/players/elf_01.png)
-![Elf Default - elf_02 (Variant 2)](../../../../art/generated/players/elf_02.png)
+![Elf Masculine - elf (Canonical image)](../../../../art/generated/players/elf.png)
+![Elf Masculine - elf_01 (Variant 1)](../../../../art/generated/players/elf_01.png)
+![Elf Masculine - elf_02 (Variant 2)](../../../../art/generated/players/elf_02.png)
 
 | Asset id | Role | File |
 |---|---|---|
@@ -36,11 +36,11 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 | `elf_01` | Variant 1 | `../../../../art/generated/players/elf_01.png` |
 | `elf_02` | Variant 2 | `../../../../art/generated/players/elf_02.png` |
 
-### Female body (elf_female)
+### Feminine body (elf_female)
 
-![Elf Female - elf_female (Canonical image)](../../../../art/generated/players/elf_female.png)
-![Elf Female - elf_female_01 (Variant 1)](../../../../art/generated/players/elf_female_01.png)
-![Elf Female - elf_female_02 (Variant 2)](../../../../art/generated/players/elf_female_02.png)
+![Elf Feminine - elf_female (Canonical image)](../../../../art/generated/players/elf_female.png)
+![Elf Feminine - elf_female_01 (Variant 1)](../../../../art/generated/players/elf_female_01.png)
+![Elf Feminine - elf_female_02 (Variant 2)](../../../../art/generated/players/elf_female_02.png)
 
 | Asset id | Role | File |
 |---|---|---|

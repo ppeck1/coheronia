@@ -60,6 +60,8 @@ func _run() -> void:
 		"dirt=%d (homesteader start)" % player.inventory.count("dirt"))
 
 	# --- Shell persistence: characters + worlds as simulation containers ---
+	# PR-01: the character is created with the LEGACY id "female" to prove a
+	# legacy value is accepted and re-saved as the canonical id "feminine".
 	var test_char: Dictionary = GameState.create_character({
 		"name": "Smoke Tester", "species": "dwarf", "body_variant": "female",
 		"role": "prospector", "traits": ["hardy"], "appearance": "ash"})
@@ -74,14 +76,20 @@ func _run() -> void:
 	_check("shell_persists_characters", not reloaded_char.is_empty()
 		and str(reloaded_char.get("role", "")) == "prospector"
 		and "hardy" in reloaded_char.get("traits", [])
-		and str(reloaded_char.get("body_variant", "")) == "female")
+		and str(reloaded_char.get("body_variant", "")) == "feminine")
 	_check("player_visual_body_variant_roundtrip",
 		str(reloaded_char.get("species", "")) == "dwarf"
-		and str(reloaded_char.get("body_variant", "")) == "female")
-	_check("player_visual_invalid_variant_defaults",
-		GameState.normalize_body_variant("") == "default"
-		and GameState.normalize_body_variant("bogus") == "default"
-		and GameState.normalize_body_variant("female") == "female")
+		and str(reloaded_char.get("body_variant", "")) == "feminine")
+	# PR-01: canonical ids are masculine/feminine; the legacy ids default/female
+	# survive only as read-time aliases, and invalid/missing values return the
+	# canonical default (masculine).
+	_check("player_visual_body_variant_aliases",
+		GameState.normalize_body_variant("") == "masculine"
+		and GameState.normalize_body_variant("bogus") == "masculine"
+		and GameState.normalize_body_variant("default") == "masculine"
+		and GameState.normalize_body_variant("female") == "feminine"
+		and GameState.normalize_body_variant("masculine") == "masculine"
+		and GameState.normalize_body_variant("feminine") == "feminine")
 	_check("shell_persists_worlds", reloaded_cfg.difficulty("enemy") == 1.75
 		and reloaded_cfg.seed_value() == 777 and reloaded_cfg.size_id() == "small")
 	_check("presets_apply", not WorldConfig.new(
@@ -2684,35 +2692,41 @@ func _run() -> void:
 	var _pv_saved_axe_tier: int = player.axe_tier
 	var _pv_resolved: Dictionary = {}
 	var _pv_all_art := true
+	var _pv_canonical_ok := true
+	# PR-01: each body is exercised with both its canonical id and its legacy
+	# alias; both must resolve to the same existing PNG filename (masculine ->
+	# <species>, feminine -> <species>_female) and store the canonical id.
 	for _pv_species in ["human", "dwarf", "elf", "goblin", "orc"]:
-		for _pv_variant in ["default", "female"]:
+		for _pv_case in [["masculine", "", "masculine"], ["feminine", "_female", "feminine"],
+				["default", "", "masculine"], ["female", "_female", "feminine"]]:
 			player.apply_character({
 				"species": _pv_species,
-				"body_variant": _pv_variant,
+				"body_variant": str(_pv_case[0]),
 				"appearance": "tan",
 				"traits": [],
 				"role": "homesteader",
 			})
-			var _pv_expected: String = _pv_species if _pv_variant == "default" \
-				else "%s_%s" % [_pv_species, _pv_variant]
+			var _pv_expected: String = "%s%s" % [_pv_species, str(_pv_case[1])]
 			var _pv_snapshot: Dictionary = _pv.presentation_snapshot()
 			_pv_resolved[str(_pv_snapshot.get("resolved_body_id", ""))] = true
 			_pv_all_art = _pv_all_art \
 				and bool(_pv_snapshot.get("using_body_art", false)) \
 				and str(_pv_snapshot.get("resolved_body_id", "")) == _pv_expected
+			_pv_canonical_ok = _pv_canonical_ok \
+				and str(_pv_snapshot.get("body_variant", "")) == str(_pv_case[2])
 	_check("player_visual_all_ten_bodies_resolve",
-		_pv_all_art and _pv_resolved.size() == 10,
-		"resolved=%s" % str(_pv_resolved.keys()))
-	player.apply_character({"species": "human", "body_variant": "default",
+		_pv_all_art and _pv_canonical_ok and _pv_resolved.size() == 10,
+		"resolved=%s canonical=%s" % [str(_pv_resolved.keys()), str(_pv_canonical_ok)])
+	player.apply_character({"species": "human", "body_variant": "masculine",
 		"appearance": "tan"})
 	var _pv_tan_recolored: bool = _pv.appearance_recolored()
-	player.apply_character({"species": "human", "body_variant": "default",
+	player.apply_character({"species": "human", "body_variant": "masculine",
 		"appearance": "pale"})
 	var _pv_pale_recolored: bool = _pv.appearance_recolored()
-	player.apply_character({"species": "human", "body_variant": "default",
+	player.apply_character({"species": "human", "body_variant": "masculine",
 		"appearance": "umber"})
 	var _pv_umber_recolored: bool = _pv.appearance_recolored()
-	player.apply_character({"species": "human", "body_variant": "default",
+	player.apply_character({"species": "human", "body_variant": "masculine",
 		"appearance": "ash"})
 	var _pv_ash_recolored: bool = _pv.appearance_recolored()
 	# Appearance is an exact-palette bridge, so exercise every authored Look,
@@ -2720,7 +2734,7 @@ func _run() -> void:
 	# otherwise make alternate looks silently ignore Pale/Umber/Ash.
 	var _pv_variant_palette_failures: Array[String] = []
 	for _pv_species in ["human", "dwarf", "elf", "goblin", "orc"]:
-		for _pv_body_variant in ["default", "female"]:
+		for _pv_body_variant in ["masculine", "feminine"]:
 			for _pv_look in [1, 2]:
 				player.apply_character({
 					"species": _pv_species,
@@ -2741,8 +2755,9 @@ func _run() -> void:
 			str(_pv_umber_recolored), str(_pv_ash_recolored),
 			str(_pv_variant_palette_failures)])
 
-	# Force the female dwarf miss, then both dwarf misses. Resolution may step
-	# down only within dwarf; it must never substitute human art.
+	# Force the feminine dwarf miss (its <species>_female art), then both dwarf
+	# misses. Resolution may step down only within dwarf; it must never
+	# substitute human art.
 	var _pv_player_entries: Dictionary = BlockRegistry.visual_assets["categories"]["players"]
 	var _pv_had_dwarf_female := _pv_player_entries.has("dwarf_female")
 	var _pv_old_dwarf_female: Variant = _pv_player_entries.get("dwarf_female")
@@ -2751,14 +2766,14 @@ func _run() -> void:
 	BlockRegistry.visual_assets["categories"]["players"]["dwarf_female"] = \
 		"art/generated/players/smoke_tmp_missing_dwarf_female.png"
 	BlockRegistry.clear_visual_cache()
-	player.apply_character({"species": "dwarf", "body_variant": "female"})
+	player.apply_character({"species": "dwarf", "body_variant": "feminine"})
 	var _pv_same_species: String = _pv.resolved_body_id()
 	BlockRegistry.visual_assets["categories"]["players"]["dwarf"] = \
 		"art/generated/players/smoke_tmp_missing_dwarf.png"
 	BlockRegistry.clear_visual_cache()
-	player.apply_character({"species": "dwarf", "body_variant": "female"})
+	player.apply_character({"species": "dwarf", "body_variant": "feminine"})
 	var _pv_dwarf_procedural: Dictionary = _pv.presentation_snapshot()
-	player.apply_character({"species": "smoke_unknown", "body_variant": "female"})
+	player.apply_character({"species": "smoke_unknown", "body_variant": "feminine"})
 	var _pv_unknown: Dictionary = _pv.presentation_snapshot()
 	if _pv_had_dwarf_female:
 		_pv_player_entries["dwarf_female"] = _pv_old_dwarf_female
@@ -2817,14 +2832,14 @@ func _run() -> void:
 
 	# --- FQ-13P3: player cosmetic body variants (full-body pool) ---
 	# distinct sprite per variant (human has a 2-entry pool); variant 0 canonical.
-	player.apply_character({"species": "human", "body_variant": "default",
+	player.apply_character({"species": "human", "body_variant": "masculine",
 		"appearance": "tan", "visual_variant": 0})
 	var _p3_v0 = _pv._body_texture
 	var _p3_snap0: Dictionary = _pv.presentation_snapshot()
-	player.apply_character({"species": "human", "body_variant": "default",
+	player.apply_character({"species": "human", "body_variant": "masculine",
 		"appearance": "tan", "visual_variant": 1})
 	var _p3_v1 = _pv._body_texture
-	player.apply_character({"species": "human", "body_variant": "default",
+	player.apply_character({"species": "human", "body_variant": "masculine",
 		"appearance": "tan", "visual_variant": 2})
 	var _p3_v2 = _pv._body_texture
 	_check("fq13p3_variant_selects_distinct_sprite",
@@ -2836,10 +2851,10 @@ func _run() -> void:
 			int(_p3_snap0.get("visual_variant", -1))])
 
 	# variant 0 is the canonical body; an out-of-range index wraps within the pool.
-	player.apply_character({"species": "human", "body_variant": "default",
+	player.apply_character({"species": "human", "body_variant": "masculine",
 		"appearance": "tan", "visual_variant": 0})
 	var _p3_canon = _pv._body_texture
-	player.apply_character({"species": "human", "body_variant": "default",
+	player.apply_character({"species": "human", "body_variant": "masculine",
 		"appearance": "tan", "visual_variant": 3})   # pool size 2 -> wraps to variant 1
 	_check("fq13p3_variant0_canonical_and_wrap",
 		_p3_canon == BlockRegistry.visual_texture("players", "human")
@@ -2849,7 +2864,7 @@ func _run() -> void:
 			str(_pv._body_texture == _p3_v1)])
 
 	# Every current body now has the same bounded two-look pool.
-	player.apply_character({"species": "dwarf", "body_variant": "default",
+	player.apply_character({"species": "dwarf", "body_variant": "masculine",
 		"appearance": "tan", "visual_variant": 2})
 	var _p3_dwarf_pool: Array = BlockRegistry.visual_variant_textures(
 		"players", "dwarf")
@@ -4049,6 +4064,11 @@ func _run() -> void:
 
 	# (a3) nonmodal HUD edit mode: direct manipulation (FQ-20 — no locks),
 	# bounded, profile-backed, with continuous corner-grip resize.
+	# Start from the default layout so the baseline is deterministic regardless
+	# of any HUD size/position a prior run persisted into the shell profile;
+	# reset restores the crest to its default size, which is exactly what the
+	# reset assertion below verifies.
+	hud.reset_hud_layout()
 	var _fq17_before_pos: Vector2 = hud._hud_widgets["crest"].position
 	var _fq17_before_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
 	hud.toggle_hud_edit_mode()

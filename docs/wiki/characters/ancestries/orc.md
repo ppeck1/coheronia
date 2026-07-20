@@ -1,6 +1,6 @@
-﻿# Orc
+# Orc
 
-Generated: 2026-07-15
+Generated: 2026-07-20
 
 > `Ancestry` page. Current status: `planned`.
 
@@ -14,21 +14,21 @@ Generated: 2026-07-15
 | Spawn band | surface |
 | Preferred biomes | badlands, plains, mountains |
 | Description | Frontier-hardened warriors who drove Coheronia's expansion into rough and contested lands. |
-| Visual families | Default: 1 canonical image + 2 variants; Female: 1 canonical image + 2 variants |
+| Visual families | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants |
 
 ## Summary
 
-Orc is a validated ancestry definition loaded from `data/ancestries.json`. The matching species is live/playable through `data/character_data.json`; expanded ancestry-system fields remain planned.
+Orc is a planned ancestry definition loaded from `data/ancestries.json`.
 
 ## Body Art Reference
 
 This ancestry currently maps to live player body art, so the current wiki mirrors those authored visuals here.
 
-### Default body (orc)
+### Masculine body (orc)
 
-![Orc Default - orc (Canonical image)](../../../../art/generated/players/orc.png)
-![Orc Default - orc_01 (Variant 1)](../../../../art/generated/players/orc_01.png)
-![Orc Default - orc_02 (Variant 2)](../../../../art/generated/players/orc_02.png)
+![Orc Masculine - orc (Canonical image)](../../../../art/generated/players/orc.png)
+![Orc Masculine - orc_01 (Variant 1)](../../../../art/generated/players/orc_01.png)
+![Orc Masculine - orc_02 (Variant 2)](../../../../art/generated/players/orc_02.png)
 
 | Asset id | Role | File |
 |---|---|---|
@@ -36,11 +36,11 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 | `orc_01` | Variant 1 | `../../../../art/generated/players/orc_01.png` |
 | `orc_02` | Variant 2 | `../../../../art/generated/players/orc_02.png` |
 
-### Female body (orc_female)
+### Feminine body (orc_female)
 
-![Orc Female - orc_female (Canonical image)](../../../../art/generated/players/orc_female.png)
-![Orc Female - orc_female_01 (Variant 1)](../../../../art/generated/players/orc_female_01.png)
-![Orc Female - orc_female_02 (Variant 2)](../../../../art/generated/players/orc_female_02.png)
+![Orc Feminine - orc_female (Canonical image)](../../../../art/generated/players/orc_female.png)
+![Orc Feminine - orc_female_01 (Variant 1)](../../../../art/generated/players/orc_female_01.png)
+![Orc Feminine - orc_female_02 (Variant 2)](../../../../art/generated/players/orc_female_02.png)
 
 | Asset id | Role | File |
 |---|---|---|

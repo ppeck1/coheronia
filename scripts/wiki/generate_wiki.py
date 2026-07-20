@@ -979,11 +979,16 @@ def species_body_groups(species_id: str, data: dict) -> list[dict]:
     if species_id not in live_species:
         return []
 
-    default_variant = str(data.get("player_visuals", {}).get("default_body_variant", "default"))
+    player_visuals = data.get("player_visuals", {})
+    default_variant = str(player_visuals.get("default_body_variant", "masculine"))
+    # Canonical variant ids map to the existing PNG filenames via the data-owned
+    # suffix table (masculine -> <species>, feminine -> <species>_female), so the
+    # terminology migration never implies a <species>_feminine asset.
+    asset_suffix = player_visuals.get("body_variant_asset_suffix", {})
     groups = []
     for body_variant in data.get("character_data", {}).get("body_variants", []):
         variant_id = str(body_variant.get("id", default_variant))
-        body_id = species_id if variant_id == default_variant else f"{species_id}_{variant_id}"
+        body_id = f"{species_id}{asset_suffix.get(variant_id, '')}"
         visuals = discovered_visuals("players", body_id, data)
         if visuals:
             groups.append(

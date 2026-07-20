@@ -74,8 +74,8 @@
     }
   ],
   "body_variants": [
-    { "id": "default", "display_name": "Default" },
-    { "id": "female", "display_name": "Female" }
+    { "id": "masculine", "display_name": "Masculine" },
+    { "id": "feminine", "display_name": "Feminine" }
   ],
   "traits": [
     { "id": "hardy", "display_name": "Hardy", "description": "+25 max health.", "effects": { "max_health_bonus": 25 } },

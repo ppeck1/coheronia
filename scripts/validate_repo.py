@@ -327,7 +327,7 @@ for section in ["species", "body_variants", "traits", "roles", "appearances"]:
 print("PASS character data")
 
 body_variant_ids = [entry.get("id") for entry in character_data.get("body_variants", [])]
-if body_variant_ids != ["default", "female"]:
+if body_variant_ids != ["masculine", "feminine"]:
     fail(f"character_data.json body variants mismatch: {body_variant_ids}")
 print("PASS character body variants")
 
@@ -556,7 +556,13 @@ print("PASS surface backdrop strip art contracts")
 # RGBA source art, species-specific rig anchors, and collision kept at 12x28.
 player_visuals = json.loads((ROOT / "data/player_visuals.json").read_text(encoding="utf-8"))
 EXPECTED_PLAYER_SPECIES = ["human", "dwarf", "elf", "goblin", "orc"]
-EXPECTED_BODY_VARIANTS = ["default", "female"]
+# PR-01 terminology migration: canonical ids are masculine/feminine; the legacy
+# ids default/female survive only as read-time aliases (see body_variant_aliases).
+EXPECTED_BODY_VARIANTS = ["masculine", "feminine"]
+EXPECTED_BODY_VARIANT_ALIASES = {"default": "masculine", "female": "feminine"}
+# Canonical ids resolve to the existing PNG filenames (no art was renamed):
+# masculine -> <species>, feminine -> <species>_female.
+EXPECTED_BODY_VARIANT_ASSET_SUFFIX = {"masculine": "", "feminine": "_female"}
 if player_visuals.get("body_size") != [16, 32]:
     fail(f"player_visuals.json body_size must be [16, 32]: {player_visuals.get('body_size')}")
 if player_visuals.get("authored_facing") != "right":
@@ -565,9 +571,19 @@ if player_visuals.get("appearance_mode") != "palette_skin_until_masks":
     fail("player_visuals.json appearance_mode must be palette_skin_until_masks")
 if not str(player_visuals.get("tool_swing_asset_convention", "")).strip():
     fail("player_visuals.json missing tool_swing_asset_convention")
-if player_visuals.get("default_body_variant") != "default" \
+if player_visuals.get("default_body_variant") != "masculine" \
         or player_visuals.get("body_variants") != EXPECTED_BODY_VARIANTS:
     fail("player_visuals.json body variant contract mismatch")
+if player_visuals.get("body_variant_aliases") != EXPECTED_BODY_VARIANT_ALIASES:
+    fail("player_visuals.json body_variant_aliases must map the legacy ids: "
+         f"{player_visuals.get('body_variant_aliases')}")
+if player_visuals.get("body_variant_asset_suffix") != EXPECTED_BODY_VARIANT_ASSET_SUFFIX:
+    fail("player_visuals.json body_variant_asset_suffix must map canonical ids "
+         f"to the existing filenames: {player_visuals.get('body_variant_asset_suffix')}")
+# The character-creation body variants and the visual rig variants must agree.
+if [entry.get("id") for entry in character_data.get("body_variants", [])] != EXPECTED_BODY_VARIANTS:
+    fail("character_data.json body variants must match player_visuals.json canonical ids")
+print("PASS body variant alias + asset-suffix contract")
 if player_visuals.get("live_species") != EXPECTED_PLAYER_SPECIES:
     fail(f"player_visuals.json live_species mismatch: {player_visuals.get('live_species')}")
 rigs = player_visuals.get("rigs") or {}
@@ -600,7 +616,7 @@ for species_id in EXPECTED_PLAYER_SPECIES:
 player_asset_hashes = set()
 for species_id in EXPECTED_PLAYER_SPECIES:
     for variant_id in EXPECTED_BODY_VARIANTS:
-        body_id = species_id if variant_id == "default" else f"{species_id}_{variant_id}"
+        body_id = f"{species_id}{EXPECTED_BODY_VARIANT_ASSET_SUFFIX[variant_id]}"
         body_path = ROOT / asset_root / "players" / f"{body_id}.png"
         if not body_path.is_file():
             fail(f"missing required player body: {body_path.relative_to(ROOT)}")

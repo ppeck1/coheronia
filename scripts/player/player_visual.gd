@@ -10,7 +10,7 @@ const DEFAULT_APPEARANCE_BODY := Color(0.92156863, 0.83137255, 0.54901961)
 
 var _player
 var _species_id := "human"
-var _body_variant := "default"
+var _body_variant := "masculine"
 ## FQ-13P3: character-owned cosmetic index. 0 = canonical body; k>0 selects the
 ## k-th full-body pool entry (art/generated/players/<body_id>_NN.png).
 var _visual_variant := 0
@@ -155,7 +155,8 @@ func _resolve_body_texture() -> void:
 			_set_resolved_body(requested, requested_texture)
 			return
 	# A missing variant may fall back only to the same species' default body.
-	var species_default := BlockRegistry.player_body_id(_species_id, "default")
+	var species_default := BlockRegistry.player_body_id(
+		_species_id, BlockRegistry.default_body_variant())
 	if species_default != "" and species_default != requested:
 		var default_texture := _select_body_texture(species_default)
 		if default_texture != null:

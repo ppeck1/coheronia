@@ -385,8 +385,8 @@ func _show_char_create() -> void:
 	_body_variant_ids.clear()
 	var body_variant_list: Array = data.get("body_variants", [])
 	for body_variant_def in body_variant_list:
-		_body_variant_ids.append(str(body_variant_def.get("id", "default")))
-		_body_variant_option.add_item(str(body_variant_def.get("display_name", "Default")))
+		_body_variant_ids.append(str(body_variant_def.get("id", "masculine")))
+		_body_variant_option.add_item(str(body_variant_def.get("display_name", "Masculine")))
 	body_variant_row.add_child(_body_variant_option)
 
 	# FQ-13P3: cosmetic body variant. The SpinBox up/down arrows are the
@@ -479,7 +479,7 @@ func _refresh_look_range(_index: int = -1) -> void:
 		return
 	var species_id := _option_id(_species_option, _species_ids, "human")
 	var body_variant := _option_id(
-		_body_variant_option, _body_variant_ids, "default")
+		_body_variant_option, _body_variant_ids, "masculine")
 	var body_id := BlockRegistry.player_body_id(species_id, body_variant)
 	var pool_size := BlockRegistry.visual_variant_textures("players", body_id).size()
 	_visual_variant_spin.max_value = pool_size
@@ -545,7 +545,7 @@ func _create_character() -> void:
 		"name": char_name,
 		"species": _option_id(_species_option, _species_ids, "human"),
 		"body_variant": _option_id(
-			_body_variant_option, _body_variant_ids, "default"),
+			_body_variant_option, _body_variant_ids, "masculine"),
 		"visual_variant": int(_visual_variant_spin.value) if _visual_variant_spin != null else 0,
 		"appearance": _option_id(_appearance_option, _appearance_ids, "tan"),
 		"role": _option_id(_role_option, _role_ids, "homesteader"),

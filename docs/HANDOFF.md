@@ -26,15 +26,18 @@ into `shell.json` (that stale write is what intermittently flipped the check's
 default from `get_combined_minimum_size()`; (2) `_clear_children` used deferred
 `queue_free()`, so rebuilt board cells collided on names like
 `InventoryDockSlot1` and Godot renamed the fresh ones — it now `remove_child`s
-before freeing. See `docs/PRESENTATION_RECOVERY_MATRIX.md` (PR-00). Next code
-row is PR-01 (masculine/feminine terminology migration).
+before freeing. See `docs/PRESENTATION_RECOVERY_MATRIX.md` (PR-00).
 
-**Terminology caution:** body-variant ids remain `default`/`female` across
-runtime, data, validator, smoke, and 150 PNG filenames. The migration to
-canonical `masculine`/`feminine` (aliases `default` -> `masculine`,
-`female` -> `feminine`; new saves write canonical after the increment lands)
-is PR-01 and must follow the matrix's compatibility plan -- never a blind
-rename.
+**Terminology (PR-01 done 2026-07-20):** body-variant ids are now canonical
+`masculine`/`feminine`. The legacy `default`/`female` survive only as
+read-time aliases in `BlockRegistry.normalize_body_variant` (data-owned
+`body_variant_aliases`); no PNG was renamed — canonical ids map to the
+existing `<species>`/`<species>_female` filenames via the data-owned
+`body_variant_asset_suffix`. New saves write canonical ids; legacy shells
+normalize on load and re-save canonical. `data/character_data.json` and
+`data/player_visuals.json`, `block_registry`, the visual/creation consumers,
+`validate_repo.py`, the wiki generator, the smoke, and the character wiki
+pages were updated together.
 
 ## Historical State (2026-07-16 public refresh)
 
@@ -310,8 +313,10 @@ FQ-21; Godot 4.6.1 stable). Suite at 319/319.
 ## Codex Art Integration (same closeout — see docs/HANDOFF_ART_INTEGRATION_2026-07-12.md)
 
 - **55 generated PNGs** landed under `art/generated/` (11 blocks, 16 item
-  icons, 12 enemy sprites with variants, 10 player bodies default+female,
-  Town Hall + core, 3 backgrounds, 2 back walls) plus their runtime wiring:
+  icons, 12 enemy sprites with variants, 10 player bodies — the
+  `<species>` and `<species>_female` files, now the canonical masculine and
+  feminine variants — Town Hall + core, 3 backgrounds, 2 back walls) plus
+  their runtime wiring:
   `data/player_visuals.json` + `scripts/player/player_visual.gd` (16x32 body
   art with constrained species/appearance recolor, gear-overlay hooks,
   procedural fallback), the `PlayerVisual` child in `scenes/player/
@@ -758,7 +763,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | HUD-kit runtime verify | PASS | `python scripts/art/sync_hud_kit.py --verify-runtime` 2026-07-20 -- 19 source/runtime hashes + layout verified |
 | Pixel-art verifier | PASS 386 PNGs | `python scripts/art/verify_pixel_assets.py` 2026-07-20 -- size/palette/alpha/edge contracts satisfied (painted chrome via the FQ-20 light pass) |
 | Capsule doctor | PASS | `public_repo` profile 2026-07-20: healthy |
-| Automated smoke | **PASS 334/334** | isolated waited Windows Godot 4.6.1 run wrote fresh `smoke_results.json` 2026-07-20 13:21 after the PR-00 fixes. The arc opened at 332/334 (`fq17_hud_edit_direct_manipulation` reset + `fq09_inventory_board_drag_and_sort` drag payload); both repaired in `scripts/ui/hud.gd` without weakening assertions. `fq09u1_live_clip_switch` PASSED throughout -- older notes naming it as red are superseded. |
+| Automated smoke | **PASS 334/334** | isolated waited Windows Godot 4.6.1 runs; two consecutive PASS after PR-01 (2026-07-20 14:31). PR-00 repaired the HUD default-size + inventory-board cell rebuild in `scripts/ui/hud.gd`; PR-01 added the body-variant alias contract checks. The `fq17` reset check now resets the layout at its own start so it is profile-state independent (a prior run's persisted HUD size no longer skews the baseline). No assertion weakened. |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls). Authored-art closeout: isolated hidden/windowed tour wrote and visually passed all nine frames at 2026-07-14 15:04, including varied terrain/flora and inventory icons. |
 
@@ -838,23 +843,18 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 FQ-00 through FQ-21 are complete (full lineage in `docs/FABLE_TASK_QUEUE.md`
 and the historical sections above). The active queue is the **presentation
 recovery arc** planned in `docs/PRESENTATION_RECOVERY_MATRIX.md`. PR-00 (smoke
-harness truth repair) is **done** -- the suite is back to 334/334.
+harness truth repair) and PR-01 (masculine/feminine terminology migration) are
+**done** -- the suite is 334/334.
 
-1. **PR-01 next (code lane)**: the masculine/feminine terminology migration.
-   Follow the matrix's Terminology Migration Plan exactly -- do NOT blind-rename
-   `default`/`female`. The runtime, `scripts/validate_repo.py` (the body-variant
-   list checks at ~lines 330 and 568), the smoke, and 150 PNG filenames still
-   expect the legacy ids until this increment lands: add canonical
-   `masculine`/`feminine` with aliases `default` -> `masculine` /
-   `female` -> `feminine` routed through `BlockRegistry.normalize_body_variant`,
-   keep `player_body_id` mapping canonical ids onto the existing
-   `<species>`/`<species>_female` filenames (no PNG renames), update both
-   validator list checks in the same commit, and have new saves write canonical
-   ids while old shells normalize on load.
-2. Then the remaining code-lane rows in matrix order: preview/rendering
-   contract, gear-overlay refresh/alignment, action animation code half,
-   selection preview, Character HUD rebuild, backdrop contour skirt, and skill
-   panel resize.
+1. **PR-02 next (code lane)**: write the character preview/rendering contract.
+   Document the compositing/resolution rules that currently live only in
+   `scripts/player/player_visual.gd` (the `_draw` layering order and
+   `_resolve_body_texture`/`presentation_snapshot`) so other consumers (creation
+   preview, Character panel) can render the same character, and add
+   `presentation_snapshot()` smoke assertions. No rendering change in that row.
+2. Then the remaining code-lane rows in matrix order: gear-overlay
+   refresh/alignment, action animation code half, selection preview, Character
+   HUD rebuild, backdrop contour skirt, and skill panel resize.
 3. Rows marked **art** (new swing/sword/iron-gear frames, HUD chrome
    replacement) are image production through the matrix's image-production
    table and `docs/wiki/hud_asset_replacement_studio.md` -- never code-lane

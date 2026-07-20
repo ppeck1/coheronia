@@ -45,7 +45,7 @@ assertion was weakened:
 | ID | Lane | Row | Current defect / goal | Primary code & contract surfaces | Acceptance |
 |---|---|---|---|---|---|
 | PR-00 | code | Smoke harness truth repair | **DONE 2026-07-20.** Two red assertions (`fq17_hud_edit_direct_manipulation` reset, `fq09_inventory_board_drag_and_sort` drag payload) kept the 334-suite at FAIL; both fixed in `scripts/ui/hud.gd` (natural default size + immediate child removal). | `scripts/ui/hud.gd` (`_hud_natural_size`, `_clear_children`) | Met: both checks green, no assertion weakened, fresh waited run **334/334 PASS**. |
-| PR-01 | code | Terminology migration (masculine/feminine) | Body-variant ids are `default`/`female` end-to-end; player-facing ids should become `masculine`/`feminine` without breaking saves, art resolution, or the validator. | See [Terminology Migration Plan](#terminology-migration-plan) | Legacy saves load via aliases and re-save canonical; texture resolution byte-identical for all 10 bodies; validator + smoke green on the new contract. |
+| PR-01 | code | Terminology migration (masculine/feminine) | **DONE 2026-07-20.** Canonical ids `masculine`/`feminine`; legacy `default`/`female` are read-time aliases through `BlockRegistry.normalize_body_variant`; PNG filenames unchanged (canonical -> filename via data-owned `body_variant_asset_suffix`). | `data/player_visuals.json`, `data/character_data.json`, `scripts/world/block_registry.gd`, consumers (`player`, `player_visual`, `game_state`, `shell_ui`, `hud`), `scripts/validate_repo.py`, `scripts/wiki/generate_wiki.py`, smoke, character wiki pages | Met: legacy input re-saves canonical; all ten bodies resolve for both canonical and legacy inputs to the same filenames; validator + smoke 334/334. |
 | PR-02 | code | Character preview/rendering contract | The body/gear compositing order and resolution rules live only in `player_visual.gd` code; no written contract exists for other consumers (creation preview, Character panel) to render the same character. | `scripts/player/player_visual.gd` (`_draw` order: accessory -> body -> feet -> torso -> weapon/swing -> helmet; `_resolve_body_texture`, `presentation_snapshot()`), `data/player_visuals.json` | A documented compositing contract; `presentation_snapshot()` assertions in smoke; no rendering change in this row. |
 | PR-03 | code | Gear overlay refresh/alignment | A matching body-specific gear PNG can intermittently fail to appear or align after character/load/world-transition/forge refresh paths (known_issues row 1). | `scripts/player/player_visual.gd` (`sync_from_player`, `_resolve_body_texture`, `_gear_texture`), `scripts/player/player.gd` (`apply_character`), `scripts/world/block_registry.gd` texture cache | Reproduction across all ten bodies and each transition; a forced/verified presentation refresh; smoke check asserting post-transition snapshot correctness; screenshot review. |
 | PR-04 | code + art | Directional action animation | Pick/axe motion snaps through three poses; anchors, arc continuity, mirroring, and timing need work; swords have no authored sequence. Code lane: anchors/mirroring/phase timing/arc perception with the EXISTING 90 swing PNGs. Art lane: any new pose frames and the sword families (see image matrix). | `scripts/player/player_visual.gd` (`_draw_swing`, `refresh_facing` -- only the visual child mirrors), `data/player_visuals.json` swing conventions | Code: readable continuous-feeling arc from existing art, mechanics/timing untouched, mining-frame baselines unchanged. Art: via image matrix only. |
@@ -61,47 +61,38 @@ any presentation fix, so every later row closes against a green suite. PR-01
 and PR-04's rewrite half are explicitly **not started** in the PR-00 planning
 tranche, per operator instruction.
 
-## Terminology Migration Plan
+## Terminology Contract (PR-01 landed 2026-07-20)
 
-Do **not** blind-replace `default`/`female` with `masculine`/`feminine`.
-The current runtime and validator require the legacy ids:
+Body-variant terminology is migrated. The contract now in force:
 
-- `data/character_data.json` `body_variants` -- validator
-  `scripts/validate_repo.py:330` fails unless the id list is exactly
-  `["default", "female"]`.
-- `data/player_visuals.json` `body_variants`/`default_body_variant` --
-  enforced at `scripts/validate_repo.py:568` (`EXPECTED_BODY_VARIANTS`).
-- `scripts/world/block_registry.gd:66-79` -- `normalize_body_variant`
-  (unknown -> `default`) and `player_body_id` (art ids `<species>` and
-  `<species>_female`).
-- `scripts/shell/game_state.gd` -- normalizes on profile load and character
-  create; `scripts/player/player.gd:200` on apply; `player_visual.gd:158`
-  hardcodes the `"default"` fallback body.
-- `scripts/main/smoke_test.gd` -- asserts `normalize_body_variant("female")
-  == "female"` and round-trips `body_variant: "female"`.
-- On disk: 30 player PNGs and 120 gear PNGs are named on
-  `<species>`/`<species>_female` bases.
+1. **Canonical ids**: `masculine`, `feminine`. These are the only ids in
+   `data/character_data.json` `body_variants` (display names "Masculine" /
+   "Feminine") and `data/player_visuals.json`
+   `body_variants`/`default_body_variant` (`masculine`).
+2. **Legacy aliases**: `default -> masculine`, `female -> feminine`, held in
+   the data-owned `player_visuals.json` `body_variant_aliases`.
+   `BlockRegistry.normalize_body_variant` is the single alias authority —
+   every caller (game_state, player, player_visual, shell UI, hud, smoke)
+   routes through it, and invalid/missing values return the canonical default
+   (`masculine`).
+3. **Asset suffix map preserves existing filenames**: no PNG was renamed.
+   `player_visuals.json` `body_variant_asset_suffix`
+   (`masculine -> ""`, `feminine -> "_female"`) maps canonical ids to the
+   existing `<species>` / `<species>_female` files; `player_body_id` and the
+   wiki generator both resolve through it.
+4. **New saves write canonical ids**: character creation normalizes to
+   `masculine`/`feminine` on write.
+5. **Legacy saves normalize on load**: `game_state` normalizes each stored
+   `body_variant` on shell load and re-saves canonical; no save-version bump.
 
-Target design (one bounded future increment, after PR-00):
-
-1. **Canonical ids**: `masculine`, `feminine`. **Legacy aliases**:
-   `default` -> `masculine`, `female` -> `feminine`.
-2. One alias authority: extend `BlockRegistry.normalize_body_variant` to map
-   aliases to canonical; every other caller already routes through it.
-3. **No PNG renames**: `player_body_id` maps `masculine` -> `<species>` and
-   `feminine` -> `<species>_female`, so all 150 body/gear assets resolve
-   unchanged.
-4. Data: `character_data.json` body_variants become
-   `masculine`/`feminine` (display names "Masculine"/"Feminine");
-   `player_visuals.json` `body_variants`/`default_body_variant` follow.
-5. Validator: update both expected-list checks in the same commit and add an
-   alias-contract check (aliases must normalize, canonical must round-trip).
-6. Saves: profile load normalizes legacy ids through the alias map; **new
-   saves write canonical ids** from that point on. No save-version bump --
-   normalization on read covers old shells.
-7. Smoke: keep a legacy-alias fixture (`body_variant: "female"` loads,
-   renders `<species>_female`, re-saves `feminine`) plus canonical
-   round-trips and texture-resolution parity for all ten bodies.
+Validator enforcement: `scripts/validate_repo.py` requires the canonical id
+lists plus the exact `body_variant_aliases` and `body_variant_asset_suffix`
+maps, and derives player-body filenames through the suffix map. Smoke proves
+the alias contract (`normalize_body_variant` of `default`/`female`/invalid ->
+canonical), that a character created with the legacy `"female"` id re-saves
+`"feminine"`, and that all ten bodies resolve for both canonical and legacy
+inputs to the same `<species>`/`<species>_female` files while storing the
+canonical id.
 
 ## Image-Production Follow-Up Matrix
 

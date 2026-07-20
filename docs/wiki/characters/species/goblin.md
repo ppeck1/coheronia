@@ -1,6 +1,6 @@
 # Goblin
 
-Generated: 2026-07-15
+Generated: 2026-07-20
 
 > `Character species` page.
 
@@ -13,7 +13,7 @@ Generated: 2026-07-15
 | Abilities | none |
 | Weaknesses | none |
 | Lifespan | standard |
-| Visual families | Default: 1 canonical image + 2 variants; Female: 1 canonical image + 2 variants |
+| Visual families | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants |
 
 ## Summary
 
@@ -21,11 +21,11 @@ Goblin is a live playable species definition from `data/character_data.json`.
 
 ## Body Art
 
-### Default body (goblin)
+### Masculine body (goblin)
 
-![Goblin Default - goblin (Canonical image)](../../../../art/generated/players/goblin.png)
-![Goblin Default - goblin_01 (Variant 1)](../../../../art/generated/players/goblin_01.png)
-![Goblin Default - goblin_02 (Variant 2)](../../../../art/generated/players/goblin_02.png)
+![Goblin Masculine - goblin (Canonical image)](../../../../art/generated/players/goblin.png)
+![Goblin Masculine - goblin_01 (Variant 1)](../../../../art/generated/players/goblin_01.png)
+![Goblin Masculine - goblin_02 (Variant 2)](../../../../art/generated/players/goblin_02.png)
 
 | Asset id | Role | File |
 |---|---|---|
@@ -33,11 +33,11 @@ Goblin is a live playable species definition from `data/character_data.json`.
 | `goblin_01` | Variant 1 | `../../../../art/generated/players/goblin_01.png` |
 | `goblin_02` | Variant 2 | `../../../../art/generated/players/goblin_02.png` |
 
-### Female body (goblin_female)
+### Feminine body (goblin_female)
 
-![Goblin Female - goblin_female (Canonical image)](../../../../art/generated/players/goblin_female.png)
-![Goblin Female - goblin_female_01 (Variant 1)](../../../../art/generated/players/goblin_female_01.png)
-![Goblin Female - goblin_female_02 (Variant 2)](../../../../art/generated/players/goblin_female_02.png)
+![Goblin Feminine - goblin_female (Canonical image)](../../../../art/generated/players/goblin_female.png)
+![Goblin Feminine - goblin_female_01 (Variant 1)](../../../../art/generated/players/goblin_female_01.png)
+![Goblin Feminine - goblin_female_02 (Variant 2)](../../../../art/generated/players/goblin_female_02.png)
 
 | Asset id | Role | File |
 |---|---|---|

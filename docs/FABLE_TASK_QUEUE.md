@@ -1000,7 +1000,7 @@ authority for scope, lanes, and acceptance. Summary:
 | ID | Lane | Row | State |
 |---|---|---|---|
 | PR-00 | code | Smoke harness truth repair (`fq17_hud_edit_direct_manipulation`, `fq09_inventory_board_drag_and_sort`) | Done 2026-07-20 -- suite 334/334 PASS |
-| PR-01 | code | Terminology migration: canonical `masculine`/`feminine`, legacy aliases `default`/`female` (compatibility plan locked in the matrix; do not blind-replace) | Planned |
+| PR-01 | code | Terminology migration: canonical `masculine`/`feminine`, legacy aliases `default`/`female` (no PNG renames) | Done 2026-07-20 -- suite 334/334 PASS |
 | PR-02 | code | Character preview/rendering contract | Planned |
 | PR-03 | code | Gear overlay refresh/alignment defect | Planned |
 | PR-04 | code + art | Directional action animation (code: anchors/mirroring/timing with existing art; art: new frames via image matrix) | Planned |
@@ -1024,20 +1024,18 @@ You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 
 Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md, and
 docs/PRESENTATION_RECOVERY_MATRIX.md. FQ-00 through FQ-21 are done; the
-native HUD-kit stabilization is merged. PR-00 (smoke harness truth repair)
-is done -- the suite is back to 334/334.
+native HUD-kit stabilization is merged. PR-00 (smoke truth) and PR-01
+(masculine/feminine terminology migration) are done -- the suite is
+334/334. Body-variant ids are now canonical masculine/feminine with the
+legacy default/female kept only as read-time aliases in
+BlockRegistry.normalize_body_variant; PNG filenames were not renamed.
 
-The next code-lane row is PR-01: the masculine/feminine terminology
-migration. Follow the matrix's Terminology Migration Plan exactly and do
-NOT blind-rename default/female. The runtime, scripts/validate_repo.py (the
-body-variant list checks at ~lines 330 and 568), the smoke, and 150 PNG
-filenames still expect the legacy ids until this increment lands: add
-canonical masculine/feminine with aliases default -> masculine and
-female -> feminine routed through BlockRegistry.normalize_body_variant,
-keep player_body_id mapping canonical ids onto the existing
-<species>/<species>_female filenames (no PNG renames), update both
-validator list checks in the same commit, and have new saves write
-canonical ids while old shells normalize on load.
+The next code-lane row is PR-02: write the character preview/rendering
+contract. Document the compositing/resolution rules that live in
+scripts/player/player_visual.gd (the _draw layering order and
+_resolve_body_texture / presentation_snapshot) so other consumers
+(creation preview, Character panel) can render the same character, and add
+presentation_snapshot() smoke assertions. No rendering change in that row.
 
 Rows marked art are image production and are NOT code-lane work. Close
 every row with validator, Capsule Doctor, a waited Godot smoke, and real

@@ -2762,7 +2762,8 @@ func _refresh_character_panel() -> void:
 	var name := str(character.get("name", "Wanderer"))
 	var species := str(character.get("species", player.species_id if player != null else "human"))
 	var role := str(character.get("role", "homesteader"))
-	var body := str(character.get("body_variant", player.body_variant if player != null else "default"))
+	var body := BlockRegistry.normalize_body_variant(
+		str(character.get("body_variant", player.body_variant if player != null else "masculine")))
 	var health_text := "n/a"
 	var attunement_text := "n/a"
 	var carried_text := "n/a"
