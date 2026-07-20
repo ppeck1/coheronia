@@ -18,6 +18,7 @@ REQUIRED_FILES = [
     "docs/HANDOFF.md",
     "docs/PROTOCOL_USAGE.md",
     "docs/ART_DIRECTION_AND_CANON.md",
+    "docs/CHARACTER_RENDERING_CONTRACT.md",
     "docs/OPENING_STORYBOARD.md",
     "docs/WORK_ORDER_FQ_09C_CANON_ART_PROLOGUE.md",
     "docs/ASSET_ROADMAP.md",
@@ -173,6 +174,16 @@ for required_phrase in ["Live Assets", "Planned Assets", "Prompt Packs",
     if required_phrase not in roadmap_text:
         fail(f"asset roadmap missing phrase: {required_phrase}")
 print("PASS asset roadmap authority")
+
+# PR-02: the character rendering contract must document the resolution rules,
+# the compositing order, and the presentation-snapshot surface so every
+# consumer composes the same character.
+render_contract_text = (ROOT / "docs/CHARACTER_RENDERING_CONTRACT.md").read_text(encoding="utf-8")
+for required_phrase in ["Body Resolution", "Gear Resolution", "Compositing Order",
+                        "Presentation Snapshot", "CHARACTER_LAYER_ORDER"]:
+    if required_phrase not in render_contract_text:
+        fail(f"character rendering contract missing phrase: {required_phrase}")
+print("PASS character rendering contract authority")
 
 # FQ-09U0: the adaptive-music planning contract must stay coherent — the
 # manifest's musical grid matches the locked production contract, all four

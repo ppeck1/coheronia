@@ -8,6 +8,15 @@ const RIGHT := 1
 const LEFT := -1
 const DEFAULT_APPEARANCE_BODY := Color(0.92156863, 0.83137255, 0.54901961)
 
+## The character compositing order, back to front. `_draw` paints these layers
+## in exactly this sequence; any consumer that reproduces the character
+## (creation preview, Character panel) must honor it. Documented in
+## docs/CHARACTER_RENDERING_CONTRACT.md and pinned by the smoke contract check.
+## `weapon_or_swing` is the swing overlay while a mining swing is active,
+## otherwise the idle weapon.
+const CHARACTER_LAYER_ORDER: Array[String] = [
+	"accessory", "body", "feet", "torso", "weapon_or_swing", "helmet"]
+
 var _player
 var _species_id := "human"
 var _body_variant := "masculine"
@@ -128,6 +137,10 @@ func tool_swing_uses_procedural_fallback() -> bool:
 		_player.swing_phase() if _player != null else -1) == null
 
 
+## The machine-readable character-rendering contract surface. Any consumer that
+## must reproduce this character reads these fields rather than the private draw
+## state. See docs/CHARACTER_RENDERING_CONTRACT.md; the smoke contract check
+## pins the key set and the layer order.
 func presentation_snapshot() -> Dictionary:
 	return {
 		"species": _species_id,
@@ -141,6 +154,7 @@ func presentation_snapshot() -> Dictionary:
 		"swing_phase": _player.swing_phase() if _player != null else -1,
 		"active_tool_id": active_tool_id(),
 		"visible_gear": visible_gear_ids(),
+		"layer_order": CHARACTER_LAYER_ORDER,
 	}
 
 
@@ -231,6 +245,10 @@ func _skin_region_contains(x: int, y: int) -> bool:
 	return false
 
 
+## Paints the character back to front in CHARACTER_LAYER_ORDER
+## (accessory, body, feet, torso, weapon_or_swing, helmet). Keep this sequence
+## and CHARACTER_LAYER_ORDER in lockstep — the rendering contract and the smoke
+## contract check depend on them agreeing.
 func _draw() -> void:
 	var gear := visible_gear_ids()
 	_draw_optional_overlay(str(gear.get("accessory", "")))

@@ -39,6 +39,19 @@ normalize on load and re-save canonical. `data/character_data.json` and
 `validate_repo.py`, the wiki generator, the smoke, and the character wiki
 pages were updated together.
 
+**Character rendering contract (PR-02 done 2026-07-20):** the body/gear
+resolution rules and the back-to-front compositing order are written up in
+`docs/CHARACTER_RENDERING_CONTRACT.md` (validator-required authority) so the
+in-world `PlayerVisual`, the creation preview, and the Character panel can all
+compose the same character. `player_visual.gd` gained
+`CHARACTER_LAYER_ORDER` (the single source of the layer order, exposed in
+`presentation_snapshot()`); the `pr02_character_render_contract` smoke check
+pins the snapshot key set, the layer order, and the drawn slots. No rendering
+change — `_draw` is untouched. The suite is now **335/335** (two consecutive
+waited-GUI runs); PR-02 also made the fq19 map/events geometry check start from
+the default layout (like fq17) so it is independent of any HUD size a prior run
+persisted into `shell.json`.
+
 ## Historical State (2026-07-16 public refresh)
 
 **The native HUD-kit stabilization is merged locally and verified at 322/322.**
@@ -763,7 +776,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | HUD-kit runtime verify | PASS | `python scripts/art/sync_hud_kit.py --verify-runtime` 2026-07-20 -- 19 source/runtime hashes + layout verified |
 | Pixel-art verifier | PASS 386 PNGs | `python scripts/art/verify_pixel_assets.py` 2026-07-20 -- size/palette/alpha/edge contracts satisfied (painted chrome via the FQ-20 light pass) |
 | Capsule doctor | PASS | `public_repo` profile 2026-07-20: healthy |
-| Automated smoke | **PASS 334/334** | isolated waited Windows Godot 4.6.1 runs; two consecutive PASS after PR-01 (2026-07-20 14:31). PR-00 repaired the HUD default-size + inventory-board cell rebuild in `scripts/ui/hud.gd`; PR-01 added the body-variant alias contract checks. The `fq17` reset check now resets the layout at its own start so it is profile-state independent (a prior run's persisted HUD size no longer skews the baseline). No assertion weakened. |
+| Automated smoke | **PASS 335/335** | isolated waited Windows Godot 4.6.1 runs; two consecutive PASS after PR-02 (2026-07-20). PR-00 repaired the HUD default-size + inventory-board cell rebuild; PR-01 added the body-variant alias-contract checks; PR-02 added `pr02_character_render_contract`. The `fq17` and `fq19` layout checks reset to the default layout at their own start so they are profile-state independent (a prior run's persisted HUD geometry no longer skews the baseline). No assertion weakened. |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls). Authored-art closeout: isolated hidden/windowed tour wrote and visually passed all nine frames at 2026-07-14 15:04, including varied terrain/flora and inventory icons. |
 
@@ -843,18 +856,21 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 FQ-00 through FQ-21 are complete (full lineage in `docs/FABLE_TASK_QUEUE.md`
 and the historical sections above). The active queue is the **presentation
 recovery arc** planned in `docs/PRESENTATION_RECOVERY_MATRIX.md`. PR-00 (smoke
-harness truth repair) and PR-01 (masculine/feminine terminology migration) are
-**done** -- the suite is 334/334.
+harness truth repair), PR-01 (masculine/feminine terminology migration), and
+PR-02 (character preview/rendering contract) are **done** -- the suite is
+335/335.
 
-1. **PR-02 next (code lane)**: write the character preview/rendering contract.
-   Document the compositing/resolution rules that currently live only in
-   `scripts/player/player_visual.gd` (the `_draw` layering order and
-   `_resolve_body_texture`/`presentation_snapshot`) so other consumers (creation
-   preview, Character panel) can render the same character, and add
-   `presentation_snapshot()` smoke assertions. No rendering change in that row.
-2. Then the remaining code-lane rows in matrix order: gear-overlay
-   refresh/alignment, action animation code half, selection preview, Character
-   HUD rebuild, backdrop contour skirt, and skill panel resize.
+1. **PR-03 next (code lane)**: gear overlay refresh/alignment. Reproduce the
+   intermittent gear-overlay miss/misalignment across all ten bodies and the
+   character/load/world-transition/forge refresh paths, then force and verify a
+   presentation refresh at the authoritative state boundary. Build on the PR-02
+   contract (`player_visual.gd` `_resolve_body_texture`/`_gear_texture`/
+   `presentation_snapshot`, `block_registry` texture cache) and add a smoke
+   check asserting post-transition snapshot correctness. Presentation only --
+   no gameplay/equipment change, no image production.
+2. Then the remaining code-lane rows in matrix order: action animation code
+   half, selection preview, Character HUD rebuild, backdrop contour skirt, and
+   skill panel resize.
 3. Rows marked **art** (new swing/sword/iron-gear frames, HUD chrome
    replacement) are image production through the matrix's image-production
    table and `docs/wiki/hud_asset_replacement_studio.md` -- never code-lane

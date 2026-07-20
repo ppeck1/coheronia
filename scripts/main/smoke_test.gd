@@ -992,6 +992,11 @@ func _run() -> void:
 
 	# Map and Events are independent adjacent modules; either can toggle while
 	# the other remains open, and contextual chips sit below the taller one.
+	# Start these geometry checks from the default layout so a HUD size/position
+	# a prior run persisted into the shell profile cannot skew the panel rects
+	# (fq19 event bounds, fq21 map masking); the widgets restore their own state.
+	hud.reset_hud_layout()
+	await get_tree().process_frame
 	var _fq19_events_before: bool = hud._event_panel != null and hud._event_panel.visible
 	if hud._event_panel != null:
 		hud._event_panel.visible = true
@@ -2829,6 +2834,40 @@ func _run() -> void:
 	var _pv_shape: RectangleShape2D = player.get_node("CollisionShape2D").shape
 	_check("player_visual_collision_unchanged", _pv_shape.size == Vector2(12, 28),
 		"size=%s" % str(_pv_shape.size))
+
+	# --- PR-02: character rendering contract surface ---
+	# presentation_snapshot() is the documented surface every consumer reads;
+	# pin its key set, the compositing order, and that visible_gear exposes only
+	# the drawn slots (the crude gear from the block above is still equipped).
+	player.apply_character({"species": "human", "body_variant": "masculine",
+		"appearance": "tan"})
+	var _pr02_snap: Dictionary = _pv.presentation_snapshot()
+	var _pr02_has_all_keys := true
+	for _pr02_key in ["species", "body_variant", "visual_variant",
+			"requested_body_id", "resolved_body_id", "using_body_art",
+			"appearance_recolored", "facing_sign", "swing_phase", "active_tool_id",
+			"visible_gear", "layer_order"]:
+		if not _pr02_snap.has(_pr02_key):
+			_pr02_has_all_keys = false
+	var _pr02_layer_ok: bool = Array(_pr02_snap.get("layer_order", [])) == \
+		["accessory", "body", "feet", "torso", "weapon_or_swing", "helmet"]
+	var _pr02_body_ok: bool = str(_pr02_snap.get("requested_body_id", "")) == "human" \
+		and str(_pr02_snap.get("resolved_body_id", "")) == "human" \
+		and bool(_pr02_snap.get("using_body_art", false))
+	var _pr02_gear: Dictionary = _pr02_snap.get("visible_gear", {})
+	var _pr02_slots_ok := true
+	for _pr02_slot in _pr02_gear.keys():
+		if str(_pr02_slot) not in ["weapon", "helmet", "torso", "feet", "accessory"]:
+			_pr02_slots_ok = false
+	var _pr02_gear_ok: bool = _pr02_slots_ok \
+		and str(_pr02_gear.get("weapon", "")) == "sword_crude" \
+		and str(_pr02_gear.get("helmet", "")) == "helmet_crude" \
+		and str(_pr02_gear.get("torso", "")) == "torso_crude" \
+		and str(_pr02_gear.get("feet", "")) == "feet_crude"
+	_check("pr02_character_render_contract",
+		_pr02_has_all_keys and _pr02_layer_ok and _pr02_body_ok and _pr02_gear_ok,
+		"keys=%s layer=%s body=%s gear=%s" % [str(_pr02_has_all_keys),
+			str(_pr02_layer_ok), str(_pr02_body_ok), str(_pr02_gear)])
 
 	# --- FQ-13P3: player cosmetic body variants (full-body pool) ---
 	# distinct sprite per variant (human has a 2-entry pool); variant 0 canonical.
