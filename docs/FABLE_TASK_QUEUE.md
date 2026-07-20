@@ -999,7 +999,7 @@ authority for scope, lanes, and acceptance. Summary:
 
 | ID | Lane | Row | State |
 |---|---|---|---|
-| PR-00 | code | Smoke harness truth repair (`fq17_hud_edit_direct_manipulation`, `fq09_inventory_board_drag_and_sort` red; suite 332/334 FAIL on 2026-07-20) | Open -- first priority |
+| PR-00 | code | Smoke harness truth repair (`fq17_hud_edit_direct_manipulation`, `fq09_inventory_board_drag_and_sort`) | Done 2026-07-20 -- suite 334/334 PASS |
 | PR-01 | code | Terminology migration: canonical `masculine`/`feminine`, legacy aliases `default`/`female` (compatibility plan locked in the matrix; do not blind-replace) | Planned |
 | PR-02 | code | Character preview/rendering contract | Planned |
 | PR-03 | code | Gear overlay refresh/alignment defect | Planned |
@@ -1024,13 +1024,22 @@ You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 
 Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md, and
 docs/PRESENTATION_RECOVERY_MATRIX.md. FQ-00 through FQ-21 are done; the
-native HUD-kit stabilization is merged. The active queue is the
-presentation recovery arc: take PR-00 (make fq17_hud_edit_direct_manipulation
-and fq09_inventory_board_drag_and_sort green without weakening assertions)
-before any presentation row. PR-01 (masculine/feminine terminology
-migration) must follow its locked compatibility plan -- runtime and
-validator still expect default/female until that increment lands. Rows
-marked art are image production and are NOT code-lane work. Close every
-row with validator, Capsule Doctor, a waited Godot smoke, and real
+native HUD-kit stabilization is merged. PR-00 (smoke harness truth repair)
+is done -- the suite is back to 334/334.
+
+The next code-lane row is PR-01: the masculine/feminine terminology
+migration. Follow the matrix's Terminology Migration Plan exactly and do
+NOT blind-rename default/female. The runtime, scripts/validate_repo.py (the
+body-variant list checks at ~lines 330 and 568), the smoke, and 150 PNG
+filenames still expect the legacy ids until this increment lands: add
+canonical masculine/feminine with aliases default -> masculine and
+female -> feminine routed through BlockRegistry.normalize_body_variant,
+keep player_body_id mapping canonical ids onto the existing
+<species>/<species>_female filenames (no PNG renames), update both
+validator list checks in the same commit, and have new saves write
+canonical ids while old shells normalize on load.
+
+Rows marked art are image production and are NOT code-lane work. Close
+every row with validator, Capsule Doctor, a waited Godot smoke, and real
 pass/fail evidence in the docs.
 ```

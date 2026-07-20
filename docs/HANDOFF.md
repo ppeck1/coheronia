@@ -11,14 +11,23 @@ compatibility plan, and the image-production follow-up matrix). The queue's
 
 **Verified 2026-07-20 baseline** (branch `main`, commit `f545daf`): static
 validator PASS, strict asset audit PASS (clean), HUD-kit runtime verify PASS
-(19 hashes + layout), Capsule Doctor `public_repo` PASS (healthy), and a
-fresh waited-GUI Godot 4.6.1 smoke at **332/334 FAIL**. The two red checks
-are `fq17_hud_edit_direct_manipulation` (`grip=false reset=false`) and
-`fq09_inventory_board_drag_and_sort` (`drag_payload=false`) -- earlier docs
-that named `fq09u1_live_clip_switch` as one of the red pair are corrected:
-the clip switch passed this run. Repairing the two red checks is PR-00 and
-precedes any presentation fix. Until they are green, the suite must not be
-described as passing.
+(19 hashes + layout), Capsule Doctor `public_repo` PASS (healthy). The
+waited-GUI Godot 4.6.1 smoke started this arc at **332/334 FAIL**
+(`fq17_hud_edit_direct_manipulation` reset + `fq09_inventory_board_drag_and_sort`
+drag payload; the `fq09u1_live_clip_switch` check that older docs misnamed as
+red actually passed).
+
+**PR-00 done 2026-07-20 — smoke back to 334/334 PASS.** Both root causes were
+in `scripts/ui/hud.gd`, fixed without weakening any assertion: (1)
+`_hud_default_sizes["crest"]` was captured before the crest laid out (a
+`(250,40)` stub), so `reset_hud_layout` restored the wrong size and re-saved it
+into `shell.json` (that stale write is what intermittently flipped the check's
+`visibility`/`grip` sub-flags too) — a new `_hud_natural_size()` derives the
+default from `get_combined_minimum_size()`; (2) `_clear_children` used deferred
+`queue_free()`, so rebuilt board cells collided on names like
+`InventoryDockSlot1` and Godot renamed the fresh ones — it now `remove_child`s
+before freeing. See `docs/PRESENTATION_RECOVERY_MATRIX.md` (PR-00). Next code
+row is PR-01 (masculine/feminine terminology migration).
 
 **Terminology caution:** body-variant ids remain `default`/`female` across
 runtime, data, validator, smoke, and 150 PNG filenames. The migration to
@@ -749,7 +758,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | HUD-kit runtime verify | PASS | `python scripts/art/sync_hud_kit.py --verify-runtime` 2026-07-20 -- 19 source/runtime hashes + layout verified |
 | Pixel-art verifier | PASS 386 PNGs | `python scripts/art/verify_pixel_assets.py` 2026-07-20 -- size/palette/alpha/edge contracts satisfied (painted chrome via the FQ-20 light pass) |
 | Capsule doctor | PASS | `public_repo` profile 2026-07-20: healthy |
-| Automated smoke | **FAIL 332/334** | isolated waited Windows Godot 4.6.1 run wrote fresh `smoke_results.json` 2026-07-20 11:46. Red: `fq17_hud_edit_direct_manipulation` (`grip=false reset=false`; enter/move/resize/clamp true) and `fq09_inventory_board_drag_and_sort` (`drag_payload=false`; swap/dock/sort true). Tracked as PR-00 in `docs/PRESENTATION_RECOVERY_MATRIX.md`. `fq09u1_live_clip_switch` PASSED this run -- older notes naming it as red are superseded. |
+| Automated smoke | **PASS 334/334** | isolated waited Windows Godot 4.6.1 run wrote fresh `smoke_results.json` 2026-07-20 13:21 after the PR-00 fixes. The arc opened at 332/334 (`fq17_hud_edit_direct_manipulation` reset + `fq09_inventory_board_drag_and_sort` drag payload); both repaired in `scripts/ui/hud.gd` without weakening assertions. `fq09u1_live_clip_switch` PASSED throughout -- older notes naming it as red are superseded. |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls). Authored-art closeout: isolated hidden/windowed tour wrote and visually passed all nine frames at 2026-07-14 15:04, including varied terrain/flora and inventory icons. |
 
@@ -828,18 +837,24 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 
 FQ-00 through FQ-21 are complete (full lineage in `docs/FABLE_TASK_QUEUE.md`
 and the historical sections above). The active queue is the **presentation
-recovery arc** planned in `docs/PRESENTATION_RECOVERY_MATRIX.md`:
+recovery arc** planned in `docs/PRESENTATION_RECOVERY_MATRIX.md`. PR-00 (smoke
+harness truth repair) is **done** -- the suite is back to 334/334.
 
-1. **PR-00 first**: repair the two red smoke checks
-   (`fq17_hud_edit_direct_manipulation`, `fq09_inventory_board_drag_and_sort`)
-   without weakening assertions, so every later row closes against a green
-   334-check suite.
-2. Then the code-lane presentation rows in matrix order: terminology
-   migration (PR-01, strictly per its compatibility plan -- runtime and
-   validator expect `default`/`female` until that increment lands),
-   preview/rendering contract, gear-overlay refresh/alignment, action
-   animation code half, selection preview, Character HUD rebuild, backdrop
-   contour skirt, and skill panel resize.
+1. **PR-01 next (code lane)**: the masculine/feminine terminology migration.
+   Follow the matrix's Terminology Migration Plan exactly -- do NOT blind-rename
+   `default`/`female`. The runtime, `scripts/validate_repo.py` (the body-variant
+   list checks at ~lines 330 and 568), the smoke, and 150 PNG filenames still
+   expect the legacy ids until this increment lands: add canonical
+   `masculine`/`feminine` with aliases `default` -> `masculine` /
+   `female` -> `feminine` routed through `BlockRegistry.normalize_body_variant`,
+   keep `player_body_id` mapping canonical ids onto the existing
+   `<species>`/`<species>_female` filenames (no PNG renames), update both
+   validator list checks in the same commit, and have new saves write canonical
+   ids while old shells normalize on load.
+2. Then the remaining code-lane rows in matrix order: preview/rendering
+   contract, gear-overlay refresh/alignment, action animation code half,
+   selection preview, Character HUD rebuild, backdrop contour skirt, and skill
+   panel resize.
 3. Rows marked **art** (new swing/sword/iron-gear frames, HUD chrome
    replacement) are image production through the matrix's image-production
    table and `docs/wiki/hud_asset_replacement_studio.md` -- never code-lane

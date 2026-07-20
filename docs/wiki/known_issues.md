@@ -15,7 +15,7 @@ This page separates confirmed presentation defects from intentional scope limits
 
 ## Intentional Current Limits
 
-- Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The full-smoke drag/sort assertion (`fq09_inventory_board_drag_and_sort`, `drag_payload=false` while swap/dock/sort pass) and the HUD edit-mode assertion (`fq17_hud_edit_direct_manipulation`, `grip=false reset=false`) were red in the fresh 2026-07-20 332/334 run; both are harness/runtime regressions tracked as PR-00 in `docs/PRESENTATION_RECOVERY_MATRIX.md`, not evidence that the features are absent.
+- Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The full-smoke drag/sort assertion (`fq09_inventory_board_drag_and_sort`) and the HUD edit-mode assertion (`fq17_hud_edit_direct_manipulation`) were briefly red at 332/334 when the inventory-board work landed; both were repaired in `scripts/ui/hud.gd` and the suite is back to 334/334 (2026-07-20, PR-00 in `docs/PRESENTATION_RECOVERY_MATRIX.md`).
 - Settlers are an abstract population model rather than individual NPC workers.
 - Enemies use direct walk-and-hop behavior without pathfinding.
 - The adaptive score is one authored suite and remains balance-in-progress.

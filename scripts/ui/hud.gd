@@ -346,7 +346,7 @@ func _register_hud_widgets() -> void:
 		if control == null:
 			continue
 		_hud_default_positions[widget_id] = control.position
-		_hud_default_sizes[widget_id] = _hud_widget_size(control)
+		_hud_default_sizes[widget_id] = _hud_natural_size(control)
 		control.scale = Vector2.ONE
 		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -528,6 +528,23 @@ func _hud_widget_size(control: Control) -> Vector2:
 	if measured.y <= 0.0:
 		measured.y = 80.0
 	return measured.round()
+
+
+## The content-driven default size of a widget. `_register_hud_widgets` runs in
+## `_ready` before containers have laid out, so `control.size` is still a stub;
+## the combined minimum size gives the real natural extent synchronously. This
+## is the size `reset_hud_layout` restores to, so it must match the widget's
+## live size once its content has settled.
+func _hud_natural_size(control: Control) -> Vector2:
+	var natural := control.get_combined_minimum_size()
+	var minimum := control.custom_minimum_size
+	natural.x = maxf(natural.x, maxf(minimum.x, control.size.x))
+	natural.y = maxf(natural.y, maxf(minimum.y, control.size.y))
+	if natural.x <= 0.0:
+		natural.x = 160.0
+	if natural.y <= 0.0:
+		natural.y = 80.0
+	return natural.round()
 
 
 func _hud_min_size(widget_id: String, control: Control) -> Vector2:
@@ -2988,7 +3005,12 @@ func _inventory_summary_text(sorted_ids: Array, equipped: Dictionary) -> String:
 func _clear_children(parent: Control) -> void:
 	if parent == null:
 		return
+	# Remove from the tree immediately, not just queue_free(): a deferred free
+	# leaves the old cell in the tree when the rebuild re-adds a cell with the
+	# same node name (e.g. InventoryDockSlot1), so Godot renames the fresh cell
+	# to avoid the collision and name-based lookups then miss it.
 	for child in parent.get_children():
+		parent.remove_child(child)
 		child.queue_free()
 
 

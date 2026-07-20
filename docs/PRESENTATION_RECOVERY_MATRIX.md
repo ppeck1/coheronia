@@ -24,32 +24,27 @@ checks.
 
 ## Verified Baseline (PR-00, 2026-07-20)
 
-Recorded from real runs on branch `main` at commit `f545daf`:
+Original planning baseline (branch `main` at commit `f545daf`): validator,
+strict asset audit, HUD-kit runtime verify, and Capsule Doctor all PASS; the
+Godot 4.6.1 waited-GUI smoke was **FAIL 332/334** with two red checks
+(`fq17_hud_edit_direct_manipulation`, `fq09_inventory_board_drag_and_sort`).
+The `fq09u1_live_clip_switch` check passed that run -- older docs that named it
+as one of the red pair are superseded.
 
-| Gate | Result | Evidence |
+**PR-00 resolved 2026-07-20.** The smoke is now **334/334 PASS** on a fresh
+waited-GUI run. Both root causes were in `scripts/ui/hud.gd`; no smoke
+assertion was weakened:
+
+| Failing check | Root cause | Fix |
 |---|---|---|
-| `python scripts/validate_repo.py` | PASS | all file/json/contract checks green, 0 pending optional assets |
-| `python scripts/asset_audit.py --strict` | PASS | "Clean: no findings or data bugs." |
-| `python scripts/art/sync_hud_kit.py --verify-runtime` | PASS | 19 source/runtime hashes + layout verified |
-| `capsule_doctor.py . --profile public_repo` | PASS | "Result: healthy" |
-| Godot 4.6.1 smoke (`COHERONIA_SMOKE=1`, waited GUI run) | **FAIL 332/334** | fresh `smoke_results.json` 2026-07-20 11:46 |
-
-The two red assertions (correcting older docs that misnamed the pair -- the
-`fq09u1_live_clip_switch` check passed this run):
-
-| Failing check | Recorded detail | Reading |
-|---|---|---|
-| `fq17_hud_edit_direct_manipulation` | `grip=false reset=false` (enter/move/resize/clamp all true) | The edit-mode corner-grip resize step and layout reset are not behaving under the harness; the earlier steps of the same check pass. Harness/runtime regression, not a missing feature. |
-| `fq09_inventory_board_drag_and_sort` | `drag_payload=false` (swap, dock assign/restore, and sort all true) | The board's real drag/drop payload path fails under the harness while the underlying swap/sort operations succeed. Harness/runtime regression, not a missing feature. |
-
-Repairing these two checks is tracked as row PR-00 below. Until they are
-green, no doc may describe the suite as fully passing.
+| `fq17_hud_edit_direct_manipulation` (`reset=false`; the earlier `visibility`/`grip` reds were profile-state contamination the same bug wrote back into `shell.json`) | `_hud_default_sizes["crest"]` was captured in `_register_hud_widgets()` during `_ready`, before the crest container laid out, so it stored a `(250,40)` stub instead of the real `(250,184)`. `reset_hud_layout` restored the stub and re-saved it, poisoning the profile. | New `_hud_natural_size()` derives the default from `get_combined_minimum_size()`, so reset restores the content-driven `(250,184)` and matches the live size. |
+| `fq09_inventory_board_drag_and_sort` (`drag_payload=false`) | `_clear_children` used deferred `queue_free()`, leaving old cells in the tree while the board re-added cells with identical names (`InventoryDockSlot%d`); Godot renamed the fresh cells to dodge the collision, so the name-based lookup only found the stale queued-for-deletion cell. | `_clear_children` now `remove_child`s each node immediately before `queue_free()`, so rebuilt cells keep their exact names. |
 
 ## Recovery Matrix
 
 | ID | Lane | Row | Current defect / goal | Primary code & contract surfaces | Acceptance |
 |---|---|---|---|---|---|
-| PR-00 | code | Smoke harness truth repair | Two red assertions (`fq17_hud_edit_direct_manipulation` grip/reset, `fq09_inventory_board_drag_and_sort` drag payload) keep the 334-suite at FAIL. | `scripts/main/smoke_test.gd`, `scripts/ui/hud.gd`, `scripts/ui/inventory_board*` | Both checks green in a fresh waited run; no assertion weakened to pass; suite result `PASS`. |
+| PR-00 | code | Smoke harness truth repair | **DONE 2026-07-20.** Two red assertions (`fq17_hud_edit_direct_manipulation` reset, `fq09_inventory_board_drag_and_sort` drag payload) kept the 334-suite at FAIL; both fixed in `scripts/ui/hud.gd` (natural default size + immediate child removal). | `scripts/ui/hud.gd` (`_hud_natural_size`, `_clear_children`) | Met: both checks green, no assertion weakened, fresh waited run **334/334 PASS**. |
 | PR-01 | code | Terminology migration (masculine/feminine) | Body-variant ids are `default`/`female` end-to-end; player-facing ids should become `masculine`/`feminine` without breaking saves, art resolution, or the validator. | See [Terminology Migration Plan](#terminology-migration-plan) | Legacy saves load via aliases and re-save canonical; texture resolution byte-identical for all 10 bodies; validator + smoke green on the new contract. |
 | PR-02 | code | Character preview/rendering contract | The body/gear compositing order and resolution rules live only in `player_visual.gd` code; no written contract exists for other consumers (creation preview, Character panel) to render the same character. | `scripts/player/player_visual.gd` (`_draw` order: accessory -> body -> feet -> torso -> weapon/swing -> helmet; `_resolve_body_texture`, `presentation_snapshot()`), `data/player_visuals.json` | A documented compositing contract; `presentation_snapshot()` assertions in smoke; no rendering change in this row. |
 | PR-03 | code | Gear overlay refresh/alignment | A matching body-specific gear PNG can intermittently fail to appear or align after character/load/world-transition/forge refresh paths (known_issues row 1). | `scripts/player/player_visual.gd` (`sync_from_player`, `_resolve_body_texture`, `_gear_texture`), `scripts/player/player.gd` (`apply_character`), `scripts/world/block_registry.gd` texture cache | Reproduction across all ten bodies and each transition; a forced/verified presentation refresh; smoke check asserting post-transition snapshot correctness; screenshot review. |
