@@ -47,10 +47,32 @@ compose the same character. `player_visual.gd` gained
 `CHARACTER_LAYER_ORDER` (the single source of the layer order, exposed in
 `presentation_snapshot()`); the `pr02_character_render_contract` smoke check
 pins the snapshot key set, the layer order, and the drawn slots. No rendering
-change — `_draw` is untouched. The suite is now **335/335** (two consecutive
-waited-GUI runs); PR-02 also made the fq19 map/events geometry check start from
-the default layout (like fq17) so it is independent of any HUD size a prior run
-persisted into `shell.json`.
+change — `_draw` is untouched. PR-02 also made the fq19 map/events geometry
+check start from the default layout (like fq17) so it is independent of any HUD
+size a prior run persisted into `shell.json`.
+
+**Gear overlay resolution/refresh (PR-03A done 2026-07-20; alignment PR-03B
+open):** the intermittent "gear fails to appear / incomplete-looking character"
+defect is fixed. Overlay *alignment* is a separate, still-open defect (PR-03B):
+the crude helmet floats ~6px above the head on the shorter bodies (goblin,
+dwarf) and the non-human crude torsos sit low — the overlays are drawn
+full-frame at `BODY_RECT` with no per-body transform. See
+`docs/PRESENTATION_RECOVERY_MATRIX.md` (PR-03B + the image-production matrix).
+`_gear_texture`/`_tool_swing_texture` used to key off `_resolved_body_id`, so a
+valid character whose body texture was momentarily unresolved (a cleared visual
+cache or a once-missing load during a character/load/world-transition/forge
+refresh) silently dropped every authored overlay to the procedural fallback.
+They now resolve against `effective_body_id()` — the resolved body when one
+loaded, otherwise the character's intended body id — so authored gear stays
+visible; and `player_visual.refresh_presentation()` re-resolves at the
+equip/forge boundaries (`apply_equipment`/`equip_item`/`swap_weapon`).
+Presentation only — no equipment/gameplay change, and normal-case resolution is
+byte-identical (when the body resolves, `effective_body_id == resolved_body_id`).
+`effective_body_id` is now in `presentation_snapshot()`. Smoke:
+`pr03_gear_overlay_resolves_all_bodies` (ten bodies resolve their body-specific
+crude gear) and `pr03_gear_survives_body_texture_miss` (gear survives a forced
+body-texture miss via the intended body id and recovers after a refresh). The
+suite is now **337/337** (two consecutive waited-GUI runs).
 
 ## Historical State (2026-07-16 public refresh)
 
@@ -776,7 +798,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | HUD-kit runtime verify | PASS | `python scripts/art/sync_hud_kit.py --verify-runtime` 2026-07-20 -- 19 source/runtime hashes + layout verified |
 | Pixel-art verifier | PASS 386 PNGs | `python scripts/art/verify_pixel_assets.py` 2026-07-20 -- size/palette/alpha/edge contracts satisfied (painted chrome via the FQ-20 light pass) |
 | Capsule doctor | PASS | `public_repo` profile 2026-07-20: healthy |
-| Automated smoke | **PASS 335/335** | isolated waited Windows Godot 4.6.1 runs; two consecutive PASS after PR-02 (2026-07-20). PR-00 repaired the HUD default-size + inventory-board cell rebuild; PR-01 added the body-variant alias-contract checks; PR-02 added `pr02_character_render_contract`. The `fq17` and `fq19` layout checks reset to the default layout at their own start so they are profile-state independent (a prior run's persisted HUD geometry no longer skews the baseline). No assertion weakened. |
+| Automated smoke | **PASS 337/337** | isolated waited Windows Godot 4.6.1 runs (2026-07-20, post PR-03). PR-00 repaired the HUD default-size + inventory-board cell rebuild; PR-01 added the body-variant alias-contract checks; PR-02 added `pr02_character_render_contract`; PR-03 added `pr03_gear_overlay_resolves_all_bodies` + `pr03_gear_survives_body_texture_miss`. The `fq17`/`fq19` layout checks reset to the default layout at their own start (profile-state independent). The real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun. No assertion weakened. |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls). Authored-art closeout: isolated hidden/windowed tour wrote and visually passed all nine frames at 2026-07-14 15:04, including varied terrain/flora and inventory icons. |
 
@@ -856,21 +878,24 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 FQ-00 through FQ-21 are complete (full lineage in `docs/FABLE_TASK_QUEUE.md`
 and the historical sections above). The active queue is the **presentation
 recovery arc** planned in `docs/PRESENTATION_RECOVERY_MATRIX.md`. PR-00 (smoke
-harness truth repair), PR-01 (masculine/feminine terminology migration), and
-PR-02 (character preview/rendering contract) are **done** -- the suite is
-335/335.
+harness truth repair), PR-01 (masculine/feminine terminology migration), PR-02
+(character preview/rendering contract), and PR-03A (gear overlay
+resolution/refresh hardening) are **done** -- the suite is 337/337. PR-03 was
+split: overlay *alignment* remains open as PR-03B.
 
-1. **PR-03 next (code lane)**: gear overlay refresh/alignment. Reproduce the
-   intermittent gear-overlay miss/misalignment across all ten bodies and the
-   character/load/world-transition/forge refresh paths, then force and verify a
-   presentation refresh at the authoritative state boundary. Build on the PR-02
-   contract (`player_visual.gd` `_resolve_body_texture`/`_gear_texture`/
-   `presentation_snapshot`, `block_registry` texture cache) and add a smoke
-   check asserting post-transition snapshot correctness. Presentation only --
-   no gameplay/equipment change, no image production.
-2. Then the remaining code-lane rows in matrix order: action animation code
-   half, selection preview, Character HUD rebuild, backdrop contour skirt, and
-   skill panel resize.
+1. **PR-03B next (code lane)**: gear overlay alignment. Body-specific crude
+   overlays sit wrong on the shorter bodies — the crude helmet floats ~6px above
+   the head on goblin and dwarf (opaque-top float gap 6 vs <=3 for
+   human/elf/orc), and the non-human crude torsos sit low. Add a data-owned
+   per-body/per-slot overlay transform in `data/player_visuals.json` applied in
+   `player_visual.gd` `_draw_helmet`/`_draw_torso`/`_draw_feet` (default identity
+   so aligned bodies never move), add a helmet/head-contact acceptance check,
+   and review a contact sheet across all ten bodies. Do NOT edit/generate PNGs
+   in the code lane; if a PNG is unfixable by transform, record it in the
+   image-production follow-up matrix. Presentation only.
+2. Then PR-04 (directional action animation, code half) and the remaining
+   code-lane rows in matrix order: selection preview, Character HUD rebuild,
+   backdrop contour skirt, and skill panel resize.
 3. Rows marked **art** (new swing/sword/iron-gear frames, HUD chrome
    replacement) are image production through the matrix's image-production
    table and `docs/wiki/hud_asset_replacement_studio.md` -- never code-lane

@@ -67,15 +67,33 @@ appearance can never poison the registry's cached source texture.
 
 ## Gear Resolution
 
+Gear and swing overlays resolve against the **effective body id**
+(`effective_body_id()`): the resolved body when one loaded, otherwise the
+character's intended `requested_body_id()`. This keeps authored body-specific
+gear visible for a valid character whose body texture is momentarily unresolved
+(a cleared cache or a once-missing load during a character/load/world-transition/
+forge refresh) instead of silently dropping every overlay to the procedural
+fallback. An unknown species has no body id, so its gear stays procedural.
+
 For each drawn slot, `_gear_texture(item_id)` resolves in order:
 
-1. body-specific overlay `player_gear/<item_id>_<resolved_body_id>.png`;
+1. body-specific overlay `player_gear/<item_id>_<effective_body_id>.png`;
 2. generic overlay `player_gear/<item_id>.png`;
 3. `null` -> the slot's code-drawn procedural fallback (the body is never
    hidden).
 
 `gear_uses_procedural_fallback(item_id)` reports whether a slot fell through to
 the procedural path.
+
+## Refresh Boundaries
+
+`refresh_presentation()` re-resolves the body from the current character fields
+and repaints. It runs at the equipment/forge boundaries (`apply_equipment`,
+`equip_item`, `swap_weapon`), and `apply_character` performs the equivalent on
+character/world entry and load, so a cleared visual cache or a texture that was
+missing at first resolve is picked up and the overlay re-resolves for the
+current body. It is presentation only: equipment state, effects, and saves are
+untouched.
 
 ## Tool Swing Resolution
 
@@ -116,10 +134,12 @@ It returns:
 
 `species`, `body_variant`, `visual_variant`, `requested_body_id`,
 `resolved_body_id`, `using_body_art`, `appearance_recolored`, `facing_sign`,
-`swing_phase`, `active_tool_id`, `visible_gear`, `layer_order`.
+`swing_phase`, `active_tool_id`, `visible_gear`, `effective_body_id`,
+`layer_order`.
 
 `visible_gear` maps each non-empty drawn slot (`weapon`, `helmet`, `torso`,
-`feet`, `accessory`) to its equipped item id. `layer_order` equals
+`feet`, `accessory`) to its equipped item id. `effective_body_id` is the body
+id gear resolves against (see Gear Resolution). `layer_order` equals
 `CHARACTER_LAYER_ORDER`.
 
 ## Guarantees

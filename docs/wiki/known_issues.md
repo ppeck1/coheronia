@@ -8,14 +8,14 @@ This page separates confirmed presentation defects from intentional scope limits
 
 | Surface | Current behavior | Gameplay impact | Next work |
 |---|---|---|---|
-| Equipped character overlays | A matching body-specific gear PNG can intermittently fail to appear or align after some character, load, world-transition, or forge refresh paths. | Equipment state and effects still load; the rig-aware procedural fallback prevents a crash, but the character may look incomplete or mismatched. | Reproduce across all ten bodies and authoritative state transitions, then force/verify the presentation refresh. |
+| Equipped overlay alignment | Body-specific gear now resolves reliably (PR-03A), but some crude overlays sit wrong on the shorter bodies: the crude helmet floats ~6px above the head on goblin and dwarf, and the non-human crude torsos sit low. The overlay PNGs are drawn full-frame with no per-body transform. | Equipment state and effects are unaffected; the defect is visual placement. | PR-03B: a data-owned per-body/per-slot overlay transform in `player_visual.gd` (or re-author the mis-baked PNGs via the image-production matrix), plus a helmet/head-contact check and contact-sheet review across all ten bodies. |
 | Pick and axe swings | The basic pick, forged pick, and crude axe each have three authored phases for all ten body ids, but the animation snaps between them and some anchors/arcs need refinement. | Mining and chopping timing remain correct; the defect is readability and polish. | Review left/right mirroring, hand anchors, phase timing, and continuous arc perception without changing mechanics. |
 | Sword attack presentation | Crude and iron swords use gameplay combat behavior without a matching authored multi-phase attack family. | Combat functions, but weapon motion is visually behind the tool-overlay program. | Establish a sword swing contract and verify it across bodies and facing directions. |
 | HUD and framed-panel chrome | The primary dock geometry is stable and runtime content is separated, but current chrome remains provisional. Some framed panel states and automated captures can expose padding, mask, or oversized opaque-region defects. | Controls remain functional; affected views look unfinished or can obscure more of the world than intended. | Replace dock assets through the HUD Asset Replacement Studio and inspect every open-panel combination at target window sizes. |
 
 ## Intentional Current Limits
 
-- Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The full-smoke drag/sort assertion (`fq09_inventory_board_drag_and_sort`) and the HUD edit-mode assertion (`fq17_hud_edit_direct_manipulation`) were briefly red at 332/334 when the inventory-board work landed; both were repaired in `scripts/ui/hud.gd` and the suite is back to 334/334 (2026-07-20, PR-00 in `docs/PRESENTATION_RECOVERY_MATRIX.md`).
+- Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The full-smoke drag/sort assertion (`fq09_inventory_board_drag_and_sort`) and the HUD edit-mode assertion (`fq17_hud_edit_direct_manipulation`) were briefly red at 332/334 when the inventory-board work landed; both were repaired in `scripts/ui/hud.gd` and the suite is at 337/337 (2026-07-20, PR-00 in `docs/PRESENTATION_RECOVERY_MATRIX.md`).
 - Settlers are an abstract population model rather than individual NPC workers.
 - Enemies use direct walk-and-hop behavior without pathfinding.
 - The adaptive score is one authored suite and remains balance-in-progress.
@@ -28,6 +28,7 @@ This page separates confirmed presentation defects from intentional scope limits
 - Map and Events are independent modules and can remain open together.
 - The command-center row is outside the primary dock chrome.
 - A missing HUD kit returns to legacy fallback paths instead of breaking gameplay.
+- Body-specific gear and swing overlays *resolve* against the character's effective body id (PR-03A), so authored gear stays visible across character/load/world-transition/forge refresh paths instead of intermittently dropping to the procedural fallback. (Overlay *alignment* on the shorter bodies is still open — see the alignment defect above and PR-03B.) See `docs/CHARACTER_RENDERING_CONTRACT.md`.
 
 ## Reporting And Verification Standard
 

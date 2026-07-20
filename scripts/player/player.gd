@@ -439,8 +439,10 @@ func try_farm(cell: Vector2i) -> bool:
 func apply_equipment(raw: Dictionary) -> void:
 	equipment = BlockRegistry.normalize_equipment(raw)
 	_clamp_attunement()
+	# Presentation refresh at the equipment boundary: re-resolve so newly
+	# equipped gear (including forged gear) picks up the current body art.
 	if player_visual != null:
-		player_visual.queue_redraw()
+		player_visual.refresh_presentation()
 
 
 ## FQ-03/FQ-23: the full gear picture used by the HUD and save path. The
@@ -479,8 +481,10 @@ func equip_item(slot_id: String, item_id: String) -> bool:
 			equipment[slot_id] = item_id
 	# FQ-05: gear can change max attunement; keep the current value legal.
 	_clamp_attunement()
+	# Presentation refresh at the forge/equip boundary (town_hall.craft_station
+	# and hand-equip both route here) so the overlay re-resolves for this body.
 	if player_visual != null:
-		player_visual.queue_redraw()
+		player_visual.refresh_presentation()
 	inventory_changed.emit()
 	return true
 
@@ -494,7 +498,7 @@ func swap_weapon() -> bool:
 	equipment["weapon"] = offhand
 	equipment["offhand_weapon"] = active
 	if player_visual != null:
-		player_visual.queue_redraw()
+		player_visual.refresh_presentation()
 	inventory_changed.emit()
 	var active_name: String = BlockRegistry.equipment_item_display_name(offhand) \
 		if offhand != "" else "bare hands"

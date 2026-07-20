@@ -1002,7 +1002,8 @@ authority for scope, lanes, and acceptance. Summary:
 | PR-00 | code | Smoke harness truth repair (`fq17_hud_edit_direct_manipulation`, `fq09_inventory_board_drag_and_sort`) | Done 2026-07-20 |
 | PR-01 | code | Terminology migration: canonical `masculine`/`feminine`, legacy aliases `default`/`female` (no PNG renames) | Done 2026-07-20 |
 | PR-02 | code | Character preview/rendering contract (`docs/CHARACTER_RENDERING_CONTRACT.md`) | Done 2026-07-20 |
-| PR-03 | code | Gear overlay refresh/alignment defect | Planned |
+| PR-03A | code | Gear overlay resolution/refresh hardening (effective body id + refresh boundaries) | Done 2026-07-20 |
+| PR-03B | code + art | Gear overlay alignment (goblin/dwarf helmet floats; non-human torso low) -- per-body/slot overlay transform or re-authored PNGs | Open -- next code-lane row |
 | PR-04 | code + art | Directional action animation (code: anchors/mirroring/timing with existing art; art: new frames via image matrix) | Planned |
 | PR-05 | code | Menu and character-selection preview through the shared render path | Planned |
 | PR-06 | code + art | Character HUD rebuild on runtime children | Planned |
@@ -1025,22 +1026,26 @@ You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md, and
 docs/PRESENTATION_RECOVERY_MATRIX.md. FQ-00 through FQ-21 are done; the
 native HUD-kit stabilization is merged. PR-00 (smoke truth), PR-01
-(masculine/feminine terminology migration), and PR-02 (character
-preview/rendering contract) are done -- the suite is 335/335. Body-variant
-ids are canonical masculine/feminine (legacy default/female aliased in
-BlockRegistry.normalize_body_variant, no PNG renames), and the character
-compositing/resolution rules are written up in
-docs/CHARACTER_RENDERING_CONTRACT.md with CHARACTER_LAYER_ORDER +
-presentation_snapshot() as the machine-readable surface.
+(masculine/feminine terminology migration), PR-02 (character
+preview/rendering contract), and PR-03A (gear overlay resolution/refresh
+hardening) are done -- the suite is 337/337. Gear/swing overlays now resolve
+against effective_body_id() with a refresh_presentation() hook at the
+equip/forge boundaries, so authored gear no longer drops to procedural when a
+body texture is momentarily unresolved. **Overlay alignment is NOT closed.**
 
-The next code-lane row is PR-03: gear overlay refresh/alignment. Reproduce
-the intermittent gear-overlay miss/misalignment across all ten bodies and
-the character/load/world-transition/forge refresh paths, then force and
-verify a presentation refresh at the authoritative state boundary. Use the
-PR-02 contract (player_visual.gd _resolve_body_texture / _gear_texture /
-presentation_snapshot, block_registry texture cache) and add a smoke check
-asserting post-transition snapshot correctness. Presentation only -- no
-gameplay/equipment change, no image production.
+The next code-lane row is PR-03B (gear overlay alignment). Body-specific
+crude overlays sit wrong on the shorter bodies: the crude helmet floats ~6px
+above the head on goblin and dwarf (opaque-top float gap 6 vs <=3 for
+human/elf/orc; confirmed by a goblin screenshot), and the non-human crude
+torsos sit low. The overlays are drawn full-frame at BODY_RECT with no
+per-body transform. Fix via a data-owned per-body/per-slot overlay transform
+in data/player_visuals.json applied in player_visual.gd
+_draw_helmet/_draw_torso/_draw_feet (default identity so aligned bodies never
+move), add a helmet/head-contact acceptance check, and review a contact sheet
+across all ten bodies. Do NOT generate or edit PNGs in the code lane; if a
+PNG is unfixable by transform, record it in the image-production follow-up
+matrix. Presentation only; no gameplay/timing change. Do not advance to PR-04
+until PR-03B is closed.
 
 Rows marked art are image production and are NOT code-lane work. Close
 every row with validator, Capsule Doctor, a waited Godot smoke, and real

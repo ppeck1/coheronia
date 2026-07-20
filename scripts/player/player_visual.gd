@@ -97,8 +97,28 @@ func resolved_body_id() -> String:
 	return _resolved_body_id
 
 
+## The body id that gear and swing overlays resolve against: the resolved body
+## when one loaded, otherwise the character's intended body id. This keeps
+## authored body-specific gear visible for a valid character whose body texture
+## is momentarily unresolved (a cleared cache or a once-missing load during a
+## character/load/world-transition/forge refresh), instead of silently dropping
+## to the procedural fallback. An unknown species has no body id, so its gear
+## stays procedural.
+func effective_body_id() -> String:
+	return _resolved_body_id if _resolved_body_id != "" else requested_body_id()
+
+
 func using_body_art() -> bool:
 	return _body_texture != null
+
+
+## Re-resolve the body from the current character fields and repaint. Call at
+## presentation refresh boundaries (world entry, load, forge/equip) so a cleared
+## visual cache or a texture that was missing at first resolve is picked up.
+## Presentation only: never touches equipment state, effects, or saves.
+func refresh_presentation() -> void:
+	_resolve_body_texture()
+	queue_redraw()
 
 
 func appearance_recolored() -> bool:
@@ -154,6 +174,7 @@ func presentation_snapshot() -> Dictionary:
 		"swing_phase": _player.swing_phase() if _player != null else -1,
 		"active_tool_id": active_tool_id(),
 		"visible_gear": visible_gear_ids(),
+		"effective_body_id": effective_body_id(),
 		"layer_order": CHARACTER_LAYER_ORDER,
 	}
 
@@ -377,9 +398,10 @@ func _rig_point(key: String, fallback: Vector2) -> Vector2:
 func _gear_texture(item_id: String) -> Texture2D:
 	if item_id == "":
 		return null
-	if _resolved_body_id != "":
+	var body_id := effective_body_id()
+	if body_id != "":
 		var body_specific := BlockRegistry.visual_texture(
-			"player_gear", "%s_%s" % [item_id, _resolved_body_id])
+			"player_gear", "%s_%s" % [item_id, body_id])
 		if body_specific != null:
 			return body_specific
 	return BlockRegistry.visual_texture("player_gear", item_id)
@@ -388,9 +410,10 @@ func _gear_texture(item_id: String) -> Texture2D:
 func _tool_swing_texture(tool_id: String, phase: int) -> Texture2D:
 	if tool_id == "" or phase < 0:
 		return null
-	if _resolved_body_id != "":
+	var body_id := effective_body_id()
+	if body_id != "":
 		var body_specific := BlockRegistry.visual_texture("player_gear",
-			"%s_%s_swing_%d" % [tool_id, _resolved_body_id, phase])
+			"%s_%s_swing_%d" % [tool_id, body_id, phase])
 		if body_specific != null:
 			return body_specific
 	return BlockRegistry.visual_texture("player_gear",

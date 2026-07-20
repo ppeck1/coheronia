@@ -6,7 +6,7 @@ Dig, build, and light a side-view frontier settlement — then keep it alive as 
 
 ![Daytime settlement with the Town Hall, torch line, and live HUD](docs/screenshots/01_settlement_day.png)
 
-`Godot 4.6 · GDScript · data-driven design · 335-check in-engine smoke suite · adaptive music · layered image-first UI pipeline`
+`Godot 4.6 · GDScript · data-driven design · 337-check in-engine smoke suite · adaptive music · layered image-first UI pipeline`
 
 ## What it is
 
@@ -121,7 +121,7 @@ terrain history, settlement, and progression. Persistence lives in
 
 This repo doubles as an experiment in disciplined AI-driven development:
 
-- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 335 checks across mining, save/load round-trips, legacy migrations, UI panel contents, Map/Events coexistence, HUD-kit layering, physics traversal, armor math, adaptive-music transitions, the character-rendering contract, and event stingers. The recorded 2026-07-17 inventory-focused run passed 5/5; the full suite is at 335/335 across two consecutive 2026-07-20 runs.
+- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 337 checks across mining, save/load round-trips, legacy migrations, UI panel contents, Map/Events coexistence, HUD-kit layering, physics traversal, armor math, adaptive-music transitions, the character-rendering contract, body-specific gear resolution, and event stingers. The recorded 2026-07-17 inventory-focused run passed 5/5; the full suite is at 337/337 on 2026-07-20 (the real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun).
 - **Evidence over claims.** Increment scope, decisions, review findings, and validation state are summarized in [`docs/HANDOFF.md`](docs/HANDOFF.md). Historical raw protocol artifacts are still tracked; their fit with the current public-repository profile is explicitly flagged for owner review rather than silently presented as settled policy.
 - **Independent review loop.** Each change was reviewed by a separate agent pass before commit; findings (from save-corruption edge cases to invisible-tint rendering bugs) are documented and fixed in the ledgers.
 - **Task queue discipline.** Work follows [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) one bounded increment at a time — FQ-00 through FQ-09 plus the FQ-09R/S/V/C/W/A/M and U0–U3 refinements (skill-tree star map, variant art pools, the opening cinematic, backdrops and cave darkness, the asset roadmap, action effects, and the full adaptive-music arc) on top of the v0.1–v0.6 foundation, each documented in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md).
@@ -150,7 +150,7 @@ Or open the folder in the Godot editor and press Play.
 | Save / Load | F5 / F9 |
 | Save & exit to shell | Esc |
 
-**Verify the build** (validators + the 335-check in-engine suite):
+**Verify the build** (validators + the 337-check in-engine suite):
 
 ```powershell
 python scripts/validate_repo.py
@@ -215,10 +215,10 @@ continues in bounded increments:
 
 ## Known issues and limitations
 
-- **Gear presentation is not fully reliable yet.** The repository ships 120 body-specific PNGs for crude helmet/torso/feet overlays and three-phase basic-pick, forged-pick, and crude-axe swings. During some character/load transitions a matching overlay can fail to appear or align correctly, leaving the procedural fallback or an incomplete-looking character. Equipment data and effects still load; the defect is visual.
+- **Gear overlays now resolve robustly (PR-03A); overlay alignment is still being fixed (PR-03B).** The repository ships 120 body-specific PNGs for crude helmet/torso/feet overlays and three-phase basic-pick, forged-pick, and crude-axe swings. These now *resolve* against the character's *effective body id* — the resolved body when one loaded, otherwise the intended body — so authored gear stays visible across character/load/world-transition/forge refresh paths instead of intermittently dropping to the procedural fallback; a `refresh_presentation()` hook re-resolves at the equip/forge boundaries. Overlay *placement* is not fully correct yet: the crude helmet floats above the head on the shorter bodies (goblin, dwarf) and the non-human torsos sit low — tracked as PR-03B. Swing-animation polish (stepped poses, anchors, arc continuity, the missing sword sequence) is also still open. See `docs/CHARACTER_RENDERING_CONTRACT.md` and the known-issues page.
 - **Tool and weapon motion needs another pass.** Pick and axe art currently snaps through three authored poses. The anchors, arc continuity, mirroring, and timing need polish, and the sword does not yet have an equivalent authored attack sequence.
 - **The HUD architecture is stabilized, but the art is provisional.** The primary dock now separates static chrome from runtime values and uses JSON-owned native geometry. Some framed panel states still show padding, masking, or oversized opaque-region defects, particularly in automated captures; the legacy painted/sliced constructions remain fallback code, not the target design.
-- **Full smoke is green (335/335, 2026-07-20).** The HUD edit-mode direct-manipulation (`fq17_hud_edit_direct_manipulation`) and inventory drag/sort (`fq09_inventory_board_drag_and_sort`) assertions were briefly red (332/334) when the inventory-board work landed; both were repaired in `scripts/ui/hud.gd` — the crest widget's default size is now captured from its settled content and the inventory-board cell rebuild removes stale cells before re-adding them. The presentation recovery arc (PR-00 through PR-02) is tracked in `docs/PRESENTATION_RECOVERY_MATRIX.md`.
+- **Full smoke is green (337/337, 2026-07-20).** The HUD edit-mode direct-manipulation (`fq17_hud_edit_direct_manipulation`) and inventory drag/sort (`fq09_inventory_board_drag_and_sort`) assertions were briefly red (332/334) when the inventory-board work landed; both were repaired in `scripts/ui/hud.gd` — the crest widget's default size is now captured from its settled content and the inventory-board cell rebuild removes stale cells before re-adding them. The presentation recovery arc (PR-00 through PR-03) is tracked in `docs/PRESENTATION_RECOVERY_MATRIX.md`.
 - **Several systems remain intentionally shallow.** Settlers are abstract population rather than NPCs; enemies walk and hop without pathfinding; the adaptive score is one suite still being balanced; and current finite maps have one surface biome.
 
 ---

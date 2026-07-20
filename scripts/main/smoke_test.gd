@@ -2846,7 +2846,7 @@ func _run() -> void:
 	for _pr02_key in ["species", "body_variant", "visual_variant",
 			"requested_body_id", "resolved_body_id", "using_body_art",
 			"appearance_recolored", "facing_sign", "swing_phase", "active_tool_id",
-			"visible_gear", "layer_order"]:
+			"visible_gear", "effective_body_id", "layer_order"]:
 		if not _pr02_snap.has(_pr02_key):
 			_pr02_has_all_keys = false
 	var _pr02_layer_ok: bool = Array(_pr02_snap.get("layer_order", [])) == \
@@ -2868,6 +2868,70 @@ func _run() -> void:
 		_pr02_has_all_keys and _pr02_layer_ok and _pr02_body_ok and _pr02_gear_ok,
 		"keys=%s layer=%s body=%s gear=%s" % [str(_pr02_has_all_keys),
 			str(_pr02_layer_ok), str(_pr02_body_ok), str(_pr02_gear)])
+
+	# --- PR-03: body-specific gear overlay resolution + refresh ---
+	# Every live body must resolve its authored crude gear overlay against its
+	# effective body id, not silently drop to the procedural fallback.
+	player.apply_equipment({})
+	var _pr03_gear_failures: Array[String] = []
+	for _pr03_species in ["human", "dwarf", "elf", "goblin", "orc"]:
+		for _pr03_case in [["masculine", ""], ["feminine", "_female"]]:
+			player.apply_character({"species": _pr03_species,
+				"body_variant": str(_pr03_case[0]), "appearance": "tan"})
+			player.apply_equipment({"helmet": "helmet_crude",
+				"torso": "torso_crude", "feet": "feet_crude"})
+			var _pr03_body_id := "%s%s" % [_pr03_species, str(_pr03_case[1])]
+			var _pr03_snap: Dictionary = _pv.presentation_snapshot()
+			if str(_pr03_snap.get("effective_body_id", "")) != _pr03_body_id \
+					or _pv.gear_uses_procedural_fallback("helmet_crude") \
+					or _pv.gear_uses_procedural_fallback("torso_crude") \
+					or _pv.gear_uses_procedural_fallback("feet_crude"):
+				_pr03_gear_failures.append(_pr03_body_id)
+	_check("pr03_gear_overlay_resolves_all_bodies",
+		_pr03_gear_failures.is_empty(),
+		"failures=%s" % str(_pr03_gear_failures))
+
+	# The intermittent defect: a valid character whose body texture is missing at
+	# resolve time (a cleared cache / once-missing load) must still show its
+	# authored gear, resolved via the intended body id, rather than dropping every
+	# overlay to the procedural fallback. Then a refresh at the transition
+	# boundary must recover both body and gear once the art is available again.
+	var _pr03_had_human := _pv_player_entries.has("human")
+	var _pr03_old_human: Variant = _pv_player_entries.get("human")
+	_pv_player_entries["human"] = "art/generated/players/smoke_tmp_missing_human.png"
+	BlockRegistry.clear_visual_cache()
+	player.apply_character({"species": "human", "body_variant": "masculine",
+		"appearance": "tan"})
+	player.apply_equipment({"helmet": "helmet_crude", "torso": "torso_crude",
+		"feet": "feet_crude"})
+	var _pr03_miss_snap: Dictionary = _pv.presentation_snapshot()
+	var _pr03_gear_survives_miss: bool = \
+		str(_pr03_miss_snap.get("resolved_body_id", "x")) == "" \
+		and not bool(_pr03_miss_snap.get("using_body_art", true)) \
+		and str(_pr03_miss_snap.get("effective_body_id", "")) == "human" \
+		and not _pv.gear_uses_procedural_fallback("helmet_crude") \
+		and not _pv.gear_uses_procedural_fallback("torso_crude") \
+		and not _pv.gear_uses_procedural_fallback("feet_crude")
+	if _pr03_had_human:
+		_pv_player_entries["human"] = _pr03_old_human
+	else:
+		_pv_player_entries.erase("human")
+	BlockRegistry.clear_visual_cache()
+	_pv.refresh_presentation()
+	var _pr03_recovered_snap: Dictionary = _pv.presentation_snapshot()
+	var _pr03_recovers: bool = \
+		str(_pr03_recovered_snap.get("resolved_body_id", "")) == "human" \
+		and bool(_pr03_recovered_snap.get("using_body_art", false)) \
+		and not _pv.gear_uses_procedural_fallback("helmet_crude")
+	_check("pr03_gear_survives_body_texture_miss",
+		_pr03_gear_survives_miss and _pr03_recovers,
+		"miss=%s recover=%s snap=%s" % [str(_pr03_gear_survives_miss),
+			str(_pr03_recovers), str(_pr03_recovered_snap)])
+	# Restore the state the earlier gear test left for the sections below.
+	player.apply_character({"species": "human", "body_variant": "masculine",
+		"appearance": "tan"})
+	player.apply_equipment({"weapon": "sword_crude", "helmet": "helmet_crude",
+		"torso": "torso_crude", "feet": "feet_crude"})
 
 	# --- FQ-13P3: player cosmetic body variants (full-body pool) ---
 	# distinct sprite per variant (human has a 2-entry pool); variant 0 canonical.
