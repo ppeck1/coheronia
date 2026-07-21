@@ -67,6 +67,24 @@ offsets; a before/after contact sheet was reviewed. The non-human crude *torso*
 waist placement reads as a plausible loincloth style (rig chest anchor does not
 cleanly apply) and is recorded for the art lane, not shifted in code. See
 `docs/PRESENTATION_RECOVERY_MATRIX.md` (PR-03A/PR-03B).
+
+**Directional action animation (PR-04 done 2026-07-20, code half):** tool/weapon
+use now plays a data-driven **windup -> impact -> recovery** cycle aimed at the
+target vector instead of a uniform 3-pose loop that only read rightward. Items
+own an `action_profile` in `data/equipment.json` (windup/impact/recovery
+fractions, arc, direction mode; `BlockRegistry.action_profile` merges a
+default); `player_visual.gd` computes `swing_direction()` (mirror-aware, so
+up/down/diagonal targets read directionally), `swing_progress()`,
+`swing_phase_kind()`, and draws the pick/axe swing PNGs rotated toward the aim.
+The sword has no authored frames, so a presentation-only `attack_swing` timer on
+`player.gd` (set when a melee hit lands, never touching damage/timing) drives the
+same procedural contract. Mining/combat mechanics and the frame baselines are
+unchanged. `presentation_snapshot()` gained `action_kind`, `action_item`,
+`swing_phase_kind`, `swing_direction`. Smoke:
+`pr04_swing_direction_follows_target` (six directions),
+`pr04_action_profile_phases` (pick vs axe differ by profile), and
+`pr04_sword_uses_action_contract`. No image production; new swing *art* stays in
+the image matrix. Suite **341/341** (two consecutive runs).
 `_gear_texture`/`_tool_swing_texture` used to key off `_resolved_body_id`, so a
 valid character whose body texture was momentarily unresolved (a cleared visual
 cache or a once-missing load during a character/load/world-transition/forge
@@ -81,7 +99,7 @@ byte-identical (when the body resolves, `effective_body_id == resolved_body_id`)
 `pr03_gear_overlay_resolves_all_bodies` (ten bodies resolve their body-specific
 crude gear) and `pr03_gear_survives_body_texture_miss` (gear survives a forced
 body-texture miss via the intended body id and recovers after a refresh). The
-suite is now **338/338** (with the PR-03B alignment check).
+suite is now **341/341** (including the PR-03B alignment and PR-04 action checks).
 
 ## Historical State (2026-07-16 public refresh)
 
@@ -807,7 +825,7 @@ v0.6 executed the six waves of `docs/WORK_ORDER_V0_6_CHARACTER_INVENTORY_WORLD_T
 | HUD-kit runtime verify | PASS | `python scripts/art/sync_hud_kit.py --verify-runtime` 2026-07-20 -- 19 source/runtime hashes + layout verified |
 | Pixel-art verifier | PASS 386 PNGs | `python scripts/art/verify_pixel_assets.py` 2026-07-20 -- size/palette/alpha/edge contracts satisfied (painted chrome via the FQ-20 light pass) |
 | Capsule doctor | PASS | `public_repo` profile 2026-07-20: healthy |
-| Automated smoke | **PASS 338/338** | isolated waited Windows Godot 4.6.1 runs (2026-07-20, post PR-03B). PR-00 repaired the HUD default-size + inventory-board cell rebuild; PR-01 added the alias-contract checks; PR-02 added `pr02_character_render_contract`; PR-03A added `pr03_gear_overlay_resolves_all_bodies` + `pr03_gear_survives_body_texture_miss`; PR-03B added `pr03b_gear_overlay_offset_applied`. The `fq17`/`fq19` layout checks reset to the default layout at their own start (profile-state independent). The real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun. No assertion weakened. |
+| Automated smoke | **PASS 341/341** | isolated waited Windows Godot 4.6.1 runs (2026-07-20, post PR-04). PR-03B added `pr03b_gear_overlay_offset_applied`; PR-04 added `pr04_swing_direction_follows_target`, `pr04_action_profile_phases`, `pr04_sword_uses_action_contract` (+3). The `fq17`/`fq19` layout checks reset to the default layout at their own start (profile-state independent). The real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun. No assertion weakened. |
 | Music asset verifier (Codex lane) | PASS | `scripts/audio/verify_music_assets.py`: loops exactly 2,560,000 samples @ 48 kHz, stingers < 8 s, 63 stem combinations below full scale; operator listening approval GRANTED 2026-07-10 |
 | Manual GUI passes | PASS | FQ-09C: clean-profile autoplay/replay/advance/skip with real input and screenshots. FQ-09W: screenshot tour re-run reviewed frame by frame — day settlement with backdrop (sky reaching the deepest valley, no torch glow on distant ridges), night torchlight, and the new `09_underground_midday_torch` chamber shot (dark ambient, torch-lit walls). Authored-art closeout: isolated hidden/windowed tour wrote and visually passed all nine frames at 2026-07-14 15:04, including varied terrain/flora and inventory icons. |
 
@@ -889,18 +907,16 @@ and the historical sections above). The active queue is the **presentation
 recovery arc** planned in `docs/PRESENTATION_RECOVERY_MATRIX.md`. PR-00 (smoke
 harness truth repair), PR-01 (masculine/feminine terminology migration), PR-02
 (character preview/rendering contract), PR-03A (gear overlay resolution/refresh
-hardening), and PR-03B (gear overlay alignment) are **done** -- the suite is
-338/338.
+hardening), PR-03B (gear overlay alignment), and PR-04 (directional action
+animation, code half) are **done** -- the suite is 341/341.
 
-1. **PR-04 next (code lane, code half only)**: directional action animation.
-   Polish the pick/axe swing anchors, left/right mirroring, phase timing, and
-   arc continuity in `player_visual.gd` (`_draw_swing`, `refresh_facing`) using
-   the EXISTING 90 swing PNGs. Do NOT change mining/combat timing (the frame
-   baselines must stay green) and do NOT produce new frames — new pose frames
-   and the sword swing families are the **art lane** in the image-production
-   matrix. Presentation only.
-2. Then the remaining code-lane rows in matrix order: selection preview,
-   Character HUD rebuild, backdrop contour skirt, and skill panel resize.
+1. **PR-05 next (code lane)**: menu and character-selection preview. Render the
+   composed live character in the creation/selection UI through the shared
+   `player_visual.gd` path (reuse, do not reimplement) + the PR-02 contract, so
+   what you pick matches what you get; add a snapshot-compare smoke proving
+   preview == in-world for identical inputs. Presentation only.
+2. Then the remaining code-lane rows in matrix order: Character HUD rebuild,
+   backdrop contour skirt, and skill panel resize.
 3. Rows marked **art** (new swing/sword/iron-gear frames, HUD chrome
    replacement) are image production through the matrix's image-production
    table and `docs/wiki/hud_asset_replacement_studio.md` -- never code-lane

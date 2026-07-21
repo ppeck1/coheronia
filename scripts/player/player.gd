@@ -93,6 +93,13 @@ var mine_target := Vector2i(-99999, -99999)
 var mine_progress := 0.0
 var mine_required := 0.0
 
+## PR-04: presentation-only weapon swing. Set when a melee hit lands so the
+## visual can play a windup -> impact -> recovery slash toward the target; it
+## never changes the instant hit, the damage, or any gameplay timing.
+const ATTACK_SWING_SEC := 0.32
+var attack_swing_t := 0.0
+var attack_dir := Vector2.RIGHT
+
 var _hurt_cooldown := 0.0
 var _hurt_flash_timer := 0.0
 ## FQ-08: reused by the crack overlay each draw (re-seeded per frame from the
@@ -265,6 +272,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_hurt_cooldown = maxf(0.0, _hurt_cooldown - delta)
 	_eat_cooldown = maxf(0.0, _eat_cooldown - delta)
+	attack_swing_t = maxf(0.0, attack_swing_t - delta)
 	if _hurt_flash_timer > 0.0:
 		_hurt_flash_timer = maxf(0.0, _hurt_flash_timer - delta)
 		if _hurt_flash_timer == 0.0:
@@ -806,8 +814,29 @@ func _try_hit_threat(at: Vector2) -> bool:
 		if threat.global_position.distance_to(at) < 14.0:
 			# FQ-04: hits carry the equipped weapon's damage (1 bare-handed).
 			threat.take_hit(attack_damage())
+			# PR-04: fire the presentation-only weapon swing toward the target.
+			start_attack_swing(threat.global_position - global_position)
 			return true
 	return false
+
+
+## PR-04: begin the presentation-only weapon swing toward a world direction.
+## Presentation only -- it never touches damage, cooldowns, or mining timing.
+func start_attack_swing(world_dir: Vector2) -> void:
+	if world_dir.length() > 0.001:
+		attack_dir = world_dir.normalized()
+	attack_swing_t = ATTACK_SWING_SEC
+
+
+## PR-04: 0..1 progress through the current weapon swing (1.0 = finished / idle).
+func attack_swing_progress() -> float:
+	if ATTACK_SWING_SEC <= 0.0:
+		return 1.0
+	return clampf(1.0 - attack_swing_t / ATTACK_SWING_SEC, 0.0, 1.0)
+
+
+func attack_swing_active() -> bool:
+	return attack_swing_t > 0.0
 
 
 func _draw() -> void:

@@ -2846,7 +2846,8 @@ func _run() -> void:
 	for _pr02_key in ["species", "body_variant", "visual_variant",
 			"requested_body_id", "resolved_body_id", "using_body_art",
 			"appearance_recolored", "facing_sign", "swing_phase", "active_tool_id",
-			"visible_gear", "effective_body_id", "layer_order"]:
+			"visible_gear", "effective_body_id", "action_kind", "action_item",
+			"swing_phase_kind", "swing_direction", "layer_order"]:
 		if not _pr02_snap.has(_pr02_key):
 			_pr02_has_all_keys = false
 	var _pr02_layer_ok: bool = Array(_pr02_snap.get("layer_order", [])) == \
@@ -3553,6 +3554,104 @@ func _run() -> void:
 	_check("player_visual_tool_matches_target",
 		_fq09m_pick_id.begins_with("pick_") and _fq09m_axe_id == "axe_crude",
 		"stone=%s tree=%s" % [_fq09m_pick_id, _fq09m_axe_id])
+
+	# --- PR-04: directional windup -> impact -> recovery action animation ---
+	# All of this reads mining/attack state and never writes gameplay timing or
+	# effects (fq09m above proves the mining baselines are untouched).
+	var _pr04_saved_pos: Vector2 = player.global_position
+	var _pr04_saved_axe: int = player.axe_tier
+	player.attack_swing_t = 0.0   # clear any leftover melee swing so mining wins
+
+	# (a) swing_direction follows the target vector: facing tracks the horizontal
+	# component, the vertical component tracks up/down, for cardinal + diagonal
+	# targets (in the visual's mirror-aware space the forward x stays positive).
+	var _pr04_base: Vector2i = world.hall_info["center_cell"]
+	player.global_position = world.cell_center(_pr04_base)
+	player.mine_required = 1.0
+	player.mine_progress = 0.0
+	var _pr04_dir_fail: Array[String] = []
+	# name -> [dx, dy, expect_facing (0 = any), y_sign (-1/0/1), require_forward_x]
+	var _pr04_cases := {
+		"right": [1, 0, 1, 0, true], "left": [-1, 0, -1, 0, true],
+		"up": [0, -1, 0, -1, false], "down": [0, 1, 0, 1, false],
+		"up_right": [1, -1, 1, -1, true], "down_left": [-1, 1, -1, 1, true],
+	}
+	for _pr04_name in _pr04_cases:
+		var _pr04_c: Array = _pr04_cases[_pr04_name]
+		player.mine_target = _pr04_base + Vector2i(int(_pr04_c[0]) * 3, int(_pr04_c[1]) * 3)
+		_pv.refresh_facing()
+		var _pr04_d: Vector2 = _pv.swing_direction()
+		var _pr04_ok := true
+		if int(_pr04_c[2]) != 0 and _pv.facing_sign() != int(_pr04_c[2]):
+			_pr04_ok = false
+		var _pr04_ys := int(_pr04_c[3])
+		if _pr04_ys < 0 and _pr04_d.y >= -0.2:
+			_pr04_ok = false
+		if _pr04_ys > 0 and _pr04_d.y <= 0.2:
+			_pr04_ok = false
+		if _pr04_ys == 0 and absf(_pr04_d.y) > 0.3:
+			_pr04_ok = false
+		if bool(_pr04_c[4]) and _pr04_d.x <= 0.0:
+			_pr04_ok = false
+		if not _pr04_ok:
+			_pr04_dir_fail.append("%s dir=%s facing=%d" % [
+				_pr04_name, str(_pr04_d), _pv.facing_sign()])
+	_check("pr04_swing_direction_follows_target",
+		_pr04_dir_fail.is_empty(), "failures=%s" % str(_pr04_dir_fail))
+
+	# (b) item-owned profile timing: the pick steps windup -> impact -> recovery
+	# across the cycle, and at the same swing progress the pick (windup 0.35) and
+	# axe (windup 0.45) resolve to different phases.
+	player.mine_required = 1.0
+	if _fq09m_swing_cell != null:
+		player.mine_target = _fq09m_swing_cell
+	var _pr04_pick_phases: Array[String] = []
+	for _pr04_mp in [0.1, 0.2, 0.3]:   # cycle 0.2 windup, 0.4 impact, 0.6 recovery
+		player.mine_progress = _pr04_mp
+		_pr04_pick_phases.append(_pv.swing_phase_kind())
+	player.mine_progress = 0.2         # cycle 0.4
+	var _pr04_pick_at: String = _pv.swing_phase_kind()
+	var _pr04_axe_at := ""
+	player.axe_tier = 1
+	var _pr04_tree_cell: Variant = _find_block(
+		world, world.hall_info["center_cell"], "tree_trunk")
+	if _pr04_tree_cell != null:
+		player.mine_target = _pr04_tree_cell
+		player.mine_progress = 0.2     # cycle 0.4
+		_pr04_axe_at = _pv.swing_phase_kind()
+	player.axe_tier = _pr04_saved_axe
+	_check("pr04_action_profile_phases",
+		_pr04_pick_phases == ["windup", "impact", "recovery"]
+		and _pr04_pick_at == "impact" and _pr04_axe_at == "windup",
+		"pick=%s pick@0.4=%s axe@0.4=%s" % [
+			str(_pr04_pick_phases), _pr04_pick_at, _pr04_axe_at])
+
+	# (c) the sword uses the same action contract: an attack aims at the target,
+	# steps through the profile, and renders procedurally (no authored frames).
+	player._reset_mining()
+	var _pr04_saved_equip: Dictionary = player.equipment.duplicate(true)
+	player.apply_equipment({"weapon": "sword_crude"})
+	player.start_attack_swing(Vector2(0, -1))   # attack_swing_t = full -> progress 0
+	var _pr04_atk_kind: String = _pv.action_kind()
+	var _pr04_atk_item: String = _pv.active_action_item()
+	var _pr04_atk_proc: bool = _pv.tool_swing_uses_procedural_fallback()
+	var _pr04_atk_dir: Vector2 = _pv.swing_direction()
+	var _pr04_atk_windup: String = _pv.swing_phase_kind()   # progress 0 -> windup
+	player.attack_swing_t *= 0.1                      # progress ~0.9 -> recovery
+	var _pr04_atk_recovery: String = _pv.swing_phase_kind()
+	player.attack_swing_t = 0.0
+	player.apply_equipment(_pr04_saved_equip)
+	_check("pr04_sword_uses_action_contract",
+		_pr04_atk_kind == "attack" and _pr04_atk_item == "sword_crude"
+		and _pr04_atk_proc and _pr04_atk_dir.y < -0.2
+		and _pr04_atk_windup == "windup" and _pr04_atk_recovery == "recovery",
+		"kind=%s item=%s proc=%s dir=%s windup=%s recovery=%s" % [
+			_pr04_atk_kind, _pr04_atk_item, str(_pr04_atk_proc),
+			str(_pr04_atk_dir), _pr04_atk_windup, _pr04_atk_recovery])
+
+	# Restore the state the sections below expect.
+	player._reset_mining()
+	player.global_position = _pr04_saved_pos
 
 	# (b) placing a block spawns exactly one placement pulse.
 	var _fq09m_placed := false

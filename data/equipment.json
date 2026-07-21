@@ -20,19 +20,22 @@
       "display_name": "Basic Pick",
       "slot_type": "pickaxe",
       "description": "The starter pick every settler carries.",
-      "effects": { "pick_tier": 1 }
+      "effects": { "pick_tier": 1 },
+      "action_profile": { "windup": 0.35, "impact": 0.15, "recovery": 0.5, "arc_deg": 55, "direction_mode": "target" }
     },
     "pick_forged": {
       "display_name": "Forged Pick",
       "slot_type": "pickaxe",
       "description": "Town Hall forged. Unlocks ore and mines faster.",
-      "effects": { "pick_tier": 2 }
+      "effects": { "pick_tier": 2 },
+      "action_profile": { "windup": 0.35, "impact": 0.15, "recovery": 0.5, "arc_deg": 55, "direction_mode": "target" }
     },
     "axe_crude": {
       "display_name": "Crude Axe",
       "slot_type": "axe",
       "description": "Town Hall crafted. Chops wood and plants faster.",
-      "effects": { "axe_tier": 1 }
+      "effects": { "axe_tier": 1 },
+      "action_profile": { "windup": 0.45, "impact": 0.15, "recovery": 0.4, "arc_deg": 80, "direction_mode": "target" }
     },
     "ring_band": {
       "display_name": "Plain Band",
@@ -44,7 +47,8 @@
       "display_name": "Crude Sword",
       "slot_type": "weapon",
       "description": "Town Hall forged. Strikes far harder than bare hands.",
-      "effects": { "attack_damage": 3 }
+      "effects": { "attack_damage": 3 },
+      "action_profile": { "windup": 0.3, "impact": 0.2, "recovery": 0.5, "arc_deg": 95, "direction_mode": "target" }
     },
     "helmet_crude": {
       "display_name": "Crude Helm",
@@ -80,7 +84,8 @@
       "display_name": "Iron Sword",
       "slot_type": "weapon",
       "description": "Anvil-forged from iron ingots. Bites deeper than crude steel.",
-      "effects": { "attack_damage": 5 }
+      "effects": { "attack_damage": 5 },
+      "action_profile": { "windup": 0.3, "impact": 0.2, "recovery": 0.5, "arc_deg": 95, "direction_mode": "target" }
     },
     "helmet_iron": {
       "display_name": "Iron Helm",

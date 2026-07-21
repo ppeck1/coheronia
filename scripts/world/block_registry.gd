@@ -403,6 +403,24 @@ func equipment_item_display_name(item_id: String) -> String:
 	return str(equipment_item(item_id).get("display_name", item_id))
 
 
+## PR-04: the presentation-only action-animation profile for a tool/weapon item
+## (windup/impact/recovery fractions of a swing cycle, arc size, and the
+## direction mode). Items own it in equipment.json; unknown items and missing
+## keys fall back to ACTION_PROFILE_DEFAULT so every action still animates.
+const ACTION_PROFILE_DEFAULT := {
+	"windup": 0.35, "impact": 0.15, "recovery": 0.5,
+	"arc_deg": 55.0, "direction_mode": "target",
+}
+
+
+func action_profile(item_id: String) -> Dictionary:
+	var raw: Dictionary = equipment_item(item_id).get("action_profile", {})
+	var out := ACTION_PROFILE_DEFAULT.duplicate()
+	for key in raw:
+		out[key] = raw[key]
+	return out
+
+
 ## True when item_id can sit in slot_id ("" always fits: an empty slot is valid).
 func item_fits_slot(item_id: String, slot_id: String) -> bool:
 	if item_id == "":

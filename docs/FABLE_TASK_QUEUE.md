@@ -1004,7 +1004,7 @@ authority for scope, lanes, and acceptance. Summary:
 | PR-02 | code | Character preview/rendering contract (`docs/CHARACTER_RENDERING_CONTRACT.md`) | Done 2026-07-20 |
 | PR-03A | code | Gear overlay resolution/refresh hardening (effective body id + refresh boundaries) | Done 2026-07-20 |
 | PR-03B | code | Gear overlay alignment (goblin/dwarf helmet float) -- data-owned per-rig/slot `gear_offset` | Done 2026-07-20 |
-| PR-04 | code + art | Directional action animation (code: anchors/mirroring/timing with existing art; art: new frames via image matrix) | Planned |
+| PR-04 | code | Directional action animation (windup->impact->recovery, item action_profiles, aim-following) | Done 2026-07-20 |
 | PR-05 | code | Menu and character-selection preview through the shared render path | Planned |
 | PR-06 | code + art | Character HUD rebuild on runtime children | Planned |
 | PR-07 | code | Backdrop seam/contour skirt | Planned |
@@ -1025,24 +1025,19 @@ You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 
 Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md, and
 docs/PRESENTATION_RECOVERY_MATRIX.md. FQ-00 through FQ-21 are done; the
-native HUD-kit stabilization is merged. PR-00 (smoke truth), PR-01
-(masculine/feminine terminology migration), PR-02 (character
-preview/rendering contract), PR-03A (gear overlay resolution/refresh
-hardening), and PR-03B (gear overlay alignment) are done -- the suite is
-338/338. Overlays now resolve against effective_body_id() with a
-refresh_presentation() hook, and a data-owned per-rig/slot gear_offset in
-data/player_visuals.json aligns the goblin/dwarf crude helmet onto the head
-(verify_gear_alignment.py enforces helmet/head contact; other bodies/slots
-are identity). The non-human crude torso waist placement was left for the
-art lane as a plausible loincloth style.
+native HUD-kit stabilization is merged. PR-00..PR-02, PR-03A/PR-03B, and PR-04
+are done -- the suite is 341/341. Gear overlays resolve against
+effective_body_id() and align via a data-owned gear_offset; and tool/weapon use
+now plays a data-driven windup->impact->recovery cycle aimed at the target
+(item action_profiles in equipment.json; the sword uses the same contract via a
+presentation-only attack swing). Mining/combat mechanics are unchanged.
 
-The next code-lane row is PR-04 (directional action animation), code half:
-polish the pick/axe swing anchors, left/right mirroring, phase timing, and
-arc continuity in player_visual.gd (_draw_swing, refresh_facing) using the
-EXISTING 90 swing PNGs. Do NOT change mining/combat timing (the frame
-baselines must stay green) and do NOT produce new frames -- new pose frames
-and the sword swing families are the art lane in the image-production matrix.
-Presentation only.
+The next code-lane row is PR-05 (menu and character-selection preview). Render
+the composed live character in the creation/selection UI through the shared
+player_visual.gd rendering path (reuse, do not reimplement) plus the PR-02
+contract, so the previewed character matches the in-world result; add a
+snapshot-compare smoke proving preview == in-world for identical inputs. No
+mechanics change, no image production. Presentation only.
 
 Rows marked art are image production and are NOT code-lane work. Close
 every row with validator, Capsule Doctor, a waited Godot smoke, and real

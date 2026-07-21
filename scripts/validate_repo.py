@@ -403,6 +403,28 @@ for required_recipe in ["craft_sword", "craft_armor_set"]:
         fail(f"recipes.json missing required recipe: {required_recipe}")
 print("PASS equipment data")
 
+# PR-04: the mining/combat tools carry a coherent action-animation profile
+# (windup/impact/recovery fractions summing to 1, a positive arc, a known
+# direction mode). Presentation data only; other items may omit it.
+PR04_ACTION_ITEMS = ["pick_basic", "pick_forged", "axe_crude", "sword_crude", "sword_iron"]
+for item_id in PR04_ACTION_ITEMS:
+    profile = items.get(item_id, {}).get("action_profile")
+    if not isinstance(profile, dict):
+        fail(f"equipment.json item {item_id} missing action_profile")
+    parts = []
+    for key in ["windup", "impact", "recovery"]:
+        value = profile.get(key)
+        if not isinstance(value, (int, float)) or value < 0.0:
+            fail(f"equipment.json {item_id}.action_profile.{key} must be a non-negative number")
+        parts.append(float(value))
+    if abs(sum(parts) - 1.0) > 0.001:
+        fail(f"equipment.json {item_id}.action_profile windup+impact+recovery must sum to 1.0: {parts}")
+    if not isinstance(profile.get("arc_deg"), (int, float)) or profile["arc_deg"] <= 0.0:
+        fail(f"equipment.json {item_id}.action_profile.arc_deg must be a positive number")
+    if profile.get("direction_mode") not in ["target", "facing"]:
+        fail(f"equipment.json {item_id}.action_profile.direction_mode must be target or facing")
+print("PASS action animation profiles")
+
 # FQ-11: the workbench -> furnace -> anvil station chain and its metal gate.
 stations = recipes_data.get("stations") or []
 station_by_id = {s.get("id"): s for s in stations}
