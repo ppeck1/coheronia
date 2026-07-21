@@ -1,6 +1,6 @@
-﻿# Raw Crystal
+# Raw Crystal
 
-Generated: 2026-07-15
+Generated: 2026-07-21
 
 > `Item` page. Current status: `source-only`.
 
@@ -39,3 +39,7 @@ Raw Crystal is live and obtainable, but it still ends in a source-only branch.
 - [Items](../items.md)
 - [Wiki Overview](../wiki.md)
 - [Raw Crystal](../blocks/crystal.md)
+
+## Notes
+
+- Proposed future sink: amulet, beacon, or pulse catalyst.

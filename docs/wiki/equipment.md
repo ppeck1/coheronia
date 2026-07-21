@@ -1,6 +1,6 @@
 # Equipment
 
-Generated: 2026-07-15
+Generated: 2026-07-21
 
 This page groups the current equipment definitions into browseable families, with links to each concrete equipment page.
 
@@ -36,6 +36,7 @@ This page groups the current equipment definitions into browseable families, wit
 |---|---|---|---|
 | [Plain Band](equipment/ring_band.md) | ring | dead | No active stat effect. |
 | [Focus Amulet](equipment/amulet_focus.md) | amulet | dead | attunement_bonus=10 |
+| [Authority Sigil](equipment/authority_sigil.md) | accessory | dead | armor=1, attunement_bonus=5 |
 
 ## Related Pages
 

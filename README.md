@@ -6,7 +6,7 @@ Dig, build, and light a side-view frontier settlement — then keep it alive as 
 
 ![Daytime settlement with the Town Hall, torch line, and live HUD](docs/screenshots/01_settlement_day.png)
 
-`Godot 4.6 · GDScript · data-driven design · 341-check in-engine smoke suite · adaptive music · layered image-first UI pipeline`
+`Godot 4.6 · GDScript · data-driven design · 346-check in-engine smoke suite · adaptive music · layered image-first UI pipeline`
 
 ## What it is
 
@@ -26,10 +26,14 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 
 ## Screenshots
 
+*Captured 2026-07-21 from the live build.*
+
 | | |
 |---|---|
 | ![Night falls — torch light holds the line](docs/screenshots/02_night_torchlight.png)<br>*Night, torchlight, and real-time light occlusion* | ![Town Hall panel with stockpile and forge stations](docs/screenshots/04_town_hall.png)<br>*Town Hall: stockpile, station chain, and crafted-state controls* |
 | ![The inventory board with loadout, backpack, and dock](docs/screenshots/03_inventory.png)<br>*Open the inventory with **I** to drag and drop carried stacks, dock assignments, and compatible equipment; use **Sort** to organize the backpack* | ![Runtime-driven health and attunement vessels at partial charge](docs/screenshots/10_vessel_damage_states.png)<br>*The native HUD keeps vessel fills, values, slots, icons, counts, and actions live at runtime* |
+| ![Character panel showing the composed figure and all equipment slots](docs/screenshots/13_character.png)<br>*The Character panel is rebuilt on runtime children — the composed figure renders through the same `PlayerVisual` the world draws, beside live identity, status, and all 13 equipment slots* | ![Viewport-relative skill constellation tree](docs/screenshots/05_skill_tree.png)<br>*The skill tree is a viewport-relative star map that scales from 640×360 to 1280×720; nodes, prerequisites, and perk spending come straight from JSON* |
+| ![Character creation with a live composed preview](docs/screenshots/07_character_create.png)<br>*Character creation shows a live figure through the shared render path — what you pick is what you get — in a scrolling form with a pinned Create/Back action row* | ![Underground at midday held back by torchlight](docs/screenshots/09_underground_midday_torch.png)<br>*Roof-aware cave darkness: dig deep and daylight stays behind you unless you open a shaft; torches hold the dark off locally* |
 
 *The in-world sprites, every current inventory/live-drop icon, all six live enemy families, all ten player bodies, the Town Hall, parallax backdrops, eight opening-scene cel pools, and 120 body-specific crude-gear/tool overlays are real generated pixel art. High-repetition terrain, flora, ores, enemies, and player bodies also have runtime-selected visual pools. Missing or unresolved images keep a procedural fallback, while the primary dock uses a 19-asset layered kit whose runtime values and states remain separate from its PNG chrome.*
 
@@ -45,13 +49,12 @@ Direct link: [prologue](docs/screenshots/clips/coheronia.prologue.07162026.1125.
 
 ## 🎮 Gameplay
 
-[![Coheronia Gameplay](https://img.youtube.com/vi/-KxICidJK2A/maxresdefault.jpg)](https://youtu.be/-KxICidJK2A)
+[![Coheronia Gameplay](https://img.youtube.com/vi/KoWppfdjSX8/maxresdefault.jpg)](https://youtu.be/KoWppfdjSX8)
 
-Watch the latest gameplay demonstration.
+Watch the latest gameplay demonstration: [https://youtu.be/KoWppfdjSX8](https://youtu.be/KoWppfdjSX8)
 
-> **HUD note:** this gameplay video predates the current native HUD and inventory board. The screenshots above (captured 2026-07-17) are the accurate reference for the live interface.
+> The screenshots on this page (captured 2026-07-21) are the definitive reference for the current interface — the native HUD and inventory board, the rebuilt Character panel, the viewport-relative skill tree, and the contour backdrop.
 
-Direct link: [gameplay](docs/screenshots/clips/coheronia.gameplay.07162026.1135.mp4)
 ---
 
 ## Explore the build wiki
@@ -121,7 +124,7 @@ terrain history, settlement, and progression. Persistence lives in
 
 This repo doubles as an experiment in disciplined AI-driven development:
 
-- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 341 checks across mining, save/load round-trips, legacy migrations, UI panel contents, Map/Events coexistence, HUD-kit layering, physics traversal, armor math, adaptive-music transitions, the character-rendering contract, body-specific gear resolution and alignment, directional action animation, and event stingers. The recorded 2026-07-17 inventory-focused run passed 5/5; the full suite is at 341/341 on 2026-07-20 (the real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun).
+- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 346 checks across mining, save/load round-trips, legacy migrations, UI panel contents, Map/Events coexistence, HUD-kit layering, physics traversal, armor math, adaptive-music transitions, the character-rendering contract, body-specific gear resolution and alignment, directional action animation, the shared-path creation/character-select preview, the runtime-children Character panel, the backdrop contour skirt, the viewport-relative skill panel, and event stingers. The full suite is at **346/346** on 2026-07-21 (the real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun; the `fq19_map_events_coexist` geometry check is sensitive to a contaminated persisted `shell.json` and passes from a clean profile).
 - **Evidence over claims.** Increment scope, decisions, review findings, and validation state are summarized in [`docs/HANDOFF.md`](docs/HANDOFF.md). Historical raw protocol artifacts are still tracked; their fit with the current public-repository profile is explicitly flagged for owner review rather than silently presented as settled policy.
 - **Independent review loop.** Each change was reviewed by a separate agent pass before commit; findings (from save-corruption edge cases to invisible-tint rendering bugs) are documented and fixed in the ledgers.
 - **Task queue discipline.** Work follows [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) one bounded increment at a time — FQ-00 through FQ-09 plus the FQ-09R/S/V/C/W/A/M and U0–U3 refinements (skill-tree star map, variant art pools, the opening cinematic, backdrops and cave darkness, the asset roadmap, action effects, and the full adaptive-music arc) on top of the v0.1–v0.6 foundation, each documented in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md).
@@ -150,7 +153,7 @@ Or open the folder in the Godot editor and press Play.
 | Save / Load | F5 / F9 |
 | Save & exit to shell | Esc |
 
-**Verify the build** (validators + the 341-check in-engine suite):
+**Verify the build** (validators + the 346-check in-engine suite):
 
 ```powershell
 python scripts/validate_repo.py
@@ -164,7 +167,7 @@ Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-r
 # results: user://smoke_results.json
 ```
 
-**Regenerate the README screenshots** (staged capture tour — 14 shots, including five HUD QA frames; run windowed, not `--headless`, so the frame capture resolves):
+**Regenerate the README screenshots** (staged capture tour — 15 shots across the shell and gameplay tours, including the character-create screen at 1280×720 and 640×360; run windowed, not `--headless`, so the frame capture resolves):
 
 ```powershell
 $env:COHERONIA_SHOTS = "1"
@@ -208,7 +211,7 @@ The full adaptive-music arc, the opening cinematic, and the first real art pass
 are done; the active queue ([`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md))
 continues in bounded increments:
 
-- **Shipped since the last art pass** — **FQ-10–15** added ore families, metallurgy stations, farming, three pressure-specific enemies, deterministic visual pools, the state-driven goal panel, and persistent scouting. **FQ-16–21** added the player-state dock, movable HUD modules, dock navigation, runtime vessels, and several painted-chrome experiments. The current stabilization pass supersedes the fragile sliced-band path with a native 19-asset HUD kit, keeps Map and Events independent, and retains the older constructions only as fallbacks.
+- **Shipped since the last art pass** — **FQ-10–15** added ore families, metallurgy stations, farming, three pressure-specific enemies, deterministic visual pools, the state-driven goal panel, and persistent scouting. **FQ-16–21** added the player-state dock, movable HUD modules, dock navigation, runtime vessels, and several painted-chrome experiments; the native 19-asset HUD kit supersedes the fragile sliced-band path, keeps Map and Events independent, and retains the older constructions only as fallbacks. The **presentation recovery arc (PR-00–PR-08)** then completed the code lane: harness truth repair, masculine/feminine terminology, the character-rendering contract, gear resolution/alignment, directional action animation, the shared-path creation/character-select preview, the runtime-children Character panel, the backdrop contour skirt, and the viewport-relative skill panel.
 - **Next up** — big-ticket playability items from `docs/FABLE_TASK_QUEUE.md`: a pause/settings/keybinds panel, save-slot management, build-preview placement tint, a local quest/contracts layer on the goal system, and a subject/NPC labor MVP.
 - **More enemies** from a 16-entry design roster (mini-bosses and the hollow_king / world_worm bosses remain), each landing with its gameplay consumer, and a **consolidated crafting menu**.
 - **Art backlog** — polish the current HUD chrome one contract-safe PNG at a time via the [`HUD Asset Replacement Studio`](docs/wiki/hud_asset_replacement_studio.md); extend body-specific gear beyond the currently covered crude armor, pick, and axe families; refine action poses; and expand opening-scene animation only where it improves the existing authored cel pools.
@@ -219,7 +222,7 @@ continues in bounded increments:
 - **Gear overlays resolve and align (PR-03A + PR-03B).** The repository ships 120 body-specific PNGs for crude helmet/torso/feet overlays and three-phase basic-pick, forged-pick, and crude-axe swings. These *resolve* against the character's *effective body id* — the resolved body when one loaded, otherwise the intended body — so authored gear stays visible across character/load/world-transition/forge refresh paths instead of dropping to the procedural fallback; a `refresh_presentation()` hook re-resolves at the equip/forge boundaries. Overlay *placement* is corrected by a data-owned per-rig `gear_offset` that nudges the goblin/dwarf crude helmet onto the head (aligned bodies stay put); `scripts/art/verify_gear_alignment.py` enforces helmet/head contact. Action animation (PR-04) now plays a data-driven windup→impact→recovery swing aimed at the target — up/down/diagonal, not only rightward — with per-item `action_profile` timing, and the sword animates through the same contract via a presentation-only attack swing; smoother authored swing frames remain an art-lane item. See `docs/CHARACTER_RENDERING_CONTRACT.md` and the known-issues page.
 - **Tool and weapon motion needs another pass.** Pick and axe art currently snaps through three authored poses. The anchors, arc continuity, mirroring, and timing need polish, and the sword does not yet have an equivalent authored attack sequence.
 - **The HUD architecture is stabilized, but the art is provisional.** The primary dock now separates static chrome from runtime values and uses JSON-owned native geometry. Some framed panel states still show padding, masking, or oversized opaque-region defects, particularly in automated captures; the legacy painted/sliced constructions remain fallback code, not the target design.
-- **Full smoke is green (341/341, 2026-07-20).** The HUD edit-mode direct-manipulation (`fq17_hud_edit_direct_manipulation`) and inventory drag/sort (`fq09_inventory_board_drag_and_sort`) assertions were briefly red (332/334) when the inventory-board work landed; both were repaired in `scripts/ui/hud.gd` — the crest widget's default size is now captured from its settled content and the inventory-board cell rebuild removes stale cells before re-adding them. The presentation recovery arc (PR-00 through PR-04) is tracked in `docs/PRESENTATION_RECOVERY_MATRIX.md`.
+- **Full smoke is green (346/346, 2026-07-21).** The **presentation recovery arc's code lane (PR-00 through PR-08) is complete**, tracked in `docs/PRESENTATION_RECOVERY_MATRIX.md`: smoke-harness truth repair; masculine/feminine terminology migration; the character-rendering contract; gear-overlay resolution and alignment; directional action animation; the shared-path creation/character-select preview (what you pick is what you get); the Character panel rebuilt on runtime children through that same render path; a backdrop contour skirt that follows the per-column surface so the distant scenery meets the terrain with no seam; and a viewport-relative skill panel — plus a character-create form that scrolls with a pinned Create/Back action row. The two remaining arc rows are non-code: later skill-lane expansion (deferred) and HUD chrome/image production (art lane). Two runtime notes: the real-time `fq09u1_live_clip_switch` music check occasionally cold-flakes and passes on rerun, and `fq19_map_events_coexist` is sensitive to a contaminated persisted `shell.json` and passes from a clean profile.
 - **Several systems remain intentionally shallow.** Settlers are abstract population rather than NPCs; enemies walk and hop without pathfinding; the adaptive score is one suite still being balanced; and current finite maps have one surface biome.
 
 ---

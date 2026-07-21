@@ -1,10 +1,8 @@
-﻿# Antlers
+# Antlers
 
-Generated: 2026-07-15
+Generated: 2026-07-21
 
 > `Item` page. Current status: `planned`.
-
-> Not live in gameplay. Present only because it is referenced by planned data.
 
 | Field | Value |
 |---|---|

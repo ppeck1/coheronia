@@ -1,6 +1,6 @@
-﻿# Tiny Core
+# Tiny Core
 
-Generated: 2026-07-15
+Generated: 2026-07-21
 
 > `Item` page. Current status: `source-only`.
 
@@ -36,3 +36,7 @@ No meaningful live downstream use is currently defined.
 
 - [Items](../items.md)
 - [Wiki Overview](../wiki.md)
+
+## Notes
+
+- Proposed future sink: Focus Amulet or attunement reagent.

@@ -3,258 +3,62 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Coheronia Wiki - Item Graph</title>
+  <title>Item Graph | Coheronia Wiki</title>
   <link rel="stylesheet" href="wiki_theme.css">
-  <style>
-    .graph-panel {
-      margin: 20px 0 24px;
-      padding: 18px;
-      border: 1px solid rgba(255, 228, 163, 0.28);
-      border-radius: 18px;
-      background: rgba(10, 13, 20, 0.38);
-      overflow-x: auto;
-    }
-    .graph-panel svg {
-      min-width: 1080px;
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-    .node rect {
-      rx: 8;
-      ry: 8;
-      stroke-width: 1.4;
-    }
-    .node text {
-      font-family: "Trebuchet MS", Verdana, sans-serif;
-      fill: #f6eddc;
-      font-size: 13px;
-      text-anchor: middle;
-      dominant-baseline: middle;
-    }
-    .node .small {
-      fill: #d2c3a8;
-      font-size: 11px;
-    }
-    .source rect { fill: #22344d; stroke: #9bc8e7; }
-    .inventory rect { fill: #283d28; stroke: #8fbb66; }
-    .craft rect { fill: #4b351e; stroke: #f0c76d; }
-    .equipment rect { fill: #33385a; stroke: #c5b7ff; }
-    .pressure rect { fill: #4b2721; stroke: #d9896d; }
-    .planned rect { fill: #2d2b32; stroke: #8d8798; stroke-dasharray: 5 4; }
-    .edge {
-      fill: none;
-      stroke: rgba(255, 232, 187, 0.62);
-      stroke-width: 2;
-      marker-end: url(#arrow);
-    }
-    .edge.soft {
-      stroke: rgba(210, 195, 168, 0.34);
-      stroke-dasharray: 5 5;
-    }
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin: 10px 0 0;
-    }
-    .legend span {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-    .legend i {
-      width: 16px;
-      height: 10px;
-      border-radius: 4px;
-      display: inline-block;
-      border: 1px solid rgba(255,255,255,0.25);
-    }
-  </style>
 </head>
 <body>
   <div class="shell">
     <header class="topbar">
-      <span class="kicker">Coheronia Wiki</span>
+      <div class="kicker">Coheronia Wiki</div>
       <h1>Item Graph</h1>
-      <p>Wiki-local visual companion to the strict item graph audit. This page uses a self-contained SVG so the graph renders in static hosting instead of showing raw graph source.</p>
+      <p>HTML wiki page generated from the current repo-backed markdown source. This keeps browsing in HTML while preserving markdown as the maintainable source format.</p>
       <div class="top-actions">
         <a href="index.html">Wiki Home</a>
         <a href="item_graph.md">View Markdown Source</a>
-        <a href="../ITEM_GRAPH.html">Strict Audit Graph</a>
-        <a href="recipes.html">Recipes</a>
-        <a href="status_browser.html">Status Browser</a>
       </div>
     </header>
-
     <div class="layout">
       <aside class="sidebar">
         <div class="sidebar-section">
           <h2>Browse</h2>
-          <p>Use this page to see the current gameplay flow before drilling into individual item and recipe pages.</p>
+          <p>Move through the wiki by category pages and leaf pages without dropping into raw markdown.</p>
         </div>
         <div class="sidebar-section">
-          <h3>Related</h3>
+          <h3>Sections</h3>
           <div class="nav-stack">
-            <a class="nav-card" href="current_live.html">Current Live<small>Current player-facing and obtainable behavior</small></a>
-            <a class="nav-card" href="items.html">Items<small>Registry and leaf pages</small></a>
-            <a class="nav-card" href="equipment.html">Equipment<small>Gear and direct equip routes</small></a>
-            <a class="nav-card" href="planned_data.html">Planned Data<small>Future-only hooks</small></a>
-            <a class="nav-card" href="wiki.html">Wiki Overview<small>Maintenance source</small></a>
+            <a class="nav-card" href="index.html">Home<small>Front page and overall wiki entry</small></a>
+<a class="nav-card" href="items.html">Items<small>Category page for all item entries</small></a>
+<a class="nav-card" href="equipment.html">Equipment<small>Gear families and leaf pages</small></a>
+<a class="nav-card" href="weapons.html">Weapons<small>Weapon-specific browse page</small></a>
+<a class="nav-card" href="blocks.html">Blocks<small>Block registry and leaf pages</small></a>
+<a class="nav-card" href="bestiary.html">Bestiary<small>Live and planned enemy pages</small></a>
+<a class="nav-card" href="character_types.html">Character Types<small>Species, roles, traits, and ancestries</small></a>
+<a class="nav-card" href="stations.html">Crafting Stations<small>Station pages and hosted recipes</small></a>
+<a class="nav-card" href="hud_asset_replacement_studio.html">HUD Asset Studio<small>Drop-in dock art contract and image-editing briefs</small></a>
+<a class="nav-card" href="known_issues.html">Known Issues<small>Active presentation defects and intentional limits</small></a>
+<a class="nav-card" href="wiki.html">Wiki Overview<small>Full planning and maintenance overview</small></a>
           </div>
         </div>
       </aside>
-
       <main class="content">
-        <div class="content-inner article">
-          <div class="breadcrumbs"><a href="index.html">Wiki</a><span class="sep">/</span><span>Item Graph</span></div>
-          <h1>Live Item Graph</h1>
-          <p>This graph is intentionally compressed: it shows the major current routes and the important pressure points without turning the page into an unreadable wall of edges. The strict audit remains available for full node coverage.</p>
-
-          <div class="graph-panel" role="img" aria-label="Coheronia live item acquisition and crafting graph">
-            <svg viewBox="0 0 1180 690" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-                  <path d="M0,0 L0,6 L9,3 z" fill="rgba(255, 232, 187, 0.72)" />
-                </marker>
-                <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="120%">
-                  <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.26"/>
-                </filter>
-              </defs>
-
-              <path class="edge" d="M170 95 C250 95 250 165 330 165"/>
-              <path class="edge" d="M170 225 C250 225 250 165 330 165"/>
-              <path class="edge" d="M170 355 C250 355 250 300 330 300"/>
-              <path class="edge" d="M170 485 C250 485 250 435 330 435"/>
-              <path class="edge" d="M480 165 C560 165 560 145 640 145"/>
-              <path class="edge" d="M480 300 C560 300 560 285 640 285"/>
-              <path class="edge" d="M480 435 C560 435 560 425 640 425"/>
-              <path class="edge" d="M790 145 C870 145 870 145 950 145"/>
-              <path class="edge" d="M790 285 C870 285 870 285 950 285"/>
-              <path class="edge" d="M790 425 C870 425 870 425 950 425"/>
-              <path class="edge" d="M790 555 C870 555 870 555 950 555"/>
-              <path class="edge soft" d="M480 560 C560 560 560 555 640 555"/>
-              <path class="edge soft" d="M1090 555 C1130 555 1130 625 760 625"/>
-              <path class="edge soft" d="M1090 285 C1130 285 1130 625 760 625"/>
-
-              <g class="node source" filter="url(#soft-shadow)" transform="translate(35 60)">
-                <rect width="135" height="70"/>
-                <text x="67.5" y="28">Starting Gear</text>
-                <text class="small" x="67.5" y="50">homesteader, prospector</text>
-              </g>
-              <g class="node source" filter="url(#soft-shadow)" transform="translate(35 190)">
-                <rect width="135" height="70"/>
-                <text x="67.5" y="28">Block Drops</text>
-                <text class="small" x="67.5" y="50">wood, ore, crops</text>
-              </g>
-              <g class="node source" filter="url(#soft-shadow)" transform="translate(35 320)">
-                <rect width="135" height="70"/>
-                <text x="67.5" y="28">Enemy Drops</text>
-                <text class="small" x="67.5" y="50">source-rich, sink-light</text>
-              </g>
-              <g class="node planned" filter="url(#soft-shadow)" transform="translate(35 450)">
-                <rect width="135" height="70"/>
-                <text x="67.5" y="28">Planned Hooks</text>
-                <text class="small" x="67.5" y="50">not live gameplay</text>
-              </g>
-
-              <g class="node inventory" filter="url(#soft-shadow)" transform="translate(330 130)">
-                <rect width="150" height="70"/>
-                <text x="75" y="28">Backpack Items</text>
-                <text class="small" x="75" y="50">wood, stone, food, torch</text>
-              </g>
-              <g class="node inventory" filter="url(#soft-shadow)" transform="translate(330 265)">
-                <rect width="150" height="70"/>
-                <text x="75" y="28">Stockpile Inputs</text>
-                <text class="small" x="75" y="50">ore, ingots, building goods</text>
-              </g>
-              <g class="node pressure" filter="url(#soft-shadow)" transform="translate(330 400)">
-                <rect width="150" height="70"/>
-                <text x="75" y="28">Drop Materials</text>
-                <text class="small" x="75" y="50">many need sinks</text>
-              </g>
-              <g class="node planned" filter="url(#soft-shadow)" transform="translate(330 525)">
-                <rect width="150" height="70"/>
-                <text x="75" y="28">Planned Items</text>
-                <text class="small" x="75" y="50">future references only</text>
-              </g>
-
-              <g class="node craft" filter="url(#soft-shadow)" transform="translate(640 110)">
-                <rect width="150" height="70"/>
-                <text x="75" y="25">Hand Crafting</text>
-                <text class="small" x="75" y="49">torch, seeds, lantern</text>
-              </g>
-              <g class="node craft" filter="url(#soft-shadow)" transform="translate(640 250)">
-                <rect width="150" height="70"/>
-                <text x="75" y="25">Town Hall</text>
-                <text class="small" x="75" y="49">direct equip routes</text>
-              </g>
-              <g class="node craft" filter="url(#soft-shadow)" transform="translate(640 390)">
-                <rect width="150" height="70"/>
-                <text x="75" y="25">Furnace / Anvil</text>
-                <text class="small" x="75" y="49">smelting and iron gear</text>
-              </g>
-              <g class="node craft" filter="url(#soft-shadow)" transform="translate(640 520)">
-                <rect width="150" height="70"/>
-                <text x="75" y="25">Future Sinks</text>
-                <text class="small" x="75" y="49">design work needed</text>
-              </g>
-
-              <g class="node inventory" filter="url(#soft-shadow)" transform="translate(950 110)">
-                <rect width="140" height="70"/>
-                <text x="70" y="25">Light / Food</text>
-                <text class="small" x="70" y="49">torch, lantern, crops</text>
-              </g>
-              <g class="node equipment" filter="url(#soft-shadow)" transform="translate(950 250)">
-                <rect width="140" height="70"/>
-                <text x="70" y="25">Equipment</text>
-                <text class="small" x="70" y="49">pick, axe, sword, armor</text>
-              </g>
-              <g class="node pressure" filter="url(#soft-shadow)" transform="translate(950 390)">
-                <rect width="140" height="70"/>
-                <text x="70" y="25">Metal Dead Ends</text>
-                <text class="small" x="70" y="49">bronze, silver</text>
-              </g>
-              <g class="node pressure" filter="url(#soft-shadow)" transform="translate(950 520)">
-                <rect width="140" height="70"/>
-                <text x="70" y="25">Sink Backlog</text>
-                <text class="small" x="70" y="49">drops and planned hooks</text>
-              </g>
-            </svg>
-            <div class="legend" aria-hidden="true">
-              <span><i style="background:#22344d"></i>Live source</span>
-              <span><i style="background:#283d28"></i>Inventory or stockpile</span>
-              <span><i style="background:#4b351e"></i>Craft route</span>
-              <span><i style="background:#33385a"></i>Equipment</span>
-              <span><i style="background:#4b2721"></i>Pressure point</span>
-              <span><i style="background:#2d2b32"></i>Planned-only</span>
-            </div>
+        <div class="content-inner">
+          <div class="breadcrumbs"><a href="index.html">Wiki</a><span class="sep">/</span><a href="item_graph.html">Item Graph</a><span class="sep">/</span><span>wiki/item_graph.md</span></div>
+          <div class="article">
+            <div class="meta-note">Generated HTML Page</div>
+            <h1 id="item-graph">Item Graph</h1>
+<p>Generated: 2026-07-15</p>
+<h2 id="scope">Scope</h2>
+<ul><li>Wiki-local visual companion to <code>docs/ITEM_GRAPH.md</code>.</li><li>Source data: <code>data/items.json</code>, <code>data/equipment.json</code>, <code>data/recipes.json</code>, <code>data/blocks.json</code>, and the current route notes in the wiki recipe pages.</li><li>This page exists because the strict audit graph can appear as raw graph source in some static viewers. The HTML version of this page contains a rendered, self-contained SVG graph.</li></ul>
+<h2 id="what-the-graph-shows">What The Graph Shows</h2>
+<div class="table-wrap"><table><thead><tr><th>Cluster</th><th>Meaning</th></tr></thead><tbody><tr><td>Live sources</td><td>Starting gear, block drops, crop drops, and enemy drops that can enter current play.</td></tr><tr><td>Backpack and stockpile</td><td>Player inventory, settlement stockpile, and equipment results.</td></tr><tr><td>Crafting routes</td><td>Hand crafting, Town Hall, Workbench, Furnace, and Anvil routes.</td></tr><tr><td>Pressure points</td><td>Live outputs that still need stronger downstream sinks.</td></tr><tr><td>Planned-only</td><td>Data hooks that are present for planning but are not current gameplay.</td></tr></tbody></table></div>
+<h2 id="planning-notes">Planning Notes</h2>
+<ul><li><code>crystal</code>, <code>silver_ingot</code>, and <code>bronze_ingot</code> are live or craftable outputs that still need stronger downstream meaning.</li><li>Live enemy drops are well represented as sources, but most still need first-class sinks.</li><li>Town Hall routes can produce equipment directly rather than normal backpack items, so recipe review should use the recipe pages instead of raw item ids alone.</li><li>Planned-only hooks stay separated from current live routes so future work does not accidentally imply shipped gameplay.</li></ul>
+<h2 id="related-pages">Related Pages</h2>
+<ul><li><a href="current_live.html">Current Live</a></li><li><a href="recipes.html">Recipes</a></li><li><a href="items.html">Items</a></li><li><a href="equipment.html">Equipment</a></li><li><a href="status_browser.html">Status Browser</a></li><li><a href="wiki.html">Wiki Overview</a></li><li><a href="../ITEM_GRAPH.html">Strict Item Graph Audit</a></li></ul>
           </div>
-
-          <h2>Planning Notes</h2>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Finding</th><th>Why it matters</th><th>Next wiki route</th></tr></thead>
-              <tbody>
-                <tr><td>Live graph is source-rich.</td><td>Blocks, crops, and enemies create plenty of inputs.</td><td>Use <a href="current_live.html">Current Live</a> before expanding future branches.</td></tr>
-                <tr><td>Several outputs still need stronger sinks.</td><td><code>crystal</code>, <code>silver_ingot</code>, <code>bronze_ingot</code>, and many enemy drops can be obtained or defined without enough downstream meaning.</td><td>Track them through <a href="planned_data.html">Planned Data</a> and <a href="status_browser.html">Status Browser</a>.</td></tr>
-                <tr><td>Town Hall routes are not plain item outputs.</td><td>Some recipes equip gear directly, so raw output ids do not tell the whole truth.</td><td>Use <a href="recipes.html">recipe pages</a> for route-specific review.</td></tr>
-              </tbody>
-            </table>
+          <div class="footer-note">
+            Source markdown: <a href="item_graph.md">item_graph.md</a>.
           </div>
-
-          <h2>Related Pages</h2>
-          <ul>
-            <li><a href="current_live.html">Current Live</a></li>
-            <li><a href="recipes.html">Recipes</a></li>
-            <li><a href="items.html">Items</a></li>
-            <li><a href="equipment.html">Equipment</a></li>
-            <li><a href="../ITEM_GRAPH.html">Strict Item Graph Audit</a></li>
-          </ul>
-
-          <p class="source-note">Source markdown: <a href="item_graph.md">item_graph.md</a>.</p>
         </div>
       </main>
     </div>

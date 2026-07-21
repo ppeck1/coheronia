@@ -1,6 +1,6 @@
 # Thornrat
 
-Generated: 2026-07-15
+Generated: 2026-07-21
 
 > `Enemy` page. Current status: `live`.
 

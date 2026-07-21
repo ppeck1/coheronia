@@ -1,6 +1,6 @@
 # Elf
 
-Generated: 2026-07-20
+Generated: 2026-07-21
 
 > `Character species` page.
 

@@ -1,6 +1,6 @@
 # Blocks
 
-Generated: 2026-07-15
+Generated: 2026-07-21
 
 This page groups the current block definitions into browseable families.
 
@@ -41,8 +41,8 @@ This page groups the current block definitions into browseable families.
 
 | Block | Tool tier | Placeable | Drops | Visuals |
 |---|---|---|---|---|
-| [Torch](blocks/torch.md) | 0 | yes | torch x1 | 1 canonical image |
-| [Lantern](blocks/lantern.md) | 0 | yes | lantern x1 | 1 canonical image |
+| [Torch](blocks/torch.md) | 0 | yes | torch x1 | 1 canonical image + 3 variants |
+| [Lantern](blocks/lantern.md) | 0 | yes | lantern x1 | 1 canonical image + 3 variants |
 | [Town Hall Core](blocks/town_hall_core.md) | 999 | no | none | 1 canonical image |
 
 ## Related Pages

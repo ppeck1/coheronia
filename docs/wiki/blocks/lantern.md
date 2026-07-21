@@ -1,6 +1,6 @@
 # Lantern
 
-Generated: 2026-07-15
+Generated: 2026-07-21
 
 > `Block` page.
 
@@ -19,7 +19,7 @@ Generated: 2026-07-15
 | Light radius | 160 |
 | Settlement tags | light, safety |
 | Image path | `art/generated/blocks/lantern.png` |
-| Visual family | 1 canonical image |
+| Visual family | 1 canonical image + 3 variants |
 | Fallback / placeholder | Generated block texture fallback when authored art is absent. |
 
 ## Summary
@@ -31,10 +31,16 @@ Lantern is a current block definition loaded from `data/blocks.json`.
 ### Block art and variants
 
 ![Lantern - lantern (Canonical image)](../../../art/generated/blocks/lantern.png)
+![Lantern - lantern_01 (Variant 1)](../../../art/generated/blocks/lantern_01.png)
+![Lantern - lantern_02 (Variant 2)](../../../art/generated/blocks/lantern_02.png)
+![Lantern - lantern_03 (Variant 3)](../../../art/generated/blocks/lantern_03.png)
 
 | Asset id | Role | File |
 |---|---|---|
 | `lantern` | Canonical image | `../../../art/generated/blocks/lantern.png` |
+| `lantern_01` | Variant 1 | `../../../art/generated/blocks/lantern_01.png` |
+| `lantern_02` | Variant 2 | `../../../art/generated/blocks/lantern_02.png` |
+| `lantern_03` | Variant 3 | `../../../art/generated/blocks/lantern_03.png` |
 
 ## Drops
 

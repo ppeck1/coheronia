@@ -1,6 +1,6 @@
 # Deep Goblin
 
-Generated: 2026-07-20
+Generated: 2026-07-21
 
 > `Ancestry` page. Current status: `planned`.
 

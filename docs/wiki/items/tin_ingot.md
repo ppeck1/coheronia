@@ -1,6 +1,6 @@
 # Tin Ingot
 
-Generated: 2026-07-15
+Generated: 2026-07-21
 
 > `Item` page. Current status: `complete`.
 
