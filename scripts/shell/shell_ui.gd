@@ -934,6 +934,11 @@ func _create_and_enter_world() -> void:
 	var seed_text: String = _seed_edit.text.strip_edges()
 	_config["seed"] = int(seed_text) if seed_text.is_valid_int() else 0
 	var world_id: String = GameState.create_world(_config)
+	if world_id == "":
+		# R-02: creation failed to persist — surface it instead of entering a
+		# world that was never written to disk.
+		_header(_content, "Could not create the world (save failed). Please try again.")
+		return
 	GameState.start_world(world_id, _selected_char_id)
 
 

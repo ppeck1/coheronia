@@ -26,8 +26,8 @@ work. It is a seams-first sequence, not a rewrite.
 | RF-01 | Imported runtime visuals are loaded through raw file APIs. | `scripts/world/block_registry.gd` uses `FileAccess.file_exists` and `Image.load_from_file` for `res://` PNGs. | Imported source PNGs can be absent or remapped in an exported PCK while editor/plain-project runs still work. | **RESOLVED by R-01 (2026-07-21).** R-00 proved the exported failure; `_texture_from_file` is now import-aware (`ResourceLoader` -> rebuilt `ImageTexture`, non-imported fallback). Exported `.exe` loads canonical art. |
 | RF-02 | Runtime music/stingers use raw OGG file loading. | `scripts/audio/music_manifest.gd` checks `FileAccess` and calls `AudioStreamOggVorbis.load_from_file`. | Export behavior has not been proven for adaptive audio. | **RESOLVED by R-01 (2026-07-21).** R-00 proved music was disabled in the export; `MusicManifest` now loads via `ResourceLoader` and duplicates streams before stamping loop/BPM/grid. Exported `.exe` plays 4 loops / 6 stems / 5 stingers, no hang. |
 | RF-03 | No committed export preset exists. | `.gitignore` excludes `export_presets.cfg`; none is present. | There is no reproducible distributable-build path. | **RESOLVED by R-01 (2026-07-21).** A minimal Windows `export_presets.cfg` is committed and tracked (`.gitignore` updated); `4.6.1.stable` templates installed; a real `.exe` was built and launched. |
-| RF-04 | Save writes overwrite live files directly. | `scripts/shell/game_state.gd` opens `user://shell.json` and world files with `FileAccess.WRITE`. | A partial write can hide or destroy a usable profile/world. | R-02. |
-| RF-05 | Invalid save JSON defaults silently in key load paths. | `GameState.load_shell` and world loading accept only parsed dictionaries and otherwise return defaults/empty data. | Corruption can look like lost progress rather than a recoverable error. | R-02. |
+| RF-04 | Save writes overwrite live files directly. | `scripts/shell/game_state.gd` opens `user://shell.json` and world files with `FileAccess.WRITE`. | A partial write can hide or destroy a usable profile/world. | **RESOLVED by R-02 (2026-07-21).** All saves go through `_atomic_write_json` (validated temp -> `.bak` -> rename; restores `.bak` if the final rename fails). |
+| RF-05 | Invalid save JSON defaults silently in key load paths. | `GameState.load_shell` and world loading accept only parsed dictionaries and otherwise return defaults/empty data. | Corruption can look like lost progress rather than a recoverable error. | **RESOLVED by R-02 (2026-07-21).** `_load_json_recover` quarantines a corrupt primary to `.corrupt`, restores from `.bak`, and surfaces `shell_load_status`/`world_load_status`; no corrupt save silently becomes a fresh empty profile. |
 | RF-06 | Smoke is coupled to the normal `user://` profile. | Historical smoke failures included stale `shell.json` HUD geometry/profile state. | A green run can depend on or contaminate local player data. | R-03. |
 | RF-07 | Verification is primarily workstation-sequenced. | Static scripts exist, but no declared Python environment, one-command verifier, or CI workflow is present. | External reproducibility and merge confidence are weak. | R-04. |
 | RF-08 | Repository hygiene has remaining release concerns. | `.gitignore` has legacy import rules; large/historical media and generated/history material require a public-release decision. | Clone size, import noise, and public-facing clarity suffer. | R-05. |
@@ -100,6 +100,30 @@ work. It is a seams-first sequence, not a rewrite.
     not shipped game content. Their fix is the explicit R-03 acceptance item
     above (injected writable test root or exported-smoke skip; source assertions
     unchanged).
+
+- **R-02 (Save integrity) — DONE 2026-07-21.** `scripts/shell/game_state.gd`:
+  - `_atomic_write_json(path, payload)`: write a `.tmp`, validate it re-parses to
+    a non-empty object, back the current file up to `.bak`, then rename the temp
+    into place; if the final rename fails, restore the `.bak` so the live file is
+    never left missing. `save_shell` and `_write_world` route through it.
+  - `_load_json_recover(path)`: a corrupt primary is quarantined to `.corrupt`
+    (never blind-deleted), the `.bak` is tried, and a status is returned
+    (`missing`/`ok`/`recovered`/`quarantined`). `load_shell`/`load_world_file`
+    use it and surface the outcome via `shell_load_status` / `world_load_status`;
+    `list_worlds` tolerates a corrupt file without mutating it; a recovered save
+    re-persists to heal the primary.
+  - `_schema_supported()` surfaces an unknown/future `shell_version` as
+    `unsupported_schema` while still loading best-effort — data is never
+    destroyed.
+  - `create_world` returns `""` on a failed write (observable); the shell
+    world-create flow (`shell_ui.gd`) and `ensure_play_context` guard `""` so a
+    world that was never persisted is never entered.
+  - **Evidence.** Source waited-GUI smoke **350/350** with
+    `r02_atomic_write_backup_recover_quarantine` (backup + validate + recover +
+    quarantine + write-failure primitive) and `r02_shell_world_integrity` (shell
+    recovers from `.bak` and is surfaced, unsupported schema surfaced, world file
+    recovers, world creation observable). validator + Capsule Doctor + wiki links
+    + `git diff --check` green.
 
 ## Technical decisions already made
 

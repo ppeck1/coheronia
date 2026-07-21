@@ -7,6 +7,9 @@ extends Node
 const SHELL_PATH := "user://shell.json"
 const WORLDS_DIR := "user://worlds"
 const SHELL_VERSION := "0.4"
+## R-02: schema versions this build can read. A save stamped with anything else
+## is surfaced (schema mismatch) but never destroyed.
+const SUPPORTED_VERSIONS: Array[String] = ["0.1", "0.2", "0.3", "0.4"]
 const DEFAULT_DOCK_ASSIGNMENTS: Array[String] = ["dirt", "wood", "stone", "torch", "lantern"]
 
 var profile: Dictionary = {}
@@ -15,6 +18,13 @@ var current_character: Dictionary = {}
 var current_world_id: String = ""
 var current_config: WorldConfig = null
 var hud_edit_mode := false
+
+# R-02: save-integrity observability. Load paths set these so a corrupt or
+# unexpected save is surfaced instead of silently becoming a new empty profile.
+# "ok" | "missing" | "recovered" (restored from .bak) | "quarantined" (corrupt,
+# moved to .corrupt, no valid backup) | "unsupported_schema".
+var shell_load_status := "ok"
+var world_load_status := "ok"
 
 
 func _ready() -> void:
@@ -27,25 +37,43 @@ func _ready() -> void:
 func load_shell() -> void:
 	profile = {"player_name": "Player", "last_world": "", "last_character": "", "created_at": _now()}
 	characters = []
-	if not FileAccess.file_exists(SHELL_PATH):
+	shell_load_status = "ok"
+	# R-02: recover instead of silently defaulting. A corrupt shell is quarantined
+	# and a .bak is tried; a genuinely unrecoverable/absent file keeps defaults but
+	# is surfaced via shell_load_status, never mistaken for a fresh empty profile.
+	var result := _load_json_recover(SHELL_PATH)
+	var status := str(result.get("status", "ok"))
+	if status == "missing":
 		return
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string(SHELL_PATH))
-	if parsed is Dictionary:
-		profile = parsed.get("profile", profile)
-		var loaded_characters: Variant = parsed.get("characters", [])
-		if loaded_characters is Array:
-			for raw_character in loaded_characters:
-				if raw_character is Dictionary:
-					var character: Dictionary = raw_character.duplicate(true)
-					character["body_variant"] = normalize_body_variant(
-						str(character.get("body_variant", "masculine")))
-					# FQ-13P3: legacy characters (saved before cosmetic variants)
-					# get a deterministic default from their id, so they never
-					# change appearance across loads.
-					if not character.has("visual_variant"):
-						character["visual_variant"] = default_visual_variant(
-							str(character.get("id", "")))
-					characters.append(character)
+	if status == "quarantined":
+		shell_load_status = "quarantined"
+		return
+	var parsed: Dictionary = result.get("data", {})
+	var version := str(parsed.get("shell_version", ""))
+	if not _schema_supported(version):
+		shell_load_status = "unsupported_schema"
+	elif status == "recovered":
+		shell_load_status = "recovered"
+	# Best-effort load / migrate, even on a schema mismatch (never destroy data).
+	profile = parsed.get("profile", profile)
+	var loaded_characters: Variant = parsed.get("characters", [])
+	if loaded_characters is Array:
+		for raw_character in loaded_characters:
+			if raw_character is Dictionary:
+				var character: Dictionary = raw_character.duplicate(true)
+				character["body_variant"] = normalize_body_variant(
+					str(character.get("body_variant", "masculine")))
+				# FQ-13P3: legacy characters (saved before cosmetic variants)
+				# get a deterministic default from their id, so they never
+				# change appearance across loads.
+				if not character.has("visual_variant"):
+					character["visual_variant"] = default_visual_variant(
+						str(character.get("id", "")))
+				characters.append(character)
+	# Heal: a successful recovery from a supported-schema backup re-persists the
+	# primary so the next run starts from a healthy file (with a fresh .bak).
+	if shell_load_status == "recovered":
+		save_shell()
 
 
 ## FQ-09C: profile-level flag — the opening prologue has been completed or
@@ -59,15 +87,91 @@ func mark_prologue_seen() -> void:
 
 
 func save_shell() -> bool:
-	var file := FileAccess.open(SHELL_PATH, FileAccess.WRITE)
-	if file == null:
-		return false
-	file.store_string(JSON.stringify({
+	return _atomic_write_json(SHELL_PATH, {
 		"shell_version": SHELL_VERSION,
 		"profile": profile,
 		"characters": characters,
-	}, "  "))
+	})
+
+
+# ---------- atomic persistence (R-02) ----------
+
+## Serialize `payload` and atomically replace `path`: write a temp file,
+## validate that it re-parses to a non-empty object, back up the current file to
+## `path`.bak, then rename the temp into place. Guarantees:
+## - a crash or failure mid-write never damages the live file (the temp is only
+##   renamed in after it validates; on a late failure the .bak is restored);
+## - a serialization that cannot round-trip never overwrites a good save;
+## - the previous good save is always preserved as `path`.bak for recovery.
+## Returns false without leaving `path` missing on any failure.
+func _atomic_write_json(path: String, payload: Dictionary) -> bool:
+	var tmp := path + ".tmp"
+	var file := FileAccess.open(tmp, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(JSON.stringify(payload, "  "))
+	file.close()
+	# Validate the temp before it is allowed to replace anything.
+	if not _json_object_or_null(tmp) is Dictionary:
+		DirAccess.remove_absolute(tmp)
+		return false
+	var bak := path + ".bak"
+	if FileAccess.file_exists(path):
+		if FileAccess.file_exists(bak):
+			DirAccess.remove_absolute(bak)
+		if DirAccess.rename_absolute(path, bak) != OK:
+			DirAccess.remove_absolute(tmp)
+			return false
+	if DirAccess.rename_absolute(tmp, path) != OK:
+		# Never leave the live file missing: restore the backup we just moved.
+		if FileAccess.file_exists(bak):
+			DirAccess.rename_absolute(bak, path)
+		DirAccess.remove_absolute(tmp)
+		return false
 	return true
+
+
+## Parse a file to a Dictionary, else null (missing file, empty, or bad JSON).
+func _json_object_or_null(path: String) -> Variant:
+	if not FileAccess.file_exists(path):
+		return null
+	var text := FileAccess.get_file_as_string(path)
+	if text.strip_edges() == "":
+		return null
+	var parsed = JSON.parse_string(text)
+	return parsed if parsed is Dictionary else null
+
+
+## Load a JSON-object save with recovery. Returns {data, status}:
+## - "missing": no file yet (normal first run) -> {}.
+## - "ok": parsed cleanly.
+## - "recovered": the primary was corrupt (quarantined to `path`.corrupt) and a
+##   valid `path`.bak was used instead.
+## - "quarantined": the primary was corrupt with no valid backup; it was moved to
+##   `path`.corrupt so it is never silently overwritten, and {} is returned.
+## A corrupt save is thus surfaced and preserved, never mistaken for "new".
+func _load_json_recover(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {"data": {}, "status": "missing"}
+	var parsed: Variant = _json_object_or_null(path)
+	if parsed is Dictionary:
+		return {"data": parsed, "status": "ok"}
+	# Primary is corrupt: quarantine it (never delete a user's save blindly).
+	var quarantine := path + ".corrupt"
+	if FileAccess.file_exists(quarantine):
+		DirAccess.remove_absolute(quarantine)
+	DirAccess.rename_absolute(path, quarantine)
+	var bak := path + ".bak"
+	var backup: Variant = _json_object_or_null(bak)
+	if backup is Dictionary:
+		return {"data": backup, "status": "recovered"}
+	return {"data": {}, "status": "quarantined"}
+
+
+## The version stamp is supported when absent (pre-versioned) or in the known
+## set. Anything else is a forward/unknown schema: surface it, do not destroy.
+func _schema_supported(version: String) -> bool:
+	return version == "" or SUPPORTED_VERSIONS.has(version)
 
 
 # ---------- characters ----------
@@ -200,7 +304,9 @@ func list_worlds() -> Array:
 	for file_name in DirAccess.get_files_at(WORLDS_DIR):
 		if not file_name.ends_with(".json"):
 			continue
-		var parsed = JSON.parse_string(FileAccess.get_file_as_string("%s/%s" % [WORLDS_DIR, file_name]))
+		# Tolerate a corrupt world file in the listing (it is quarantined on an
+		# explicit load, not while enumerating); a valid one is shown normally.
+		var parsed: Variant = _json_object_or_null("%s/%s" % [WORLDS_DIR, file_name])
 		if parsed is Dictionary:
 			out.append({
 				"id": str(parsed.get("meta", {}).get("id", file_name.get_basename())),
@@ -231,7 +337,10 @@ func create_world(config_dict: Dictionary) -> String:
 		"config": config.to_dict(),
 		"state": {},
 	}
-	_write_world(world_id, payload)
+	# R-02: a failed write is observable — return "" instead of an id for a world
+	# that was never persisted. The atomic write leaves no partial file behind.
+	if not _write_world(world_id, payload):
+		return ""
 	return world_id
 
 
@@ -240,18 +349,19 @@ func delete_world(world_id: String) -> void:
 
 
 func load_world_file(world_id: String) -> Dictionary:
-	if not FileAccess.file_exists(world_path(world_id)):
-		return {}
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string(world_path(world_id)))
-	return parsed if parsed is Dictionary else {}
+	# R-02: recover a corrupt world file from its .bak and surface the status,
+	# instead of silently returning {} (which reads as "brand new empty world").
+	var result := _load_json_recover(world_path(world_id))
+	world_load_status = str(result.get("status", "ok"))
+	var data: Dictionary = result.get("data", {})
+	# Heal a recovered world so the quarantined primary is restored on disk.
+	if world_load_status == "recovered" and not data.is_empty():
+		_write_world(world_id, data)
+	return data
 
 
 func _write_world(world_id: String, payload: Dictionary) -> bool:
-	var file := FileAccess.open(world_path(world_id), FileAccess.WRITE)
-	if file == null:
-		return false
-	file.store_string(JSON.stringify(payload, "  "))
-	return true
+	return _atomic_write_json(world_path(world_id), payload)
 
 
 # ---------- play flow ----------
@@ -306,6 +416,8 @@ func ensure_play_context() -> void:
 	var config: Dictionary = WorldConfig.from_preset("folk_kingdom")
 	config["name"] = "Quick World"
 	var world_id := create_world(config)
+	if world_id == "":
+		return   # R-02: world write failed; leave no broken play context.
 	set_context(world_id, character)
 
 

@@ -1051,13 +1051,21 @@ smoke — canonical art plus all 4 loops / 6 stems / 5 stingers load, music enab
 no hang, recolor correct. (Six temp-fixture-PNG checks fail only in the read-only
 exported PCK; green in source; handled as an R-03 acceptance item.)
 
-The next code-lane item is **R-02, Save integrity**, defined in
-`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`: atomic write/validate/replace with a
-`.bak`, quarantine malformed saves, surface errors, preserve/migrate schemas, and
-make failed world creation observable. Do not generate final assets, and do not
-combine save work with the later R-03 verification reorganization. Close with
-validator, Capsule Doctor, a freshness-checked waited Godot smoke, and
-`git diff --check`.
+**R-02 (Save integrity) is also DONE (2026-07-21).** `game_state.gd` writes all
+shell/world saves through `_atomic_write_json` (validated temp + `.bak` + rename)
+and loads through `_load_json_recover` (quarantine `.corrupt`, restore `.bak`,
+surface `shell_load_status`/`world_load_status`); `create_world` returns `""` on a
+failed write and the callers guard it; unknown schemas are surfaced, never
+destroyed. Source waited-GUI smoke is **350/350** (`r02_atomic_write_backup_recover_quarantine`,
+`r02_shell_world_integrity`).
+
+The next code-lane item is **R-03, Isolated verification**, defined in
+`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`: make the persistence root injectable,
+move smoke to a fresh test root, split result reporting, and handle the six
+export-incompatible temp-art fixtures (injected writable root, or skip only under
+exported-smoke mode — source assertions unchanged). Do not combine it with new
+gameplay. Close with validator, Capsule Doctor, a freshness-checked waited Godot
+smoke, and `git diff --check`.
 
 Rows marked art are image production and are NOT code-lane work. Close
 every row with validator, Capsule Doctor, a waited Godot smoke, and real

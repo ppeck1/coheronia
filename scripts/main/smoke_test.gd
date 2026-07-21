@@ -2657,6 +2657,112 @@ func _run() -> void:
 			_r01_ctx.size(), _r01_stems.size(), _r01_stingers.size(),
 			str(_r01_grid_ok), str(_r01_no_mutate)])
 
+	# --- R-02: save integrity — atomic write / validate / .bak / quarantine ---
+	# The write+recover mechanism (shared by shell and world saves) is exercised
+	# on an isolated scratch path so the primitive is proven without touching the
+	# real profile.
+	var _r02_p := "user://r02_scratch.json"
+	for _r02_sfx in ["", ".bak", ".corrupt", ".tmp"]:
+		if FileAccess.file_exists(_r02_p + _r02_sfx):
+			DirAccess.remove_absolute(_r02_p + _r02_sfx)
+	# atomic write v1, then v2 -> the prior good file is preserved as .bak.
+	var _r02_w1: bool = GameState._atomic_write_json(_r02_p, {"v": 1})
+	var _r02_w2: bool = GameState._atomic_write_json(_r02_p, {"v": 2})
+	var _r02_live = GameState._json_object_or_null(_r02_p)
+	var _r02_bak = GameState._json_object_or_null(_r02_p + ".bak")
+	var _r02_backup_ok: bool = _r02_w1 and _r02_w2 \
+		and _r02_live is Dictionary and int(_r02_live.get("v", -1)) == 2 \
+		and _r02_bak is Dictionary and int(_r02_bak.get("v", -1)) == 1
+	# corrupt the live file -> recover reads v1 from .bak and quarantines primary.
+	var _r02_cf := FileAccess.open(_r02_p, FileAccess.WRITE)
+	if _r02_cf != null:
+		_r02_cf.store_string("{ not valid json ,,,")
+		_r02_cf.close()
+	var _r02_rec: Dictionary = GameState._load_json_recover(_r02_p)
+	var _r02_recover_ok: bool = str(_r02_rec.get("status")) == "recovered" \
+		and int((_r02_rec.get("data") as Dictionary).get("v", -1)) == 1 \
+		and FileAccess.file_exists(_r02_p + ".corrupt")
+	# corrupt again with NO backup -> quarantined + empty + surfaced, never silent.
+	for _r02_sfx3 in [".bak", ".corrupt"]:
+		if FileAccess.file_exists(_r02_p + _r02_sfx3):
+			DirAccess.remove_absolute(_r02_p + _r02_sfx3)
+	var _r02_cf2 := FileAccess.open(_r02_p, FileAccess.WRITE)
+	if _r02_cf2 != null:
+		_r02_cf2.store_string("still not json")
+		_r02_cf2.close()
+	var _r02_rec2: Dictionary = GameState._load_json_recover(_r02_p)
+	var _r02_quarantine_ok: bool = str(_r02_rec2.get("status")) == "quarantined" \
+		and (_r02_rec2.get("data") as Dictionary).is_empty() \
+		and FileAccess.file_exists(_r02_p + ".corrupt")
+	# a write whose temp cannot be created fails cleanly (false) and leaves no live
+	# file -- this is what makes create_world observable.
+	var _r02_write_fail: bool = not GameState._atomic_write_json(
+		"user://r02_missing_dir/deep/x.json", {"v": 0})
+	for _r02_sfx4 in ["", ".bak", ".corrupt", ".tmp"]:
+		if FileAccess.file_exists(_r02_p + _r02_sfx4):
+			DirAccess.remove_absolute(_r02_p + _r02_sfx4)
+	_check("r02_atomic_write_backup_recover_quarantine",
+		_r02_backup_ok and _r02_recover_ok and _r02_quarantine_ok and _r02_write_fail,
+		"backup=%s recover=%s quarantine=%s write_fail=%s" % [str(_r02_backup_ok),
+			str(_r02_recover_ok), str(_r02_quarantine_ok), str(_r02_write_fail)])
+
+	# --- R-02: shell + world integration (recovery surfaced, schema, creation) ---
+	# A corrupt profile must never read as a fresh empty one; a future schema is
+	# surfaced without destroying data; failed world creation is observable.
+	var _r02_saved_profile: Dictionary = GameState.profile.duplicate(true)
+	var _r02_saved_chars: Array = GameState.characters.duplicate(true)
+	# healthy shell + a good .bak (two saves), then truncate the live file.
+	GameState.save_shell()
+	GameState.save_shell()
+	var _r02_scf := FileAccess.open(GameState.SHELL_PATH, FileAccess.WRITE)
+	if _r02_scf != null:
+		_r02_scf.store_string("{ truncated shell")
+		_r02_scf.close()
+	GameState.load_shell()
+	var _r02_shell_recovered: bool = GameState.shell_load_status == "recovered" \
+		and GameState.characters.size() == _r02_saved_chars.size() \
+		and FileAccess.file_exists(GameState.SHELL_PATH + ".corrupt")
+	# unsupported (future) schema is surfaced, data preserved (never destroyed).
+	GameState._atomic_write_json(GameState.SHELL_PATH, {
+		"shell_version": "99.0", "profile": _r02_saved_profile,
+		"characters": _r02_saved_chars})
+	GameState.load_shell()
+	var _r02_schema_surfaced: bool = GameState.shell_load_status == "unsupported_schema" \
+		and GameState.characters.size() == _r02_saved_chars.size()
+	# world file: create (observable success), give it a good .bak, corrupt it,
+	# then recover from the backup with a surfaced status.
+	var _r02_wid: String = GameState.create_world(WorldConfig.from_preset("folk_kingdom"))
+	var _r02_create_ok: bool = _r02_wid != ""
+	if _r02_create_ok:
+		GameState._atomic_write_json(GameState.world_path(_r02_wid),
+			GameState.load_world_file(_r02_wid))
+		var _r02_wcf := FileAccess.open(GameState.world_path(_r02_wid), FileAccess.WRITE)
+		if _r02_wcf != null:
+			_r02_wcf.store_string("{ truncated world")
+			_r02_wcf.close()
+	var _r02_wdata: Dictionary = GameState.load_world_file(_r02_wid) if _r02_create_ok else {}
+	var _r02_world_recovered: bool = _r02_create_ok \
+		and GameState.world_load_status == "recovered" and not _r02_wdata.is_empty()
+	if _r02_create_ok:
+		GameState.delete_world(_r02_wid)
+		for _r02_wsfx in [".bak", ".corrupt", ".tmp"]:
+			if FileAccess.file_exists(GameState.world_path(_r02_wid) + _r02_wsfx):
+				DirAccess.remove_absolute(GameState.world_path(_r02_wid) + _r02_wsfx)
+	# restore the real shell state + a clean healthy shell.json (status -> ok).
+	GameState.profile = _r02_saved_profile
+	GameState.characters = _r02_saved_chars
+	GameState.save_shell()
+	GameState.load_shell()
+	for _r02_ssfx in [".bak", ".corrupt", ".tmp"]:
+		if FileAccess.file_exists(GameState.SHELL_PATH + _r02_ssfx):
+			DirAccess.remove_absolute(GameState.SHELL_PATH + _r02_ssfx)
+	_check("r02_shell_world_integrity",
+		_r02_shell_recovered and _r02_schema_surfaced and _r02_create_ok
+		and _r02_world_recovered,
+		"shell_recovered=%s schema=%s create=%s world_recovered=%s" % [
+			str(_r02_shell_recovered), str(_r02_schema_surfaced),
+			str(_r02_create_ok), str(_r02_world_recovered)])
+
 	# Restore progression so later sections see the pre-FQ-06 world.
 	root.purchased_perks = _fq06_saved_perks.duplicate()
 	root._apply_purchased_perk_effects()

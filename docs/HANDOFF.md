@@ -1,6 +1,6 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-21 release foundations: R-00 + R-01 done, R-02 next)
+## Current State (2026-07-21 release foundations: R-01 + R-02 done, R-03 next)
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -1054,9 +1054,27 @@ fail **only in the exported PCK** because `res://` is read-only there; they are
 green in source and exercise a dev-only hot-reload capability, not shipped game
 content (their handling is an explicit R-03 acceptance item).
 
-**The next code-lane row is R-02, Save integrity** (atomic write/validate/replace
-with `.bak`, quarantine malformed saves, observable failed world creation),
-followed by R-03..R-10 in `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
+**R-02 (Save integrity) done 2026-07-21.** All shell/world persistence in
+`scripts/shell/game_state.gd` now goes through `_atomic_write_json` (write a
+validated temp, back the current file up to `.bak`, then rename into place — a
+crash or bad serialization never damages the live save, and the final rename
+restores the `.bak` if it fails) and `_load_json_recover` (a corrupt primary is
+quarantined to `.corrupt`, the `.bak` is tried, and the outcome is surfaced via
+`shell_load_status` / `world_load_status` as `ok`/`missing`/`recovered`/
+`quarantined`/`unsupported_schema`). `save_shell` and `_write_world` write
+atomically; `load_shell`/`load_world_file`/`list_worlds` recover and surface; a
+recovered save re-persists to heal. `create_world` returns `""` on write failure
+(observable) and the shell world-create flow + `ensure_play_context` guard it. An
+unknown/future `shell_version` is surfaced without destroying data. No corrupt
+save silently becomes a fresh empty profile. Smoke:
+`r02_atomic_write_backup_recover_quarantine` + `r02_shell_world_integrity`.
+**Source waited-GUI smoke 350/350**; validator + Capsule Doctor + wiki links +
+`git diff --check` green.
+
+**The next code-lane row is R-03, Isolated verification** (injectable persistence
+root, fresh test root, split result reporting, and the R-01 temp-art-fixture
+handling), followed by R-04..R-10 in
+`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
 
 **PR-09** remains deferred/planning-only. **PR-10**, iron gear, sword/tool
 frames, HUD chrome, and all other final visual assets remain art-lane work
