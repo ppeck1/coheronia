@@ -1,6 +1,6 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-21 presentation recovery: PR-06 done)
+## Current State (2026-07-21 presentation recovery: PR-07 done)
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -146,6 +146,30 @@ values). HUD-QA captures `08_character_panel` (1280x720) and
 children rebuild + shared-path reuse and forbids resurrecting `_character_info`.
 Code lane only -- no image production, no chrome replacement (art stays PR-10).
 Suite **343/343**. Presentation only.
+
+**Backdrop seam/contour skirt (PR-07 done 2026-07-21):** the backdrop's distant
+scenery was anchored to the flat AVERAGE surface line, so where the real
+per-column terrain top sat below the mean the distant band floated on a flat
+line with sky/void showing in the gap down to the terrain -- the seam.
+`world_backdrop.gd` now draws a **world-space contour skirt**
+(`_draw_contour_skirt`): following `world.surface` per column, it fills the band
+from the distant horizon down to the ACTUAL surface with the mid-ground foothill
+tone (`MID_COL`) so the far terrain descends into valleys to meet the ground,
+and backs everything below the surface contour with the under-earth tone
+(`UNDER_COL`) so no void shows behind terrain at any camera height.
+`contour_top_px(col)` is the pure per-column top (clamped off-world so edges
+never void). The horizon/under metrics are now anchored **deferred-safe**
+(`_recompute_metrics` from `_ready` and `_process`) because the world generates
+its surface either before or after the backdrop's `_ready` depending on setup
+order -- previously the anchor silently fell back to the 480px default whenever
+`_ready` ran first (the smoke's Main flow), which is why the skirt appeared to
+do nothing until this fix. No PNG touched; the skirt is world-locked (no
+parallax, never swims) while the distant strips keep their parallax; `light_mask
+= 0`, z-behind-walls, no-save and no-collision are unchanged. Smoke:
+`pr07_backdrop_contour_skirt_follows_surface` (skirt top == per-column surface;
+peak higher on screen than valley; off-world clamps to the edge; cosmetic
+guarantees intact). HUD-QA world captures reviewed (contoured backdrop meets the
+terrain, flat floating band gone). Suite **344/344**. Presentation only.
 
 ## Historical State (2026-07-16 public refresh)
 
@@ -955,15 +979,16 @@ harness truth repair), PR-01 (masculine/feminine terminology migration), PR-02
 (character preview/rendering contract), PR-03A (gear overlay resolution/refresh
 hardening), PR-03B (gear overlay alignment), PR-04 (directional action
 animation, code half), PR-05 (creation/select preview through the shared
-render path), and PR-06 (Character HUD rebuilt on runtime children, code lane)
-are **done** -- the suite is 343/343.
+render path), PR-06 (Character HUD rebuilt on runtime children, code lane), and
+PR-07 (backdrop seam/contour skirt) are **done** -- the suite is 344/344.
 
-1. **PR-07 next (code lane)**: backdrop seam/contour skirt. Give
-   `world_backdrop.gd` a contour skirt that follows the per-column surface so no
-   seam or void shows at any camera position (valley floors and peaks),
-   preserving parallax stability and the `light_mask = 0` / no-save /
-   no-collision guarantees. Screenshot review + smoke.
-2. Then the remaining code-lane row: skill panel resize (PR-08).
+1. **PR-08 next (code lane)**: skill panel resize. `skill_tree_panel.gd` is
+   fixed at 540x420 with a 500x180 scroll canvas -- cramped at 1280x720 and
+   unable to grow with lane expansion. Make it viewport-relative (works at
+   640x360 and 1280x720), preserving the star-map treatment and the existing
+   purchase/persistence/inspection smoke. Screenshot review + smoke.
+2. PR-09 (later skill expansion) is deferred/planning-only until PR-08 lands;
+   PR-10 (HUD chrome/image follow-up) is a pure art lane, not code.
 3. Rows marked **art** (new swing/sword/iron-gear frames, HUD chrome
    replacement) are image production through the matrix's image-production
    table and `docs/wiki/hud_asset_replacement_studio.md` -- never code-lane

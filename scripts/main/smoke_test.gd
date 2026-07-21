@@ -3467,6 +3467,45 @@ func _run() -> void:
 			str(_fq09w_far.get_size() if _fq09w_far != null else Vector2i.ZERO),
 			str(_fq09w_mid.get_size() if _fq09w_mid != null else Vector2i.ZERO)])
 
+	# (f) PR-07: the backdrop contour skirt follows the ACTUAL per-column surface
+	# line, not the flat average horizon -- so the distant backdrop descends to
+	# meet valleys and rises to peaks with no floating seam or void, off-world
+	# columns clamp to the edge (never a void past the bounds), and the cosmetic
+	# guarantees (no light, behind the walls) are unchanged.
+	var _pr07_tile := float(world.tile_size())
+	var _pr07_peak_col := 0
+	var _pr07_valley_col := 0
+	var _pr07_min := 1.0e9
+	var _pr07_max := -1.0e9
+	for _pr07_c in world.surface:
+		var _pr07_sy := float(world.surface[_pr07_c])
+		if _pr07_sy < _pr07_min:
+			_pr07_min = _pr07_sy
+			_pr07_peak_col = int(_pr07_c)
+		if _pr07_sy > _pr07_max:
+			_pr07_max = _pr07_sy
+			_pr07_valley_col = int(_pr07_c)
+	var _pr07_peak_top: float = _fq09w_bd.contour_top_px(_pr07_peak_col)
+	var _pr07_valley_top: float = _fq09w_bd.contour_top_px(_pr07_valley_col)
+	# the skirt top is exactly the per-column surface line, and a peak sits higher
+	# on screen (smaller y) than a valley -- it follows terrain, not a flat line.
+	var _pr07_follows: bool = is_equal_approx(_pr07_peak_top, _pr07_min * _pr07_tile) \
+		and is_equal_approx(_pr07_valley_top, _pr07_max * _pr07_tile) \
+		and _pr07_peak_top < _pr07_valley_top
+	# off-world columns clamp to the nearest edge column (no void past the world).
+	var _pr07_edge0: float = _fq09w_bd.contour_top_px(0)
+	var _pr07_edgeW: float = _fq09w_bd.contour_top_px(world.width - 1)
+	var _pr07_clamped: bool = is_equal_approx(_fq09w_bd.contour_top_px(-8), _pr07_edge0) \
+		and is_equal_approx(_fq09w_bd.contour_top_px(world.width + 8), _pr07_edgeW)
+	# cosmetic guarantees unchanged: no light interaction, still behind the walls.
+	var _pr07_inert: bool = _fq09w_bd.light_mask == 0 \
+		and _fq09w_bd.z_index < world._walls.z_index
+	_check("pr07_backdrop_contour_skirt_follows_surface",
+		_pr07_follows and _pr07_clamped and _pr07_inert,
+		"follows=%s clamped=%s inert=%s peak=%.1f valley=%.1f" % [
+			str(_pr07_follows), str(_pr07_clamped), str(_pr07_inert),
+			_pr07_peak_top, _pr07_valley_top])
+
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
 	# registry and removal falls back (fq09v temp discipline; the wall
 	# tileset itself reads art once at world entry per the FQ-07 rule).

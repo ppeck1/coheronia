@@ -219,6 +219,17 @@ if "_character_info" in hud_src:
     fail("hud.gd Character panel must not resurrect the baked _character_info summary")
 print("PASS character HUD panel rebuilt on runtime children via the render path")
 
+# PR-07: the backdrop must fix the seam with a structural contour skirt that
+# follows the per-column surface, not by cropping or replacing backdrop art, and
+# must keep the cosmetic guarantees (no light interaction).
+backdrop_src = (ROOT / "scripts/world/world_backdrop.gd").read_text(encoding="utf-8")
+for backdrop_symbol in ["_draw_contour_skirt", "contour_top_px", ".surface"]:
+    if backdrop_symbol not in backdrop_src:
+        fail(f"world_backdrop.gd missing contour-skirt element: {backdrop_symbol}")
+if "light_mask = 0" not in backdrop_src:
+    fail("world_backdrop.gd must keep light_mask = 0 (distant scenery ignores 2D lights)")
+print("PASS backdrop contour skirt follows the per-column surface")
+
 # FQ-09U0: the adaptive-music planning contract must stay coherent — the
 # manifest's musical grid matches the locked production contract, all four
 # contexts are declared, and thresholds carry hysteresis.

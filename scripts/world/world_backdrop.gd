@@ -24,6 +24,14 @@ const STEP_PX := 2.0   # parallax offsets snap to hard 2px steps
 var _view := Rect2()
 var _horizon_py := 480.0
 var _under_py := 640.0   # deepest valley line: sky must reach at least here
+# PR-07: the world and its per-column surface line drive the contour skirt so
+# the backdrop follows the ACTUAL terrain top, not just the flat average horizon.
+var _world = null
+var _tile := 32.0
+# Horizon/under metrics are anchored from the generated surface. The world may
+# generate its surface either before or after this node's _ready (setup order
+# varies), so anchoring is deferred until the surface exists.
+var _metrics_ready := false
 
 
 func _ready() -> void:
@@ -35,20 +43,34 @@ func _ready() -> void:
 	# blobs onto mountains kilometres away.
 	light_mask = 0
 	var world := get_parent()
-	if world != null and "surface" in world and not world.surface.is_empty():
-		# Anchor the painted horizon to the generated surface line, and the
-		# under-earth fill to the DEEPEST valley so low terrain never has a
-		# black void behind it.
-		var sum := 0.0
-		var deepest := 0.0
-		for x in world.surface:
-			sum += float(world.surface[x])
-			deepest = maxf(deepest, float(world.surface[x]))
-		_horizon_py = (sum / float(world.surface.size())) * float(world.tile_size())
-		_under_py = (deepest + 1.0) * float(world.tile_size())
+	if world != null and "surface" in world:
+		_world = world
+		_tile = float(world.tile_size())
+		_recompute_metrics()
+
+
+## Anchor the flat horizon to the AVERAGE surface line and the under-earth fill
+## to the DEEPEST valley so low terrain never has a void behind it. Runs from
+## _ready and (deferred-safe) from _process until the surface has generated.
+## Returns true once anchored.
+func _recompute_metrics() -> bool:
+	if _world == null or _world.surface.is_empty():
+		return false
+	var sum := 0.0
+	var deepest := 0.0
+	for x in _world.surface:
+		sum += float(_world.surface[x])
+		deepest = maxf(deepest, float(_world.surface[x]))
+	_horizon_py = (sum / float(_world.surface.size())) * _tile
+	_under_py = (deepest + 1.0) * _tile
+	_metrics_ready = true
+	return true
 
 
 func _process(_delta: float) -> void:
+	# Pick up a surface that generated after _ready (setup-after-add order).
+	if not _metrics_ready and _recompute_metrics():
+		queue_redraw()
 	var cam := get_viewport().get_camera_2d()
 	if cam == null:
 		return
@@ -99,6 +121,65 @@ func _draw() -> void:
 		FAR_COL, 64.0, 903)
 	_strip(layer_texture("surface_mid_silhouette"), horizon, 40.0, MID_PARALLAX,
 		MID_COL, 40.0, 511)
+	# PR-07: the contour skirt ties the flat distant horizon to the real terrain.
+	_draw_contour_skirt(horizon)
+
+
+## PR-07: the structural contour skirt. The backdrop's distant scenery is
+## anchored to the flat AVERAGE surface line; where the real per-column terrain
+## top sits below the mean (valleys) the distant band floated on a flat line
+## with sky/void showing in the gap down to the terrain -- the seam. This fills,
+## in WORLD space (no parallax, so it never swims), the band between the distant
+## horizon and the ACTUAL per-column surface with a mid-ground foothill tone so
+## the far terrain descends into valleys to meet the ground, and backs
+## everything below the surface contour with the under-earth tone so no void
+## shows behind terrain at any camera height. It is drawn in this node (behind
+## the backing walls and blocks by z_index) and paints only cosmetic fills, so
+## collision, lighting, shelter, saves, and the parallax of the distant strips
+## are all unchanged.
+func _draw_contour_skirt(horizon: float) -> void:
+	if _world == null or _tile <= 0.0:
+		return
+	var surface: Dictionary = _world.surface
+	if surface.is_empty():
+		return
+	var left := int(floorf(_view.position.x / _tile)) - 1
+	var right := int(floorf(_view.end.x / _tile)) + 1
+	var x_left := float(left) * _tile
+	var x_right := float(right + 1) * _tile
+	# foothill: distant flat horizon (top) down to the per-column surface (bottom,
+	# clamped so peaks contribute nothing and only valley gaps are filled).
+	var foothill := PackedVector2Array([Vector2(x_left, horizon)])
+	# earth: per-column surface contour (top) down to the bottom of the view.
+	var earth := PackedVector2Array([Vector2(x_left, _view.end.y)])
+	for col in range(left, right + 1):
+		var top := contour_top_px(col, horizon)
+		var x0 := float(col) * _tile
+		var x1 := x0 + _tile
+		foothill.append(Vector2(x0, maxf(top, horizon)))
+		foothill.append(Vector2(x1, maxf(top, horizon)))
+		earth.append(Vector2(x0, top))
+		earth.append(Vector2(x1, top))
+	foothill.append(Vector2(x_right, horizon))
+	earth.append(Vector2(x_right, _view.end.y))
+	# Deep earth backing first, then the foothill band that meets the terrain.
+	draw_colored_polygon(earth, UNDER_COL)
+	draw_colored_polygon(foothill, MID_COL)
+
+
+## PR-07: the skirt's top edge for world column `col`, in world pixels -- the
+## ACTUAL per-column surface line (`surface[col] * tile`), so the skirt follows
+## the terrain rather than the flat average horizon. Off-world columns clamp to
+## the nearest edge (never a void past the bounds); with no world data it falls
+## back to the flat horizon. Pure and side-effect free so the smoke can pin it.
+func contour_top_px(col: int, fallback_horizon: float = -1.0) -> float:
+	var horizon := _horizon_py if fallback_horizon < 0.0 else fallback_horizon
+	if _world == null or _tile <= 0.0 or _world.surface.is_empty():
+		return horizon
+	var w := int(_world.width) if "width" in _world else 0
+	var c := clampi(col, 0, w - 1) if w > 0 else col
+	var sy: float = float(_world.surface.get(c, -1.0))
+	return horizon if sy < 0.0 else sy * _tile
 
 
 ## One parallax strip anchored to the horizon: tiled art when present, else
