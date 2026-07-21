@@ -187,8 +187,21 @@ inspector format changed. Smoke: `pr08_skill_panel_viewport_relative` (fits with
 a margin at 640x360 and 1280x720, roomier than the old 540x420, live panel
 adopts the computed size); `fq06_panel_opens_and_inspects` and
 `fq09s_constellation_links_match_prereqs` stay green. HUD-QA `10_skill_panel`
-(1280x720) + `11_skill_panel_small` (640x360) reviewed. Suite **345/345**.
-Presentation only.
+(1280x720) + `11_skill_panel_small` (640x360) reviewed. Presentation only.
+
+**PR-08 follow-up -- character-create form scroll/fixed actions (fix `ccd3f2a`,
+2026-07-21):** the PR-05 live preview plus the many creation selectors had made
+the character-create form taller than the viewport, so its bottom clipped and
+the Create/Back buttons were pushed off-screen and unreachable. `shell_ui.gd`
+`_show_char_create` now wraps the long form in a `ScrollContainer` (mirroring
+`_show_world_create`) and keeps the Create/Back action row added to `_content`
+**after** the scroll, so it stays pinned and reachable at any viewport size; the
+PR-05 preview and selector refresh are unchanged (the preview scrolls with the
+form). Smoke `pr08_char_create_form_scrolls_actions_pinned` proves the action
+row sits outside the scroll (never clipped), the preview is preserved inside the
+scrollable form, and a default character can be created straight from the
+screen; the shots tour gained `07b_character_create_small` (640x360). Suite
+**346/346**.
 
 **The presentation recovery arc's code lane is complete (PR-00..PR-08).** The
 only remaining rows are non-code: PR-09 (later skill expansion) is
@@ -1005,7 +1018,8 @@ hardening), PR-03B (gear overlay alignment), PR-04 (directional action
 animation, code half), PR-05 (creation/select preview through the shared
 render path), PR-06 (Character HUD rebuilt on runtime children, code lane),
 PR-07 (backdrop seam/contour skirt), and PR-08 (skill panel viewport-relative)
-are **done** -- the suite is 345/345. **The presentation recovery arc's code
+are **done** -- the suite is 346/346 (PR-08 plus the character-create
+scroll/fixed-actions follow-up). **The presentation recovery arc's code
 lane (PR-00..PR-08) is complete.**
 
 1. Remaining arc rows are non-code: **PR-09** (later skill expansion) is

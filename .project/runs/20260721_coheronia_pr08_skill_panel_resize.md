@@ -70,6 +70,22 @@ Implementation commit `195fffd` (9 files: skill_tree_panel, smoke_test,
 hud_visual_qa, validate_repo, + HANDOFF/matrix/queue/VARIABLE_MATRIX(.md+.html)).
 Evidence-only commit follows. Not pushed (operator controls push separately).
 
+## Follow-up (2026-07-21, after this ledger)
+
+The PR-08 push was held for operator review; during the hold the operator
+reported that the **character-create screen** was unusable -- the PR-05 live
+preview plus the many creation selectors made the form taller than the viewport,
+so its bottom clipped and the Create/Back buttons were unreachable. Fixed in
+`shell_ui.gd` `_show_char_create` (wrap the form in a `ScrollContainer`, keep the
+Create/Back action row pinned outside it; PR-05 preview preserved) -- fix commit
+`ccd3f2a`, with a dedicated ledger
+`.project/runs/20260721_coheronia_pr08b_char_create_scroll.md`. Re-verified: the
+full waited-GUI smoke is now **346/346** (adds
+`pr08_char_create_form_scrolls_actions_pinned`), from a clean shell profile;
+validator + Capsule Doctor + wiki links green. So the accepted verification
+count for the PR-08 line is **346/346** as of `ccd3f2a`, superseding the
+345/345 recorded above at `195fffd`.
+
 ## Remaining Risks / Next Action
 
 **The presentation recovery arc's code lane (PR-00..PR-08) is complete.**

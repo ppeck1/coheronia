@@ -1,0 +1,61 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260721_coheronia_pr08b_char_create_scroll",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "c33ae00",
+  "end_commit": "ccd3f2a",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "PR-08 follow-up: make the character-create form viewport-safe (scroll + pinned Create/Back actions) and record the 346/346 rerun in the docs. No gameplay/save change, no image production.",
+  "summary": "During the PR-08 review hold, the character-create screen turned out to be unusable: the live character preview added in PR-05, together with all the creation selectors, made the form taller than the screen, so the bottom was cut off and the Create and Back buttons could not be reached. The form is now placed inside a scrolling area, and the Create/Back buttons are kept just below that scroll area so they are always visible no matter the window size -- exactly how the world-create screen already worked. The live preview and the way the figure updates as you change options are untouched; the preview just scrolls with the rest of the form. A smoke check now proves the buttons sit outside the scroll and stay reachable, the preview is preserved inside the scroll, and a default character can be created straight from the screen, and the screenshot tour captures the screen at both 1280x720 and 640x360.",
+  "acceptance": [
+    "The Create/Back action row is outside the scroll and reachable (pr08_char_create_form_scrolls_actions_pinned: pinned=true, btns=[Create,Back])",
+    "The PR-05 live preview is preserved inside the scrollable form (preview=true)",
+    "A default character (Settler/human) is created straight from the screen (created=true)",
+    "Presentation only: no gameplay/save change, no image production",
+    "Waited-GUI smoke 346/346 from a clean shell profile; validator + capsule_doctor public_repo + wiki links green; shots at 1280x720 and 640x360 reviewed"
+  ],
+  "validation": [
+    "scripts/validate_repo.py -> PASS",
+    "capsule_doctor.py . --profile public_repo -> healthy",
+    "scripts/wiki/check_links.py -> PASS (5366 local links, 367 files)",
+    "waited-GUI Godot 4.6.1 smoke -> PASS 346/346 (fresh results, clean shell profile)",
+    "git diff --check -> clean",
+    "shots 07_character_create (1280x720) + 07b_character_create_small (640x360) reviewed"
+  ],
+  "docs_updated": [
+    "docs/HANDOFF.md",
+    "docs/PRESENTATION_RECOVERY_MATRIX.md",
+    "docs/FABLE_TASK_QUEUE.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/VARIABLE_MATRIX.html",
+    ".project/runs/20260721_coheronia_pr08_skill_panel_resize.md"
+  ],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Wrap the character-create form in a ScrollContainer and keep the Create/Back action row outside it (pinned), mirroring the world-create screen, rather than shrinking or removing the PR-05 preview",
+    "Prove reachability structurally in smoke (action row is not a descendant of the scroll; preview is a descendant) plus a real default-create, since the shell builds off-tree in smoke",
+    "Record the 346/346 rerun as the accepted PR-08 verification count via a docs-only follow-up; the original PR-08 ledger keeps 345/345 at 195fffd with a follow-up note",
+    "VARIABLE_MATRIX.html hand-synced for the one changed row only; no broad wiki regen"
+  ],
+  "risks": [
+    "fq09u1_live_clip_switch cold-profile flakiness persists (passes on rerun)",
+    "fq19_map_events_coexist is sensitive to a contaminated persisted shell.json; it passes from a clean profile",
+    "docs/VARIABLE_MATRIX.html and the wider wiki HTML remain behind their markdown except the hand-synced rows, until a dedicated wiki-regen pass"
+  ],
+  "next_action": "Operator review of the held PR-08 stack (195fffd, c33ae00, ccd3f2a) plus this docs sync; no push until reviewed.",
+  "authority": "evidence-only",
+  "promotion_recommendation": "candidate",
+  "source_paths": [
+    ".project/runs/20260721_coheronia_pr08b_char_create_scroll.md",
+    "scripts/shell/shell_ui.gd"
+  ],
+  "ledger_path": ".project/runs/20260721_coheronia_pr08b_char_create_scroll.md",
+  "sensitivity": "public-safe",
+  "overrides": [],
+  "created_at": "2026-07-21T09:40:00-04:00"
+}

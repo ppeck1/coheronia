@@ -1026,11 +1026,13 @@ You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md, and
 docs/PRESENTATION_RECOVERY_MATRIX.md. FQ-00 through FQ-21 are done; the
 native HUD-kit stabilization is merged. PR-00..PR-02, PR-03A/PR-03B, PR-04,
-PR-05, PR-06 (code lane), PR-07, and PR-08 are done -- the suite is 345/345. The
-entire code lane of the presentation recovery arc is complete: gear overlay
-resolution/alignment; directional action animation; the shared-path
-creation/select preview; the Character HUD rebuilt on runtime children; the
-backdrop contour skirt; and now the skill panel is viewport-relative (pr08).
+PR-05, PR-06 (code lane), PR-07, and PR-08 are done -- the suite is 346/346 (PR-08
+plus a character-create scroll/fixed-actions follow-up). The entire code lane of
+the presentation recovery arc is complete: gear overlay resolution/alignment;
+directional action animation; the shared-path creation/select preview; the
+Character HUD rebuilt on runtime children; the backdrop contour skirt; the skill
+panel is viewport-relative (pr08); and the character-create form now scrolls with
+a pinned Create/Back action row (pr08_char_create_form_scrolls_actions_pinned).
 Mining/combat mechanics unchanged.
 
 The remaining arc rows are NOT code-lane work: PR-09 (later skill expansion) is
