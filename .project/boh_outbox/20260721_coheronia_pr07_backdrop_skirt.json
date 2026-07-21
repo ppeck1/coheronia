@@ -1,0 +1,61 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260721_coheronia_pr07_backdrop_skirt",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "fdd59a7",
+  "end_commit": "951b5c1",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "PR-07 code lane: a structural contour skirt in the scenic backdrop that follows the per-column surface, fixing the seam/void between the backdrop and the variable terrain. No image production, no new/edited PNGs, no gameplay/save change.",
+  "summary": "The scenic backdrop used to hang its distant scenery on one flat line -- the average terrain height. Wherever the real ground dipped below that average, the distant band floated on a straight edge with sky or dark showing in the gap down to the actual terrain: a visible seam. The backdrop now draws a contour skirt that follows the real ground column by column. Between the distant horizon and the true surface it fills a mid-ground foothill tone so the far terrain slopes down into valleys to meet the ground, and below the surface it lays an under-earth backing so no gap ever shows behind the terrain, at any camera height. The skirt is locked to the world (it never swims) while the distant parallax layers keep moving as before, and it is purely cosmetic -- no lighting, collision, shelter, or save behaviour changes. A setup-order bug was found and fixed along the way: the backdrop reads the terrain either before or after it is generated depending on load order, and when it read first the horizon silently defaulted and the skirt drew nothing; it now anchors as soon as the surface exists.",
+  "acceptance": [
+    "The skirt's top edge equals the per-column surface line, with a peak sitting higher on screen than a valley (pr07: follows=true, peak=400 vs valley=528)",
+    "Off-world columns clamp to the nearest edge so nothing voids past the world bounds (pr07: clamped=true)",
+    "Cosmetic guarantees unchanged: light_mask == 0 and the backdrop stays behind the walls (pr07: inert=true)",
+    "No new or edited PNGs; distant parallax strips keep their motion; skirt is world-locked",
+    "Waited-GUI smoke 344/344; validator + capsule_doctor public_repo + wiki links green; HUD-QA world captures reviewed"
+  ],
+  "validation": [
+    "scripts/validate_repo.py -> PASS (backdrop contour skirt follows the per-column surface; pins light_mask = 0)",
+    "capsule_doctor.py . --profile public_repo -> healthy",
+    "scripts/wiki/check_links.py -> PASS (5366 local links, 367 files)",
+    "waited-GUI Godot 4.6.1 smoke -> PASS 344/344 (fresh results file)",
+    "git diff --check -> clean",
+    "HUD-QA 01_resources_100 / 05_map_open reviewed after the deferred-metrics fix (contoured backdrop meets terrain; flat floating band gone)"
+  ],
+  "docs_updated": [
+    "docs/HANDOFF.md",
+    "docs/PRESENTATION_RECOVERY_MATRIX.md",
+    "docs/FABLE_TASK_QUEUE.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/VARIABLE_MATRIX.html"
+  ],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Fix the seam with a structural contour skirt following world.surface, not by cropping or replacing backdrop art (no PNG touched)",
+    "Skirt is drawn in world space so it is locked to the terrain and never swims; the distant far/mid strips keep their parallax",
+    "Fill above the contour (valley gap) with the mid-ground foothill tone and below the contour with under-earth, so both the seam and the behind-terrain void are removed",
+    "Anchor horizon/under metrics deferred-safe (_recompute_metrics from _ready and _process) to survive either setup order; capture the world reference unconditionally",
+    "VARIABLE_MATRIX.html hand-synced for the two changed rows only; broad wiki regeneration drift stays out of scope"
+  ],
+  "risks": [
+    "Final native-scale visual acceptance is the operator's; the code-lane structural fix is complete and smoke-verified",
+    "fq09u1_live_clip_switch cold-profile flakiness persists in the music lane (passed this run)",
+    "docs/VARIABLE_MATRIX.html and the wider wiki HTML remain behind their markdown except the hand-synced rows, until a dedicated wiki-regen pass"
+  ],
+  "next_action": "PR-08 (skill panel resize in skill_tree_panel.gd).",
+  "authority": "evidence-only",
+  "promotion_recommendation": "candidate",
+  "source_paths": [
+    ".project/runs/20260721_coheronia_pr07_backdrop_skirt.md",
+    "scripts/world/world_backdrop.gd"
+  ],
+  "ledger_path": ".project/runs/20260721_coheronia_pr07_backdrop_skirt.md",
+  "sensitivity": "public-safe",
+  "overrides": [],
+  "created_at": "2026-07-21T08:25:00-04:00"
+}
