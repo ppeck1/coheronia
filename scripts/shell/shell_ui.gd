@@ -13,6 +13,10 @@ const AncestryDetailScript := preload("res://scripts/data/ancestry_detail.gd")
 const PrologueScript := preload("res://scripts/shell/prologue.gd")
 # FQ-09U3: profile-level audio preferences, applied via the shared helper.
 const AudioSettings := preload("res://scripts/audio/audio_settings.gd")
+# PR-05: the shared character render path. The creation preview and the
+# character-select rows compose the figure through the very same PlayerVisual
+# the world uses (apply_preview_character), so what you pick == what you get.
+const PlayerVisualScript := preload("res://scripts/player/player_visual.gd")
 
 const PRESET_ORDER := ["peaceful_builder", "folk_kingdom", "tyrants_burden",
 	"dark_frontier", "mythic_survival", "custom"]
@@ -74,6 +78,9 @@ var _role_option: OptionButton
 var _role_ids: Array[String] = []
 var _role_desc: Label
 var _trait_checks: Dictionary = {}   # trait id -> CheckBox
+# PR-05: live character-creation preview (PlayerVisual host), refreshed whenever
+# a figure-affecting selector changes.
+var _create_preview: Control
 
 # --- world create controls ---
 var _config: Dictionary = {}
@@ -318,6 +325,11 @@ func _add_character_row(list: VBoxContainer, character: Dictionary) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	panel.add_child(row)
+	# PR-05: the composed character, drawn through the shared render path from
+	# this character's own stored fields (including equipped gear).
+	var preview := _make_character_preview(3.0)
+	row.add_child(preview)
+	_apply_preview(preview, character)
 	var info := VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info)
@@ -343,6 +355,58 @@ func _add_character_row(list: VBoxContainer, character: Dictionary) -> void:
 		_show_char_select())
 
 
+## PR-05: a self-contained character preview drawn through the shared
+## PlayerVisual render path with no live Player. Returns the framed host; the
+## PlayerVisual child is stored on the "preview_visual" meta for _apply_preview.
+## refresh_facing() early-returns without a Player, so the node's scale (the
+## draw magnification) is never overwritten by facing.
+func _make_character_preview(draw_scale: float) -> Control:
+	var frame := PanelContainer.new()
+	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var host := Control.new()
+	host.custom_minimum_size = Vector2(16.0 * draw_scale, 32.0 * draw_scale)
+	host.clip_contents = true
+	frame.add_child(host)
+	var visual := PlayerVisualScript.new()
+	# BODY_RECT spans x[-8,8] y[-16,16]; centre it in the host and magnify.
+	visual.position = Vector2(8.0 * draw_scale, 16.0 * draw_scale)
+	visual.scale = Vector2(draw_scale, draw_scale)
+	host.add_child(visual)
+	frame.set_meta("preview_visual", visual)
+	return frame
+
+
+## Feed a character dict to a preview built by _make_character_preview.
+func _apply_preview(preview: Control, character: Dictionary) -> void:
+	if preview == null or not preview.has_meta("preview_visual"):
+		return
+	var visual = preview.get_meta("preview_visual")
+	if is_instance_valid(visual):
+		visual.apply_preview_character(character)
+
+
+## The character dict implied by the current creation-form selections. Mirrors
+## the fields _create_character() sends to GameState.create_character, plus the
+## default starting equipment, so the preview matches the created character.
+func _current_create_character() -> Dictionary:
+	return {
+		"species": _option_id(_species_option, _species_ids, "human"),
+		"body_variant": _option_id(
+			_body_variant_option, _body_variant_ids, "masculine"),
+		"visual_variant": int(_visual_variant_spin.value) \
+			if _visual_variant_spin != null else 0,
+		"appearance": _option_id(_appearance_option, _appearance_ids, "tan"),
+		"equipment": GameState.default_equipment(),
+	}
+
+
+func _update_create_preview(_ignored: Variant = null) -> void:
+	if _create_preview == null:
+		return
+	_apply_preview(_create_preview, _current_create_character())
+
+
 # ---------- SCREEN 2b: character create ----------
 
 func _show_char_create() -> void:
@@ -354,6 +418,13 @@ func _show_char_create() -> void:
 	form.add_theme_constant_override("separation", 8)
 	_content.add_child(form)
 	var data: Dictionary = BlockRegistry.character_data
+
+	# PR-05: live figure preview at the top of the form, composed through the
+	# shared render path and refreshed as figure-affecting selectors change.
+	_create_preview = _make_character_preview(6.0)
+	var preview_center := CenterContainer.new()
+	preview_center.add_child(_create_preview)
+	form.add_child(preview_center)
 
 	var name_row := _form_row(form, "Name")
 	_name_edit = LineEdit.new()
@@ -454,6 +525,16 @@ func _show_char_create() -> void:
 		check.toggled.connect(func(_pressed: bool) -> void: _enforce_trait_limit())
 		form.add_child(check)
 		_trait_checks[trait_id] = check
+
+	# PR-05: refresh the preview after every figure-affecting change. Connected
+	# once all controls exist; the look range clamps first (connected earlier),
+	# so the preview reads a settled visual_variant. Traits/role/name never
+	# change the drawn figure, so they do not trigger a repaint.
+	_species_option.item_selected.connect(_update_create_preview)
+	_body_variant_option.item_selected.connect(_update_create_preview)
+	_visual_variant_spin.value_changed.connect(_update_create_preview)
+	_appearance_option.item_selected.connect(_update_create_preview)
+	_update_create_preview()
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)

@@ -184,6 +184,25 @@ It returns:
 id gear resolves against (see Gear Resolution). `layer_order` equals
 `CHARACTER_LAYER_ORDER`.
 
+## Preview Consumers
+
+The character-creation preview and the character-select rows (both in
+`scripts/shell/shell_ui.gd`) compose the character through **the same
+`PlayerVisual`** the world uses, so what you pick equals what you get. They do
+not reimplement any resolution or draw rule.
+
+`apply_preview_character(character)` (PR-05) is the parent-independent entry
+point: it takes a stored/edited character dict, derives body/trim colours from
+its `appearance` exactly as `Player.apply_character` does, fills the preview
+gear from the character's own equipment slots (normalized like the live
+`equipped_dict()`, filtered to the drawn slots), and funnels into
+`set_character_visual()` + the same `_draw`. With no live `Player` parent,
+`refresh_facing()` early-returns (facing never overrides the preview's draw
+scale), `visible_gear_ids()` returns the preview gear, and every swing/action
+snapshot field resolves to its idle value, so `presentation_snapshot()` is safe
+and the drawn figure matches the world's for identical inputs. The
+`pr05_preview_matches_world_render` smoke check pins that equivalence.
+
 ## Guarantees
 
 - Every resolution step has a safe fallback; a missing image degrades to a

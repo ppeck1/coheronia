@@ -183,7 +183,27 @@ for required_phrase in ["Body Resolution", "Gear Resolution", "Compositing Order
                         "Presentation Snapshot", "CHARACTER_LAYER_ORDER"]:
     if required_phrase not in render_contract_text:
         fail(f"character rendering contract missing phrase: {required_phrase}")
+if "Preview Consumers" not in render_contract_text \
+        or "apply_preview_character" not in render_contract_text:
+    fail("character rendering contract must document the preview consumer path "
+         "(Preview Consumers / apply_preview_character)")
 print("PASS character rendering contract authority")
+
+# PR-05: the creation/select preview must reuse the shared render path, not
+# reimplement it. player_visual.gd exposes the parentless entry point and drives
+# the preview gear through it; shell_ui.gd composes both screens by calling it.
+player_visual_src = (ROOT / "scripts/player/player_visual.gd").read_text(encoding="utf-8")
+if "func apply_preview_character(" not in player_visual_src:
+    fail("player_visual.gd must expose apply_preview_character() for the shared preview path")
+if "_preview_gear" not in player_visual_src:
+    fail("player_visual.gd preview path must supply gear via _preview_gear")
+shell_ui_src = (ROOT / "scripts/shell/shell_ui.gd").read_text(encoding="utf-8")
+if "apply_preview_character" not in shell_ui_src:
+    fail("shell_ui.gd must compose previews through apply_preview_character (shared render path)")
+for preview_screen in ["_show_char_create", "_add_character_row"]:
+    if preview_screen not in shell_ui_src:
+        fail(f"shell_ui.gd missing preview-hosting screen builder: {preview_screen}")
+print("PASS character creation/select preview reuses the render path")
 
 # FQ-09U0: the adaptive-music planning contract must stay coherent — the
 # manifest's musical grid matches the locked production contract, all four

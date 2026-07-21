@@ -17,6 +17,11 @@ const DEFAULT_APPEARANCE_BODY := Color(0.92156863, 0.83137255, 0.54901961)
 const CHARACTER_LAYER_ORDER: Array[String] = [
 	"accessory", "body", "feet", "torso", "weapon_or_swing", "helmet"]
 
+## The equipment slots that draw as figure gear (the pickaxe/axe tool slots are
+## not worn overlays). Shared by the live and preview gear paths.
+const DRAWN_GEAR_SLOTS: Array[String] = [
+	"weapon", "helmet", "torso", "feet", "accessory"]
+
 ## PR-04: the mining swing cycles once per this many seconds (matches the FQ-09M
 ## 6-pose/second cadence: three poses per 0.5 s cycle). Presentation only.
 const SWING_CYCLE_SEC := 0.5
@@ -33,6 +38,11 @@ var _body_color := Color(0.92, 0.83, 0.55)
 var _trim_color := Color(0.35, 0.25, 0.18)
 var _facing_sign := RIGHT
 var _appearance_recolored := false
+## PR-05: gear the parentless preview path draws, in place of a live Player's
+## equipped_dict(). Empty for a live PlayerVisual (which reads _player); filled
+## by apply_preview_character() so the creation/select previews compose the same
+## figure the world does. Keys are the drawn slots only.
+var _preview_gear: Dictionary = {}
 
 
 func _ready() -> void:
@@ -67,6 +77,33 @@ func sync_from_player() -> void:
 	set_character_visual(str(_player.species_id), str(_player.body_variant),
 		_player.body_color, _player.trim_color, int(_player.visual_variant))
 	refresh_facing()
+
+
+## PR-05: drive the shared render path from a stored/edited character dict with
+## no live Player parent, so the character-creation preview and character-select
+## rows compose the identical figure the world draws (what you pick == what you
+## get). Presentation only: it reuses set_character_visual() and the same _draw
+## path; gear comes from the character's own equipment slots (normalized exactly
+## like the live equipped_dict()) instead of a live Player. The appearance ->
+## body/trim colour derivation mirrors Player.apply_character so identical inputs
+## resolve to identical colours.
+func apply_preview_character(character: Dictionary) -> void:
+	var appearance: Dictionary = BlockRegistry.appearance_def(
+		str(character.get("appearance", "tan")))
+	var body := Color.from_string(
+		"#" + str(appearance.get("body", "ebd48c")), DEFAULT_APPEARANCE_BODY)
+	var trim := Color.from_string(
+		"#" + str(appearance.get("trim", "59402e")), _trim_color)
+	var normalized: Dictionary = BlockRegistry.normalize_equipment(
+		character.get("equipment", {}))
+	_preview_gear = {}
+	for slot_id in DRAWN_GEAR_SLOTS:
+		var item_id := str(normalized.get(slot_id, ""))
+		if item_id != "":
+			_preview_gear[slot_id] = item_id
+	set_character_visual(str(character.get("species", "human")),
+		str(character.get("body_variant", "masculine")), body, trim,
+		int(character.get("visual_variant", 0)))
 
 
 func visual_variant() -> int:
@@ -130,11 +167,13 @@ func appearance_recolored() -> bool:
 
 
 func visible_gear_ids() -> Dictionary:
+	# PR-05: with no live Player, the parentless preview path supplies the gear
+	# (already filtered to the drawn slots by apply_preview_character).
 	if _player == null:
-		return {}
+		return _preview_gear.duplicate()
 	var equipped: Dictionary = _player.equipped_dict()
 	var out := {}
-	for slot_id in ["weapon", "helmet", "torso", "feet", "accessory"]:
+	for slot_id in DRAWN_GEAR_SLOTS:
 		var item_id := str(equipped.get(slot_id, ""))
 		if item_id != "":
 			out[slot_id] = item_id

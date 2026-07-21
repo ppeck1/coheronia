@@ -1,6 +1,6 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-20 presentation recovery planning)
+## Current State (2026-07-21 presentation recovery: PR-05 done)
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -100,6 +100,29 @@ byte-identical (when the body resolves, `effective_body_id == resolved_body_id`)
 crude gear) and `pr03_gear_survives_body_texture_miss` (gear survives a forced
 body-texture miss via the intended body id and recovers after a refresh). The
 suite is now **341/341** (including the PR-03B alignment and PR-04 action checks).
+
+**Creation/select preview through the shared render path (PR-05 done
+2026-07-21):** the character-creation screen and every character-select row now
+compose the live figure through **the same** `PlayerVisual` the world draws, so
+what you pick equals what you get -- no rule is reimplemented. A parent-
+independent `apply_preview_character(character)` in `player_visual.gd` derives
+body/trim colour from `appearance` exactly like `Player.apply_character`, fills
+the preview gear from the character's own equipment slots (normalized like the
+live `equipped_dict()`, filtered to the drawn `DRAWN_GEAR_SLOTS`), and funnels
+into `set_character_visual()` + the shared `_draw`. With no `Player` parent,
+`refresh_facing()` early-returns (the preview's magnify scale is never
+overwritten), `visible_gear_ids()` returns `_preview_gear`, and every
+swing/action snapshot field resolves to its idle value, so
+`presentation_snapshot()` is null-safe. `shell_ui.gd` gained
+`_make_character_preview`/`_apply_preview`; the creation form shows a live 6x
+preview refreshed on every figure-affecting selector and each select row shows
+the stored character at 3x with its gear. Smoke:
+`pr05_preview_matches_world_render` proves the parentless preview's rendering-
+contract snapshot equals the world's for a dwarf/feminine/ash character with
+four gear slots (body art + appearance recolour + gear all exercised). The
+validator pins the reuse (`apply_preview_character` present, screens wired); the
+contract gained a **Preview Consumers** section. Suite **342/342**. Presentation
+only.
 
 ## Historical State (2026-07-16 public refresh)
 
@@ -907,16 +930,17 @@ and the historical sections above). The active queue is the **presentation
 recovery arc** planned in `docs/PRESENTATION_RECOVERY_MATRIX.md`. PR-00 (smoke
 harness truth repair), PR-01 (masculine/feminine terminology migration), PR-02
 (character preview/rendering contract), PR-03A (gear overlay resolution/refresh
-hardening), PR-03B (gear overlay alignment), and PR-04 (directional action
-animation, code half) are **done** -- the suite is 341/341.
+hardening), PR-03B (gear overlay alignment), PR-04 (directional action
+animation, code half), and PR-05 (creation/select preview through the shared
+render path) are **done** -- the suite is 342/342.
 
-1. **PR-05 next (code lane)**: menu and character-selection preview. Render the
-   composed live character in the creation/selection UI through the shared
-   `player_visual.gd` path (reuse, do not reimplement) + the PR-02 contract, so
-   what you pick matches what you get; add a snapshot-compare smoke proving
-   preview == in-world for identical inputs. Presentation only.
-2. Then the remaining code-lane rows in matrix order: Character HUD rebuild,
-   backdrop contour skirt, and skill panel resize.
+1. **PR-06 next (code lane)**: Character HUD rebuild. Rebuild the Character
+   panel/HUD presentation of the player on runtime children against the PR-02
+   contract and the existing native chrome -- composed character + all slots
+   from runtime state, no baked values, fallbacks intact. Any new chrome PNGs
+   are art-lane (image matrix), not code. Screenshot review + smoke.
+2. Then the remaining code-lane rows in matrix order: backdrop contour skirt
+   (PR-07) and skill panel resize (PR-08).
 3. Rows marked **art** (new swing/sword/iron-gear frames, HUD chrome
    replacement) are image production through the matrix's image-production
    table and `docs/wiki/hud_asset_replacement_studio.md` -- never code-lane

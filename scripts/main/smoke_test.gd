@@ -3649,6 +3649,49 @@ func _run() -> void:
 			_pr04_atk_kind, _pr04_atk_item, str(_pr04_atk_proc),
 			str(_pr04_atk_dir), _pr04_atk_windup, _pr04_atk_recovery])
 
+	# --- PR-05: creation/select preview composes through the shared render path ---
+	# A parentless PlayerVisual (no live Player) must resolve the identical figure
+	# the world draws for the same character -- body, appearance recolour, and
+	# visible gear -- proving "what you pick == what you get". Compared through the
+	# rendering-contract snapshot, on a character that exercises body art, a
+	# recolour, and four gear slots so the equivalence is not a match of empty
+	# fallbacks.
+	player._reset_mining()
+	var _pr05_char := {
+		"species": "dwarf",
+		"body_variant": "feminine",
+		"visual_variant": 0,
+		"appearance": "ash",
+		"equipment": {"weapon": "sword_crude", "helmet": "helmet_crude",
+			"torso": "torso_crude", "feet": "feet_crude"},
+	}
+	player.apply_character(_pr05_char)
+	player.apply_equipment(_pr05_char["equipment"])
+	var _pr05_world_snap: Dictionary = _pv.presentation_snapshot()
+	var _pr05_preview = _pv.get_script().new()   # parentless PlayerVisual
+	_pr05_preview.apply_preview_character(_pr05_char)
+	var _pr05_preview_snap: Dictionary = _pr05_preview.presentation_snapshot()
+	var _pr05_parentless: bool = _pr05_preview.get_parent() == null
+	var _pr05_diffs: Array[String] = []
+	for _pr05_k in ["species", "body_variant", "visual_variant", "requested_body_id",
+			"resolved_body_id", "using_body_art", "appearance_recolored",
+			"effective_body_id", "visible_gear", "layer_order"]:
+		if str(_pr05_world_snap.get(_pr05_k)) != str(_pr05_preview_snap.get(_pr05_k)):
+			_pr05_diffs.append("%s world=%s preview=%s" % [_pr05_k,
+				str(_pr05_world_snap.get(_pr05_k)), str(_pr05_preview_snap.get(_pr05_k))])
+	var _pr05_meaningful: bool = \
+		bool(_pr05_preview_snap.get("using_body_art", false)) \
+		and bool(_pr05_preview_snap.get("appearance_recolored", false)) \
+		and Dictionary(_pr05_preview_snap.get("visible_gear", {})).size() == 4
+	_pr05_preview.free()
+	_check("pr05_preview_matches_world_render",
+		_pr05_diffs.is_empty() and _pr05_parentless and _pr05_meaningful,
+		"parentless=%s meaningful=%s diffs=%s" % [str(_pr05_parentless),
+			str(_pr05_meaningful), str(_pr05_diffs)])
+	# Restore the player to its pre-visual-block character and gear.
+	player.apply_equipment(_pv_saved_equipment)
+	player.apply_character(_pv_saved_character)
+
 	# Restore the state the sections below expect.
 	player._reset_mining()
 	player.global_position = _pr04_saved_pos
