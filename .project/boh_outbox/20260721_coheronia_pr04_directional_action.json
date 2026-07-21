@@ -1,0 +1,62 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260721_coheronia_pr04_directional_action",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "429ae9a",
+  "end_commit": "e925051",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "PR-04 code half of the Presentation Recovery arc: directional windup->impact->recovery action animation. No image production, no gameplay/timing change.",
+  "summary": "Tool and weapon use no longer plays a uniform three-pose loop that only read rightward. Each item now carries an action_profile (windup/impact/recovery fractions, arc, direction mode) in equipment.json, and player_visual plays a windup -> impact -> recovery cycle whose swing is aimed at the target vector and mirror-aware, so up, down, and diagonal aims read directionally. The pick and axe swing PNGs are drawn rotated toward the aim; the sword, which has no authored frames, uses the same contract via a presentation-only attack_swing timer set when a melee hit lands (damage and timing untouched). presentation_snapshot() now exposes action_kind, action_item, swing_phase_kind, and swing_direction. Remaining swing art (smoother authored arcs, real sword frames) stays in the image matrix.",
+  "acceptance": [
+    "Swing direction follows the target across six aim directions (pr04_swing_direction_follows_target)",
+    "Pick and axe differ by their action_profile phases (pr04_action_profile_phases)",
+    "Sword drives the same windup->impact->recovery contract with no authored frames (pr04_sword_uses_action_contract)",
+    "Mining/combat timing and frame baselines unchanged; presentation-only",
+    "Waited-GUI smoke 341/341; validator + capsule_doctor public_repo green"
+  ],
+  "validation": [
+    "scripts/validate_repo.py -> PASS (includes action animation profiles)",
+    "capsule_doctor.py . --profile public_repo -> healthy",
+    "waited-GUI Godot 4.6.1 smoke -> PASS 341/341 (fresh results file)",
+    "git diff --check -> clean"
+  ],
+  "docs_updated": [
+    "docs/HANDOFF.md",
+    "docs/FABLE_TASK_QUEUE.md",
+    "docs/PRESENTATION_RECOVERY_MATRIX.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/VARIABLE_MATRIX.html",
+    "docs/wiki/known_issues.md",
+    "docs/wiki/known_issues.html",
+    "README.md"
+  ],
+  "readme_state": "updated",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Motion is data-owned: items carry an action_profile; BlockRegistry.action_profile merges a default so every item resolves one",
+    "swing_direction() is mirror-aware so diagonal/up/down aims read directionally rather than always rightward",
+    "The sword uses a presentation-only attack_swing timer on player.gd (set on a landed hit) because it has no authored frames; damage/timing are untouched",
+    "New swing art (smoother arcs, sword frames) is deferred to the image matrix (PR-10 lane), not produced here"
+  ],
+  "risks": [
+    "fq09u1_live_clip_switch cold-profile flakiness persists in the music lane (passed this run)",
+    "Sword swing is procedural until authored sword frames land in the art lane"
+  ],
+  "next_action": "PR-05 (menu and character-selection preview through the shared render path).",
+  "authority": "evidence-only",
+  "promotion_recommendation": "candidate",
+  "source_paths": [
+    ".project/runs/20260721_coheronia_pr04_directional_action.md",
+    "data/equipment.json",
+    "scripts/player/player_visual.gd",
+    "scripts/player/player.gd"
+  ],
+  "ledger_path": ".project/runs/20260721_coheronia_pr04_directional_action.md",
+  "sensitivity": "public-safe",
+  "overrides": [],
+  "created_at": "2026-07-21T07:10:00-04:00"
+}
