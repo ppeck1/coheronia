@@ -230,6 +230,16 @@ if "light_mask = 0" not in backdrop_src:
     fail("world_backdrop.gd must keep light_mask = 0 (distant scenery ignores 2D lights)")
 print("PASS backdrop contour skirt follows the per-column surface")
 
+# PR-08: the skill panel must be viewport-relative (fraction of the viewport,
+# re-centred on resize), not the old fixed 540x420 with a 500x180 graph.
+skill_src = (ROOT / "scripts/ui/skill_tree_panel.gd").read_text(encoding="utf-8")
+for skill_symbol in ["panel_size_for", "_apply_layout", "size_changed", "VIEWPORT_FRACTION"]:
+    if skill_symbol not in skill_src:
+        fail(f"skill_tree_panel.gd missing viewport-relative sizing element: {skill_symbol}")
+if "Vector2(540, 420)" in skill_src or "Vector2(500, 180)" in skill_src:
+    fail("skill_tree_panel.gd must not keep the old fixed 540x420 panel / 500x180 graph size")
+print("PASS skill panel is viewport-relative")
+
 # FQ-09U0: the adaptive-music planning contract must stay coherent — the
 # manifest's musical grid matches the locked production contract, all four
 # contexts are declared, and thresholds carry hysteresis.

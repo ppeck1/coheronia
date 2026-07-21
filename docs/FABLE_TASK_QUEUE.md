@@ -1008,7 +1008,7 @@ authority for scope, lanes, and acceptance. Summary:
 | PR-05 | code | Menu and character-selection preview through the shared render path | Done 2026-07-21 |
 | PR-06 | code (+ art deferred) | Character HUD rebuild on runtime children | Done 2026-07-21 (code lane) |
 | PR-07 | code | Backdrop seam/contour skirt | Done 2026-07-21 |
-| PR-08 | code | Skill panel resize | Planned |
+| PR-08 | code | Skill panel resize | Done 2026-07-21 |
 | PR-09 | code | Later skill expansion | Deferred (after PR-08) |
 | PR-10 | art | HUD chrome/image follow-up via the HUD Asset Replacement Studio | Art lane only |
 
@@ -1026,22 +1026,22 @@ You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md, and
 docs/PRESENTATION_RECOVERY_MATRIX.md. FQ-00 through FQ-21 are done; the
 native HUD-kit stabilization is merged. PR-00..PR-02, PR-03A/PR-03B, PR-04,
-PR-05, PR-06 (code lane), and PR-07 are done -- the suite is 344/344. Gear
-overlays resolve against effective_body_id() and align via a data-owned
-gear_offset; tool/weapon use plays a data-driven windup->impact->recovery cycle
-aimed at the target; the creation/character-select UI composes the live figure
-through the same PlayerVisual the world draws (apply_preview_character); the
-Character HUD panel is rebuilt on runtime children (pr06); and the backdrop now
-carries a world-space contour skirt that follows the per-column surface so the
-distant scenery meets the terrain with no seam or void (pr07). Mining/combat
-mechanics unchanged.
+PR-05, PR-06 (code lane), PR-07, and PR-08 are done -- the suite is 345/345. The
+entire code lane of the presentation recovery arc is complete: gear overlay
+resolution/alignment; directional action animation; the shared-path
+creation/select preview; the Character HUD rebuilt on runtime children; the
+backdrop contour skirt; and now the skill panel is viewport-relative (pr08).
+Mining/combat mechanics unchanged.
 
-The next code-lane row is PR-08 (skill panel resize): skill_tree_panel.gd is
-fixed at 540x420 with a 500x180 scroll canvas -- cramped at 1280x720 and unable
-to grow with lane expansion. Make it viewport-relative (works at 640x360 and
-1280x720), preserve the star-map treatment and the existing purchase/persistence/
-inspection smoke. Close with validator, Capsule Doctor, a waited Godot smoke,
-and screenshot review.
+The remaining arc rows are NOT code-lane work: PR-09 (later skill expansion) is
+deferred/planning-only -- do not start it without its own queue item; PR-10 (HUD
+chrome / image follow-up) is a pure art lane produced through the image-
+production matrix and `docs/wiki/hud_asset_replacement_studio.md`, one
+contract-safe PNG at a time, never a code row. With the code lane done, pick the
+next arc/queue item from the operator or resume the big-ticket playability
+backlog (pause/settings/keybinds, save-slot management, quest/contracts,
+subject/NPC labor MVP). Close every increment with validator, Capsule Doctor, a
+waited Godot smoke, and screenshot review.
 
 Rows marked art are image production and are NOT code-lane work. Close
 every row with validator, Capsule Doctor, a waited Godot smoke, and real

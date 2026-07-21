@@ -77,6 +77,19 @@ func _run() -> void:
 	for i in range(12):
 		await get_tree().process_frame
 
+	# PR-08: the Skill panel, now viewport-relative. Captured at 1280x720 and at
+	# a 640x360 window (the same-aspect layout scaled down) to show it fits both.
+	hud.toggle_skill_panel()
+	await _shot("10_skill_panel", "Skill panel (viewport-relative) at a 1280x720 viewport.", hud)
+	DisplayServer.window_set_size(Vector2i(640, 360))
+	for i in range(12):
+		await get_tree().process_frame
+	await _shot("11_skill_panel_small", "Skill panel at a 640x360 window (same-aspect layout scaled to fit).", hud)
+	hud.toggle_skill_panel()
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	for i in range(12):
+		await get_tree().process_frame
+
 	_write_manifest(hud)
 	print("HUD_QA complete -> %s" % QA_DIR)
 	get_tree().quit(0)

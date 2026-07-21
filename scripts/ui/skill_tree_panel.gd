@@ -23,6 +23,18 @@ const NODE_SIZE := Vector2(150, 46)
 const SPACING := Vector2(180, 76)
 const CANVAS_MARGIN := Vector2(20, 26)
 
+## PR-08: the panel is sized as a fraction of the logical viewport (clamped)
+## and re-centred whenever the viewport resizes, so it stays roomy at 1280x720
+## and fits cleanly when the same-aspect layout scales down to 640x360, instead
+## of the old fixed 540x420 with a cramped 500x180 graph. The graph lives in a
+## ScrollContainer that expands to fill, so the star-map stays usable as lanes
+## grow. VIEWPORT_FRACTION leaves a margin; MIN/MAX bound it for tiny/huge views.
+const VIEWPORT_FRACTION := Vector2(0.9, 0.9)
+const MIN_PANEL := Vector2(480, 300)
+const MAX_PANEL := Vector2(1100, 660)
+const VIEWPORT_MARGIN := 16.0
+const MIN_GRAPH_HEIGHT := 110.0
+
 const STATE_COLORS := {
 	"purchased": Color(0.55, 0.95, 0.55),
 	"available": Color(1.0, 1.0, 1.0),
@@ -55,14 +67,15 @@ var _state_styles: Dictionary = {}   # state -> StyleBoxFlat for node plaques
 
 
 func _ready() -> void:
+	# PR-08: centre-anchored; the size is computed from the viewport in
+	# _apply_layout and refreshed on every viewport resize.
 	anchor_left = 0.5
 	anchor_right = 0.5
 	anchor_top = 0.5
 	anchor_bottom = 0.5
-	offset_left = -270
-	offset_top = -210
-	custom_minimum_size = Vector2(540, 420)
 	visible = false
+	get_viewport().size_changed.connect(_apply_layout)
+	_apply_layout()
 	var sky := StyleBoxFlat.new()
 	sky.bg_color = SKY_COLOR
 	sky.border_color = SKY_BORDER
@@ -89,7 +102,11 @@ func _ready() -> void:
 	_points_label.add_theme_color_override("font_color", TEXT_WARM)
 	box.add_child(_points_label)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(500, 180)
+	# PR-08: the graph fills the panel width and expands to take the space left
+	# after the fixed header/inspector rows, so it grows with the viewport and
+	# stays usable as lanes are added; the ScrollContainer pans the larger canvas.
+	scroll.custom_minimum_size = Vector2(0, MIN_GRAPH_HEIGHT)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(scroll)
 	_canvas = Control.new()
@@ -97,7 +114,8 @@ func _ready() -> void:
 	scroll.add_child(_canvas)
 	_info_label = Label.new()
 	_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_info_label.custom_minimum_size = Vector2(500, 88)
+	_info_label.custom_minimum_size = Vector2(0, 52)
+	_info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_info_label.add_theme_font_size_override("font_size", 13)
 	_info_label.add_theme_color_override("font_color", TEXT_WARM)
 	box.add_child(_info_label)
@@ -116,6 +134,39 @@ func _ready() -> void:
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.add_theme_color_override("font_color", TEXT_DIM)
 	box.add_child(hint)
+
+
+## PR-08: size the panel to a fraction of the logical viewport, clamped to a
+## sane min/max and never past the viewport edges, and re-centre it. Runs at
+## _ready and on every viewport resize so the panel is roomy at 1280x720 and
+## fits cleanly when the same-aspect layout scales down to 640x360. Centre
+## anchors keep it centred; only the offsets change.
+func _apply_layout() -> void:
+	var vp := get_viewport_rect().size
+	if vp.x <= 0.0 or vp.y <= 0.0:
+		return
+	var s := panel_size_for(vp)
+	offset_left = -s.x / 2.0
+	offset_right = s.x / 2.0
+	offset_top = -s.y / 2.0
+	offset_bottom = s.y / 2.0
+
+
+## The panel size for a given logical viewport: a clamped fraction that never
+## exceeds the viewport minus a margin, so it is roomy on large views and fits
+## cleanly on small ones. Pure and side-effect free so the smoke can pin it at
+## the target sizes (640x360 and 1280x720).
+func panel_size_for(vp: Vector2) -> Vector2:
+	var w := clampf(vp.x * VIEWPORT_FRACTION.x, MIN_PANEL.x, MAX_PANEL.x)
+	var h := clampf(vp.y * VIEWPORT_FRACTION.y, MIN_PANEL.y, MAX_PANEL.y)
+	w = minf(w, vp.x - VIEWPORT_MARGIN)
+	h = minf(h, vp.y - VIEWPORT_MARGIN)
+	return Vector2(w, h)
+
+
+## The current panel size in logical viewport pixels (PR-08 smoke hook).
+func panel_size() -> Vector2:
+	return Vector2(offset_right - offset_left, offset_bottom - offset_top)
 
 
 ## Called once by game_root._wire_references via hud.setup_skill_panel.

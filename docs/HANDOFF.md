@@ -1,6 +1,6 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-21 presentation recovery: PR-07 done)
+## Current State (2026-07-21 presentation recovery: PR-08 done, code lane complete)
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -170,6 +170,30 @@ parallax, never swims) while the distant strips keep their parallax; `light_mask
 peak higher on screen than valley; off-world clamps to the edge; cosmetic
 guarantees intact). HUD-QA world captures reviewed (contoured backdrop meets the
 terrain, flat floating band gone). Suite **344/344**. Presentation only.
+
+**Skill panel viewport-relative (PR-08 done 2026-07-21, code lane complete):**
+`skill_tree_panel.gd` was a fixed 540x420 with a cramped 500x180 graph -- small
+at 1280x720 and unable to grow. It is now **viewport-relative**: `_apply_layout`
+sizes the panel to `panel_size_for(viewport)` (a `VIEWPORT_FRACTION` clamped to
+`MIN_PANEL`/`MAX_PANEL`, never past the viewport minus `VIEWPORT_MARGIN`) and
+re-centres it on every `get_viewport().size_changed`; the graph
+`ScrollContainer` and the inspector label now `EXPAND_FILL` (widths no longer
+pinned to 500, a `MIN_GRAPH_HEIGHT` floor) so the star-map takes the extra room
+and stays usable as lanes grow. The stretch mode is `canvas_items`+`expand`, so
+the logical viewport is ~1280x720 and a same-aspect 640x360 window just renders
+that layout scaled to fit -- `panel_size_for` is verified to fit both. No perk
+data, node layout (`NODE_SIZE`/`SPACING`), purchase path, persistence, or
+inspector format changed. Smoke: `pr08_skill_panel_viewport_relative` (fits with
+a margin at 640x360 and 1280x720, roomier than the old 540x420, live panel
+adopts the computed size); `fq06_panel_opens_and_inspects` and
+`fq09s_constellation_links_match_prereqs` stay green. HUD-QA `10_skill_panel`
+(1280x720) + `11_skill_panel_small` (640x360) reviewed. Suite **345/345**.
+Presentation only.
+
+**The presentation recovery arc's code lane is complete (PR-00..PR-08).** The
+only remaining rows are non-code: PR-09 (later skill expansion) is
+deferred/planning-only, and PR-10 (HUD chrome / image production) is an art
+lane.
 
 ## Historical State (2026-07-16 public refresh)
 
@@ -979,16 +1003,20 @@ harness truth repair), PR-01 (masculine/feminine terminology migration), PR-02
 (character preview/rendering contract), PR-03A (gear overlay resolution/refresh
 hardening), PR-03B (gear overlay alignment), PR-04 (directional action
 animation, code half), PR-05 (creation/select preview through the shared
-render path), PR-06 (Character HUD rebuilt on runtime children, code lane), and
-PR-07 (backdrop seam/contour skirt) are **done** -- the suite is 344/344.
+render path), PR-06 (Character HUD rebuilt on runtime children, code lane),
+PR-07 (backdrop seam/contour skirt), and PR-08 (skill panel viewport-relative)
+are **done** -- the suite is 345/345. **The presentation recovery arc's code
+lane (PR-00..PR-08) is complete.**
 
-1. **PR-08 next (code lane)**: skill panel resize. `skill_tree_panel.gd` is
-   fixed at 540x420 with a 500x180 scroll canvas -- cramped at 1280x720 and
-   unable to grow with lane expansion. Make it viewport-relative (works at
-   640x360 and 1280x720), preserving the star-map treatment and the existing
-   purchase/persistence/inspection smoke. Screenshot review + smoke.
-2. PR-09 (later skill expansion) is deferred/planning-only until PR-08 lands;
-   PR-10 (HUD chrome/image follow-up) is a pure art lane, not code.
+1. Remaining arc rows are non-code: **PR-09** (later skill expansion) is
+   deferred/planning-only -- do not start without its own queue item; **PR-10**
+   (HUD chrome / image follow-up) is a pure art lane produced one contract-safe
+   PNG at a time through the image matrix and
+   `docs/wiki/hud_asset_replacement_studio.md`, never a code row.
+2. With the code lane done, the next work is an operator-chosen arc/queue item or
+   the big-ticket playability backlog (pause/settings/keybinds, save-slot
+   management, quest/contracts, subject/NPC labor MVP) tracked in
+   `docs/FABLE_TASK_QUEUE.md`.
 3. Rows marked **art** (new swing/sword/iron-gear frames, HUD chrome
    replacement) are image production through the matrix's image-production
    table and `docs/wiki/hud_asset_replacement_studio.md` -- never code-lane

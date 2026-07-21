@@ -2573,6 +2573,27 @@ func _run() -> void:
 		and hud.skill_panel().link_count() == _fq09s_expected_links,
 		"links=%d expected=%d" % [hud.skill_panel().link_count(), _fq09s_expected_links])
 
+	# (h) PR-08: the skill panel is viewport-relative -- it fits cleanly (with a
+	# margin) at both 640x360 and 1280x720, is roomier than the old fixed 540x420
+	# at 1280x720, and adapts to the live viewport rather than a fixed size.
+	var _pr08_panel = hud.skill_panel()
+	var _pr08_s360: Vector2 = _pr08_panel.panel_size_for(Vector2(640, 360))
+	var _pr08_s720: Vector2 = _pr08_panel.panel_size_for(Vector2(1280, 720))
+	var _pr08_fits_360: bool = _pr08_s360.x <= 640.0 - 8.0 and _pr08_s360.y <= 360.0 - 8.0 \
+		and _pr08_s360.x > 0.0 and _pr08_s360.y > 0.0
+	var _pr08_fits_720: bool = _pr08_s720.x <= 1280.0 and _pr08_s720.y <= 720.0
+	# roomier than the old fixed 540x420 at 1280x720, and it grows with the view.
+	var _pr08_roomier: bool = _pr08_s720.x > 540.0 and _pr08_s720.y > 420.0 \
+		and _pr08_s720.x > _pr08_s360.x
+	# the live panel actually adopts the computed size for the current viewport.
+	var _pr08_vp: Vector2 = _pr08_panel.get_viewport_rect().size
+	var _pr08_live_ok: bool = _pr08_panel.panel_size().is_equal_approx(
+		_pr08_panel.panel_size_for(_pr08_vp))
+	_check("pr08_skill_panel_viewport_relative",
+		_pr08_fits_360 and _pr08_fits_720 and _pr08_roomier and _pr08_live_ok,
+		"s360=%s s720=%s live=%s vp=%s" % [str(_pr08_s360), str(_pr08_s720),
+			str(_pr08_live_ok), str(_pr08_vp)])
+
 	# Restore progression so later sections see the pre-FQ-06 world.
 	root.purchased_perks = _fq06_saved_perks.duplicate()
 	root._apply_purchased_perk_effects()
