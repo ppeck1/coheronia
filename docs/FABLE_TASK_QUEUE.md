@@ -1006,7 +1006,7 @@ authority for scope, lanes, and acceptance. Summary:
 | PR-03B | code | Gear overlay alignment (goblin/dwarf helmet float) -- data-owned per-rig/slot `gear_offset` | Done 2026-07-20 |
 | PR-04 | code | Directional action animation (windup->impact->recovery, item action_profiles, aim-following) | Done 2026-07-20 |
 | PR-05 | code | Menu and character-selection preview through the shared render path | Done 2026-07-21 |
-| PR-06 | code + art | Character HUD rebuild on runtime children | Planned |
+| PR-06 | code (+ art deferred) | Character HUD rebuild on runtime children | Done 2026-07-21 (code lane) |
 | PR-07 | code | Backdrop seam/contour skirt | Planned |
 | PR-08 | code | Skill panel resize | Planned |
 | PR-09 | code | Later skill expansion | Deferred (after PR-08) |
@@ -1025,19 +1025,20 @@ You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 
 Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md, and
 docs/PRESENTATION_RECOVERY_MATRIX.md. FQ-00 through FQ-21 are done; the
-native HUD-kit stabilization is merged. PR-00..PR-02, PR-03A/PR-03B, PR-04, and
-PR-05 are done -- the suite is 342/342. Gear overlays resolve against
-effective_body_id() and align via a data-owned gear_offset; tool/weapon use
-plays a data-driven windup->impact->recovery cycle aimed at the target; and the
-creation/character-select UI now composes the live figure through the same
-PlayerVisual the world draws (apply_preview_character), proven equal by
-pr05_preview_matches_world_render. Mining/combat mechanics are unchanged.
+native HUD-kit stabilization is merged. PR-00..PR-02, PR-03A/PR-03B, PR-04,
+PR-05, and PR-06 (code lane) are done -- the suite is 343/343. Gear overlays
+resolve against effective_body_id() and align via a data-owned gear_offset;
+tool/weapon use plays a data-driven windup->impact->recovery cycle aimed at the
+target; the creation/character-select UI composes the live figure through the
+same PlayerVisual the world draws (apply_preview_character); and the Character
+HUD panel is rebuilt on runtime children -- composed figure through that same
+shared path, live identity/status, and all 13 equipment slots from runtime
+state (pr06_character_panel_runtime_render). Mining/combat mechanics unchanged.
 
-The next code-lane row is PR-06 (Character HUD rebuild on runtime children).
-Rebuild the Character panel/HUD presentation of the player on runtime children
-against the PR-02 contract and the existing native chrome, showing the composed
-character + all slots from runtime state (no baked values, fallbacks intact).
-Any new chrome PNGs are art-lane (image matrix), not code. Close with validator,
+The next code-lane row is PR-07 (backdrop seam/contour skirt): give
+world_backdrop.gd a contour skirt that follows the per-column surface so no seam
+or void shows at any camera position, preserving parallax stability and the
+light_mask = 0 / no-save / no-collision guarantees. Close with validator,
 Capsule Doctor, a waited Godot smoke, and screenshot review.
 
 Rows marked art are image production and are NOT code-lane work. Close

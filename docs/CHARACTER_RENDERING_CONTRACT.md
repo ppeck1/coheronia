@@ -187,7 +187,8 @@ id gear resolves against (see Gear Resolution). `layer_order` equals
 ## Preview Consumers
 
 The character-creation preview and the character-select rows (both in
-`scripts/shell/shell_ui.gd`) compose the character through **the same
+`scripts/shell/shell_ui.gd`) and the in-game **Character HUD panel**
+(`scripts/ui/hud.gd`, PR-06) compose the character through **the same
 `PlayerVisual`** the world uses, so what you pick equals what you get. They do
 not reimplement any resolution or draw rule.
 
@@ -202,6 +203,16 @@ scale), `visible_gear_ids()` returns the preview gear, and every swing/action
 snapshot field resolves to its idle value, so `presentation_snapshot()` is safe
 and the drawn figure matches the world's for identical inputs. The
 `pr05_preview_matches_world_render` smoke check pins that equivalence.
+
+The Character HUD panel (PR-06) uses the same entry point: `hud.gd`
+`_make_character_figure` calls `apply_preview_character` on a dict assembled
+from live `player` state (species/body/look/appearance plus `equipped_dict()`),
+so the panel figure shows the live worn gear and cannot drift from the in-world
+character; the panel also lists all thirteen equipment slots from that same
+runtime state and is rebuilt on runtime children on every open (no baked
+values). `character_figure_snapshot()` exposes the figure's snapshot and
+`pr06_character_panel_runtime_render` pins the equivalence and the no-baked
+rebuild.
 
 ## Guarantees
 

@@ -4435,6 +4435,55 @@ func _run() -> void:
 		"nav=%s character=%s skills=%s town=%s close=%s" % [str(_fq18_nav_ok),
 			str(_fq18_character_ok), str(_fq18_skills_ok), str(_fq18_town_ok), str(_fq18_modal_close_ok)])
 
+	# --- PR-06: Character HUD rebuilt on runtime children through the shared path ---
+	# The panel composes the live character through the same PlayerVisual the world
+	# draws (apply_preview_character), lists all 13 equipment slots from runtime
+	# state, and holds no baked values -- re-equipping + reopening updates figure,
+	# equipped names, and status. (fq18 left the panel closed.)
+	var _pr06_saved_equip: Dictionary = player.equipment.duplicate(true)
+	var _pr06_saved_health: float = player.health
+	player.apply_equipment({"weapon": "sword_crude", "helmet": "helmet_crude"})
+	player.health = 42.0
+	hud.toggle_character_panel()   # open + refresh
+	var _pr06_open: bool = hud.character_panel_open()
+	var _pr06_fig: Dictionary = hud.character_figure_snapshot()
+	var _pr06_fig_gear: Dictionary = _pr06_fig.get("visible_gear", {})
+	var _pr06_fig_ok: bool = bool(_pr06_fig.get("using_body_art", false)) \
+		and str(_pr06_fig_gear.get("weapon", "")) == "sword_crude" \
+		and str(_pr06_fig_gear.get("helmet", "")) == "helmet_crude"
+	var _pr06_texts: Array[String] = []
+	for _pr06_l in hud._character_panel.find_children("*", "Label", true, false):
+		_pr06_texts.append((_pr06_l as Label).text)
+	var _pr06_joined := "\n".join(_pr06_texts)
+	var _pr06_missing_slots: Array[String] = []
+	for _pr06_slot in BlockRegistry.equipment_slots():
+		if str(_pr06_slot.get("display_name", "")) not in _pr06_texts:
+			_pr06_missing_slots.append(str(_pr06_slot.get("display_name", "")))
+	var _pr06_slots_shown: bool = _pr06_missing_slots.is_empty()
+	var _pr06_live_ok: bool = ("Crude Sword" in _pr06_joined) and ("Health: 42 / " in _pr06_joined)
+	# no baked values: re-equip a different weapon + change health, then reopen.
+	player.apply_equipment({"weapon": "sword_iron", "helmet": "helmet_crude"})
+	player.health = 7.0
+	hud.toggle_character_panel()   # close
+	hud.toggle_character_panel()   # reopen + refresh
+	var _pr06_retexts: Array[String] = []
+	for _pr06_rl in hud._character_panel.find_children("*", "Label", true, false):
+		_pr06_retexts.append((_pr06_rl as Label).text)
+	var _pr06_rejoined := "\n".join(_pr06_retexts)
+	var _pr06_refig: Dictionary = hud.character_figure_snapshot()
+	var _pr06_no_baked: bool = ("Iron Sword" in _pr06_rejoined) \
+		and ("Crude Sword" not in _pr06_rejoined) \
+		and ("Health: 7 / " in _pr06_rejoined) \
+		and str(_pr06_refig.get("visible_gear", {}).get("weapon", "")) == "sword_iron"
+	hud.toggle_character_panel()   # close
+	player.apply_equipment(_pr06_saved_equip)
+	player.health = _pr06_saved_health
+	_check("pr06_character_panel_runtime_render",
+		_pr06_open and _pr06_fig_ok and _pr06_slots_shown and _pr06_live_ok and _pr06_no_baked,
+		"open=%s fig=%s slots=%s(miss=%s) live=%s no_baked=%s" % [str(_pr06_open),
+			str(_pr06_fig_ok), str(_pr06_slots_shown), str(_pr06_missing_slots),
+			str(_pr06_live_ok), str(_pr06_no_baked)])
+
 	# FQ-19: contextual right-band stack — fixed priority order, event-driven
 	# entries (selection change / save / interaction), auto-hide, and a top
 	# edge pinned dynamically below the live Map/Events zone. Runs after the

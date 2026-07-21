@@ -205,6 +205,20 @@ for preview_screen in ["_show_char_create", "_add_character_row"]:
         fail(f"shell_ui.gd missing preview-hosting screen builder: {preview_screen}")
 print("PASS character creation/select preview reuses the render path")
 
+# PR-06: the Character HUD panel must rebuild on runtime children and draw the
+# composed figure through the SAME shared render path (no duplicated rendering,
+# no baked summary). It reuses apply_preview_character and lists every gear slot.
+hud_src = (ROOT / "scripts/ui/hud.gd").read_text(encoding="utf-8")
+if "apply_preview_character" not in hud_src or "PlayerVisualScript" not in hud_src:
+    fail("hud.gd Character panel must draw the figure through the shared PlayerVisual render path")
+for hud_symbol in ["_make_character_figure", "character_figure_snapshot",
+                   "_equipment_board_slots"]:
+    if hud_symbol not in hud_src:
+        fail(f"hud.gd Character panel missing runtime-children builder: {hud_symbol}")
+if "_character_info" in hud_src:
+    fail("hud.gd Character panel must not resurrect the baked _character_info summary")
+print("PASS character HUD panel rebuilt on runtime children via the render path")
+
 # FQ-09U0: the adaptive-music planning contract must stay coherent — the
 # manifest's musical grid matches the locked production contract, all four
 # contexts are declared, and thresholds carry hysteresis.

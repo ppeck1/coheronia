@@ -58,6 +58,25 @@ func _run() -> void:
 	_set_resources(player, hud, 0.15, 0.15)
 	await _shot("07_map_events_open", "Map and events open together with low resource state.", hud)
 
+	# PR-06: the Character panel, rebuilt on runtime children. Equip some gear
+	# first so the composed figure (shared render path) and the equipment slots
+	# read from live state. Captured at two viewport sizes.
+	_prepare_hud(root, hud, false, true)
+	player.apply_equipment({"weapon": "sword_crude", "helmet": "helmet_crude",
+		"torso": "torso_crude", "feet": "feet_crude"})
+	_set_resources(player, hud, 0.7, 0.6)
+	hud.toggle_character_panel()
+	await _shot("08_character_panel",
+		"Character panel: composed figure through the shared render path, live identity/status, and all 13 equipment slots from runtime state.", hud)
+	DisplayServer.window_set_size(Vector2i(1600, 900))
+	for i in range(12):
+		await get_tree().process_frame
+	await _shot("09_character_panel_wide", "Character panel at a 1600x900 viewport.", hud)
+	hud.toggle_character_panel()
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	for i in range(12):
+		await get_tree().process_frame
+
 	_write_manifest(hud)
 	print("HUD_QA complete -> %s" % QA_DIR)
 	get_tree().quit(0)

@@ -99,9 +99,15 @@ var _goal_visible := true
 var _inv_panel: PanelContainer
 var _inv_content: Label
 var _character_panel: PanelContainer
-var _character_info: Label
+# PR-06: the Character panel is rebuilt on runtime children each open. The body
+# host is cleared+repopulated by _refresh_character_panel; the figure is the
+# shared PlayerVisual render path (apply_preview_character), never duplicated art.
+var _character_body: VBoxContainer
+var _character_figure = null   # the preview PlayerVisual (Node2D), else null
 # FQ-06: skill tree panel (K); preloaded script, no class_name (cache-safe).
 const SkillTreePanelScript := preload("res://scripts/ui/skill_tree_panel.gd")
+# PR-06: shared character render path reused for the Character panel figure.
+const PlayerVisualScript := preload("res://scripts/player/player_visual.gd")
 const InventorySlotCellScript := preload("res://scripts/ui/inventory_slot_cell.gd")
 var _skill_panel: PanelContainer
 # FQ-15: map/minimap panel (M); hidden until opened, fed a snapshot by game_root.
@@ -2717,22 +2723,23 @@ func _build_character_panel() -> void:
 	_character_panel.anchor_right = 0.5
 	_character_panel.anchor_top = 0.5
 	_character_panel.anchor_bottom = 0.5
-	_character_panel.offset_left = -160
-	_character_panel.offset_top = -150
-	_character_panel.custom_minimum_size = Vector2(320, 300)
+	_character_panel.offset_left = -230
+	_character_panel.offset_top = -215
+	_character_panel.custom_minimum_size = Vector2(460, 430)
 	_character_panel.visible = false
 	add_child(_character_panel)
 	var character_content := _module_content_host(_character_panel, "ornate")
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
+	box.add_theme_constant_override("separation", 6)
 	character_content.add_child(box)
 	var title := _label(box, "CHARACTER")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_character_info = _label(box, "")
-	_character_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var hint := _label(box, "Read-only summary · equipment and inventory remain in their own panels")
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.add_theme_color_override("font_color", Color(0.72, 0.76, 0.84))
+	# PR-06: dynamic body rebuilt from runtime state on every open (no baked
+	# values). The figure and every field/slot below live here.
+	_character_body = VBoxContainer.new()
+	_character_body.add_theme_constant_override("separation", 6)
+	_character_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(_character_body)
 	var close := Button.new()
 	close.text = "Close"
 	close.pressed.connect(func(): toggle_character_panel())
@@ -2755,31 +2762,106 @@ func character_panel_open() -> bool:
 	return _character_panel != null and _character_panel.visible
 
 
+## PR-06: the shared render path snapshot of the panel's composed figure, or {}
+## when the panel has no figure. Lets the smoke prove the panel draws the live
+## character through the same PlayerVisual the world uses.
+func character_figure_snapshot() -> Dictionary:
+	if _character_figure != null and is_instance_valid(_character_figure):
+		return _character_figure.presentation_snapshot()
+	return {}
+
+
+## PR-06: a Character-panel figure drawn through the shared PlayerVisual render
+## path (no live Player parent), framed and magnified. Mirrors the creation/
+## select preview (PR-05); the character dict is assembled from live runtime
+## state, so the panel figure can never drift from the in-world character.
+func _make_character_figure(character: Dictionary, draw_scale: float) -> Control:
+	var frame := PanelContainer.new()
+	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var host := Control.new()
+	host.custom_minimum_size = Vector2(16.0 * draw_scale, 32.0 * draw_scale)
+	host.clip_contents = true
+	frame.add_child(host)
+	var visual = PlayerVisualScript.new()
+	visual.position = Vector2(8.0 * draw_scale, 16.0 * draw_scale)
+	visual.scale = Vector2(draw_scale, draw_scale)
+	host.add_child(visual)
+	visual.apply_preview_character(character)
+	_character_figure = visual
+	return frame
+
+
 func _refresh_character_panel() -> void:
-	if _character_info == null:
+	if _character_body == null:
 		return
+	_character_figure = null
+	_clear_children(_character_body)
 	var character: Dictionary = GameState.current_character if GameState.current_character is Dictionary else {}
-	var name := str(character.get("name", "Wanderer"))
-	var species := str(character.get("species", player.species_id if player != null else "human"))
-	var role := str(character.get("role", "homesteader"))
+	var char_name := str(character.get("name", "Wanderer"))
+	var species := str(player.species_id if player != null else character.get("species", "human"))
 	var body := BlockRegistry.normalize_body_variant(
-		str(character.get("body_variant", player.body_variant if player != null else "masculine")))
-	var health_text := "n/a"
-	var attunement_text := "n/a"
-	var carried_text := "n/a"
+		str(player.body_variant if player != null else character.get("body_variant", "masculine")))
+	var look := int(player.visual_variant if player != null else character.get("visual_variant", 0))
+	var appearance := str(character.get("appearance", "tan"))
+	var role := str(character.get("role", "homesteader"))
+	var equipped: Dictionary = player.equipped_dict() if player != null else {}
+
+	# Top row: composed figure (shared render path, live gear) beside identity.
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 12)
+	_character_body.add_child(top)
+	var figure_char := {
+		"species": species,
+		"body_variant": body,
+		"visual_variant": look,
+		"appearance": appearance,
+		"equipment": equipped,
+	}
+	top.add_child(_make_character_figure(figure_char, 5.0))
+	var identity := VBoxContainer.new()
+	identity.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	identity.add_theme_constant_override("separation", 2)
+	top.add_child(identity)
+	_label(identity, char_name.capitalize()).add_theme_font_size_override("font_size", 18)
+	var look_text := "Default look" if look <= 0 else "Look %d" % look
+	_label(identity, "%s  ·  %s" % [species.capitalize(), body.capitalize()])
+	_label(identity, "%s  ·  %s" % [appearance.capitalize(), look_text])
+	_label(identity, "Role: %s" % role.capitalize())
+	var trait_ids: Array = character.get("traits", [])
+	var trait_names: Array[String] = []
+	for trait_id in trait_ids:
+		trait_names.append(str(trait_id).capitalize())
+	_label(identity, "Traits: %s" % ("None" if trait_names.is_empty() else ", ".join(trait_names)))
 	if player != null:
-		health_text = "%d / %d" % [int(round(player.health)), int(round(player.max_health))]
 		var max_attunement: float = player.max_attunement() if player.has_method("max_attunement") else 0.0
-		attunement_text = "%d / %d" % [int(round(player.attunement)), int(round(max_attunement))]
-		carried_text = "%d items" % player.inventory.total()
-	var lines := [
-		"Name: %s" % name.capitalize(),
-		"Species: %s  ·  Role: %s" % [species.capitalize(), role.capitalize()],
-		"Body: %s" % body.capitalize(),
-		"Health: %s  ·  Attunement: %s" % [health_text, attunement_text],
-		"Carried: %s" % carried_text,
-	]
-	_character_info.text = "\n".join(lines)
+		_label(identity, "Health: %d / %d" % [int(round(player.health)), int(round(player.max_health))])
+		_label(identity, "Attunement: %d / %d" % [int(round(player.attunement)), int(round(max_attunement))])
+		_label(identity, "Attack: %d  ·  Carried: %d items" % [
+			player.attack_damage(), player.inventory.total()])
+
+	# Equipment: every slot from runtime state, empty slots shown as em dash.
+	var equip_title := _label(_character_body, "EQUIPMENT")
+	equip_title.add_theme_color_override("font_color", Color(0.82, 0.7, 0.42))
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_character_body.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 2)
+	scroll.add_child(grid)
+	for slot in _equipment_board_slots():
+		var slot_id := str(slot.get("id", ""))
+		var item_id := str(equipped.get(slot_id, ""))
+		var slot_label := _label(grid, str(slot.get("display_name", slot_id)))
+		slot_label.add_theme_color_override("font_color", Color(0.72, 0.76, 0.84))
+		slot_label.custom_minimum_size = Vector2(150, 0)
+		var value := _label(grid,
+			BlockRegistry.equipment_item_display_name(item_id) if item_id != "" else "—")
+		value.tooltip_text = _equipment_tooltip(slot, item_id)
 
 
 ## FQ-06: skill tree panel plumbing (game_root wires itself in at boot).

@@ -1,6 +1,6 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-21 presentation recovery: PR-05 done)
+## Current State (2026-07-21 presentation recovery: PR-06 done)
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -123,6 +123,29 @@ four gear slots (body art + appearance recolour + gear all exercised). The
 validator pins the reuse (`apply_preview_character` present, screens wired); the
 contract gained a **Preview Consumers** section. Suite **342/342**. Presentation
 only.
+
+**Character HUD rebuilt on runtime children (PR-06 done 2026-07-21, code
+lane):** the Character panel is rebuilt from runtime state on every open inside
+the existing native `ornate` chrome -- no baked summary, no duplicated
+rendering. `hud.gd` `_build_character_panel` now holds a persistent
+`_character_body` that `_refresh_character_panel` clears (`_clear_children`) and
+repopulates with: a composed figure drawn through the **same** PlayerVisual
+render path as the world and the creation preview (`_make_character_figure` ->
+`apply_preview_character` on a dict assembled from live `player` state incl.
+`equipped_dict()`, so the figure shows the live worn gear and can never drift);
+live identity (name/species/body/look/appearance/role/traits); live status
+(health, attunement, attack, carried); and **all 13 equipment slots**
+(`_equipment_board_slots`) with each empty slot shown as an em dash. The old
+`_character_info` baked label is gone. `character_figure_snapshot()` exposes the
+figure's rendering-contract snapshot for the smoke. Smoke:
+`pr06_character_panel_runtime_render` proves the figure draws through the shared
+path with the live worn gear, all 13 slot names render, status/identity read
+live, and re-equipping + reopening updates figure/names/status (no baked
+values). HUD-QA captures `08_character_panel` (1280x720) and
+`09_character_panel_wide` (1600x900) reviewed. The validator pins the runtime-
+children rebuild + shared-path reuse and forbids resurrecting `_character_info`.
+Code lane only -- no image production, no chrome replacement (art stays PR-10).
+Suite **343/343**. Presentation only.
 
 ## Historical State (2026-07-16 public refresh)
 
@@ -931,16 +954,16 @@ recovery arc** planned in `docs/PRESENTATION_RECOVERY_MATRIX.md`. PR-00 (smoke
 harness truth repair), PR-01 (masculine/feminine terminology migration), PR-02
 (character preview/rendering contract), PR-03A (gear overlay resolution/refresh
 hardening), PR-03B (gear overlay alignment), PR-04 (directional action
-animation, code half), and PR-05 (creation/select preview through the shared
-render path) are **done** -- the suite is 342/342.
+animation, code half), PR-05 (creation/select preview through the shared
+render path), and PR-06 (Character HUD rebuilt on runtime children, code lane)
+are **done** -- the suite is 343/343.
 
-1. **PR-06 next (code lane)**: Character HUD rebuild. Rebuild the Character
-   panel/HUD presentation of the player on runtime children against the PR-02
-   contract and the existing native chrome -- composed character + all slots
-   from runtime state, no baked values, fallbacks intact. Any new chrome PNGs
-   are art-lane (image matrix), not code. Screenshot review + smoke.
-2. Then the remaining code-lane rows in matrix order: backdrop contour skirt
-   (PR-07) and skill panel resize (PR-08).
+1. **PR-07 next (code lane)**: backdrop seam/contour skirt. Give
+   `world_backdrop.gd` a contour skirt that follows the per-column surface so no
+   seam or void shows at any camera position (valley floors and peaks),
+   preserving parallax stability and the `light_mask = 0` / no-save /
+   no-collision guarantees. Screenshot review + smoke.
+2. Then the remaining code-lane row: skill panel resize (PR-08).
 3. Rows marked **art** (new swing/sword/iron-gear frames, HUD chrome
    replacement) are image production through the matrix's image-production
    table and `docs/wiki/hud_asset_replacement_studio.md` -- never code-lane
