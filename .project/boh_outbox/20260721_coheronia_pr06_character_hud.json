@@ -1,0 +1,63 @@
+{
+  "schema_version": "0.2",
+  "run_id": "20260721_coheronia_pr06_character_hud",
+  "project_id": "coheronia-game",
+  "project_name": "Coheronia",
+  "repo_root": "B:/dev/Coheronia/coheronia_fable_oneshot_repo",
+  "branch": "main",
+  "start_commit": "2cbe6af",
+  "end_commit": "420411a",
+  "run_state": "SIGNABLE",
+  "boh_packet_state": "queued",
+  "scope": "PR-06 code lane: Character HUD panel rebuilt on runtime children with the composed figure drawn through the shared PlayerVisual render path. No reimplementation, no gameplay/save change, no image production, no chrome replacement.",
+  "summary": "Opening the Character panel no longer shows a short baked text summary. The panel is rebuilt from live state every time it opens, inside the existing native ornate chrome: a magnified composed figure drawn through the very same PlayerVisual the world uses (fed a dict assembled from the live player, including the currently worn gear, so it can never disagree with the in-world character), the character's live identity (name, species, body, look, appearance, role, traits), live status (health, attunement, attack, carried items), and every one of the thirteen equipment slots with its currently equipped item (empty slots shown as an em dash). Because the body is cleared and repopulated on each open, changing gear or status and reopening always shows the new truth; nothing is baked.",
+  "acceptance": [
+    "Figure draws through the shared PlayerVisual path with the live worn gear (pr06: fig=true; visible_gear matches equipped weapon/helmet)",
+    "All 13 equipment slots render from runtime state (pr06: slots=true, miss=[])",
+    "Identity and status read from live runtime state (pr06: live=true)",
+    "No baked values: re-equipping a different weapon and changing health, then reopening, updates figure + names + status (pr06: no_baked=true)",
+    "Code lane only: no image production, no chrome replacement; presentation only",
+    "Waited-GUI smoke 343/343; validator + capsule_doctor public_repo + wiki links green; HUD-QA shots at 1280x720 and 1600x900 reviewed"
+  ],
+  "validation": [
+    "scripts/validate_repo.py -> PASS (character HUD panel rebuilt on runtime children via the render path)",
+    "capsule_doctor.py . --profile public_repo -> healthy",
+    "scripts/wiki/check_links.py -> PASS (5366 local links, 367 files)",
+    "waited-GUI Godot 4.6.1 smoke -> PASS 343/343 (fresh results file)",
+    "git diff --check -> clean",
+    "HUD-QA 08_character_panel (1280x720) + 09_character_panel_wide (1600x900) reviewed"
+  ],
+  "docs_updated": [
+    "docs/HANDOFF.md",
+    "docs/PRESENTATION_RECOVERY_MATRIX.md",
+    "docs/FABLE_TASK_QUEUE.md",
+    "docs/VARIABLE_MATRIX.md",
+    "docs/VARIABLE_MATRIX.html",
+    "docs/CHARACTER_RENDERING_CONTRACT.md"
+  ],
+  "readme_state": "unchanged",
+  "variable_matrix_state": "updated",
+  "decisions": [
+    "Reuse, do not reimplement: the panel figure goes through apply_preview_character (PR-05) on a dict assembled from live player state, so it shares the exact world render path and reflects the live worn gear",
+    "Rebuild on runtime children every open (_clear_children + repopulate) so no value is baked; the old _character_info static summary is removed and the validator forbids its return",
+    "All 13 equipment slots come from _equipment_board_slots()/equipped_dict(), reusing the existing slot order and tooltip helpers rather than a new list",
+    "Existing native ornate chrome is reused (_module_content_host); no new chrome PNGs -- HUD chrome stays the PR-10 art lane",
+    "VARIABLE_MATRIX.html was hand-synced for only the two changed rows; broad wiki regeneration drift stays out of scope"
+  ],
+  "risks": [
+    "fq09u1_live_clip_switch cold-profile flakiness persists in the music lane (passed this run)",
+    "docs/VARIABLE_MATRIX.html and the wider wiki HTML remain behind their markdown except for the two hand-synced rows, until a dedicated wiki-regen pass"
+  ],
+  "next_action": "PR-07 (backdrop seam/contour skirt in world_backdrop.gd).",
+  "authority": "evidence-only",
+  "promotion_recommendation": "candidate",
+  "source_paths": [
+    ".project/runs/20260721_coheronia_pr06_character_hud.md",
+    "scripts/ui/hud.gd",
+    "scripts/main/hud_visual_qa.gd"
+  ],
+  "ledger_path": ".project/runs/20260721_coheronia_pr06_character_hud.md",
+  "sensitivity": "public-safe",
+  "overrides": [],
+  "created_at": "2026-07-21T07:55:00-04:00"
+}
