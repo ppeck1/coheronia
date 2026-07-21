@@ -3387,6 +3387,51 @@ func _run() -> void:
 			str(_fq09c_buttons), str(_fq09c_title_backdrop_ok)])
 	_fq09c_shell.free()
 
+	# PR-08 follow-up: the character-create form is viewport-safe. The long form
+	# (preview + selectors) lives inside a ScrollContainer, and the Create/Back
+	# action row sits OUTSIDE the scroll so it can never be clipped/pushed
+	# off-screen; the PR-05 live preview is preserved inside the scroll; and a
+	# default character can be created straight from the screen.
+	var _pr08c_shell: Control = (load("res://scripts/shell/shell_ui.gd") as GDScript).new()
+	_pr08c_shell._build_base()
+	_pr08c_shell._show_char_create()
+	var _pr08c_scroll: ScrollContainer = null
+	var _pr08c_actions: HBoxContainer = null
+	for _pr08c_child in _pr08c_shell._content.get_children():
+		if _pr08c_child is ScrollContainer:
+			_pr08c_scroll = _pr08c_child
+		elif _pr08c_child is HBoxContainer:
+			_pr08c_actions = _pr08c_child
+	var _pr08c_btns: Array[String] = []
+	if _pr08c_actions != null:
+		for _pr08c_b in _pr08c_actions.get_children():
+			if _pr08c_b is Button:
+				_pr08c_btns.append((_pr08c_b as Button).text)
+	# actions pinned outside the scroll (never clipped by form overflow).
+	var _pr08c_actions_pinned: bool = _pr08c_scroll != null and _pr08c_actions != null \
+		and not _pr08c_scroll.is_ancestor_of(_pr08c_actions) \
+		and "Create" in _pr08c_btns and "Back" in _pr08c_btns
+	# the PR-05 live preview is preserved and lives inside the scrollable form.
+	var _pr08c_preview_ok: bool = _pr08c_shell._create_preview != null \
+		and _pr08c_shell._create_preview.has_meta("preview_visual") \
+		and _pr08c_scroll != null and _pr08c_scroll.is_ancestor_of(_pr08c_shell._create_preview)
+	# a default character can be created straight from the screen.
+	var _pr08c_before: int = GameState.characters.size()
+	_pr08c_shell._create_character()
+	var _pr08c_made: bool = GameState.characters.size() == _pr08c_before + 1
+	var _pr08c_new: Dictionary = GameState.characters[GameState.characters.size() - 1] \
+		if _pr08c_made else {}
+	var _pr08c_defaults_ok: bool = _pr08c_made \
+		and str(_pr08c_new.get("name", "")) == "Settler" \
+		and str(_pr08c_new.get("species", "")) == "human"
+	if _pr08c_made:
+		GameState.delete_character(str(_pr08c_new.get("id", "")))   # clean up
+	_pr08c_shell.free()
+	_check("pr08_char_create_form_scrolls_actions_pinned",
+		_pr08c_actions_pinned and _pr08c_preview_ok and _pr08c_defaults_ok,
+		"pinned=%s preview=%s created=%s btns=%s" % [str(_pr08c_actions_pinned),
+			str(_pr08c_preview_ok), str(_pr08c_defaults_ok), str(_pr08c_btns)])
+
 	# --- FQ-09W: scenic backdrop, backing walls, underground darkness ---
 
 	# (a) natural walls derive deterministically from seed/config: same seed

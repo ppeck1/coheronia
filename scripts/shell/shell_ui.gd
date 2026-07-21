@@ -121,6 +121,15 @@ func _run_shot_tour() -> void:
 	await _tour_shot("06_shell_title")
 	_show_char_create()
 	await _tour_shot("07_character_create")
+	# Capture the character-create screen at a 640x360 window too, to show the
+	# scrolling form + pinned Create/Back action row fit at a small viewport.
+	DisplayServer.window_set_size(Vector2i(640, 360))
+	for _i in range(20):
+		await get_tree().process_frame
+	await _tour_shot("07b_character_create_small")
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	for _i in range(8):
+		await get_tree().process_frame
 	_show_world_create()
 	await _tour_shot("08_world_create")
 	GameState.ensure_play_context()
@@ -413,10 +422,18 @@ func _show_char_create() -> void:
 	_screen = Screen.CHAR_CREATE
 	_clear_content()
 	_header(_content, "New character")
+	# The form can be taller than the viewport (preview + many selectors), so it
+	# scrolls; the Create/Back action row is added to _content AFTER this scroll,
+	# so it stays pinned and reachable at the bottom at any viewport size. Mirrors
+	# the world-create screen.
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_child(scroll)
 	var form := VBoxContainer.new()
-	form.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	form.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	form.add_theme_constant_override("separation", 8)
-	_content.add_child(form)
+	scroll.add_child(form)
 	var data: Dictionary = BlockRegistry.character_data
 
 	# PR-05: live figure preview at the top of the form, composed through the
