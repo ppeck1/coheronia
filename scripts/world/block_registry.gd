@@ -235,9 +235,9 @@ func visual_asset_path(category: String, id: String) -> String:
 
 
 ## The image texture for category/id, or null when no image exists — callers
-## fall back to their generated colors/shapes. Loaded via Image.load_from_file
-## (never the import system), so plain runs need no editor import pass.
-## Results (including misses) are cached; clear_visual_cache resets.
+## fall back to their generated colors/shapes. Loaded import-aware via
+## ResourceLoader (see _texture_from_file), so authored art survives an exported
+## PCK. Results (including misses) are cached; clear_visual_cache resets.
 func visual_texture(category: String, id: String) -> Texture2D:
 	return _texture_from_file(visual_asset_path(category, id))
 
@@ -274,15 +274,39 @@ func visual_variant_textures(category: String, id: String) -> Array:
 	return pool
 
 
-## Shared cached file loader for the visual pipeline (misses cached as null).
+## Shared cached texture loader for the visual pipeline (misses cached as null).
+## R-01: import-aware. ResourceLoader resolves the imported Texture2D through the
+## export remap, so authored art loads from a packed/exported build as well as a
+## plain editor run — a raw Image.load_from_file on the source res:// path
+## returns nothing in an exported PCK (the source is import-stripped/remapped).
+## The art imports lossless (compress/mode 0), so a consumer's get_image() still
+## yields a manipulable RGBA8 image for appearance recoloring. A missing resource
+## caches null so callers keep their generated color/shape fallback.
 func _texture_from_file(path: String) -> Texture2D:
 	if _visual_cache.has(path):
 		return _visual_cache[path]
 	var tex: Texture2D = null
-	if FileAccess.file_exists(path):
-		var img := Image.load_from_file(path)
-		if img != null and not img.is_empty():
-			tex = ImageTexture.create_from_image(img)
+	# Import-aware first: ResourceLoader resolves an imported texture through the
+	# export remap, so every SHIPPED asset loads from a packed/exported build
+	# (the raw source path is remapped there and a bare FileAccess would miss).
+	# The result is rebuilt into a CPU-resident ImageTexture so the return
+	# contract is byte-identical to the old path — consumers (world tileset
+	# `_normalize_art`, appearance recolor's get_image(), the HUD) keep a
+	# manipulable ImageTexture, not an import CompressedTexture2D.
+	if ResourceLoader.exists(path, "Texture2D"):
+		var loaded := ResourceLoader.load(path, "Texture2D") as Texture2D
+		if loaded != null:
+			var img := loaded.get_image()
+			if img != null and not img.is_empty():
+				tex = ImageTexture.create_from_image(img)
+	# Fallback for a loose file that is NOT an imported resource: runtime-written
+	# test art, or a plain-project run before the editor import pass. Shipped art
+	# is always imported and takes the branch above; an exported PCK has no loose
+	# source files, so this branch never runs there.
+	if tex == null and FileAccess.file_exists(path):
+		var raw := Image.load_from_file(path)
+		if raw != null and not raw.is_empty():
+			tex = ImageTexture.create_from_image(raw)
 	_visual_cache[path] = tex
 	return tex
 

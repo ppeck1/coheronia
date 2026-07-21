@@ -22,10 +22,11 @@ static func load_manifest() -> Dictionary:
 ## context_name -> AudioStream for every stream that actually loaded; a
 ## missing/broken file simply leaves its context out (caller decides whether
 ## a partial set is playable — FQ-09U1 requires all four or none).
-## OGGs load via AudioStreamOggVorbis.load_from_file so plain runs need no
-## editor import pass (the FQ-07 rule, applied to audio); the musical grid
-## (bpm / beats-per-bar / beat count) is stamped onto each stream so
-## AudioStreamInteractive can quantize transitions to bars.
+## OGGs load import-aware via ResourceLoader (see _load_stream) so adaptive
+## audio survives an exported PCK; each stream is duplicated before the musical
+## grid (bpm / beats-per-bar / beat count) is stamped onto it, so
+## AudioStreamInteractive can quantize transitions to bars without mutating the
+## shared cached import resource.
 static func load_context_streams(manifest: Dictionary) -> Dictionary:
 	var out := {}
 	var contexts: Dictionary = manifest.get("contexts", {})
@@ -34,9 +35,7 @@ static func load_context_streams(manifest: Dictionary) -> Dictionary:
 	var total_beats := int(manifest.get("bars_per_loop", 16)) * beats_per_bar
 	for ctx in CONTEXT_ORDER:
 		var path := str((contexts.get(ctx, {}) as Dictionary).get("stream", ""))
-		if path == "" or not FileAccess.file_exists(path):
-			continue
-		var stream: AudioStream = AudioStreamOggVorbis.load_from_file(path)
+		var stream := _load_stream(path)
 		if stream == null:
 			continue
 		stream.loop = true
@@ -45,6 +44,23 @@ static func load_context_streams(manifest: Dictionary) -> Dictionary:
 		stream.beat_count = total_beats
 		out[ctx] = stream
 	return out
+
+
+## R-01: import-aware stream load. ResourceLoader resolves the imported
+## AudioStream through the export remap, so adaptive audio loads from a
+## packed/exported build as well as a plain editor run — a raw
+## AudioStreamOggVorbis.load_from_file on the source res:// path returns nothing
+## in an exported PCK. The stream is DUPLICATED before the caller stamps
+## loop/BPM/grid, so the shared cached import resource is never mutated (every
+## context/stem/stinger gets its own instance). "" or a missing/failed resource
+## returns null so the audio system stays silent-safe.
+static func _load_stream(path: String) -> AudioStream:
+	if path == "" or not ResourceLoader.exists(path, "AudioStream"):
+		return null
+	var loaded: AudioStream = ResourceLoader.load(path, "AudioStream") as AudioStream
+	if loaded == null:
+		return null
+	return loaded.duplicate() as AudioStream
 
 
 ## Seconds per musical bar under the manifest grid (the min-hold unit).
@@ -68,9 +84,7 @@ static func load_stinger_streams(manifest: Dictionary) -> Dictionary:
 		if str(kind).begins_with("_"):
 			continue
 		var path := str(stingers[kind])
-		if path == "" or not FileAccess.file_exists(path):
-			continue
-		var stream: AudioStream = AudioStreamOggVorbis.load_from_file(path)
+		var stream := _load_stream(path)
 		if stream == null:
 			continue
 		stream.loop = false
@@ -92,9 +106,7 @@ static func load_stem_streams(manifest: Dictionary) -> Dictionary:
 		if str(stem_name).begins_with("_"):
 			continue
 		var path := str(stems[stem_name])
-		if path == "" or not FileAccess.file_exists(path):
-			continue
-		var stream: AudioStream = AudioStreamOggVorbis.load_from_file(path)
+		var stream := _load_stream(path)
 		if stream == null:
 			continue
 		stream.loop = true

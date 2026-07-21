@@ -2,7 +2,9 @@
 .import/
 *.import
 export.cfg
-export_presets.cfg
+# R-01: export_presets.cfg is tracked (a committed, reproducible Windows preset).
+# Build outputs stay ignored.
+/build/
 *.translation
 *.tmp
 *.bak

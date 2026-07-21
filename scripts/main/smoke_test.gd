@@ -3,6 +3,9 @@ extends Node
 ## the real gameplay code paths, prints SMOKE lines, saves a screenshot
 ## (windowed runs only), and quits with a nonzero exit code on failure.
 
+## R-01: import-aware audio loader, referenced as a class for its static methods.
+const MusicManifest := preload("res://scripts/audio/music_manifest.gd")
+
 var _results: Array = []
 var _details: Dictionary = {}
 
@@ -2593,6 +2596,66 @@ func _run() -> void:
 		_pr08_fits_360 and _pr08_fits_720 and _pr08_roomier and _pr08_live_ok,
 		"s360=%s s720=%s live=%s vp=%s" % [str(_pr08_s360), str(_pr08_s720),
 			str(_pr08_live_ok), str(_pr08_vp)])
+
+	# --- R-01: export-safe runtime resources ---
+	# Every authored art category and every music stream must load through the
+	# runtime loaders (BlockRegistry / MusicManifest), which are now import-aware
+	# (ResourceLoader) so they resolve from a packed/exported build, not just a
+	# plain editor run. These go through the REAL runtime loaders (not direct
+	# ResourceLoader), so the packed --main-pack smoke exercises the same path.
+	BlockRegistry.clear_visual_cache()
+	var _r01_vis := {
+		"body": BlockRegistry.visual_texture("players", "human"),
+		"gear": BlockRegistry.visual_texture("player_gear", "helmet_crude_human"),
+		"block": BlockRegistry.visual_texture("blocks", "dirt"),
+		"item": BlockRegistry.visual_texture("items", "antlers"),
+		"ui": BlockRegistry.visual_texture("ui", "button_character"),
+		"hud_painted": BlockRegistry.visual_texture("ui_painted", "attunement_frame"),
+		"backdrop": BlockRegistry.visual_texture("backgrounds", "surface_sky"),
+	}
+	var _r01_missing: Array[String] = []
+	for _r01_k in _r01_vis:
+		if _r01_vis[_r01_k] == null:
+			_r01_missing.append(str(_r01_k))
+	# prologue cels resolve through the variant-pool convention loader
+	var _r01_prologue: Array = BlockRegistry.visual_variant_textures(
+		"opening", "opening_01_first_star")
+	# recoloring still works: the import must decompress to a manipulable image
+	# (a VRAM-compressed import would make get_image()/get_pixel unusable).
+	var _r01_body: Texture2D = _r01_vis["body"]
+	var _r01_recolor_ok := false
+	if _r01_body != null:
+		var _r01_img := _r01_body.get_image()
+		# a non-empty image proves the import decompresses to a usable form for
+		# get_pixel-based recoloring; player_visual_appearance_palette_applies
+		# exercises the actual recolor.
+		_r01_recolor_ok = _r01_img != null and not _r01_img.is_empty()
+	_check("r01_export_safe_visual_resources",
+		_r01_missing.is_empty() and _r01_prologue.size() > 0 and _r01_recolor_ok,
+		"missing=%s prologue_cels=%d recolor_ok=%s" % [str(_r01_missing),
+			_r01_prologue.size(), str(_r01_recolor_ok)])
+
+	# Audio: all 4 context loops, 6 stems, 5 stingers load import-aware, the grid
+	# is stamped, and the streams are DUPLICATES so the shared cached import
+	# resource is never mutated.
+	var _r01_manifest: Dictionary = MusicManifest.load_manifest()
+	var _r01_ctx: Dictionary = MusicManifest.load_context_streams(_r01_manifest)
+	var _r01_stems: Dictionary = MusicManifest.load_stem_streams(_r01_manifest)
+	var _r01_stingers: Dictionary = MusicManifest.load_stinger_streams(_r01_manifest)
+	var _r01_ctx_stream: AudioStream = _r01_ctx.get("surface_day")
+	var _r01_grid_ok: bool = _r01_ctx_stream != null and _r01_ctx_stream.loop \
+		and _r01_ctx_stream.bpm > 0.0
+	# the shared cached import resource keeps its import default (loop=false),
+	# proving load_context_streams duplicated before stamping.
+	var _r01_shared = ResourceLoader.load(
+		"res://audio/music/rendered/contexts/coheronia_surface_day.ogg", "AudioStream")
+	var _r01_no_mutate: bool = _r01_shared != null and not _r01_shared.loop
+	_check("r01_export_safe_audio_resources",
+		_r01_ctx.size() == 4 and _r01_stems.size() == 6 and _r01_stingers.size() == 5
+		and _r01_grid_ok and _r01_no_mutate,
+		"contexts=%d stems=%d stingers=%d grid=%s cache_unmutated=%s" % [
+			_r01_ctx.size(), _r01_stems.size(), _r01_stingers.size(),
+			str(_r01_grid_ok), str(_r01_no_mutate)])
 
 	# Restore progression so later sections see the pre-FQ-06 world.
 	root.purchased_perks = _fq06_saved_perks.duplicate()

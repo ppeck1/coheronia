@@ -1023,8 +1023,9 @@ checks -- a code lane never produces final PNGs.
 ```text
 You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
 
-Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md, and
-docs/PRESENTATION_RECOVERY_MATRIX.md. FQ-00 through FQ-21 are done; the
+Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md,
+docs/PRESENTATION_RECOVERY_MATRIX.md, and
+docs/WORK_ORDER_RELEASE_FOUNDATIONS.md. FQ-00 through FQ-21 are done; the
 native HUD-kit stabilization is merged. PR-00..PR-02, PR-03A/PR-03B, PR-04,
 PR-05, PR-06 (code lane), PR-07, and PR-08 are done -- the suite is 346/346 (PR-08
 plus a character-create scroll/fixed-actions follow-up). The entire code lane of
@@ -1035,15 +1036,28 @@ panel is viewport-relative (pr08); and the character-create form now scrolls wit
 a pinned Create/Back action row (pr08_char_create_form_scrolls_actions_pinned).
 Mining/combat mechanics unchanged.
 
-The remaining arc rows are NOT code-lane work: PR-09 (later skill expansion) is
-deferred/planning-only -- do not start it without its own queue item; PR-10 (HUD
-chrome / image follow-up) is a pure art lane produced through the image-
-production matrix and `docs/wiki/hud_asset_replacement_studio.md`, one
-contract-safe PNG at a time, never a code row. With the code lane done, pick the
-next arc/queue item from the operator or resume the big-ticket playability
-backlog (pause/settings/keybinds, save-slot management, quest/contracts,
-subject/NPC labor MVP). Close every increment with validator, Capsule Doctor, a
-waited Godot smoke, and screenshot review.
+The remaining presentation rows are NOT code-lane work: PR-09 (later skill
+expansion) is deferred/planning-only; PR-10 (HUD chrome / image follow-up) is a
+pure art lane. Do not start either.
+
+The **Release Foundations** arc (`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`) is the
+active code-lane sequence. **R-00 (Export-readiness audit) and R-01 (Export-safe
+runtime resources) are DONE (2026-07-21).** R-01 made `BlockRegistry` and
+`MusicManifest` import-aware (`ResourceLoader`, ImageTexture rebuild + non-imported
+fallback; audio streams duplicated before loop/BPM/grid), added a committed
+Windows `export_presets.cfg`, and added two export smoke checks. Source waited-GUI
+smoke is **348/348**; a real Windows `.exe` was built and launched with the export
+smoke — canonical art plus all 4 loops / 6 stems / 5 stingers load, music enabled,
+no hang, recolor correct. (Six temp-fixture-PNG checks fail only in the read-only
+exported PCK; green in source; handled as an R-03 acceptance item.)
+
+The next code-lane item is **R-02, Save integrity**, defined in
+`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`: atomic write/validate/replace with a
+`.bak`, quarantine malformed saves, surface errors, preserve/migrate schemas, and
+make failed world creation observable. Do not generate final assets, and do not
+combine save work with the later R-03 verification reorganization. Close with
+validator, Capsule Doctor, a freshness-checked waited Godot smoke, and
+`git diff --check`.
 
 Rows marked art are image production and are NOT code-lane work. Close
 every row with validator, Capsule Doctor, a waited Godot smoke, and real

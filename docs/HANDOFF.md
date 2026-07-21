@@ -1,6 +1,6 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-21 presentation recovery: PR-08 done, code lane complete)
+## Current State (2026-07-21 release foundations: R-00 + R-01 done, R-02 next)
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -1022,19 +1022,46 @@ are **done** -- the suite is 346/346 (PR-08 plus the character-create
 scroll/fixed-actions follow-up). **The presentation recovery arc's code
 lane (PR-00..PR-08) is complete.**
 
-1. Remaining arc rows are non-code: **PR-09** (later skill expansion) is
-   deferred/planning-only -- do not start without its own queue item; **PR-10**
-   (HUD chrome / image follow-up) is a pure art lane produced one contract-safe
-   PNG at a time through the image matrix and
-   `docs/wiki/hud_asset_replacement_studio.md`, never a code row.
-2. With the code lane done, the next work is an operator-chosen arc/queue item or
-   the big-ticket playability backlog (pause/settings/keybinds, save-slot
-   management, quest/contracts, subject/NPC labor MVP) tracked in
-   `docs/FABLE_TASK_QUEUE.md`.
-3. Rows marked **art** (new swing/sword/iron-gear frames, HUD chrome
-   replacement) are image production through the matrix's image-production
-   table and `docs/wiki/hud_asset_replacement_studio.md` -- never code-lane
-   work.
+The **Release Foundations** arc (`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`, rows
+R-00..R-10) is now the active code-lane sequence.
+
+**R-00 (Export-readiness audit) done 2026-07-21.** A Windows `--export-pack`
+plus an isolated `--main-pack` run proved that imported PNG/OGG resources
+loaded through raw file APIs fail from a packed build (import remap), while
+`data/*.json` loads fine (no importer); the failure surface (all authored art
+procedural, adaptive music disabled with a real-time hang) and the responsible
+loaders/paths were recorded per category.
+
+**R-01 (Export-safe runtime resources) done 2026-07-21.** The two centralized
+raw loaders are now import-aware. `BlockRegistry._texture_from_file` loads via
+`ResourceLoader` (export-safe) and rebuilds a CPU-resident `ImageTexture` so the
+world tileset, appearance recolor, and HUD keep a manipulable texture, with a
+`FileAccess`/`Image.load_from_file` fallback for non-imported/temp files (never
+present in an exported PCK). `MusicManifest` loads streams via `ResourceLoader`
+and **duplicates** them before stamping loop/BPM/grid, so the shared cached
+import resource is never mutated. A committed minimal Windows `export_presets.cfg`
+(now tracked; `.gitignore` updated) needs no special include filters. Two new
+smoke checks (`r01_export_safe_visual_resources`, `r01_export_safe_audio_resources`)
+run through the runtime loaders. **Source waited-GUI smoke 348/348** (the two new
+checks green). Export templates `4.6.1.stable` installed; a real Windows
+executable was built and launched with the export smoke — canonical art loads
+(enemy pools, UI/HUD kit, backdrop, bodies/gear), all **4 context loops + 6 stems
++ 5 stingers** load with music enabled and **no disabled-music hang**, and
+appearance recoloring is correct in the export. Artifact:
+`coheronia.exe` (95.9 MB) + `coheronia.pck` (9.6 MB), built to a temporary
+ignored output directory. Six checks that write temp fixture PNGs into `res://`
+fail **only in the exported PCK** because `res://` is read-only there; they are
+green in source and exercise a dev-only hot-reload capability, not shipped game
+content (their handling is an explicit R-03 acceptance item).
+
+**The next code-lane row is R-02, Save integrity** (atomic write/validate/replace
+with `.bak`, quarantine malformed saves, observable failed world creation),
+followed by R-03..R-10 in `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
+
+**PR-09** remains deferred/planning-only. **PR-10**, iron gear, sword/tool
+frames, HUD chrome, and all other final visual assets remain art-lane work
+through the image-production matrix and
+`docs/wiki/hud_asset_replacement_studio.md` -- never code-lane work.
 
 Big-ticket playability items (pause/settings/keybinds, save-slot management,
 build-preview tint, quest/contracts, subject/NPC labor MVP) remain queued in
