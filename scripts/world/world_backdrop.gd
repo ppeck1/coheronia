@@ -163,8 +163,29 @@ func _draw_contour_skirt(horizon: float) -> void:
 	foothill.append(Vector2(x_right, horizon))
 	earth.append(Vector2(x_right, _view.end.y))
 	# Deep earth backing first, then the foothill band that meets the terrain.
-	draw_colored_polygon(earth, UNDER_COL)
-	draw_colored_polygon(foothill, MID_COL)
+	# A collinear / zero-area polygon (an empty view, or an all-peaks column range
+	# with no valley gap to fill) makes Godot's triangulator reject the draw and
+	# log "Invalid polygon data" while painting nothing — harmless in-editor but
+	# noisy on headless/CI. Skip those no-op draws; real-area fills are unchanged.
+	if _polygon_area(earth) > 0.5:
+		draw_colored_polygon(earth, UNDER_COL)
+	if _polygon_area(foothill) > 0.5:
+		draw_colored_polygon(foothill, MID_COL)
+
+
+## Shoelace area magnitude of a polygon, used only to skip degenerate skirt
+## fills the triangulator would reject (they paint nothing, so skipping is a
+## visual no-op). Pure and side-effect free.
+func _polygon_area(poly: PackedVector2Array) -> float:
+	var n := poly.size()
+	if n < 3:
+		return 0.0
+	var acc := 0.0
+	for i in range(n):
+		var a := poly[i]
+		var b := poly[(i + 1) % n]
+		acc += a.x * b.y - b.x * a.y
+	return absf(acc) * 0.5
 
 
 ## PR-07: the skirt's top edge for world column `col`, in world pixels -- the
