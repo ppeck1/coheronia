@@ -21,6 +21,13 @@ __pycache__/
 .project/boh_outbox/rejected/*
 !.project/boh_outbox/rejected/.gitkeep
 
+# R-05: private operational evidence stays local. The public_repo profile forbids
+# committing raw run ledgers and Atlas/BOH outbox packets (workstation paths and
+# internal orchestration detail). Keep only the directory skeletons (.gitkeep).
+.project/runs/*.md
+.project/atlas_outbox/*.json
+.project/boh_outbox/*.json
+
 # FQ-07: smoke-test temp art (written and deleted at runtime; never real assets)
 art/generated/*/smoke_tmp_*.png
 
