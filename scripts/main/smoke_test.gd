@@ -300,6 +300,11 @@ func _run() -> void:
 		"no eating or starvation when feeding disabled")
 	rules["subjects_require_food"] = true
 	rules["weather_affects_survival"] = false
+	# Ambient weather auto-rolls off the unseeded global RNG in game_root._process,
+	# so a storm may already be active on a slow host (seen on Linux CI). Quiesce it
+	# first so this rule-toggle check is deterministic across platforms.
+	root.storm_active = false
+	root.storm_time_left = 0.0
 	var storm_started: bool = root.force_storm()
 	_check("weather_rule_toggle", not storm_started and not root.storm_active)
 	rules["weather_affects_survival"] = true
@@ -350,6 +355,11 @@ func _run() -> void:
 			settlement.inputs.get("light_score", 0.0)])
 
 	# --- Storm event (daytime pressure mitigated by shelter) ---
+	# Clear any ambient (RNG-rolled) storm first so the before/after severity
+	# delta measures only the forced storm — otherwise a pre-active storm makes
+	# severity flat and the check flakes across platforms (Linux CI).
+	root.storm_active = false
+	root.storm_time_left = 0.0
 	var storm_sev_before: float = root.current_threat_severity()
 	var storm_damage_before: float = hall.damage
 	root.force_storm()
