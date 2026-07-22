@@ -1,6 +1,6 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-22 release foundations: R-02 + R-03 + R-04 done, R-05 next)
+## Current State (2026-07-22 release foundations: R-00..R-05 done, R-07 next)
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -1120,9 +1120,26 @@ shell 2), export **OK**, then the **exported artifact launched → export smoke
 345/345 with exactly the six allowlist skips** (set-equal verified); static gate
 green; YAML parses; `build/` stays gitignored.
 
-**The next code-lane row is R-05, public repository and release cleanup** (media
-policy, `.gitattributes`/license/contributing, workstation-path removal),
-followed by R-06..R-10 in `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
+**R-05 (Public repository and release cleanup) done 2026-07-22.** Untracked the
+165 raw private ledgers (`.project/runs`, Atlas/BOH outbox) the `public_repo`
+profile forbids (`git rm --cached` + ignore rules; `.gitkeep` skeletons kept; no
+history rewrite); removed the duplicate root prompt and every workstation path in
+tracked docs (`<repo-root>`/`<godot-binary>`/`<python>`/`<workstation-path>`);
+added `.gitattributes`, `CONTRIBUTING.md`, and a split license (`LICENSE` MIT for
+code/tooling/engineering-config; `LICENSE-ASSETS.md` reserves art/audio/video/
+screenshots/reference-media and authored creative/narrative content, data schemas
+and generic config MIT, engineering docs MIT unless carrying reserved creative
+content); removed the orphaned 64 MB gameplay `.mp4` (README keeps the YouTube
+link). A separate PR-07 correctness follow-up redrew the backdrop contour skirt as
+per-column quads (was a self-intersecting polygon that dropped the whole
+under-earth backing at high camera angles) with a deterministic geometry smoke
+check and a before/after capture. Source smoke **352/352**, exported **346/346 +
+6 skipped**, zero triangulation errors; static/wiki green.
+
+**The next code-lane row is R-07, playability baseline** (pause/settings/keybinds,
+save-management UI, build preview + reasoned invalid-placement feedback, crafting
+navigation); R-06 (ownership decomposition of `hud.gd`/`game_root.gd`) is deferred
+and may be taken opportunistically. See `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
 
 **PR-09** remains deferred/planning-only. **PR-10**, iron gear, sword/tool
 frames, HUD chrome, and all other final visual assets remain art-lane work

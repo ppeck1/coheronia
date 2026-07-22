@@ -30,7 +30,7 @@ work. It is a seams-first sequence, not a rewrite.
 | RF-05 | Invalid save JSON defaults silently in key load paths. | `GameState.load_shell` and world loading accept only parsed dictionaries and otherwise return defaults/empty data. | Corruption can look like lost progress rather than a recoverable error. | **RESOLVED by R-02 (2026-07-21).** `_load_json_recover` quarantines a corrupt primary to `.corrupt`, restores from `.bak`, and surfaces `shell_load_status`/`world_load_status`; no corrupt save silently becomes a fresh empty profile. |
 | RF-06 | Smoke is coupled to the normal `user://` profile. | Historical smoke failures included stale `shell.json` HUD geometry/profile state. | A green run can depend on or contaminate local player data. | **RESOLVED by R-03 (2026-07-21).** `GameState.persistence_root` is injectable and auto-routes test/capture runs to `user://smoke_root/`; the smoke never reads or writes the real profile (verified: the Metis test character survives smoke runs). |
 | RF-07 | Verification is primarily workstation-sequenced. | Static scripts exist, but no declared Python environment, one-command verifier, or CI workflow is present. | External reproducibility and merge confidence are weak. | **RESOLVED by R-04 (2026-07-22).** `requirements.txt` pins the Python environment, `scripts/ci/verify.py` is a single verifier command, and `.github/workflows/ci.yml` runs static + pinned-Godot smoke/export on a clean runner with any failure blocking the merge. |
-| RF-08 | Repository hygiene has remaining release concerns. | `.gitignore` has legacy import rules; large/historical media and generated/history material require a public-release decision. | Clone size, import noise, and public-facing clarity suffer. | R-05. |
+| RF-08 | Repository hygiene has remaining release concerns. | `.gitignore` has legacy import rules; large/historical media and generated/history material require a public-release decision. | Clone size, import noise, and public-facing clarity suffer. | **RESOLVED by R-05 (2026-07-22).** Raw private evidence untracked, orphaned media removed, split license + `.gitattributes` + `CONTRIBUTING.md` added, workstation paths and duplicate prompt removed; the legacy `*.import` ignore is intentionally retained (export proven). |
 | RF-09 | `hud.gd` and `game_root.gd` are concentrated ownership points. | Current HUD/session behavior spans large controllers. | Future features become increasingly coupled. | Later R-06, after release foundations. |
 | RF-10 | Baseline player controls and visible settlement labor remain incomplete. | Current backlog already names pause/settings/keybinds, save UX, build feedback, and subjects. | The game remains harder to play and less legible than its systems warrant. | R-07 onward, after release foundations. |
 
@@ -43,7 +43,7 @@ work. It is a seams-first sequence, not a rewrite.
 | R-02 | Save integrity | Introduce atomic write/validate/replace with `.bak`; quarantine malformed saves; surface errors; preserve/migrate current schemas; make failed world creation observable. | Safe player progress is more important than feature breadth. | Tests cover truncated shell/world JSON, failed replacement, backup restoration, unsupported schema, and failed world creation; no corruption silently appears as a new empty profile. |
 | R-03 | Isolated verification | Make persistence root injectable; move smoke to a fresh test root; split result reporting by shell/save/world/UI/presentation/progression/audio while retaining one final full-game smoke. | Removes profile contamination and makes failures localizable. | Ten consecutive clean runs are stable; intentionally dirty normal profiles do not affect results; smoke leaves no normal-profile changes; results state suite/check/duration/commit. **Export-fixture item (from R-01): the six temp-art fixture checks that write PNGs into `res://` (`fq07_block_renders_from_image`, `fq07_item_renders_from_image`, `fq09v_variant_pools_resolve`, `fq09c_cel_shot_hook`, `fq09w_wall_art_hook`, `fq21_hud_theme_asset_fallback`) are moved to an injected writable test root, OR skipped only under exported-smoke mode (where `res://` is read-only) — their source-run assertions must not be weakened.** |
 | R-04 | CI and release automation | Add declared Python dependencies, one verifier command, pinned Godot setup, static/import/smoke/export jobs, and build metadata. | Converts local claims into reproducible evidence. | A clean runner validates and exports an artifact; failures block the workflow; build reports commit/version. **DONE 2026-07-22** (`requirements.txt`, `scripts/ci/verify.py`, `.github/workflows/ci.yml`, `Linux/X11` preset). |
-| R-05 | Public repository and release cleanup | Decide media policy; remove obsolete/orphaned media as separately approved; add `.gitattributes`, license, contributing guidance; remove duplicate/stale prompt material; replace workstation paths; use `.gdignore` only after confirming runtime exclusions. | Makes the public project readable and distributable without accidental loss. | Public-safety scan passes; no local paths/private classifications/duplicate root prompts; clone/import/release contents are intentional. |
+| R-05 | Public repository and release cleanup | Decide media policy; remove obsolete/orphaned media as separately approved; add `.gitattributes`, license, contributing guidance; remove duplicate/stale prompt material; replace workstation paths; use `.gdignore` only after confirming runtime exclusions. | Makes the public project readable and distributable without accidental loss. | Public-safety scan passes; no local paths/private classifications/duplicate root prompts; clone/import/release contents are intentional. **DONE 2026-07-22** (`386117b`, `899be08`, `5f90a2e`, `73d3ee3`, `62ee507`, `81fdd6c`). |
 | R-06 | Incremental ownership decomposition | Extract HUD and session services one subsystem at a time. Retire historical HUD fallback paths only after export verification. | Necessary for extension, but not a prerequisite to a safe build. | No behavior/save-format regression; each extracted component has focused coverage; full suite remains green. |
 | R-07 | Playability baseline | Pause/settings/keybinds, save-management UI, build preview + reasoned invalid-placement feedback, then crafting navigation. | Turns reliable systems into understandable player workflows. | Player can pause/configure/save/recover/build/craft without hidden controls; each change has focused tests. |
 | R-08 | Subject labor MVP | One visible subject plus farmhand and hauler/repairer jobs; bounded movement/targeting; save identity/assignment. | The strongest next product feature after reliability. | Subject visibly completes useful work, affects real settlement state, consumes food, persists across save/load, and has deterministic smoke coverage. |
@@ -194,6 +194,37 @@ work. It is a seams-first sequence, not a rewrite.
     skips** (verified set-equal, no unexpected/missing), `build_info.json` stamped
     (commit `cd06e77`, godot `4.6.1.stable`). Workflow YAML parses; `build/`
     remains gitignored.
+
+- **R-05 (Public repository and release cleanup) — DONE 2026-07-22.**
+  - **Private evidence untracked** (`386117b`): `git rm --cached` on the 165 raw
+    ledgers (`.project/runs/*.md`, `.project/atlas_outbox/*.json`,
+    `.project/boh_outbox/*.json`) that the `public_repo` profile forbids, with
+    precise `.gitignore` rules; the `.gitkeep` directory skeletons are kept so the
+    Ops Capsule directory-exists checks pass on a fresh clone. Files remain on
+    disk; Git history is not rewritten.
+  - **Duplicate prompt + workstation paths** (`899be08`): deleted the
+    byte-identical `coheronia_claude_code_prompt.md` (kept the validator-required
+    `PROMPT_FOR_CLAUDE_CODE.md`) and replaced every workstation path in tracked
+    docs with portable placeholders (`<repo-root>`, `<godot-binary>`, `<python>`,
+    `<workstation-path>`) — no tracked file contains a `B:\dev` or `C:\Users\peckm`
+    path.
+  - **Hygiene + licensing** (`5f90a2e`, `73d3ee3`, `62ee507`): added
+    `.gitattributes` (LF normalization + binary asset handling) and a concise
+    `CONTRIBUTING.md`, then the split license — `LICENSE` (MIT for source code,
+    tooling, and engineering/configuration material) and `LICENSE-ASSETS.md`
+    (art/audio/video/screenshots/reference media and authored creative/narrative
+    content reserved; data schemas and generic config are MIT; engineering/process
+    docs stay MIT unless they carry reserved creative content).
+  - **Media** (`81fdd6c`): removed the orphaned 64 MB gameplay `.mp4` (zero tracked
+    references; README uses the YouTube link); the linked prologue clip is kept.
+    No `.gdignore` added (no runtime-excluded source dirs); the legacy `*.import`
+    ignore is intentionally retained (export proven with sidecars regenerated on
+    import, R-01).
+  - **Evidence.** Content scan clean (no secrets; no local paths; no forbidden
+    tracked evidence dirs; repo confirmed public). Static gate healthy, wiki links
+    green (5710 / 369). Suite green with the PR-07 correctness follow-up
+    (`a33e03a`): source smoke **352/352**, exported smoke **346/346 + 6 skipped**,
+    zero backdrop triangulation errors.
 
 ## Technical decisions already made
 

@@ -1087,11 +1087,23 @@ artifact**; both result files + build metadata + artifact uploaded; finite
 exported artifact launched → export smoke **345/345 with exactly the six allowlist
 skips**, build_info stamped; static gate green; YAML parses.
 
-The next code-lane item is **R-05, public repository and release cleanup**,
-defined in `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`: media policy,
-`.gitattributes`/license/contributing, workstation-path removal, duplicate-prompt
-cleanup. Close with validator, Capsule Doctor, a freshness-checked waited Godot
-smoke, and `git diff --check`.
+**R-05 (Public repository and release cleanup) is also DONE (2026-07-22).**
+Untracked the 165 raw private ledgers (`.project/runs` + Atlas/BOH outbox) the
+`public_repo` profile forbids (kept `.gitkeep` skeletons; no history rewrite);
+removed the duplicate root prompt and every workstation path in tracked docs;
+added `.gitattributes`, `CONTRIBUTING.md`, and a split license (`LICENSE` MIT for
+code/tooling; `LICENSE-ASSETS.md` reserves art/audio/video/screenshots/reference
+media and authored creative/narrative content); removed the orphaned 64 MB
+gameplay `.mp4`. A separate PR-07 fix redrew the backdrop contour skirt as
+per-column quads (was a self-intersecting polygon dropping the under-earth backing
+at high camera) with a geometry smoke check + before/after capture. Source
+**352/352**, exported **346/346 + 6 skipped**, zero triangulation errors.
+
+The next code-lane item is **R-07, playability baseline**, defined in
+`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`: pause/settings/keybinds, save-management
+UI, build preview + reasoned invalid-placement feedback, then crafting navigation.
+R-06 (ownership decomposition) is deferred. Close each slice with validator,
+Capsule Doctor, a freshness-checked waited Godot smoke, and `git diff --check`.
 
 Rows marked art are image production and are NOT code-lane work. Close
 every row with validator, Capsule Doctor, a waited Godot smoke, and real
