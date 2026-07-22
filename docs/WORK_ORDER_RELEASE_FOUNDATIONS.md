@@ -29,7 +29,7 @@ work. It is a seams-first sequence, not a rewrite.
 | RF-04 | Save writes overwrite live files directly. | `scripts/shell/game_state.gd` opens `user://shell.json` and world files with `FileAccess.WRITE`. | A partial write can hide or destroy a usable profile/world. | **RESOLVED by R-02 (2026-07-21).** All saves go through `_atomic_write_json` (validated temp -> `.bak` -> rename; restores `.bak` if the final rename fails). |
 | RF-05 | Invalid save JSON defaults silently in key load paths. | `GameState.load_shell` and world loading accept only parsed dictionaries and otherwise return defaults/empty data. | Corruption can look like lost progress rather than a recoverable error. | **RESOLVED by R-02 (2026-07-21).** `_load_json_recover` quarantines a corrupt primary to `.corrupt`, restores from `.bak`, and surfaces `shell_load_status`/`world_load_status`; no corrupt save silently becomes a fresh empty profile. |
 | RF-06 | Smoke is coupled to the normal `user://` profile. | Historical smoke failures included stale `shell.json` HUD geometry/profile state. | A green run can depend on or contaminate local player data. | **RESOLVED by R-03 (2026-07-21).** `GameState.persistence_root` is injectable and auto-routes test/capture runs to `user://smoke_root/`; the smoke never reads or writes the real profile (verified: the Metis test character survives smoke runs). |
-| RF-07 | Verification is primarily workstation-sequenced. | Static scripts exist, but no declared Python environment, one-command verifier, or CI workflow is present. | External reproducibility and merge confidence are weak. | R-04. |
+| RF-07 | Verification is primarily workstation-sequenced. | Static scripts exist, but no declared Python environment, one-command verifier, or CI workflow is present. | External reproducibility and merge confidence are weak. | **RESOLVED by R-04 (2026-07-22).** `requirements.txt` pins the Python environment, `scripts/ci/verify.py` is a single verifier command, and `.github/workflows/ci.yml` runs static + pinned-Godot smoke/export on a clean runner with any failure blocking the merge. |
 | RF-08 | Repository hygiene has remaining release concerns. | `.gitignore` has legacy import rules; large/historical media and generated/history material require a public-release decision. | Clone size, import noise, and public-facing clarity suffer. | R-05. |
 | RF-09 | `hud.gd` and `game_root.gd` are concentrated ownership points. | Current HUD/session behavior spans large controllers. | Future features become increasingly coupled. | Later R-06, after release foundations. |
 | RF-10 | Baseline player controls and visible settlement labor remain incomplete. | Current backlog already names pause/settings/keybinds, save UX, build feedback, and subjects. | The game remains harder to play and less legible than its systems warrant. | R-07 onward, after release foundations. |
@@ -42,7 +42,7 @@ work. It is a seams-first sequence, not a rewrite.
 | R-01 | Export-safe runtime resources | Migrate imported runtime visual loading to `ResourceLoader`/import-aware loading. Replace convention-based runtime discovery with explicit manifest pools where export requires it. Address audio only where R-00 proves a fault. Add focused export smoke. | An exported game is the immediate release blocker. | A clean exported Windows build displays and plays all canonical asset families, including adaptive music/stingers; procedural fallbacks remain fallback-only; export smoke records the result. |
 | R-02 | Save integrity | Introduce atomic write/validate/replace with `.bak`; quarantine malformed saves; surface errors; preserve/migrate current schemas; make failed world creation observable. | Safe player progress is more important than feature breadth. | Tests cover truncated shell/world JSON, failed replacement, backup restoration, unsupported schema, and failed world creation; no corruption silently appears as a new empty profile. |
 | R-03 | Isolated verification | Make persistence root injectable; move smoke to a fresh test root; split result reporting by shell/save/world/UI/presentation/progression/audio while retaining one final full-game smoke. | Removes profile contamination and makes failures localizable. | Ten consecutive clean runs are stable; intentionally dirty normal profiles do not affect results; smoke leaves no normal-profile changes; results state suite/check/duration/commit. **Export-fixture item (from R-01): the six temp-art fixture checks that write PNGs into `res://` (`fq07_block_renders_from_image`, `fq07_item_renders_from_image`, `fq09v_variant_pools_resolve`, `fq09c_cel_shot_hook`, `fq09w_wall_art_hook`, `fq21_hud_theme_asset_fallback`) are moved to an injected writable test root, OR skipped only under exported-smoke mode (where `res://` is read-only) — their source-run assertions must not be weakened.** |
-| R-04 | CI and release automation | Add declared Python dependencies, one verifier command, pinned Godot setup, static/import/smoke/export jobs, and build metadata. | Converts local claims into reproducible evidence. | A clean runner validates and exports an artifact; failures block the workflow; build reports commit/version. |
+| R-04 | CI and release automation | Add declared Python dependencies, one verifier command, pinned Godot setup, static/import/smoke/export jobs, and build metadata. | Converts local claims into reproducible evidence. | A clean runner validates and exports an artifact; failures block the workflow; build reports commit/version. **DONE 2026-07-22** (`requirements.txt`, `scripts/ci/verify.py`, `.github/workflows/ci.yml`, `Linux/X11` preset). |
 | R-05 | Public repository and release cleanup | Decide media policy; remove obsolete/orphaned media as separately approved; add `.gitattributes`, license, contributing guidance; remove duplicate/stale prompt material; replace workstation paths; use `.gdignore` only after confirming runtime exclusions. | Makes the public project readable and distributable without accidental loss. | Public-safety scan passes; no local paths/private classifications/duplicate root prompts; clone/import/release contents are intentional. |
 | R-06 | Incremental ownership decomposition | Extract HUD and session services one subsystem at a time. Retire historical HUD fallback paths only after export verification. | Necessary for extension, but not a prerequisite to a safe build. | No behavior/save-format regression; each extracted component has focused coverage; full suite remains green. |
 | R-07 | Playability baseline | Pause/settings/keybinds, save-management UI, build preview + reasoned invalid-placement feedback, then crafting navigation. | Turns reliable systems into understandable player workflows. | Player can pause/configure/save/recover/build/craft without hidden controls; each change has focused tests. |
@@ -147,6 +147,53 @@ work. It is a seams-first sequence, not a rewrite.
     + 6 skipped** (fully green — closing the R-01 deferred fixture item). Smoke
     `r03_isolated_verification` pins isolation + re-point + reporting. validator +
     Capsule Doctor + wiki links + `git diff --check` green.
+
+- **R-04 (CI and release automation) — DONE 2026-07-22.**
+  - **Declared Python environment** (`requirements.txt`): `Pillow>=10.0,<12` is the
+    only third-party dependency; every validator/verifier step is otherwise
+    stdlib, so a clean runner reproduces the gate from one pinned file.
+  - **One verifier command** (`scripts/ci/verify.py`): runs the full static gate
+    (`validate_repo`, strict `asset_audit`, HUD-kit runtime hashes, gear
+    alignment, Capsule Doctor `public_repo`, wiki links) and, when `--godot` is
+    supplied, the in-engine waited **source** smoke plus (with `--export`) a real
+    export whose artifact is then **launched in smoke mode** (`COHERONIA_SMOKE=1`,
+    an absolute `COHERONIA_RESULTS_PATH` outside `user://`). Source and exported
+    results are kept in separate files (`build/source_smoke_results.json`,
+    `build/export_smoke_results.json`). It prints the per-suite breakdown, stamps
+    `build_info.json` (commit / built-at / godot / preset), and exits non-zero so
+    CI blocks. **Source** must be `351/351` with **zero** skips; the **exported**
+    run must launch, pass every non-skipped check, and skip **exactly** the six
+    read-only `res://` fixtures (`fq07_block_renders_from_image`,
+    `fq07_item_renders_from_image`, `fq09v_variant_pools_resolve`,
+    `fq09c_cel_shot_hook`, `fq09w_wall_art_hook`, `fq21_hud_theme_asset_fallback`)
+    — any skip outside that allowlist, any missing allowlist skip, a non-skipped
+    failure, or a failure to launch fails the verifier.
+  - **Results path override** (`scripts/main/smoke_test.gd`): `_write_result_file`
+    honors `COHERONIA_RESULTS_PATH`, letting the verifier collect source and
+    exported results at known absolute paths without disturbing the smoke's
+    isolated root.
+  - **Pinned CI** (`.github/workflows/ci.yml`): a `static` job (Python 3.11 +
+    `requirements.txt` + `verify.py --static-only`) gates a `godot` job that pins
+    **Godot 4.6.1-stable**, installs the matching export templates, imports under
+    `xvfb`, and runs `verify.py --godot … --export --export-preset "Linux/X11"` —
+    i.e. it **runs the exported Linux artifact**, not merely builds it. Both
+    result files, the artifact (`coheronia` + `.pck`), and `build_info.json` are
+    uploaded. The smoke/export step and the job carry finite `timeout-minutes`
+    (20 / 30) so a future hang fails rather than consuming an unbounded runner.
+    Any failing step blocks the workflow.
+  - **Export preset** (`export_presets.cfg`): added a native `Linux/X11` preset
+    (`all_resources`, x86_64) so the Linux runner produces a clean runnable
+    artifact without cross-compilation; the existing Windows Desktop preset is
+    unchanged.
+  - **Evidence.** `verify.py --static-only` PASS (validator healthy, wiki 5710
+    links / 369 files). Full local run against Godot 4.6.1 (`--godot … --export`,
+    Windows preset standing in for the identical export→launch path): **source
+    smoke 351/351** (0 skipped; world 174 / ui 51 / presentation 66 / audio 25 /
+    progression 18 / save 15 / shell 2), export **OK**, then the **exported
+    artifact launched** → **export smoke 345/345 with exactly the six allowlist
+    skips** (verified set-equal, no unexpected/missing), `build_info.json` stamped
+    (commit `cd06e77`, godot `4.6.1.stable`). Workflow YAML parses; `build/`
+    remains gitignored.
 
 ## Technical decisions already made
 

@@ -1,0 +1,4 @@
+# R-04: declared Python dependencies for the verification/CI toolchain.
+# The validators, wiki generator/link checker, and Capsule Doctor are stdlib
+# only; the pixel-art audit/verify scripts use Pillow.
+Pillow>=10.0,<12

@@ -1067,12 +1067,31 @@ reports per-suite tallies + skipped + duration + commit, and the six res://
 temp-art fixtures skip under an exported build. Source smoke **351/351**;
 exported `.exe` smoke **345/345 + 6 skipped** (fully green).
 
-The next code-lane item is **R-04, CI and release automation**, defined in
-`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`: declared Python dependencies, a
-one-command verifier, pinned Godot setup, static/import/smoke/export jobs, and
-build metadata (commit/version). A clean runner must validate and export an
-artifact; failures block. Close with validator, Capsule Doctor, a
-freshness-checked waited Godot smoke, and `git diff --check`.
+**R-04 (CI and release automation) is also DONE (2026-07-22).** `requirements.txt`
+pins the Python environment (`Pillow` only; rest stdlib). `scripts/ci/verify.py`
+is one verifier command running the static gate plus, given `--godot`, the waited
+**source** smoke and (with `--export`) a real export whose artifact is then
+**launched in smoke mode**; source/exported results go to separate files
+(`build/source_smoke_results.json`, `build/export_smoke_results.json`) via
+`COHERONIA_RESULTS_PATH` (honored by `smoke_test.gd`). It requires source
+**351/351 zero-skip** and the exported run to launch, pass every non-skipped
+check, and skip **exactly** the six read-only `res://` fixtures — any skip outside
+the allowlist, missing allowlist skip, non-skipped failure, or launch failure
+fails the verifier — then stamps `build_info.json`.
+`.github/workflows/ci.yml` gates a Godot-4.6.1-stable job (export templates,
+`xvfb` import + smoke, real `Linux/X11` export **and execution of the exported
+artifact**; both result files + build metadata + artifact uploaded; finite
+`timeout-minutes` 20/30) behind the static job; any failure blocks. A native
+`Linux/X11` preset was added to `export_presets.cfg`. Evidence: local
+`verify.py --godot … --export` → source smoke **351/351** (0 skipped), export OK,
+exported artifact launched → export smoke **345/345 with exactly the six allowlist
+skips**, build_info stamped; static gate green; YAML parses.
+
+The next code-lane item is **R-05, public repository and release cleanup**,
+defined in `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`: media policy,
+`.gitattributes`/license/contributing, workstation-path removal, duplicate-prompt
+cleanup. Close with validator, Capsule Doctor, a freshness-checked waited Godot
+smoke, and `git diff --check`.
 
 Rows marked art are image production and are NOT code-lane work. Close
 every row with validator, Capsule Doctor, a waited Godot smoke, and real

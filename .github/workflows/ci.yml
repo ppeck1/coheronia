@@ -1,0 +1,111 @@
+name: CI
+
+# R-04: single source of truth for "is this build shippable?"
+#   * static  - Python validators / asset audit / capsule / wiki (no engine)
+#   * godot   - pinned Godot 4.6.1, in-engine smoke + real export artifact
+# Any failing step blocks the workflow.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.6.1-stable
+  GODOT_STATUS: stable
+
+jobs:
+  static:
+    name: Static verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Static gate
+        env:
+          COHERONIA_COMMIT: ${{ github.sha }}
+        run: python scripts/ci/verify.py --static-only
+
+  godot:
+    name: Smoke + export (Godot 4.6.1)
+    needs: static
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GODOT_BASE: https://github.com/godotengine/godot-builds/releases/download
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Install runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libgl1 libglu1-mesa libxi6 libxrandr2 libxcursor1 \
+            libxinerama1 libasound2t64 libpulse0 fontconfig unzip
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        run: |
+          set -euo pipefail
+          curl -fL -o godot.zip \
+            "$GODOT_BASE/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}_linux.x86_64" /usr/local/bin/godot
+          chmod +x /usr/local/bin/godot
+          godot --version
+
+      - name: Install export templates
+        run: |
+          set -euo pipefail
+          curl -fL -o templates.tpz \
+            "$GODOT_BASE/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          unzip -q templates.tpz
+          DEST="$HOME/.local/share/godot/export_templates/${GODOT_VERSION%%-*}.${GODOT_STATUS}"
+          mkdir -p "$DEST"
+          mv templates/* "$DEST/"
+          ls "$DEST" | head
+
+      - name: Import project resources
+        run: xvfb-run -a godot --headless --path . --import
+
+      - name: Smoke + export + run exported artifact
+        # Finite bound so a future hang fails the step instead of hanging the
+        # runner. The verifier runs the source smoke, exports Linux/X11, then
+        # launches the exported artifact in smoke mode (separate results file).
+        timeout-minutes: 20
+        env:
+          COHERONIA_COMMIT: ${{ github.sha }}
+        run: |
+          xvfb-run -a python scripts/ci/verify.py \
+            --godot godot --export --export-preset "Linux/X11"
+
+      - name: Upload build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coheronia-linux-${{ github.sha }}
+          path: |
+            build/coheronia
+            build/coheronia.pck
+            build/source_smoke_results.json
+            build/export_smoke_results.json
+            build/build_info.json
+          if-no-files-found: warn

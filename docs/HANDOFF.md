@@ -1,6 +1,6 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-21 release foundations: R-02 + R-03 done, R-04 next)
+## Current State (2026-07-22 release foundations: R-02 + R-03 + R-04 done, R-05 next)
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -1088,10 +1088,41 @@ consecutive runs stable); the **exported `.exe` smoke is 345/345 + 6 skipped**
 (fully green — this closes the R-01 deferred fixture item). validator + Capsule
 Doctor + wiki links + `git diff --check` green.
 
-**The next code-lane row is R-04, CI and release automation** (declared Python
-deps, a one-command verifier, pinned Godot setup, static/import/smoke/export
-jobs, build metadata), followed by R-05..R-10 in
-`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
+**R-04 (CI and release automation) done 2026-07-22.** `requirements.txt` pins the
+Python environment (`Pillow>=10.0,<12`; everything else is stdlib).
+`scripts/ci/verify.py` is a single verifier command: it runs the static gate
+(`validate_repo`, strict `asset_audit`, HUD-kit runtime hashes, gear alignment,
+Capsule Doctor `public_repo`, wiki links) and, given `--godot`, the waited
+in-engine **source** smoke plus (with `--export`) a real export whose artifact is
+then **launched in smoke mode** (`COHERONIA_SMOKE=1`, absolute
+`COHERONIA_RESULTS_PATH` outside `user://`). Source and exported results go to
+separate files (`build/source_smoke_results.json`,
+`build/export_smoke_results.json`; `smoke_test.gd` `_write_result_file` honors
+`COHERONIA_RESULTS_PATH`). The verifier requires **source 351/351 with zero
+skips** and requires the **exported** run to launch, pass every non-skipped
+check, and skip **exactly** the six read-only `res://` fixtures
+(`fq07_block_renders_from_image`, `fq07_item_renders_from_image`,
+`fq09v_variant_pools_resolve`, `fq09c_cel_shot_hook`, `fq09w_wall_art_hook`,
+`fq21_hud_theme_asset_fallback`) — any skip outside that allowlist, any missing
+allowlist skip, a non-skipped failure, or a launch failure fails the run. It
+stamps `build_info.json` (commit/built-at/godot/preset) and exits non-zero on any
+failure. `.github/workflows/ci.yml` runs a `static` job that gates a `godot` job
+pinned to **Godot 4.6.1-stable** (matching export templates, `xvfb` import +
+smoke, real `Linux/X11` export **and execution of the exported artifact** via the
+verifier); both result files + `build_info.json` + the artifact are uploaded, and
+the smoke/export step and job carry finite `timeout-minutes` (20 / 30) so a hang
+fails rather than hanging the runner. Any failing step blocks. A native
+`Linux/X11` preset was added to `export_presets.cfg` so the runner exports without
+cross-compilation (Windows Desktop preset unchanged). Evidence: local
+`verify.py --godot … --export` gave **source smoke 351/351** (0 skipped; per-suite
+world 174 / ui 51 / presentation 66 / audio 25 / progression 18 / save 15 /
+shell 2), export **OK**, then the **exported artifact launched → export smoke
+345/345 with exactly the six allowlist skips** (set-equal verified); static gate
+green; YAML parses; `build/` stays gitignored.
+
+**The next code-lane row is R-05, public repository and release cleanup** (media
+policy, `.gitattributes`/license/contributing, workstation-path removal),
+followed by R-06..R-10 in `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
 
 **PR-09** remains deferred/planning-only. **PR-10**, iron gear, sword/tool
 frames, HUD chrome, and all other final visual assets remain art-lane work

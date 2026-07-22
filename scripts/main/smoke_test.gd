@@ -5397,7 +5397,12 @@ func _run_inventory_focus(player: CharacterBody2D, hud: CanvasLayer) -> void:
 
 
 func _write_result_file(failed: int, failed_names: Array) -> void:
-	var file := FileAccess.open("user://smoke_results.json", FileAccess.WRITE)
+	# R-04: CI/verifier can point the results file at a known absolute path.
+	var path := "user://smoke_results.json"
+	var override := OS.get_environment("COHERONIA_RESULTS_PATH")
+	if override != "":
+		path = override
+	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return
 	file.store_string(JSON.stringify({
