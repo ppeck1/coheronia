@@ -22,6 +22,12 @@ SOFTWARE.
 
 ---
 
-NOTE: This MIT license covers the source code and tooling only. The game's
-non-code assets (art, audio, video, screenshots, and narrative/content) are
-NOT licensed under MIT and are reserved -- see LICENSE-ASSETS.md.
+SCOPE NOTE
+
+This MIT License applies ONLY to the source code, tooling, and
+engineering/configuration material in this repository (for example: GDScript
+and scene logic, Python tooling and CI, data schemas, and build/CI
+configuration), EXCEPT for any files or content reserved by LICENSE-ASSETS.md.
+
+The game's non-code assets and authored creative/narrative content are NOT
+licensed under MIT and are reserved -- see LICENSE-ASSETS.md.

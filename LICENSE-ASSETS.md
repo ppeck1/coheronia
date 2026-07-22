@@ -1,36 +1,52 @@
-# Asset License — All Rights Reserved
+# Asset License -- All Rights Reserved
 
-Coheronia uses a **split licensing model**:
+Coheronia uses a split licensing model:
 
-- **Source code and tooling** are licensed under the MIT License — see
-  [`LICENSE`](LICENSE).
-- **Non-code game assets** are **© 2026 Paul Peck, all rights reserved**, and
-  are covered by this document. They are **not** licensed under MIT.
+- Source code, tooling, and engineering/configuration material are licensed
+  under the MIT License -- see [LICENSE](LICENSE).
+- Non-code assets and authored creative/narrative content are
+  Copyright (c) 2026 Paul Peck, all rights reserved, and are covered by this
+  document. They are NOT licensed under MIT.
 
-## Scope (assets — all rights reserved)
+## Reserved (all rights reserved)
 
-The following are reserved and may **not** be copied, modified, redistributed,
+The following are reserved and may NOT be copied, modified, redistributed,
 sublicensed, or used to train generative models without prior written
 permission from Paul Peck:
 
-- **Art** — everything under `art/`, all `*.png`/`*.svg`/image assets, icons,
-  HUD chrome, sprites, and generated art variants.
-- **Audio** — everything under `audio/`, all `*.ogg`/`*.wav` music, stems,
-  stingers, and sound effects, plus their source/session files.
-- **Video** — gameplay/prologue clips and any other `*.mp4` media.
-- **Screenshots** — everything under `docs/screenshots/`.
-- **Narrative and content** — the game's world, canon, lore, character and
-  place names, dialogue, story, and other written creative content, including
-  the design/narrative material in `docs/`.
+- Art -- everything under `art/`, and all image assets (for example
+  `*.png` / `*.svg`): icons, HUD chrome, sprites, and generated art variants.
+- Audio -- everything under `audio/`, and all sound assets (for example
+  `*.ogg` / `*.wav`): music, stems, stingers, and effects, plus their
+  source/session files.
+- Video -- gameplay/prologue clips and any other `*.mp4` media.
+- Screenshots -- everything under `docs/screenshots/`.
+- Reference media -- captured, mockup, and reference imagery used to design or
+  document the game's look.
+- Authored creative and narrative content -- the game's world, canon, lore,
+  character and place names, dialogue, flavor text, story, and other authored
+  creative writing. This content is reserved REGARDLESS of where it appears,
+  including when it is embedded in code, data files, or documentation.
 
-## What MIT does cover
+## Covered by MIT
 
-The MIT grant in [`LICENSE`](LICENSE) applies to the code and tooling —
-GDScript (`scripts/`, `scenes/` logic), Python tooling (`scripts/`,
-`scripts/ci/`), data schemas, build/CI configuration, and similar
-engineering artifacts — so others may learn from and reuse the systems.
+The MIT grant in [LICENSE](LICENSE) covers the engineering of the project so
+others may study and reuse the systems, including:
+
+- Source code and scene logic (for example `scripts/`, `scenes/`).
+- Tooling and CI (for example `scripts/`, `scripts/ci/`).
+- Data schemas and generic configuration -- the structure, format, and
+  mechanics of data and config files, as distinct from any authored creative
+  content those files may contain.
+- Engineering and process documentation -- design, build, workflow, and handoff
+  docs remain under MIT together with the code and tooling, UNLESS a given
+  document contains reserved creative/narrative content (see above), in which
+  case only that content stays reserved.
+
+Not all documentation is reserved: a document is reserved only to the extent it
+contains the reserved creative/narrative content described above.
 
 ## Requests
 
-For any use of the reserved assets, contact Paul Peck. Reuse of the **code**
-under MIT does not grant any right to the reserved assets above.
+For any use of the reserved material, contact Paul Peck. Reuse of the code
+under MIT does not grant any right to the reserved material above.
