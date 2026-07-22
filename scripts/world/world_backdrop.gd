@@ -138,54 +138,53 @@ func _draw() -> void:
 ## collision, lighting, shelter, saves, and the parallax of the distant strips
 ## are all unchanged.
 func _draw_contour_skirt(horizon: float) -> void:
-	if _world == null or _tile <= 0.0:
+	if _world == null or _tile <= 0.0 or _world.surface.is_empty():
 		return
-	var surface: Dictionary = _world.surface
-	if surface.is_empty():
-		return
-	var left := int(floorf(_view.position.x / _tile)) - 1
-	var right := int(floorf(_view.end.x / _tile)) + 1
-	var x_left := float(left) * _tile
-	var x_right := float(right + 1) * _tile
-	# foothill: distant flat horizon (top) down to the per-column surface (bottom,
-	# clamped so peaks contribute nothing and only valley gaps are filled).
-	var foothill := PackedVector2Array([Vector2(x_left, horizon)])
-	# earth: per-column surface contour (top) down to the bottom of the view.
-	var earth := PackedVector2Array([Vector2(x_left, _view.end.y)])
-	for col in range(left, right + 1):
-		var top := contour_top_px(col, horizon)
-		var x0 := float(col) * _tile
-		var x1 := x0 + _tile
-		foothill.append(Vector2(x0, maxf(top, horizon)))
-		foothill.append(Vector2(x1, maxf(top, horizon)))
-		earth.append(Vector2(x0, top))
-		earth.append(Vector2(x1, top))
-	foothill.append(Vector2(x_right, horizon))
-	earth.append(Vector2(x_right, _view.end.y))
+	var fills := skirt_rects(_view, horizon)
 	# Deep earth backing first, then the foothill band that meets the terrain.
-	# A collinear / zero-area polygon (an empty view, or an all-peaks column range
-	# with no valley gap to fill) makes Godot's triangulator reject the draw and
-	# log "Invalid polygon data" while painting nothing — harmless in-editor but
-	# noisy on headless/CI. Skip those no-op draws; real-area fills are unchanged.
-	if _polygon_area(earth) > 0.5:
-		draw_colored_polygon(earth, UNDER_COL)
-	if _polygon_area(foothill) > 0.5:
-		draw_colored_polygon(foothill, MID_COL)
+	for r: Rect2 in fills["earth"]:
+		draw_rect(r, UNDER_COL)
+	for r: Rect2 in fills["foothill"]:
+		draw_rect(r, MID_COL)
 
 
-## Shoelace area magnitude of a polygon, used only to skip degenerate skirt
-## fills the triangulator would reject (they paint nothing, so skipping is a
-## visual no-op). Pure and side-effect free.
-func _polygon_area(poly: PackedVector2Array) -> float:
-	var n := poly.size()
-	if n < 3:
-		return 0.0
-	var acc := 0.0
-	for i in range(n):
-		var a := poly[i]
-		var b := poly[(i + 1) % n]
-		acc += a.x * b.y - b.x * a.y
-	return absf(acc) * 0.5
+## PR-07 (correctness): the per-column fill rectangles for the contour skirt at a
+## given view/horizon. Pure — reads only the world surface, tile size, and the
+## passed view — so the geometry can be pinned by tests without a live camera.
+## Returns {"earth": Array[Rect2], "foothill": Array[Rect2]}.
+##
+## The skirt is a staircase (each column is already a flat step), so it is drawn
+## as one quad per column rather than a single spanning polygon. A single polygon
+## was fragile: wherever a flat run coincided with the polygon's closing edge —
+## an all-peaks range sitting on the horizon (foothill), or columns whose surface
+## is below the view bottom clamped onto it (earth) — the ring became collinear /
+## self-intersecting and Godot's triangulator rejected the WHOLE fill, so the
+## under-earth backing silently vanished (void/sky behind terrain) at high camera
+## angles. Per-column quads produce identical pixels and can never self-intersect.
+## `earth_top` is clamped to the view bottom so an off-screen-below column simply
+## contributes no quad (correct: no under-earth is visible past the view).
+func skirt_rects(view: Rect2, horizon: float) -> Dictionary:
+	var earth: Array[Rect2] = []
+	var foothill: Array[Rect2] = []
+	if _world == null or _tile <= 0.0 or _world.surface.is_empty() or view.size.x <= 0.0:
+		return {"earth": earth, "foothill": foothill}
+	var left := int(floorf(view.position.x / _tile)) - 1
+	var right := int(floorf(view.end.x / _tile)) + 1
+	var bottom := view.end.y
+	for col in range(left, right + 1):
+		var x0 := float(col) * _tile
+		var top := contour_top_px(col, horizon)
+		# earth: under-terrain backing from the surface line down to the view
+		# bottom (clamped, so a column whose ground is past the view adds nothing).
+		var earth_top := minf(top, bottom)
+		if bottom - earth_top > 0.5:
+			earth.append(Rect2(x0, earth_top, _tile, bottom - earth_top))
+		# foothill: fill only the valley gap between the flat horizon and the
+		# per-column surface where the surface dips below the horizon.
+		var gap := maxf(top, horizon)
+		if gap - horizon > 0.5:
+			foothill.append(Rect2(x0, horizon, _tile, gap - horizon))
+	return {"earth": earth, "foothill": foothill}
 
 
 ## PR-07: the skirt's top edge for world column `col`, in world pixels -- the

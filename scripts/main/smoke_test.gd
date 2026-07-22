@@ -3840,6 +3840,39 @@ func _run() -> void:
 			str(_pr07_follows), str(_pr07_clamped), str(_pr07_inert),
 			_pr07_peak_top, _pr07_valley_top])
 
+	# (f-hi) PR-07 correctness at a HIGH camera: the per-column surface can dip
+	# below the view's bottom edge. The under-earth backing must still be drawn
+	# for the in-view columns -- the old single spanning polygon went collinear /
+	# self-intersecting there, so the triangulator dropped the WHOLE region and it
+	# read as void/sky behind terrain. skirt_rects emits per-column quads clamped
+	# to view.end.y. Put the view bottom BETWEEN the highest peak and the deepest
+	# valley so some columns are genuinely below it (the pre-fix failure trigger).
+	var _pr07g_peak_px: float = _pr07_min * _pr07_tile
+	var _pr07g_valley_px: float = _pr07_max * _pr07_tile
+	var _pr07g_bottom: float = (_pr07g_peak_px + _pr07g_valley_px) * 0.5
+	var _pr07g_top: float = _pr07g_peak_px - 300.0
+	var _pr07g_view := Rect2(0.0, _pr07g_top,
+		float(world.width) * _pr07_tile, _pr07g_bottom - _pr07g_top)
+	var _pr07g_fills: Dictionary = _fq09w_bd.skirt_rects(_pr07g_view, _pr07g_peak_px)
+	var _pr07g_earth: Array = _pr07g_fills["earth"]
+	var _pr07g_max_bottom := -1.0e9
+	var _pr07g_min_top := 1.0e9
+	for _pr07g_r: Rect2 in _pr07g_earth:
+		_pr07g_max_bottom = maxf(_pr07g_max_bottom, _pr07g_r.end.y)
+		_pr07g_min_top = minf(_pr07g_min_top, _pr07g_r.position.y)
+	# the scenario truly has surface below the view, the backing is present
+	# (region NOT dropped), every quad stays within the view bottom (clamped), and
+	# it has real fill height (not collapsed to the bottom line).
+	var _pr07g_exercises: bool = _pr07g_valley_px > _pr07g_view.end.y + 1.0
+	var _pr07g_bounded: bool = _pr07g_earth.size() > 0 \
+		and _pr07g_max_bottom <= _pr07g_view.end.y + 0.01
+	var _pr07g_present: bool = _pr07g_min_top < _pr07g_view.end.y - 1.0
+	_check("pr07_skirt_earth_backing_present_at_high_camera",
+		_pr07g_exercises and _pr07g_bounded and _pr07g_present,
+		"exercises=%s bounded=%s present=%s rects=%d bottom=%.1f min_top=%.1f" % [
+			str(_pr07g_exercises), str(_pr07g_bounded), str(_pr07g_present),
+			_pr07g_earth.size(), _pr07g_max_bottom, _pr07g_min_top])
+
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
 	# registry and removal falls back (fq09v temp discipline; the wall
 	# tileset itself reads art once at world entry per the FQ-07 rule).
