@@ -4253,18 +4253,27 @@ func _run() -> void:
 
 	# (g) LIVE spike proof: the interactive playback really reaches the
 	# requested clip via the registered next-bar same-position transition
-	# (one bar = 3.33 s at 72 BPM; budget 8 s).
-	_fq09u_dir.debug_reset("surface_day")
-	_fq09u_dir.evaluate(_fq09u_under, 1.0)
+	# (one bar = 3.33 s at 72 BPM). This is a REAL-TIME transition driven by the
+	# audio playback position, so a cold/slow host (Linux CI) can need well over
+	# the old fixed 8 s / 480-frame budget for the position to cross the next bar.
+	# Poll on a wall-clock deadline (not a frame count, which under-counts real
+	# time when rendering is slow) and re-arm once before failing. A warm run
+	# still lands in ~4 s and exits the loop immediately.
 	var _fq09u_target: int = _fq09u_dir.clip_index_of("underground")
 	var _fq09u_reached := false
-	for _fq09u_i in range(480):
-		_fq09u_dir._settle_pending()
-		if _fq09u_dir.playback_clip_index() == _fq09u_target \
-				and _fq09u_dir.current_context() == "underground":
-			_fq09u_reached = true
+	for _fq09u_attempt in range(2):
+		_fq09u_dir.debug_reset("surface_day")
+		_fq09u_dir.evaluate(_fq09u_under, 1.0)
+		var _fq09u_deadline: int = Time.get_ticks_msec() + 20000
+		while Time.get_ticks_msec() < _fq09u_deadline:
+			_fq09u_dir._settle_pending()
+			if _fq09u_dir.playback_clip_index() == _fq09u_target \
+					and _fq09u_dir.current_context() == "underground":
+				_fq09u_reached = true
+				break
+			await get_tree().process_frame
+		if _fq09u_reached:
 			break
-		await get_tree().process_frame
 	_check("fq09u1_live_clip_switch", _fq09u_reached,
 		"reached=%s clip=%d target=%d" % [str(_fq09u_reached),
 			_fq09u_dir.playback_clip_index(), _fq09u_target])
