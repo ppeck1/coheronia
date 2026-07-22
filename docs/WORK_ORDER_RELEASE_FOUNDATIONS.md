@@ -28,7 +28,7 @@ work. It is a seams-first sequence, not a rewrite.
 | RF-03 | No committed export preset exists. | `.gitignore` excludes `export_presets.cfg`; none is present. | There is no reproducible distributable-build path. | **RESOLVED by R-01 (2026-07-21).** A minimal Windows `export_presets.cfg` is committed and tracked (`.gitignore` updated); `4.6.1.stable` templates installed; a real `.exe` was built and launched. |
 | RF-04 | Save writes overwrite live files directly. | `scripts/shell/game_state.gd` opens `user://shell.json` and world files with `FileAccess.WRITE`. | A partial write can hide or destroy a usable profile/world. | **RESOLVED by R-02 (2026-07-21).** All saves go through `_atomic_write_json` (validated temp -> `.bak` -> rename; restores `.bak` if the final rename fails). |
 | RF-05 | Invalid save JSON defaults silently in key load paths. | `GameState.load_shell` and world loading accept only parsed dictionaries and otherwise return defaults/empty data. | Corruption can look like lost progress rather than a recoverable error. | **RESOLVED by R-02 (2026-07-21).** `_load_json_recover` quarantines a corrupt primary to `.corrupt`, restores from `.bak`, and surfaces `shell_load_status`/`world_load_status`; no corrupt save silently becomes a fresh empty profile. |
-| RF-06 | Smoke is coupled to the normal `user://` profile. | Historical smoke failures included stale `shell.json` HUD geometry/profile state. | A green run can depend on or contaminate local player data. | R-03. |
+| RF-06 | Smoke is coupled to the normal `user://` profile. | Historical smoke failures included stale `shell.json` HUD geometry/profile state. | A green run can depend on or contaminate local player data. | **RESOLVED by R-03 (2026-07-21).** `GameState.persistence_root` is injectable and auto-routes test/capture runs to `user://smoke_root/`; the smoke never reads or writes the real profile (verified: the Metis test character survives smoke runs). |
 | RF-07 | Verification is primarily workstation-sequenced. | Static scripts exist, but no declared Python environment, one-command verifier, or CI workflow is present. | External reproducibility and merge confidence are weak. | R-04. |
 | RF-08 | Repository hygiene has remaining release concerns. | `.gitignore` has legacy import rules; large/historical media and generated/history material require a public-release decision. | Clone size, import noise, and public-facing clarity suffer. | R-05. |
 | RF-09 | `hud.gd` and `game_root.gd` are concentrated ownership points. | Current HUD/session behavior spans large controllers. | Future features become increasingly coupled. | Later R-06, after release foundations. |
@@ -124,6 +124,29 @@ work. It is a seams-first sequence, not a rewrite.
     recovers from `.bak` and is surfaced, unsupported schema surfaced, world file
     recovers, world creation observable). validator + Capsule Doctor + wiki links
     + `git diff --check` green.
+
+- **R-03 (Isolated verification) — DONE 2026-07-21.**
+  - **Injectable persistence root** (`scripts/shell/game_state.gd`):
+    `persistence_root` derives `shell_path()` / `worlds_dir()`;
+    `set_persistence_root()` re-points and reloads; `_ready` honors
+    `COHERONIA_PERSIST_ROOT`, else auto-routes any automated/capture flag
+    (`COHERONIA_SMOKE`/`SMOKE_FOCUS`/`HUD_QA`/`SHOTS`) to `user://smoke_root/`. A
+    normal launch still uses the real `user://` profile. Verified: the Metis test
+    character in the real profile is untouched across smoke/export runs, and a
+    non-empty (dirty) real profile does not affect results.
+  - **Split reporting** (`scripts/main/smoke_test.gd`): `_suite_for` categorizes
+    each check into `shell`/`save`/`world`/`ui`/`presentation`/`progression`/
+    `audio`; results carry per-suite `{passed, failed, skipped}`, `skipped` +
+    `skipped_names`, `duration_sec`, `commit` (from `COHERONIA_COMMIT`), and
+    `persistence_root` alongside the one final full-game pass/fail.
+  - **Export-fixture handling**: the six checks that write fixture PNGs into
+    `res://` use `_check_res_fixture` — **skipped** under an exported build
+    (read-only `res://`), run with their assertions unchanged in source/editor.
+  - **Evidence.** Source waited-GUI smoke **351/351** (0 skipped; consecutive
+    isolated runs stable and idempotent); the exported `.exe` smoke is **345/345
+    + 6 skipped** (fully green — closing the R-01 deferred fixture item). Smoke
+    `r03_isolated_verification` pins isolation + re-point + reporting. validator +
+    Capsule Doctor + wiki links + `git diff --check` green.
 
 ## Technical decisions already made
 

@@ -1,6 +1,6 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-21 release foundations: R-01 + R-02 done, R-03 next)
+## Current State (2026-07-21 release foundations: R-02 + R-03 done, R-04 next)
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -1071,9 +1071,26 @@ save silently becomes a fresh empty profile. Smoke:
 **Source waited-GUI smoke 350/350**; validator + Capsule Doctor + wiki links +
 `git diff --check` green.
 
-**The next code-lane row is R-03, Isolated verification** (injectable persistence
-root, fresh test root, split result reporting, and the R-01 temp-art-fixture
-handling), followed by R-04..R-10 in
+**R-03 (Isolated verification) done 2026-07-21.** The persistence root is
+injectable: `GameState.persistence_root` derives `shell_path()` / `worlds_dir()`,
+`set_persistence_root()` re-points and reloads, and `_ready` honors a
+`COHERONIA_PERSIST_ROOT` env or auto-routes any automated/capture flag
+(`COHERONIA_SMOKE`/`SMOKE_FOCUS`/`HUD_QA`/`SHOTS`) to `user://smoke_root/` — so a
+test/capture run never reads or writes the player's real profile (verified: the
+Metis test character survives smoke runs untouched). The smoke now records split
+reporting: per-suite tallies (`shell`/`save`/`world`/`ui`/`presentation`/
+`progression`/`audio`), `skipped`/`skipped_names`, `duration_sec`, `commit`
+(from `COHERONIA_COMMIT`), and `persistence_root`. The six temp-art fixture
+checks that write into `res://` now `_check_res_fixture` — they **skip** under an
+exported build (read-only `res://`) and run their assertions unchanged in source.
+Smoke `r03_isolated_verification`. **Source waited-GUI smoke 351/351** (0 skipped;
+consecutive runs stable); the **exported `.exe` smoke is 345/345 + 6 skipped**
+(fully green — this closes the R-01 deferred fixture item). validator + Capsule
+Doctor + wiki links + `git diff --check` green.
+
+**The next code-lane row is R-04, CI and release automation** (declared Python
+deps, a one-command verifier, pinned Godot setup, static/import/smoke/export
+jobs, build metadata), followed by R-05..R-10 in
 `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
 
 **PR-09** remains deferred/planning-only. **PR-10**, iron gear, sword/tool

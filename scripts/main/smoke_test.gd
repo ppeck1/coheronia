@@ -8,19 +8,77 @@ const MusicManifest := preload("res://scripts/audio/music_manifest.gd")
 
 var _results: Array = []
 var _details: Dictionary = {}
+# R-03: split reporting — per-suite tallies, skipped checks, and run timing.
+var _suites: Dictionary = {}   # suite -> {passed, failed, skipped}
+var _skipped: Array = []       # names skipped in this environment
+var _start_ms := 0
 
 
 func _ready() -> void:
 	call_deferred("_run")
 
 
+## R-03: coarse suite for a check, from its name, so results split by
+## shell / save / world / ui / presentation / progression / audio.
+func _suite_for(name: String) -> String:
+	if name.begins_with("shell_"):
+		return "shell"
+	if name.begins_with("r02_") or name.begins_with("r03_") \
+			or name.begins_with("save_") or name.begins_with("load_"):
+		return "save"
+	if name.begins_with("fq09u") or name.begins_with("r01_export_safe_audio"):
+		return "audio"
+	if name.begins_with("fq05") or name.begins_with("fq06") or name.begins_with("fq09s") \
+			or "perk" in name or "_xp" in name or "level" in name or "attun" in name:
+		return "progression"
+	if name.begins_with("player_visual") or name.begins_with("pr02") or name.begins_with("pr03") \
+			or name.begins_with("pr04") or name.begins_with("pr05") or name.begins_with("pr07") \
+			or name.begins_with("fq07") or name.begins_with("fq08") or name.begins_with("fq09v") \
+			or name.begins_with("fq09c") or name.begins_with("fq13p") \
+			or name.begins_with("r01_export_safe_visual"):
+		return "presentation"
+	if name.begins_with("fq09_") or name.begins_with("fq14") or name.begins_with("fq15") \
+			or name.begins_with("fq16") or name.begins_with("fq17") or name.begins_with("fq18") \
+			or name.begins_with("fq19") or name.begins_with("fq20") or name.begins_with("fq21") \
+			or name.begins_with("pr06") or name.begins_with("pr08") or "hud" in name \
+			or "panel" in name or "inventory" in name or "dock" in name or name.begins_with("focus_"):
+		return "ui"
+	return "world"
+
+
+func _suite_bucket(suite: String) -> Dictionary:
+	if not _suites.has(suite):
+		_suites[suite] = {"passed": 0, "failed": 0, "skipped": 0}
+	return _suites[suite]
+
+
 func _check(name: String, ok: bool, detail: String = "") -> void:
 	_results.append([name, ok])
 	_details[name] = detail
+	_suite_bucket(_suite_for(name))["passed" if ok else "failed"] += 1
+
+
+## R-03: record a check intentionally not run in this environment (never counted
+## as pass or fail). Used for fixtures that cannot run under an exported build.
+func _skip(name: String, reason: String) -> void:
+	_skipped.append(name)
+	_details[name] = "SKIPPED: " + reason
+	_suite_bucket(_suite_for(name))["skipped"] += 1
+
+
+## R-03: a check whose fixture writes into res:// (read-only in an exported PCK).
+## Skipped under an exported build; runs normally (asserts) in source/editor —
+## the source-run assertions are unchanged.
+func _check_res_fixture(name: String, ok: bool, detail: String = "") -> void:
+	if OS.has_feature("template"):
+		_skip(name, "fixture writes to res:// (read-only in an exported PCK)")
+	else:
+		_check(name, ok, detail)
 	print("SMOKE %s: %s%s" % ["PASS" if ok else "FAIL", name, (" — " + detail) if detail != "" else ""])
 
 
 func _run() -> void:
+	_start_ms = Time.get_ticks_msec()
 	var root: Node2D = get_parent()
 	var world: Node2D = root.world
 	var player: CharacterBody2D = root.player
@@ -1171,7 +1229,7 @@ func _run() -> void:
 			hud.hud_visual_theme_id())
 	DirAccess.remove_absolute(_fq21_theme_valid_path)
 	DirAccess.remove_absolute(_fq21_theme_invalid_path)
-	_check("fq21_hud_theme_asset_fallback", _fq21_theme_contract_ok,
+	_check_res_fixture("fq21_hud_theme_asset_fallback", _fq21_theme_contract_ok,
 		"theme=%s valid=%s missing=%s invalid=%s unsafe=%s" % [
 			hud.hud_visual_theme_id(), str(_fq21_theme_valid != _fq21_theme_base),
 			str(_fq21_theme_missing == _fq21_theme_base),
@@ -2714,16 +2772,16 @@ func _run() -> void:
 	# healthy shell + a good .bak (two saves), then truncate the live file.
 	GameState.save_shell()
 	GameState.save_shell()
-	var _r02_scf := FileAccess.open(GameState.SHELL_PATH, FileAccess.WRITE)
+	var _r02_scf := FileAccess.open(GameState.shell_path(), FileAccess.WRITE)
 	if _r02_scf != null:
 		_r02_scf.store_string("{ truncated shell")
 		_r02_scf.close()
 	GameState.load_shell()
 	var _r02_shell_recovered: bool = GameState.shell_load_status == "recovered" \
 		and GameState.characters.size() == _r02_saved_chars.size() \
-		and FileAccess.file_exists(GameState.SHELL_PATH + ".corrupt")
+		and FileAccess.file_exists(GameState.shell_path() + ".corrupt")
 	# unsupported (future) schema is surfaced, data preserved (never destroyed).
-	GameState._atomic_write_json(GameState.SHELL_PATH, {
+	GameState._atomic_write_json(GameState.shell_path(), {
 		"shell_version": "99.0", "profile": _r02_saved_profile,
 		"characters": _r02_saved_chars})
 	GameState.load_shell()
@@ -2754,14 +2812,45 @@ func _run() -> void:
 	GameState.save_shell()
 	GameState.load_shell()
 	for _r02_ssfx in [".bak", ".corrupt", ".tmp"]:
-		if FileAccess.file_exists(GameState.SHELL_PATH + _r02_ssfx):
-			DirAccess.remove_absolute(GameState.SHELL_PATH + _r02_ssfx)
+		if FileAccess.file_exists(GameState.shell_path() + _r02_ssfx):
+			DirAccess.remove_absolute(GameState.shell_path() + _r02_ssfx)
 	_check("r02_shell_world_integrity",
 		_r02_shell_recovered and _r02_schema_surfaced and _r02_create_ok
 		and _r02_world_recovered,
 		"shell_recovered=%s schema=%s create=%s world_recovered=%s" % [
 			str(_r02_shell_recovered), str(_r02_schema_surfaced),
 			str(_r02_create_ok), str(_r02_world_recovered)])
+
+	# --- R-03: isolated verification (injected persistence root + split reporting) ---
+	# This run must be isolated from the real profile: the persistence root is the
+	# dedicated smoke root, not "user://", so nothing here can read or write the
+	# player's shell/worlds. The root is re-pointable, and results split by suite.
+	var _r03_root: String = GameState.persistence_root
+	var _r03_isolated: bool = _r03_root != GameState.DEFAULT_PERSISTENCE_ROOT \
+		and GameState.shell_path().begins_with(_r03_root) \
+		and GameState.shell_path() != "user://shell.json"
+	# set_persistence_root re-points shell + worlds cleanly, then restore.
+	var _r03_probe := "user://r03_probe_root/"
+	GameState.set_persistence_root(_r03_probe)
+	var _r03_reroute: bool = GameState.shell_path() == _r03_probe.path_join("shell.json") \
+		and GameState.worlds_dir() == _r03_probe.path_join("worlds")
+	GameState.set_persistence_root(_r03_root)
+	if DirAccess.dir_exists_absolute(_r03_probe):
+		DirAccess.remove_absolute(_r03_probe.path_join("worlds"))
+		DirAccess.remove_absolute(_r03_probe)
+	# split reporting: names categorize into the expected suites and timing is live.
+	var _r03_reporting: bool = _suite_for("shell_persists_characters") == "shell" \
+		and _suite_for("r02_atomic_write_backup_recover_quarantine") == "save" \
+		and _suite_for("fq09u1_live_clip_switch") == "audio" \
+		and _suite_for("pr06_character_panel_runtime_render") == "ui" \
+		and _suite_for("player_visual_all_ten_bodies_resolve") == "presentation" \
+		and _suite_for("fq06_perks_persist") == "progression" \
+		and _start_ms > 0 and _suites.size() >= 5
+	_check("r03_isolated_verification",
+		_r03_isolated and _r03_reroute and _r03_reporting,
+		"root=%s isolated=%s reroute=%s reporting=%s suites=%s" % [_r03_root,
+			str(_r03_isolated), str(_r03_reroute), str(_r03_reporting),
+			str(_suites.keys())])
 
 	# Restore progression so later sections see the pre-FQ-06 world.
 	root.purchased_perks = _fq06_saved_perks.duplicate()
@@ -2814,7 +2903,7 @@ func _run() -> void:
 	BlockRegistry.clear_visual_cache()
 	var _fq07_clean_pixel: Color = world._make_block_texture("dirt", 16) \
 		.get_image().get_pixel(4, 4)
-	_check("fq07_block_renders_from_image",
+	_check_res_fixture("fq07_block_renders_from_image",
 		_fq07_art_pixel.is_equal_approx(Color(1.0, 0.0, 1.0))
 		and not _fq07_clean_pixel.is_equal_approx(Color(1.0, 0.0, 1.0)),
 		"with_art=%s after_cleanup=%s" % [str(_fq07_art_pixel), str(_fq07_clean_pixel)])
@@ -2836,7 +2925,7 @@ func _run() -> void:
 	hud.update_inventory()
 	var _fq07_item_convention_pixel: Color = BlockRegistry.item_icon("wood") \
 		.get_image().get_pixel(4, 4)
-	_check("fq07_item_renders_from_image",
+	_check_res_fixture("fq07_item_renders_from_image",
 		_fq07_icon_on and hud.hotbar_icon_is_art(1)
 		and _fq07_item_override_pixel.is_equal_approx(Color(0.0, 1.0, 1.0))
 		and not _fq07_item_convention_pixel.is_equal_approx(Color(0.0, 1.0, 1.0)),
@@ -3247,7 +3336,7 @@ func _run() -> void:
 		"art/generated/blocks/smoke_tmp_dirt_a.png",
 		"art/generated/blocks/smoke_tmp_dirt_b.png"]
 	BlockRegistry.clear_visual_cache()
-	_check("fq09v_variant_pools_resolve",
+	_check_res_fixture("fq09v_variant_pools_resolve",
 		BlockRegistry.visual_variant_textures("blocks", "smoke_tmp_vscan").size() == 2
 		and BlockRegistry.visual_variant_textures("blocks", "town_hall_core").size() == 2
 		and BlockRegistry.visual_variant_textures("blocks", "stone").size() == 3,
@@ -3521,7 +3610,7 @@ func _run() -> void:
 	_fq09c_celq.autoplay = false
 	add_child(_fq09c_celq)
 	var _fq09c_cel_off: bool = _fq09c_celq.current_uses_cel() == _fq09c_real_pool
-	_check("fq09c_cel_shot_hook", _fq09c_cel_on and _fq09c_cel_off,
+	_check_res_fixture("fq09c_cel_shot_hook", _fq09c_cel_on and _fq09c_cel_off,
 		"pool_plays=%s removal_matches_disk=%s real_pool=%s" % [str(_fq09c_cel_on),
 			str(_fq09c_cel_off), str(_fq09c_real_pool)])
 	_fq09c_celq.queue_free()
@@ -3757,7 +3846,7 @@ func _run() -> void:
 	DirAccess.remove_absolute(_fq09w_tmp)
 	BlockRegistry.clear_visual_cache()
 	var _fq09w_back: bool = BlockRegistry.visual_texture("back_walls", "smoke_tmp_wall") == null
-	_check("fq09w_wall_art_hook", _fq09w_no_art and _fq09w_with_art and _fq09w_back,
+	_check_res_fixture("fq09w_wall_art_hook", _fq09w_no_art and _fq09w_with_art and _fq09w_back,
 		"none=%s resolves=%s falls_back=%s" % [str(_fq09w_no_art),
 			str(_fq09w_with_art), str(_fq09w_back)])
 
@@ -5316,6 +5405,13 @@ func _write_result_file(failed: int, failed_names: Array) -> void:
 		"passed": _results.size() - failed,
 		"total": _results.size(),
 		"failed": failed_names,
+		# R-03: split reporting + run metadata.
+		"skipped": _skipped.size(),
+		"skipped_names": _skipped,
+		"suites": _suites,
+		"duration_sec": float(Time.get_ticks_msec() - _start_ms) / 1000.0,
+		"commit": OS.get_environment("COHERONIA_COMMIT"),
+		"persistence_root": GameState.persistence_root,
 		"details": _details,
 		"timestamp": Time.get_datetime_string_from_system(),
 	}, "  "))

@@ -1059,13 +1059,20 @@ failed write and the callers guard it; unknown schemas are surfaced, never
 destroyed. Source waited-GUI smoke is **350/350** (`r02_atomic_write_backup_recover_quarantine`,
 `r02_shell_world_integrity`).
 
-The next code-lane item is **R-03, Isolated verification**, defined in
-`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`: make the persistence root injectable,
-move smoke to a fresh test root, split result reporting, and handle the six
-export-incompatible temp-art fixtures (injected writable root, or skip only under
-exported-smoke mode — source assertions unchanged). Do not combine it with new
-gameplay. Close with validator, Capsule Doctor, a freshness-checked waited Godot
-smoke, and `git diff --check`.
+**R-03 (Isolated verification) is also DONE (2026-07-21).** `GameState` has an
+injectable `persistence_root` (auto-routing `COHERONIA_SMOKE`/capture flags to
+`user://smoke_root/`, or an explicit `COHERONIA_PERSIST_ROOT`), so tests never
+touch the real profile (the Metis test character survives smoke runs). The smoke
+reports per-suite tallies + skipped + duration + commit, and the six res://
+temp-art fixtures skip under an exported build. Source smoke **351/351**;
+exported `.exe` smoke **345/345 + 6 skipped** (fully green).
+
+The next code-lane item is **R-04, CI and release automation**, defined in
+`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`: declared Python dependencies, a
+one-command verifier, pinned Godot setup, static/import/smoke/export jobs, and
+build metadata (commit/version). A clean runner must validate and export an
+artifact; failures block. Close with validator, Capsule Doctor, a
+freshness-checked waited Godot smoke, and `git diff --check`.
 
 Rows marked art are image production and are NOT code-lane work. Close
 every row with validator, Capsule Doctor, a waited Godot smoke, and real

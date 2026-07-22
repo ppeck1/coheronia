@@ -4,8 +4,13 @@ extends Node
 ## history + simulation state, stored as user://worlds/<id>.json).
 ## The shell file user://shell.json holds profile + characters.
 
-const SHELL_PATH := "user://shell.json"
-const WORLDS_DIR := "user://worlds"
+## R-03: the persistence root is injectable so tests/CI can run against a fresh,
+## isolated location and never read or write the player's real profile. Set the
+## `COHERONIA_PERSIST_ROOT` environment variable (e.g. "user://smoke_root/") to
+## redirect all shell/world files; unset means the normal "user://" profile.
+const DEFAULT_PERSISTENCE_ROOT := "user://"
+## R-03: isolated root used by automated test/capture runs (COHERONIA_SMOKE etc.).
+const SMOKE_PERSISTENCE_ROOT := "user://smoke_root/"
 const SHELL_VERSION := "0.4"
 ## R-02: schema versions this build can read. A save stamped with anything else
 ## is surfaced (schema mismatch) but never destroyed.
@@ -18,6 +23,9 @@ var current_character: Dictionary = {}
 var current_world_id: String = ""
 var current_config: WorldConfig = null
 var hud_edit_mode := false
+# R-03: injectable persistence root (see COHERONIA_PERSIST_ROOT). Derives the
+# shell + worlds paths so a test root fully isolates from the real profile.
+var persistence_root := DEFAULT_PERSISTENCE_ROOT
 
 # R-02: save-integrity observability. Load paths set these so a corrupt or
 # unexpected save is surfaced instead of silently becoming a new empty profile.
@@ -28,7 +36,43 @@ var world_load_status := "ok"
 
 
 func _ready() -> void:
-	DirAccess.make_dir_recursive_absolute(WORLDS_DIR)
+	# R-03: pick the persistence root before the first load so an isolated test/
+	# capture run never reads or writes the player's real profile. An explicit
+	# COHERONIA_PERSIST_ROOT wins; otherwise any automated/capture flag routes to
+	# a dedicated smoke root; a normal launch uses the real "user://" profile.
+	var injected := OS.get_environment("COHERONIA_PERSIST_ROOT")
+	if injected != "":
+		persistence_root = injected
+	elif _is_isolated_run():
+		persistence_root = SMOKE_PERSISTENCE_ROOT
+	DirAccess.make_dir_recursive_absolute(worlds_dir())
+	load_shell()
+
+
+## R-03: true when an automated test or capture flag is set — these runs isolate
+## their persistence so they never touch the real profile.
+static func _is_isolated_run() -> bool:
+	return OS.get_environment("COHERONIA_SMOKE") == "1" \
+		or OS.get_environment("COHERONIA_SMOKE_FOCUS") != "" \
+		or OS.get_environment("COHERONIA_HUD_QA") == "1" \
+		or OS.get_environment("COHERONIA_SHOTS") == "1"
+
+
+## R-03: the shell profile file under the current persistence root.
+func shell_path() -> String:
+	return persistence_root.path_join("shell.json")
+
+
+## R-03: the worlds directory under the current persistence root.
+func worlds_dir() -> String:
+	return persistence_root.path_join("worlds")
+
+
+## R-03: redirect persistence to `root` (ensuring its worlds dir) and reload the
+## shell from there. Empty falls back to the default. Used to isolate tests.
+func set_persistence_root(root: String) -> void:
+	persistence_root = root if root != "" else DEFAULT_PERSISTENCE_ROOT
+	DirAccess.make_dir_recursive_absolute(worlds_dir())
 	load_shell()
 
 
@@ -41,7 +85,7 @@ func load_shell() -> void:
 	# R-02: recover instead of silently defaulting. A corrupt shell is quarantined
 	# and a .bak is tried; a genuinely unrecoverable/absent file keeps defaults but
 	# is surfaced via shell_load_status, never mistaken for a fresh empty profile.
-	var result := _load_json_recover(SHELL_PATH)
+	var result := _load_json_recover(shell_path())
 	var status := str(result.get("status", "ok"))
 	if status == "missing":
 		return
@@ -87,7 +131,7 @@ func mark_prologue_seen() -> void:
 
 
 func save_shell() -> bool:
-	return _atomic_write_json(SHELL_PATH, {
+	return _atomic_write_json(shell_path(), {
 		"shell_version": SHELL_VERSION,
 		"profile": profile,
 		"characters": characters,
@@ -295,18 +339,18 @@ func mark_items_granted(char_id: String) -> void:
 # ---------- worlds ----------
 
 func world_path(world_id: String) -> String:
-	return "%s/%s.json" % [WORLDS_DIR, world_id]
+	return "%s/%s.json" % [worlds_dir(), world_id]
 
 
 ## Returns Array of {id, config, meta} for every stored world.
 func list_worlds() -> Array:
 	var out: Array = []
-	for file_name in DirAccess.get_files_at(WORLDS_DIR):
+	for file_name in DirAccess.get_files_at(worlds_dir()):
 		if not file_name.ends_with(".json"):
 			continue
 		# Tolerate a corrupt world file in the listing (it is quarantined on an
 		# explicit load, not while enumerating); a valid one is shown normally.
-		var parsed: Variant = _json_object_or_null("%s/%s" % [WORLDS_DIR, file_name])
+		var parsed: Variant = _json_object_or_null("%s/%s" % [worlds_dir(), file_name])
 		if parsed is Dictionary:
 			out.append({
 				"id": str(parsed.get("meta", {}).get("id", file_name.get_basename())),
