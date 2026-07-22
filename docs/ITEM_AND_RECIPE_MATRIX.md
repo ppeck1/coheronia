@@ -4,7 +4,7 @@ Generated: 2026-07-15
 
 ## Scope
 
-- Audit target: `B:\dev\Coheronia\coheronia_fable_oneshot_repo` only.
+- Audit target: `<repo-root>` only.
 - Double-checked against `data/items.json`, `data/blocks.json`, `data/recipes.json`, `data/equipment.json`, `data/enemies.json`, `data/character_data.json`, plus the live consumers in `scripts/player/player.gd`, `scripts/settlement/town_hall.gd`, `scripts/world/block_registry.gd`, `scripts/ui/hud.gd`, and `scripts/validate_repo.py`.
 - This report separates true live-obtainable items from defined metadata/icon surfaces that exist in data or art but are not yet reachable in normal play.
 

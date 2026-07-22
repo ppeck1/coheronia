@@ -25,7 +25,7 @@ The immediately preceding replacement was rejected because it read as the same w
 - `art/generated/opening/opening_05_first_hall_raised_01.png` — builder scale, environment density, and authored pixel rendering.
 - `art/generated/opening/opening_06_attunement_pulse_01.png` — five-star constellation anchor positions.
 - `art/generated/opening/opening_08_title_card_01.png` — title constellation treatment.
-- Original Scene 7 source master: `C:\Users\peckm\.codex\generated_images\019f617b-f865-7bb0-8c73-4fad442613ed\exec-a99ee4ec-618b-47be-b102-0844eff07862.png`.
+- Original Scene 7 source master: `<workstation-path>`.
 
 ## Required next-pass constraints
 

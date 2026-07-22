@@ -4,7 +4,7 @@ Paste this prompt to Fable/Claude Code from the repo root:
 
 ```text
 You are working in:
-B:\dev\Coheronia\coheronia_fable_oneshot_repo
+<repo-root>
 
 Coheronia is currently at v0.5, signed and closed out. Your task is the next
 bounded increment: v0.6 character identity, character-owned inventory,
@@ -15,7 +15,7 @@ Do not restart the project. Do not create a new Godot project. Work with the
 existing Godot 4.6.1 codebase and its Project Ops Capsule protocol.
 
 Important current-state facts:
-- The repo root is the inner folder above, not B:\dev\Coheronia.
+- The repo root is the inner folder above, not <workstation-path>
 - Current state is documented in README.md, docs/HANDOFF.md, and
   docs/VARIABLE_MATRIX.md.
 - v0.5 smoke is 90/90 and covers enemies, XP/base levels, ancestry effects,
@@ -42,7 +42,7 @@ Before coding:
    python scripts/validate_repo.py
    python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile public_repo
    If plain python is unavailable on this machine, use:
-   C:\Users\peckm\AppData\Local\Programs\Python\Python311\python.exe
+   <python>
 3. Read these files before implementation:
    README.md
    docs/HANDOFF.md
@@ -252,7 +252,7 @@ Validation and closeout:
   python _protocol/Project_Ops_Capsule/scripts/capsule_doctor.py . --profile public_repo
 - Run Godot smoke using the local Godot binary:
   $env:COHERONIA_SMOKE = "1"
-  Start-Process -FilePath "B:\dev\Coheronia\project.godot\Godot_v4.6.1-stable_win64.exe" -ArgumentList @("--path", "B:\dev\Coheronia\coheronia_fable_oneshot_repo") -Wait
+  Start-Process -FilePath "<godot-binary>" -ArgumentList @("--path", "<repo-root>") -Wait
   Then verify user://smoke_results.json reports PASS.
 - Update README.md, docs/HANDOFF.md, docs/VARIABLE_MATRIX.md.
 - Write a new .project/runs/<run-id>.md ledger with exact evidence.

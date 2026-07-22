@@ -4,7 +4,7 @@ Generated: 2026-07-15
 
 ## Scope
 
-- Audit target: `B:\dev\Coheronia\coheronia_fable_oneshot_repo` only.
+- Audit target: `<repo-root>` only.
 - Grounded in `docs/ITEM_AND_RECIPE_MATRIX.md`, `data/items.json`, `data/equipment.json`, `data/recipes.json`, `data/blocks.json`, plus the live consumers in `scripts/player/player.gd`, `scripts/settlement/town_hall.gd`, and `scripts/ui/hud.gd`.
 - The live graph below focuses on gameplay-facing acquisition and crafting flow.
 - Town Hall recipes and station recipes consume Town Hall stockpile inputs in live play; the graph shows the dependency flow directly item-to-recipe for readability.

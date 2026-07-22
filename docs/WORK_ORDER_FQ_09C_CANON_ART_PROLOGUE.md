@@ -7,10 +7,10 @@ Status: ACTIVE - operator-prioritized before FQ-09W, FQ-09A, and FQ-09M.
 Work only in:
 
 ```text
-B:\dev\Coheronia\coheronia_fable_oneshot_repo
+<repo-root>
 ```
 
-The outer `B:\dev\Coheronia` directory is a wrapper, not the implementation
+The outer `<workstation-path>` directory is a wrapper, not the implementation
 target.
 
 ## Objective

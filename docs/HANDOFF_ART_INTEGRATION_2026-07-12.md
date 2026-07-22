@@ -10,8 +10,8 @@ Changes remain intentionally uncommitted.
 
 ## Exact repository boundary
 
-- Work only in `B:\dev\Coheronia\coheronia_fable_oneshot_repo`.
-- `B:\dev\Coheronia` is a wrapper directory, not the repository.
+- Work only in `<repo-root>`.
+- `<workstation-path>` is a wrapper directory, not the repository.
 - Branch: `main`.
 - Nothing is staged. No commit or push was made.
 - Before this handoff file was added, the tree contained 15 tracked modified files and 57 untracked files. The tracked diff was 790 insertions and 72 deletions; that statistic excludes the new assets.
@@ -93,7 +93,7 @@ Latest verified state before this handoff:
 - Sole latest smoke failure: existing Fable check `fq09u3_events_fire_stingers`.
 - All new art checks passed, including `town_hall_core_image_contract`, `town_hall_image_contract`, `town_hall_procedural_fallback`, `town_hall_damage_overlay_preserved`, and the 640x360 surface-sky backdrop contract.
 - A prior run also showed the existing `fq09u1_live_clip_switch` timing flake, but it passed in the latest run. Do not broaden the art tranche into audio repair.
-- The smoke result used for that evidence is at `C:\Users\peckm\.codex\visualizations\2026\07\10\019f4e28-3d25-7770-909f-3fc30075b617\smoke_appdata_7\Godot\app_userdata\Coheronia\smoke_results.json`.
+- The smoke result used for that evidence is at `<workstation-path>`.
 
 Known QA limitation: a headless screenshot tour blocked on `RenderingServer.frame_post_draw` and its Godot process was terminated. Use a hidden/windowed rendered run or a dedicated proof scene for final visual screenshots. Do not report headless screenshot coverage as complete.
 
@@ -108,13 +108,13 @@ Follow-up verification after far/mid strip landing:
 - Fresh full engine smoke: 256 passed of 257 total.
 - Sole smoke failure remains `fq09u3_events_fire_stingers`.
 - Fresh smoke result path:
-  `C:\Users\peckm\AppData\Local\Temp\coheronia_smoke_appdata_20260712_161408\Godot\app_userdata\Coheronia\smoke_results.json`
+  `<workstation-path>`
   with timestamp `2026-07-12T16:14:28`.
 - FQ-09W smoke detail confirmed backdrop runtime sizes:
   `sky=(640.0, 360.0) far=(640.0, 36.0) mid=(640.0, 20.0)`.
 - Engine-rendered hidden/windowed QA produced 12 rendered screenshots plus a
   contact sheet at
-  `C:\Users\peckm\AppData\Local\Temp\coheronia_world_anchor_qa_appdata_20260712_160558\Godot\app_userdata\Coheronia\world_anchor_qa\world_anchor_visual_qa_contact_sheet.png`.
+  `<workstation-path>`.
 - Rendered QA covered Hall damage at 0%, 50%, and 100%, plus day/night/storm
   parallax frames at three camera offsets. Visual inspection found the Hall art
   readable under damage, far/mid strips readable under all tints, foreground
@@ -123,7 +123,7 @@ Follow-up verification after far/mid strip landing:
   nearest filtering, `sky_size=[640,360]`, `far_size=[640,36]`,
   `mid_size=[640,20]`, and `hall_art=true`.
 - Elf appearance-mask audit rendered a fixed contact sheet at
-  `C:\Users\peckm\AppData\Local\Temp\coheronia_player_appearance_contact_sheet_fixed.png`;
+  `<workstation-path>`;
   Pale, Umber, and Ash each changed 18 in-mask pixels and 0 outside-mask pixels.
 - Protected Fable file hashes still match the table below after removing the
   transient QA hook used to capture the rendered screenshots.
@@ -157,11 +157,11 @@ The world-anchor tranche is complete: player appearance masks, player body
 integration, Town Hall art, sky, far strip, and mid strip are landed and
 verified. The previous raw far source remains available for audit:
 
-- Raw far-ridge source: `C:\Users\peckm\.codex\visualizations\2026\07\10\019f4e28-3d25-7770-909f-3fc30075b617\coheronia_world_anchor_qa\surface_far_terrain_raw.png`
+- Raw far-ridge source: `<workstation-path>`
 - Raw dimensions: 1672x941.
 - Source character: chroma-green field with restrained layered blue-gray ridges touching the bottom edge.
-- QA/build helper: `C:\Users\peckm\.codex\visualizations\2026\07\10\019f4e28-3d25-7770-909f-3fc30075b617\coheronia_world_anchor_qa\world_anchor_tools.py`
-- Chroma helper: `C:\Users\peckm\.codex\skills\.system\imagegen\scripts\remove_chroma_key.py`
+- QA/build helper: `<workstation-path>`
+- Chroma helper: `<workstation-path>`
 
 The helper currently handles Hall, core, and sky candidate building. The far/mid
 normalization was performed from the same visual pipeline conventions, but the
@@ -199,9 +199,9 @@ Do not generate UI-category art before a consumer exists. Do not create armor ba
 Run from PowerShell:
 
 ```powershell
-$repo = 'B:\dev\Coheronia\coheronia_fable_oneshot_repo'
-$python = 'C:\Users\peckm\AppData\Local\Programs\Python\Python311\python.exe'
-$godot = 'B:\dev\Coheronia\project.godot\Godot_v4.6.1-stable_win64.exe'
+$repo = '<repo-root>'
+$python = '<python>'
+$godot = '<godot-binary>'
 Set-Location $repo
 
 & $python .\scripts\validate_repo.py
@@ -217,16 +217,16 @@ Start-Process -FilePath $godot -ArgumentList @('--headless','--path',$repo) -Wai
 git status --short
 ```
 
-Do not trust the Godot process exit alone. Read the newly written `smoke_results.json`, confirm its timestamp, passed/total counts, and exact failed-check list. The Godot binary used by the launcher is `B:\dev\Coheronia\project.godot\Godot_v4.6.1-stable_win64.exe`.
+Do not trust the Godot process exit alone. Read the newly written `smoke_results.json`, confirm its timestamp, passed/total counts, and exact failed-check list. The Godot binary used by the launcher is `<godot-binary>`.
 
 ## Paste-ready continuation prompt
 
 ```text
 Continue the Coheronia art integration in the exact repo
-B:\dev\Coheronia\coheronia_fable_oneshot_repo on branch main.
+<repo-root> on branch main.
 
 Read docs/HANDOFF_ART_INTEGRATION_2026-07-12.md completely before changing files.
-The outer B:\dev\Coheronia directory is only a wrapper. Fable's unfinished
+The outer <workstation-path> directory is only a wrapper. Fable's unfinished
 FQ-09U3 work shares this dirty tree; preserve every protected hash and normalized
 block recorded in the handoff, and use narrow disjoint hunks only. Do not commit
 or push unless explicitly asked.

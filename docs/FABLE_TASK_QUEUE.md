@@ -9,7 +9,7 @@ and outbox packets.
 
 ## Queue Rules
 
-- Work from `B:\dev\Coheronia\coheronia_fable_oneshot_repo`, not the wrapper
+- Work from `<repo-root>`, not the wrapper
   folder.
 - Keep each item bounded. Do not combine unrelated systems into one giant pass.
 - Prefer data-driven definitions for items, equipment, visual assets, ores,
@@ -1021,7 +1021,7 @@ checks -- a code lane never produces final PNGs.
 ## Current Fable Continuation
 
 ```text
-You are working in B:\dev\Coheronia\coheronia_fable_oneshot_repo.
+You are working in <repo-root>.
 
 Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md,
 docs/PRESENTATION_RECOVERY_MATRIX.md, and
