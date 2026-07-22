@@ -14,6 +14,8 @@ const ProgressionRegistryClass := preload("res://scripts/data/progression_regist
 const AncestryRegistryClass := preload("res://scripts/data/ancestry_registry.gd")
 const GoalTrackerScript := preload("res://scripts/main/goal_tracker.gd")
 const MapStateScript := preload("res://scripts/world/map_state.gd")
+const PauseMenuScript := preload("res://scripts/ui/pause_menu.gd")   # R-07
+const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
 
 const DAY_LENGTH_SECONDS := 100.0
 const NIGHT_START := 0.65          # time_of_day fraction where night begins
@@ -50,6 +52,7 @@ const CAVE_CRAWLER_CAP := 2
 @onready var canvas_modulate: CanvasModulate = $CanvasModulate
 @onready var threats: Node2D = $Threats
 
+var _pause_menu: CanvasLayer   # R-07: real pause/settings/keybinds
 var time_of_day := 0.25
 var _clock_refresh_accum := 0.0
 var day_count := 1
@@ -120,6 +123,13 @@ func _ready() -> void:
 	hud.set_save_hint(save_manager.has_save())
 	settlement.compute()
 	_refresh_goals()   # FQ-14: seed the goal panel from the (possibly loaded) state
+	# R-07: apply the user's saved key rebindings, then mount the pause menu (a
+	# PROCESS_MODE_ALWAYS layer that freezes the sim via get_tree().paused).
+	InputSettings.apply(GameState.profile)
+	_pause_menu = PauseMenuScript.new()
+	add_child(_pause_menu)
+	_pause_menu.save_requested.connect(_on_pause_save)
+	_pause_menu.save_and_quit_requested.connect(_on_pause_save_and_quit)
 	if OS.get_environment("COHERONIA_SMOKE") == "1":
 		var smoke := preload("res://scripts/main/smoke_test.gd").new()
 		smoke.name = "SmokeTest"
@@ -517,7 +527,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("interact") or event.is_action_pressed("toggle_town"):
 		_try_interact()
 	elif event.is_action_pressed("ui_cancel"):
-		# Esc closes skills, then inventory, then town panel, then saves and exits.
+		# R-07: Esc closes an open panel first; otherwise it opens the pause menu
+		# (which freezes the sim and offers Resume/Settings/Save/Save & Quit)
+		# instead of the old abrupt save-and-exit.
 		if hud.skill_panel_open():
 			hud.toggle_skill_panel()
 		elif hud.inventory_panel_open():
@@ -526,10 +538,34 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.toggle_character_panel()
 		elif hud.town_panel_open():
 			hud.toggle_town_panel()
-		else:
-			save_manager.save_game()
-			log_event("Saved. Returning to the shell...")
-			GameState.exit_to_shell()
+		elif _pause_menu != null:
+			_pause_menu.open()
+
+
+## R-07: pause-menu "Save" -- persist without leaving; report the outcome.
+func _on_pause_save() -> void:
+	var ok: bool = save_manager.save_game()
+	if ok:
+		log_event("Game saved.")
+		hud.set_save_hint(true)
+		hud.notify_saved()
+	else:
+		log_event("Save failed.")
+	if _pause_menu != null:
+		_pause_menu.show_save_status(ok)
+
+
+## R-07: pause-menu "Save & Quit" -- leave ONLY after a successful save; on
+## failure stay paused and surface the error in the menu (no data lost to a
+## silent bad save).
+func _on_pause_save_and_quit() -> void:
+	if not save_manager.save_game():
+		log_event("Save failed -- staying paused.")
+		if _pause_menu != null:
+			_pause_menu.show_save_status(false)
+		return
+	get_tree().paused = false
+	GameState.exit_to_shell()
 
 
 func _advance_time(delta: float) -> void:

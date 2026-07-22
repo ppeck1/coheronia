@@ -5,6 +5,8 @@ extends Node
 
 ## R-01: import-aware audio loader, referenced as a class for its static methods.
 const MusicManifest := preload("res://scripts/audio/music_manifest.gd")
+const AudioSettings := preload("res://scripts/audio/audio_settings.gd")   # R-07
+const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
 
 var _results: Array = []
 var _details: Dictionary = {}
@@ -40,7 +42,8 @@ func _suite_for(name: String) -> String:
 	if name.begins_with("fq09_") or name.begins_with("fq14") or name.begins_with("fq15") \
 			or name.begins_with("fq16") or name.begins_with("fq17") or name.begins_with("fq18") \
 			or name.begins_with("fq19") or name.begins_with("fq20") or name.begins_with("fq21") \
-			or name.begins_with("pr06") or name.begins_with("pr08") or "hud" in name \
+			or name.begins_with("pr06") or name.begins_with("pr08") \
+			or name.begins_with("r07_") or "hud" in name \
 			or "panel" in name or "inventory" in name or "dock" in name or name.begins_with("focus_"):
 		return "ui"
 	return "world"
@@ -3872,6 +3875,134 @@ func _run() -> void:
 		"exercises=%s bounded=%s present=%s rects=%d bottom=%.1f min_top=%.1f" % [
 			str(_pr07g_exercises), str(_pr07g_bounded), str(_pr07g_present),
 			_pr07g_earth.size(), _pr07g_max_bottom, _pr07g_min_top])
+
+	# --- R-07 slice 1: pause menu, settings, key rebinding ---
+	# (a) the pause menu genuinely freezes the simulation via get_tree().paused
+	# (game_root is pausable; the menu + music run PROCESS_MODE_ALWAYS) and
+	# cleanly resumes.
+	var _r07_pm = root._pause_menu
+	var _r07_tod0: float = root.time_of_day
+	var _r07_day0: int = root.day_count
+	_r07_pm.open()
+	var _r07_paused_on: bool = get_tree().paused and _r07_pm.is_open()
+	for _r07_i in range(20):
+		await get_tree().process_frame
+	var _r07_frozen: bool = is_equal_approx(root.time_of_day, _r07_tod0) \
+		and root.day_count == _r07_day0
+	_r07_pm.resume()
+	var _r07_resumed: bool = not get_tree().paused and not _r07_pm.is_open()
+	_check("r07_pause_freezes_and_resumes",
+		_r07_paused_on and _r07_frozen and _r07_resumed,
+		"paused=%s frozen=%s resumed=%s" % [str(_r07_paused_on), str(_r07_frozen),
+			str(_r07_resumed)])
+
+	# (b) a key rebind applies to the live InputMap and resets to default.
+	var _r07_ev := InputEventKey.new()
+	_r07_ev.keycode = KEY_T
+	_r07_ev.physical_keycode = KEY_T
+	InputSettings.rebind(GameState.profile, "jump", _r07_ev)
+	var _r07_bound: bool = InputMap.action_has_event("jump", _r07_ev) \
+		and InputSettings.is_changed("jump")
+	InputSettings.reset(GameState.profile)
+	var _r07_reset: bool = not InputSettings.is_changed("jump") \
+		and not InputMap.action_has_event("jump", _r07_ev)
+	_check("r07_keybind_applies_and_resets", _r07_bound and _r07_reset,
+		"bound=%s reset=%s jump=%s" % [str(_r07_bound), str(_r07_reset),
+			InputSettings.key_label("jump")])
+
+	# (c) the menu rejects a duplicate key (already bound to another rebindable
+	# action) and leaves the target action unchanged, with feedback. Uses two
+	# keyboard-bound actions (jump=Space, toggle_goals); mine/place are mouse.
+	var _r07_jump_key := InputSettings.primary_key_event("jump")
+	var _r07_goals_before := InputSettings.key_label("toggle_goals")
+	_r07_pm._begin_rebind("toggle_goals")
+	_r07_pm._apply_rebind(_r07_jump_key)   # jump already uses this key -> reject
+	var _r07_dup_ok: bool = InputSettings.key_label("toggle_goals") == _r07_goals_before \
+		and not InputSettings.is_changed("toggle_goals") \
+		and InputSettings.action_using_key(_r07_jump_key, "toggle_goals") == "jump"
+	_check("r07_duplicate_rebind_rejected", _r07_dup_ok,
+		"goals %s->%s clash=%s" % [_r07_goals_before,
+			InputSettings.key_label("toggle_goals"),
+			InputSettings.action_using_key(_r07_jump_key, "toggle_goals")])
+
+	# (d) full persistence round-trip: save a rebind, wipe the live map, apply the
+	# DESERIALIZED saved profile (as a fresh launch would after loading the shell),
+	# and confirm the saved key is live again; then reset and confirm defaults plus
+	# a cleared persisted override. Isolated smoke root, never the real profile.
+	AudioSettings.set_music_volume(GameState.profile, 0.3)
+	InputSettings.rebind(GameState.profile, "toggle_map", _r07_ev)   # KEY_T
+	GameState.save_shell()
+	var _r07_saved = JSON.parse_string(FileAccess.get_file_as_string(GameState.shell_path()))
+	var _r07_saved_prof: Dictionary = _r07_saved.get("profile", {}) if _r07_saved is Dictionary else {}
+	var _r07_saved_ok: bool = is_equal_approx(float(_r07_saved_prof.get("music_volume", -1.0)), 0.3) \
+		and (_r07_saved_prof.get("keybinds", {}) as Dictionary).has("toggle_map")
+	InputSettings.reset(GameState.profile)               # live map back to defaults
+	var _r07_after_reset: bool = not InputSettings.is_changed("toggle_map")
+	InputSettings.apply(_r07_saved_prof)                 # deserialized dict -> live
+	var _r07_reapplied: bool = InputMap.action_has_event("toggle_map", _r07_ev) \
+		and InputSettings.is_changed("toggle_map")
+	# final reset + persist -> defaults live and the override cleared on disk.
+	InputSettings.reset(GameState.profile)
+	AudioSettings.set_music_volume(GameState.profile, 1.0)
+	AudioSettings.set_sfx_volume(GameState.profile, 1.0)
+	GameState.save_shell()
+	var _r07_disk2 = JSON.parse_string(FileAccess.get_file_as_string(GameState.shell_path()))
+	var _r07_dp2: Dictionary = _r07_disk2.get("profile", {}) if _r07_disk2 is Dictionary else {}
+	var _r07_cleared: bool = not (_r07_dp2.get("keybinds", {}) as Dictionary).has("toggle_map") \
+		and not InputSettings.is_changed("toggle_map")
+	_check("r07_settings_persist_then_reset_apply",
+		_r07_saved_ok and _r07_after_reset and _r07_reapplied and _r07_cleared,
+		"saved=%s reset=%s reapplied=%s cleared=%s" % [str(_r07_saved_ok),
+			str(_r07_after_reset), str(_r07_reapplied), str(_r07_cleared)])
+
+	# (e) Save & Quit leaves ONLY after a successful save. Force a failure (no
+	# current world -> save_current_world_state returns false) and confirm the
+	# menu stays paused and open with an error rather than exiting to the shell.
+	var _r07_world := GameState.current_world_id
+	GameState.current_world_id = ""
+	_r07_pm.open()
+	root._on_pause_save_and_quit()
+	var _r07_still_paused := get_tree().paused
+	var _r07_still_open: bool = _r07_pm.is_open()
+	GameState.current_world_id = _r07_world
+	_r07_pm.resume()
+	_check("r07_save_and_quit_requires_success",
+		_r07_still_paused and _r07_still_open,
+		"still_paused=%s still_open=%s" % [str(_r07_still_paused), str(_r07_still_open)])
+
+	# (f) the Settings content fits inside a 640x360 logical viewport; only the
+	# key list scrolls, so Back/Reset stay reachable at the smallest supported
+	# resolution.
+	_r07_pm._show_settings()
+	await get_tree().process_frame
+	var _r07_fit_h: float = _r07_pm.settings_content_min_height()
+	_r07_pm._show_main()
+	_check("r07_settings_fits_640x360", _r07_fit_h > 0.0 and _r07_fit_h <= 360.0,
+		"content_min_height=%.1f (<=360)" % _r07_fit_h)
+
+	# (g) InputSettings honors the REBINDABLE contract: rebind() ignores an action
+	# outside the set, and apply() ignores a stored override for one.
+	InputSettings.rebind(GameState.profile, "ui_cancel", _r07_ev)   # not rebindable
+	var _r07_guard_rebind: bool = not (GameState.profile.get("keybinds", {}) as Dictionary).has("ui_cancel")
+	var _r07_dbg_ev := InputSettings.primary_key_event("debug_overlay")
+	var _r07_dbg_key: int = _r07_dbg_ev.physical_keycode if _r07_dbg_ev != null else 0
+	InputSettings.apply({"keybinds": {"debug_overlay": {"keycode": KEY_T, "physical": KEY_T}}})
+	var _r07_dbg_ev2 := InputSettings.primary_key_event("debug_overlay")
+	var _r07_dbg_key2: int = _r07_dbg_ev2.physical_keycode if _r07_dbg_ev2 != null else 0
+	var _r07_guard_apply: bool = _r07_dbg_key == _r07_dbg_key2 and _r07_dbg_key2 != KEY_T
+	_check("r07_rebind_apply_respect_rebindable",
+		_r07_guard_rebind and _r07_guard_apply,
+		"rebind_ignored=%s apply_ignored=%s" % [str(_r07_guard_rebind), str(_r07_guard_apply)])
+
+	# (h) mouse-bound actions (mine/place) show a fixed mouse label -- never
+	# "(unset)" -- and are not key-rebindable.
+	var _r07_mine_lbl := InputSettings.binding_label("mine")
+	var _r07_place_lbl := InputSettings.binding_label("place")
+	_check("r07_mouse_actions_show_fixed",
+		not InputSettings.is_key_rebindable("mine") and _r07_mine_lbl.contains("Mouse") \
+		and _r07_mine_lbl != "(unset)" \
+		and not InputSettings.is_key_rebindable("place") and _r07_place_lbl.contains("Mouse"),
+		"mine=%s place=%s" % [_r07_mine_lbl, _r07_place_lbl])
 
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
 	# registry and removal falls back (fq09v temp discipline; the wall
