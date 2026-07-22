@@ -1,0 +1,40 @@
+# Normalize line endings: the repository stores text as LF and checks it out as
+# LF everywhere, so Windows/macOS/Linux contributors and CI see identical bytes.
+* text=auto eol=lf
+
+# Explicit text types (diffable, normalized).
+*.gd          text
+*.py          text
+*.md          text
+*.txt         text
+*.json        text
+*.cfg         text
+*.tscn        text
+*.tres        text
+*.import      text
+*.svg         text
+*.html        text
+*.yml         text
+*.yaml        text
+.gitattributes text
+.gitignore     text
+
+# Binary assets: never diffed, never line-ending normalized.
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.webp    binary
+*.bmp     binary
+*.ogg     binary
+*.wav     binary
+*.mp3     binary
+*.mp4     binary
+*.ttf     binary
+*.otf     binary
+*.exe     binary
+*.pck     binary
+*.zip     binary
+*.rar     binary
+*.res     binary
+*.m8patch binary
