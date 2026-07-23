@@ -22,7 +22,9 @@ const ERR_COL := Color(0.90, 0.45, 0.45)
 
 signal save_requested
 signal save_and_quit_requested
+signal restore_requested
 
+var _confirm: ConfirmationDialog
 var _open := false
 var _main: Control
 var _settings: Control
@@ -69,10 +71,21 @@ func resume() -> void:
 ## visible status and (on failure) stay open and paused.
 func show_save_status(ok: bool) -> void:
 	if ok:
-		_set_status("Game saved.", false)
+		notify("Game saved.", false)
 	else:
-		_show_main()
-		_set_status("Save failed -- staying paused.", true)
+		notify("Save failed -- staying paused.", true)
+
+
+## Show a status message on the main panel (used by game_root for save/restore).
+func notify(text: String, is_error: bool) -> void:
+	_show_main()
+	_set_status(text, is_error)
+
+
+## R-07: ask before restoring -- it discards unsaved progress since the last save.
+func _request_restore() -> void:
+	_confirm.dialog_text = "Restore your last save? Unsaved progress since then will be lost."
+	_confirm.popup_centered()
 
 
 ## Smaller-viewport guard: the minimum height the Settings screen actually needs
@@ -135,6 +148,14 @@ func _build() -> void:
 	_settings = _build_settings()
 	dim.add_child(_main)
 	dim.add_child(_settings)
+	# R-07: confirm dialog for Restore (discards unsaved progress). ALWAYS so it
+	# works while the tree is paused.
+	_confirm = ConfirmationDialog.new()
+	_confirm.title = "Restore save"
+	_confirm.ok_button_text = "Restore"
+	_confirm.process_mode = Node.PROCESS_MODE_ALWAYS
+	_confirm.confirmed.connect(func(): restore_requested.emit())
+	add_child(_confirm)
 
 
 func _build_main() -> Control:
@@ -148,6 +169,7 @@ func _build_main() -> Control:
 	vb.add_child(_menu_button("Resume", resume))
 	vb.add_child(_menu_button("Settings", _show_settings))
 	vb.add_child(_menu_button("Save", func(): save_requested.emit()))
+	vb.add_child(_menu_button("Restore Save", _request_restore))
 	vb.add_child(_menu_button("Save & Quit", func(): save_and_quit_requested.emit()))
 	_status = Label.new()
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

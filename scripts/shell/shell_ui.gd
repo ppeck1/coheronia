@@ -60,6 +60,9 @@ var _content: VBoxContainer
 var _title_backdrop: TextureRect
 var _selected_char_id: String = ""
 var _prologue: Control = null   # FQ-09C: live prologue overlay, null when idle
+# R-07 slice 2: destructive deletes (world/character) route through a confirm.
+var _confirm: ConfirmationDialog
+var _pending_delete: Dictionary = {}   # {"kind": "world"|"character", "id": String}
 
 # --- character create controls ---
 var _name_edit: LineEdit
@@ -207,7 +210,37 @@ func _build_base() -> void:
 	_content = VBoxContainer.new()
 	_content.add_theme_constant_override("separation", 10)
 	margin.add_child(_content)
+	# R-07: one shared confirm dialog for destructive deletes.
+	_confirm = ConfirmationDialog.new()
+	_confirm.title = "Confirm delete"
+	_confirm.ok_button_text = "Delete"
+	_confirm.confirmed.connect(_perform_pending_delete)
+	add_child(_confirm)
 	_built = true
+
+
+## R-07: arm a destructive delete and ask for confirmation instead of deleting
+## on the first click. `kind` is "world" or "character".
+func _request_delete(kind: String, id: String, display_name: String) -> void:
+	_pending_delete = {"kind": kind, "id": id}
+	_confirm.dialog_text = "Delete %s \"%s\"? This cannot be undone." % [kind, display_name]
+	if is_inside_tree():
+		_confirm.popup_centered()
+
+
+## R-07: perform the armed delete (dialog confirmed) and refresh the screen.
+func _perform_pending_delete() -> void:
+	var kind: String = str(_pending_delete.get("kind", ""))
+	var id: String = str(_pending_delete.get("id", ""))
+	_pending_delete = {}
+	if id == "":
+		return
+	if kind == "world":
+		GameState.delete_world(id)
+		_show_world_select()
+	elif kind == "character":
+		GameState.delete_character(id)
+		_show_char_select()
 
 
 func _clear_content() -> void:
@@ -360,8 +393,7 @@ func _add_character_row(list: VBoxContainer, character: Dictionary) -> void:
 		_selected_char_id = char_id
 		_show_world_select())
 	_button(row, "Delete", func() -> void:
-		GameState.delete_character(char_id)
-		_show_char_select())
+		_request_delete("character", char_id, str(character.get("name", "character"))))
 
 
 ## PR-05: a self-contained character preview drawn through the shared
@@ -721,8 +753,7 @@ func _add_world_row(list: VBoxContainer, entry: Dictionary) -> void:
 	_button(row, "Enter", func() -> void:
 		GameState.start_world(world_id, _selected_char_id))
 	_button(row, "Delete", func() -> void:
-		GameState.delete_world(world_id)
-		_show_world_select())
+		_request_delete("world", world_id, str(config.get("name", "world"))))
 
 
 # ---------- SCREEN 3b: world create ----------

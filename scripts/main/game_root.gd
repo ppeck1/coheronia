@@ -130,6 +130,7 @@ func _ready() -> void:
 	add_child(_pause_menu)
 	_pause_menu.save_requested.connect(_on_pause_save)
 	_pause_menu.save_and_quit_requested.connect(_on_pause_save_and_quit)
+	_pause_menu.restore_requested.connect(_on_pause_restore)
 	if OS.get_environment("COHERONIA_SMOKE") == "1":
 		var smoke := preload("res://scripts/main/smoke_test.gd").new()
 		smoke.name = "SmokeTest"
@@ -566,6 +567,16 @@ func _on_pause_save_and_quit() -> void:
 		return
 	get_tree().paused = false
 	GameState.exit_to_shell()
+
+
+## R-07: pause-menu "Restore Save" -- reload the last save (visible recovery, no
+## hidden F9). On success unpause so the restored world is shown; else report it.
+func _on_pause_restore() -> void:
+	if load_game():
+		log_event("Save restored.")
+		_pause_menu.resume()
+	else:
+		_pause_menu.notify("No save to load.", true)
 
 
 func _advance_time(delta: float) -> void:

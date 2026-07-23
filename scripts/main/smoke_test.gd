@@ -4004,6 +4004,39 @@ func _run() -> void:
 		and not InputSettings.is_key_rebindable("place") and _r07_place_lbl.contains("Mouse"),
 		"mine=%s place=%s" % [_r07_mine_lbl, _r07_place_lbl])
 
+	# --- R-07 slice 2: save management ---
+	# (i) a shell delete is armed by a confirm, not performed on the first click:
+	# after _request_delete the target still exists; _perform_pending_delete (the
+	# dialog's confirm) actually removes it. Driven off-tree (popup is guarded).
+	var _r07s: Control = (load("res://scripts/shell/shell_ui.gd") as GDScript).new()
+	_r07s._build_base()
+	var _r07_wid: String = GameState.create_world({})
+	_r07s._request_delete("world", _r07_wid, "SmokeDelete")
+	var _r07_armed: bool = _r07_wid != "" \
+		and not GameState.load_world_file(_r07_wid).is_empty() \
+		and str(_r07s._pending_delete.get("id", "")) == _r07_wid
+	_r07s._perform_pending_delete()
+	var _r07_confirmed: bool = GameState.load_world_file(_r07_wid).is_empty()
+	_r07s.free()
+	_check("r07_shell_delete_requires_confirm", _r07_armed and _r07_confirmed,
+		"armed=%s confirmed_deleted=%s" % [str(_r07_armed), str(_r07_confirmed)])
+
+	# (j) in-game Restore reloads the last save (visible recovery, no hidden F9)
+	# and is gated by a confirm: requesting it does not reload; confirming does,
+	# reverting live state to the save and closing the menu.
+	_r07_pm.open()
+	root.save_manager.save_game()
+	var _r07_day_saved: int = root.day_count
+	root.day_count = _r07_day_saved + 7               # mutate live state
+	_r07_pm._request_restore()                         # arms the confirm dialog only
+	var _r07_gated: bool = root.day_count == _r07_day_saved + 7
+	_r07_pm._confirm.hide()
+	root._on_pause_restore()                            # dialog confirmed -> reload
+	var _r07_restored: bool = root.day_count == _r07_day_saved and not _r07_pm.is_open()
+	_check("r07_pause_restore_reloads_save", _r07_gated and _r07_restored,
+		"gated=%s restored=%s day=%d" % [str(_r07_gated), str(_r07_restored),
+			root.day_count])
+
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
 	# registry and removal falls back (fq09v temp discipline; the wall
 	# tileset itself reads art once at world entry per the FQ-07 rule).
