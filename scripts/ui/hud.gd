@@ -5,6 +5,7 @@ extends CanvasLayer
 
 signal deposit_requested
 signal repair_requested
+signal subject_job_cycle_requested(id: String)   # R-08 slice 2: settler job assignment
 
 ## Low-health fraction mirrors player._low_health_fraction (data-driven
 ## default 0.25); the HUD does not read player state directly so it keeps a
@@ -39,6 +40,7 @@ var _log_lines: Array[String] = []
 var _town_panel: PanelContainer
 var _town_info: Label
 var _repair_button: Button
+var _settler_box: VBoxContainer   # R-08 slice 2: per-settler job-assignment rows
 var _stock_empty_label: Label
 var _save_label: Label   # no longer built (FQ-19); kept for the null-guarded setter
 var _has_save_hint := false
@@ -2554,6 +2556,11 @@ func _build_town_panel() -> void:
 	# R-07: crafting and station building moved to the unified Crafting panel (C);
 	# the Town Hall panel keeps deposit, status, and Repair.
 	_refresh_station_icons()
+	# R-08 slice 2: settler roster with a per-settler job-cycle button. Rows are
+	# (re)built in refresh_town_panel from the live "subjects" group.
+	_label(box, "Settlers:")
+	_settler_box = VBoxContainer.new()
+	box.add_child(_settler_box)
 	_label(box, "Press E to close")
 
 
@@ -3918,6 +3925,30 @@ func refresh_town_panel() -> void:
 		_make_item_tile(_stock_grid, item_id, n)
 	# R-07: crafting/building moved to the Crafting panel (C); refresh_town_panel
 	# now only reflects status, stockpile, and Repair.
+	_refresh_settler_rows()
+
+
+## R-08 slice 2: rebuild the per-settler assignment rows from the live crew. Each
+## row is a button that cycles that settler's job via game_root; no instructional
+## text, just "Settler N: <Job>".
+func _refresh_settler_rows() -> void:
+	if _settler_box == null:
+		return
+	for row in _settler_box.get_children():
+		row.queue_free()
+	var roster: Array = []
+	for s in get_tree().get_nodes_in_group("subjects"):
+		if not s.is_queued_for_deletion():
+			roster.append(s)
+	roster.sort_custom(func(a, b): return str(a.subject_id) < str(b.subject_id))
+	var idx := 1
+	for s in roster:
+		var sid: String = str(s.subject_id)
+		var b := Button.new()
+		b.text = "Settler %d: %s" % [idx, str(s.job).capitalize()]
+		b.pressed.connect(func() -> void: subject_job_cycle_requested.emit(sid))
+		_settler_box.add_child(b)
+		idx += 1
 
 
 func _refresh_stock() -> void:

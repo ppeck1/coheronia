@@ -22,8 +22,10 @@ const MOVE_SPEED := 42.0
 const JUMP_VELOCITY := -260.0
 const WORK_RADIUS_CELLS := 22     # bounded roam around home
 const HARVEST_DIST := 14.0
+const REPAIR_DIST := 20.0         # the hall is wider than a crop cell
 const HOME_IDLE_DIST := 10.0
 const BODY_COL := Color(0.52, 0.78, 0.5)
+const REPAIRER_COL := Color(0.5, 0.62, 0.82)
 const HUNGRY_COL := Color(0.82, 0.62, 0.38)
 const TRIM_COL := Color(0.30, 0.24, 0.18)
 
@@ -71,14 +73,23 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 
-## R-08: run one tick of the farmhand job. Targets the nearest ripe crop within
-## the work radius of home; steers to it and, once in range, harvests it and
-## deposits the yield into the hall stockpile. Returns true while a crop is being
-## worked (so the caller does not also drift home). Public so the smoke can drive
-## a deterministic harvest without waiting on physics.
-func run_job(_delta: float) -> bool:
-	if job != "farmhand" or world == null or town_hall == null:
+## R-08: run one tick of this settler's assigned job. Returns true while the
+## settler is actively working (so the caller does not also drift home). Public
+## so the smoke can drive a deterministic tick without waiting on physics.
+func run_job(delta: float) -> bool:
+	if world == null or town_hall == null:
 		return false
+	match job:
+		"farmhand":
+			return _run_farmhand(delta)
+		"repairer":
+			return _run_repairer(delta)
+	return false
+
+
+## Farmhand: target the nearest ripe crop within the work radius of home; steer
+## to it and, once in range, harvest it into the hall stockpile.
+func _run_farmhand(_delta: float) -> bool:
 	var home_cell: Vector2i = world.cell_of(_home)
 	if _target.x < 0 or world.block_at(_target) != "crop_ripe":
 		_target = world.nearest_ripe_crop(home_cell, WORK_RADIUS_CELLS)
@@ -91,6 +102,22 @@ func run_job(_delta: float) -> bool:
 		velocity.x = 0.0
 		return true
 	velocity.x = signf(tpos.x - global_position.x) * MOVE_SPEED
+	return true
+
+
+## Repairer: when the hall can be repaired (damaged AND the stockpile holds the
+## cost), walk to it and repair -- spending stockpile stone through the same
+## town_hall.repair() authority as the player's Repair button. Idle otherwise.
+func _run_repairer(_delta: float) -> bool:
+	if not town_hall.can_repair():
+		return false
+	var hpos: Vector2 = town_hall.global_position
+	if global_position.distance_to(hpos) <= REPAIR_DIST:
+		town_hall.repair()
+		town_hall.queue_redraw()
+		velocity.x = 0.0
+		return true
+	velocity.x = signf(hpos.x - global_position.x) * MOVE_SPEED
 	return true
 
 
@@ -118,11 +145,16 @@ func refresh_hunger() -> void:
 
 
 func _draw() -> void:
-	var col: Color = HUNGRY_COL if hungry else BODY_COL
+	var base_col: Color = REPAIRER_COL if job == "repairer" else BODY_COL
+	var col: Color = HUNGRY_COL if hungry else base_col
 	draw_rect(Rect2(-5, -22, 10, 22), col)          # torso/legs
 	draw_circle(Vector2(0, -26), 5, col)            # head
 	draw_rect(Rect2(-5, -22, 10, 4), TRIM_COL)      # belt/hem
-	draw_line(Vector2(5, -18), Vector2(11, -26), TRIM_COL, 2.0)   # a hoe
+	if job == "repairer":
+		draw_line(Vector2(6, -16), Vector2(11, -25), TRIM_COL, 2.0)   # hammer handle
+		draw_rect(Rect2(9, -28, 5, 4), TRIM_COL)                      # hammer head
+	else:
+		draw_line(Vector2(5, -18), Vector2(11, -26), TRIM_COL, 2.0)   # a hoe
 
 
 func to_dict() -> Dictionary:

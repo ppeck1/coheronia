@@ -280,7 +280,7 @@ work. It is a seams-first sequence, not a rewrite.
     (pause/settings/keybinds, save-management, build preview + feedback, crafting
     navigation).
 
-- **R-08 (Subject labor MVP) — slice 1 IN PROGRESS (visible farmhand settler).**
+- **R-08 (Subject labor MVP) — slices 1–2 done; slice 3 (hauler) pending.**
   - **Actor.** `scripts/entities/subject.gd` — a `CharacterBody2D` farmhand that
     is a concrete visible actor layered ON TOP of the existing abstract
     `town_hall.population`/food model (which is unchanged). It roams the surface
@@ -301,25 +301,45 @@ work. It is a seams-first sequence, not a rewrite.
   - **World hooks.** `world.nearest_ripe_crop(from, radius)` and
     `world.harvest_crop(cell)` (removes the `crop_ripe` block and returns its
     `drops` = `{food:3, crop_seeds:1}`).
-  - **Wiring.** `game_root` preloads `SubjectScript`, spawns one farmhand near the
+  - **Slice 2 — repairer job, a starting crew, and job assignment.** A second job
+    `repairer` shares the movement/hunger/persistence machinery: when the hall
+    `can_repair()` (damaged AND the stockpile holds the stone cost) it walks to the
+    hall and calls `town_hall.repair()` — the exact authority behind the player's
+    Repair button (−25 damage, 2 stone) — and idles otherwise. `run_job()` now
+    dispatches by `job` (`_run_farmhand`/`_run_repairer`), and `_draw` distinguishes
+    the two (green + hoe vs. slate-blue + hammer). A fresh world spawns a **crew**
+    of two (`farmhand_1` + `repairer_1`), one on each side of the hall.
+    **Assignment:** `game_root.assign_subject_job(id, job)` validates against
+    `SUBJECT_JOBS = ["farmhand","repairer"]` (rejecting unknown ids/jobs and
+    changing nothing), and the Town Hall panel grows a non-instructional "Settlers"
+    list — one `Settler N: <Job>` button per live subject that cycles the job via
+    `hud.subject_job_cycle_requested` → `game_root._on_subject_job_cycle`. The job
+    is part of `to_dict`, so assignment persists in the world save.
+  - **Wiring.** `game_root` preloads `SubjectScript`, spawns the crew near the
     Town Hall in `_ready` when the `subjects` group is empty, and exposes
-    `serialize_subjects()`/`apply_subjects()`; `save_manager` collects/applies
-    `"subjects"` in world state (identity/job/hunger/position persist).
-    `apply_subjects()` `remove_from_group()`s outgoing settlers before their
-    deferred `queue_free`, so repeated application cannot duplicate or
-    double-count entities; a missing/empty array (legacy pre-R-08 world state)
-    clears the group safely and the `_ready` fallback re-seeds a starter farmhand.
-  - **Evidence.** 7 `r08_` smoke checks: subject spawns visible; farmhand harvests
-    to stockpile [food 0->3]; **population is the sole food charger** (subject's
-    per-frame accounting run 30x leaves the stock untouched while
-    `town_hall.consume_food` is the one that deducts); farmhand goes hungry/idle
-    when food is exhausted (a ripe crop in range is left standing) and hunger
-    clears on restock without the subject spending food; subject persists across
-    save; repeated `apply_subjects` yields exactly one live subject; legacy world
-    state without a `subjects` key loads safely (0 subjects, no crash). Live
-    counts filter `is_queued_for_deletion()`. Source smoke **376/376**, exported
-    **370/370 + 6 skipped**, VERIFY PASS; zoomed settler capture reviewed.
-    **Remaining slices:** hauler/repairer job, multiple subjects, assignment.
+    `serialize_subjects()`/`apply_subjects()`/`assign_subject_job()`;
+    `save_manager` collects/applies `"subjects"` in world state
+    (identity/job/hunger/position persist). `apply_subjects()`
+    `remove_from_group()`s outgoing settlers before their deferred `queue_free`, so
+    repeated application cannot duplicate or double-count entities; a missing/empty
+    array (legacy pre-R-08 world state) clears the group safely and the `_ready`
+    fallback re-seeds the starter crew.
+  - **Evidence.** 9 `r08_` smoke checks: **crew** spawns visible (one farmhand +
+    one repairer); farmhand harvests to stockpile [food 0->3]; **population is the
+    sole food charger** (subject's per-frame accounting run 30x leaves the stock
+    untouched while `town_hall.consume_food` is the one that deducts); farmhand goes
+    hungry/idle when food is exhausted (a ripe crop in range is left standing) and
+    hunger clears on restock without the subject spending food; **repairer repairs a
+    damaged hall** (−25 damage, 2 stone) and idles when the hall is whole;
+    **job assignment** cycles and validates (rejects an unknown job); the crew
+    (farmhand identity/pos/hunger + repairer job) persists across save; repeated
+    `apply_subjects` yields exactly the two-settler crew; legacy world state without
+    a `subjects` key loads safely (0 subjects, no crash). Live counts filter
+    `is_queued_for_deletion()`. Source smoke **378/378**, exported **372/372 + 6
+    skipped**, VERIFY PASS; settler capture reviewed.
+    **Remaining:** slice 3 — ground item drops + radius auto-pickup, enabling a
+    real **hauler** job (operator-authorized; isolated as its own change because
+    the mining→inventory path is widely asserted).
 
 ## Technical decisions already made
 

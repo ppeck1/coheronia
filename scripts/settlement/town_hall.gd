@@ -68,6 +68,18 @@ func take_damage(amount: float) -> void:
 	damaged.emit(amount)
 
 
+## R-08: true when a repair would succeed right now (the hall is damaged and the
+## stockpile holds the repair cost). Lets a repairer settler decide whether to
+## walk to the hall at all, using the same authority as repair() itself.
+func can_repair() -> bool:
+	if damage <= 0.0:
+		return false
+	for item_id in REPAIR_COST:
+		if int(stockpile.get(item_id, 0)) < int(REPAIR_COST[item_id]):
+			return false
+	return true
+
+
 ## Spends stockpile stone to reduce damage. Returns true if repair happened.
 func repair() -> bool:
 	if damage <= 0.0:

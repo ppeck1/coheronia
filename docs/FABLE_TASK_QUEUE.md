@@ -1114,8 +1114,17 @@ deposit/status/Repair, dead forge/lantern/station plumbing removed (rg-verified)
 Empty-output forge/anvil recipes carry an explicit `icon` item id so every craft
 row has a real icon or documented no-icon state. Source **369/369**, exported
 **363/363 + 6 skipped**, VERIFY PASS.
-**R-08, subject labor MVP: slice 1 in progress (visible farmhand settler, local,
-uncommitted).** `scripts/entities/subject.gd` is a `CharacterBody2D` farmhand
+**R-08, subject labor MVP: slices 1–2 done; slice 3 (hauler) pending.** Slice 2
+adds a `repairer` job (repairs the hall via `town_hall.repair()` when
+`can_repair()`, else idles), a starting crew of two (farmhand + repairer), and
+job assignment (`assign_subject_job` validated against `SUBJECT_JOBS`, driven
+from a "Settlers" list of cycle-buttons in the Town Hall panel; the job persists
+in the save). 9 `r08_` smoke checks; source **378/378**, exported **372/372 + 6
+skipped**, VERIFY PASS. Slice 3 (operator-authorized) adds ground item drops +
+radius auto-pickup to enable a real hauler, isolated because the
+mining→inventory path is widely asserted.
+
+**R-08 slice 1 (visible farmhand settler).** `scripts/entities/subject.gd` is a `CharacterBody2D` farmhand
 layered on top of the unchanged abstract `town_hall.population`/food model: it
 roams a bounded radius around the Town Hall, harvests the nearest ripe crop into
 the hall stockpile, and idles `hungry` when the settlement runs out of food.

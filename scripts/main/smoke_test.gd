@@ -4198,18 +4198,24 @@ func _run() -> void:
 		"ok=%s bad=[%s] axe=%s sword=%s armor=%s" % [str(_ci_ok), _ci_bad,
 			str(_ci_axe), str(_ci_sword), str(_ci_armor)])
 
-	# --- R-08 slice 1: visible farmhand settler ---
-	# (a) exactly one LIVE visible subject exists with the farmhand job (an earlier
-	# load queue_free'd a subject that may not have been reaped yet this frame).
+	# --- R-08: visible settler crew (slice 1 farmhand + slice 2 repairer/assignment) ---
+	# (a) the starting crew is two LIVE visible subjects -- one farmhand and one
+	# repairer (live count filters queue_free'd subjects not yet reaped this frame).
 	var _r08_live: Array = []
 	for _r08_s in get_tree().get_nodes_in_group("subjects"):
 		if not _r08_s.is_queued_for_deletion():
 			_r08_live.append(_r08_s)
-	var _sub: Node2D = _r08_live[0] if _r08_live.size() > 0 else null
-	var _r08_count: int = _r08_live.size()
-	_check("r08_subject_spawns_visible",
-		_sub != null and _r08_count == 1 and str(_sub.job) == "farmhand",
-		"count=%d job=%s" % [_r08_count, str(_sub.job) if _sub != null else "-"])
+	var _sub: Node2D = null      # the farmhand
+	var _rep: Node2D = null      # the repairer
+	for _r08_pick in _r08_live:
+		if str(_r08_pick.job) == "farmhand" and _sub == null:
+			_sub = _r08_pick
+		elif str(_r08_pick.job) == "repairer" and _rep == null:
+			_rep = _r08_pick
+	_check("r08_crew_spawns_with_jobs",
+		_r08_live.size() == 2 and _sub != null and _rep != null,
+		"count=%d farmhand=%s repairer=%s" % [_r08_live.size(),
+			str(_sub != null), str(_rep != null)])
 
 	# (b) the farmhand harvests a ripe crop in range and deposits its yield (+3
 	# food) into the Town Hall stockpile. (Reverted by the fq09w reload below.)
@@ -4272,27 +4278,75 @@ func _run() -> void:
 		"hungry=%s worked_while_hungry=%s crop_standing=%s fed_clears=%s" % [
 			str(_r08_hungry), str(_r08_worked_hungry), str(_r08_crop_standing), str(_r08_fed)])
 
-	# (d) identity/position/job/hunger persist across serialize -> apply.
+	# (r) R-08 slice 2: a repairer settler repairs a damaged hall from the
+	# stockpile (the same town_hall.repair authority as the player's button:
+	# -25 damage, 2 stone), and idles -- spending nothing -- when the hall is
+	# whole. State is saved/restored around the assertion.
+	var _r08_dmg_was: float = hall.damage
+	var _r08_stone_was: int = int(hall.stockpile.get("stone", 0))
+	hall.damage = 50.0
+	hall.stockpile["stone"] = 6
+	_rep.global_position = hall.global_position       # in repair range of the hall
+	var _r08_rep_worked: bool = _rep.run_job(0.1)
+	var _r08_rep_fixed: bool = hall.damage < 50.0 and int(hall.stockpile.get("stone", 0)) == 4
+	hall.damage = 0.0
+	var _r08_rep_idle_ran: bool = _rep.run_job(0.1)
+	var _r08_rep_idle: bool = not _r08_rep_idle_ran and int(hall.stockpile.get("stone", 0)) == 4
+	hall.damage = _r08_dmg_was
+	if _r08_stone_was > 0:
+		hall.stockpile["stone"] = _r08_stone_was
+	else:
+		hall.stockpile.erase("stone")
+	_check("r08_repairer_repairs_damaged_hall",
+		str(_rep.job) == "repairer" and _r08_rep_worked and _r08_rep_fixed and _r08_rep_idle,
+		"worked=%s fixed=%s idle_when_whole=%s" % [str(_r08_rep_worked),
+			str(_r08_rep_fixed), str(_r08_rep_idle)])
+
+	# (as) R-08 slice 2: job assignment. The Town Hall panel path
+	# (_on_subject_job_cycle) advances a settler through SUBJECT_JOBS;
+	# assign_subject_job validates and rejects unknown jobs. Mutates in place --
+	# (d) below covers that the assigned job persists across a save.
+	var _r08_as_id: String = str(_rep.subject_id)
+	var _r08_as_before: String = str(_rep.job)
+	root._on_subject_job_cycle(_r08_as_id)
+	var _r08_as_cycled: bool = str(_rep.job) != _r08_as_before and str(_rep.job) in root.SUBJECT_JOBS
+	var _r08_as_valid: bool = root.assign_subject_job(_r08_as_id, "repairer") \
+		and str(_rep.job) == "repairer"
+	var _r08_as_reject: bool = not root.assign_subject_job(_r08_as_id, "wizard") \
+		and str(_rep.job) == "repairer"
+	_check("r08_job_assignment_cycles_and_validates",
+		_r08_as_cycled and _r08_as_valid and _r08_as_reject,
+		"cycled=%s valid=%s rejected_unknown=%s" % [str(_r08_as_cycled),
+			str(_r08_as_valid), str(_r08_as_reject)])
+
+	# (d) crew persistence: the farmhand's identity/position/hunger AND the
+	# repairer's assigned job survive serialize -> apply. (This is the last check
+	# that uses the _sub/_rep node refs -- apply_subjects frees and respawns them.)
 	_sub.subject_id = "farmhand_test"
 	_sub.hungry = true
 	_sub.global_position = Vector2(1234.0, -56.0)
 	var _r08_ser: Array = root.serialize_subjects()
 	root.apply_subjects(_r08_ser)
-	var _r08_re: Node2D = null
+	var _r08_re_farm: Node2D = null
+	var _r08_re_rep: Node2D = null
 	for _r08_s2 in get_tree().get_nodes_in_group("subjects"):
-		if not _r08_s2.is_queued_for_deletion():
-			_r08_re = _r08_s2
-	var _r08_persist: bool = _r08_re != null \
-		and str(_r08_re.subject_id) == "farmhand_test" and bool(_r08_re.hungry) \
-		and is_equal_approx(_r08_re.global_position.x, 1234.0)
-	_check("r08_subject_persists_across_save",
-		_r08_ser.size() == 1 and _r08_persist,
-		"n=%d persist=%s" % [_r08_ser.size(), str(_r08_persist)])
+		if _r08_s2.is_queued_for_deletion():
+			continue
+		if str(_r08_s2.subject_id) == "farmhand_test":
+			_r08_re_farm = _r08_s2
+		if str(_r08_s2.job) == "repairer":
+			_r08_re_rep = _r08_s2
+	var _r08_persist: bool = _r08_re_farm != null and bool(_r08_re_farm.hungry) \
+		and is_equal_approx(_r08_re_farm.global_position.x, 1234.0) and _r08_re_rep != null
+	_check("r08_crew_persists_across_save",
+		_r08_ser.size() == 2 and _r08_persist,
+		"n=%d farm=%s rep_job=%s" % [_r08_ser.size(),
+			str(_r08_re_farm != null), str(_r08_re_rep != null)])
 
 	# (e) save robustness -- repeated application cannot duplicate: applying the
-	# same serialized subject state twice leaves exactly one live subject.
-	# remove_from_group() retires the outgoing settler before its deferred
-	# queue_free, so the second apply cannot see -- or clone -- it.
+	# same serialized crew twice leaves exactly the crew (two live subjects).
+	# remove_from_group() retires outgoing settlers before their deferred
+	# queue_free, so the second apply cannot see -- or clone -- them.
 	var _r08_ser2: Array = root.serialize_subjects()
 	root.apply_subjects(_r08_ser2)
 	root.apply_subjects(_r08_ser2)
@@ -4301,7 +4355,7 @@ func _run() -> void:
 		if not _r08_s3.is_queued_for_deletion():
 			_r08_dup_live += 1
 	_check("r08_repeated_apply_no_duplicate",
-		_r08_ser2.size() == 1 and _r08_dup_live == 1,
+		_r08_ser2.size() == 2 and _r08_dup_live == 2,
 		"ser=%d live_after_double_apply=%d" % [_r08_ser2.size(), _r08_dup_live])
 
 	# (e2) save robustness -- legacy world state (pre-R-08, no "subjects" key)

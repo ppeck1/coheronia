@@ -77,9 +77,12 @@ func _run() -> void:
 	if not hud._event_panel.visible:
 		hud._toggle_event_module()
 	var _subjects: Array = get_tree().get_nodes_in_group("subjects")
-	if not _subjects.is_empty():
-		var farmhand: Node2D = _subjects[0]
-		farmhand.set_physics_process(false)
+	var farmhand: Node2D = null
+	for _subj in _subjects:
+		_subj.set_physics_process(false)          # freeze the whole crew for a clean compose
+		if str(_subj.job) == "farmhand":
+			farmhand = _subj
+	if farmhand != null:
 		# Right of the torch line (dx 5/8) so the settler + crop read cleanly. A
 		# short row of tilled soil + ripe crops makes the "harvest" obviously a farm.
 		var crop_cell := Vector2i(hall_cell.x + 12, ground_y - 1)

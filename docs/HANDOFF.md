@@ -1156,8 +1156,22 @@ state (`CraftPanel.recipe_icon_id`). No build mode, flipped actions, instruction
 text, or art. Source smoke **369/369**, exported **363/363 + 6 skipped**, VERIFY
 PASS.
 
-**R-08, subject labor MVP: slice 1 in progress (visible farmhand settler,
-local, uncommitted).** `scripts/entities/subject.gd` is a `CharacterBody2D`
+**R-08, subject labor MVP: slices 1–2 done; slice 3 (hauler) pending.**
+Slice 2 adds a `repairer` job (walks to the hall and calls `town_hall.repair()`
+— the player's Repair authority, −25 damage/2 stone — when `can_repair()`, else
+idles), a starting **crew** of two (farmhand + repairer, one per side of the
+hall), and **job assignment**: `game_root.assign_subject_job(id, job)` validated
+against `SUBJECT_JOBS`, driven from a non-instructional "Settlers" list in the
+Town Hall panel (`Settler N: <Job>` buttons →
+`hud.subject_job_cycle_requested` → `_on_subject_job_cycle`). `run_job()`
+dispatches by job; `_draw` distinguishes farmhand (green/hoe) from repairer
+(slate-blue/hammer); the job persists in the save. 9 `r08_` smoke checks; source
+**378/378**, exported **372/372 + 6 skipped**, VERIFY PASS. Slice 3 (operator-
+authorized) will add ground item drops + radius auto-pickup to enable a real
+**hauler**, isolated as its own change because the mining→inventory path is
+widely asserted.
+
+**R-08 slice 1 (visible farmhand settler).** `scripts/entities/subject.gd` is a `CharacterBody2D`
 farmhand -- a concrete visible actor layered ON TOP of the unchanged abstract
 `town_hall.population`/food model. It roams a bounded radius around the Town
 Hall, steers to the nearest ripe crop, harvests it into the hall stockpile, and

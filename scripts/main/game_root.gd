@@ -9,6 +9,7 @@ signal music_event(kind: String)
 
 const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
 const SubjectScript := preload("res://scripts/entities/subject.gd")   # R-08
+const SUBJECT_JOBS := ["farmhand", "repairer"]   # R-08 slice 2: assignable jobs
 const ActionFx := preload("res://scripts/fx/action_fx.gd")   # FQ-09M confirmations
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
 const ProgressionRegistryClass := preload("res://scripts/data/progression_registry.gd")
@@ -155,10 +156,12 @@ func _ready() -> void:
 	_craft_panel.setup(player, town_hall)
 	_craft_panel.craft_requested.connect(_on_craft_panel_craft)
 	_craft_panel.build_requested.connect(_on_craft_panel_build)
-	# R-08: the visible farmhand settler. Saved subjects were restored above by
-	# apply_state -> apply_subjects; if none exist (a fresh world), spawn one.
+	# R-08: the visible settler crew. Saved subjects were restored above by
+	# apply_state -> apply_subjects; if none exist (a fresh world), spawn the
+	# starting crew -- a farmhand and a repairer, one on each side of the hall.
 	if get_tree().get_nodes_in_group("subjects").is_empty():
-		_spawn_subject_at(town_hall.global_position + Vector2(56, -40), "farmhand_1")
+		_spawn_subject_at(town_hall.global_position + Vector2(56, -40), "farmhand_1", "farmhand")
+		_spawn_subject_at(town_hall.global_position + Vector2(-56, -40), "repairer_1", "repairer")
 	if OS.get_environment("COHERONIA_SMOKE") == "1":
 		var smoke := preload("res://scripts/main/smoke_test.gd").new()
 		smoke.name = "SmokeTest"
@@ -466,6 +469,7 @@ func _wire_signals() -> void:
 	player.inventory_changed.connect(_refresh_goals)   # FQ-14: gather progress
 	hud.deposit_requested.connect(_on_deposit_requested)
 	hud.repair_requested.connect(_on_repair_requested)
+	hud.subject_job_cycle_requested.connect(_on_subject_job_cycle)   # R-08 slice 2
 
 
 func _position_actors() -> void:
@@ -1183,12 +1187,40 @@ func load_game() -> bool:
 ## Serialize live threats to a save-friendly array.
 ## Fix 2: also saves max_hp so restores can preserve the damage bar correctly.
 ## R-08: spawn a visible settler at `pos`, wired to world + town hall.
-func _spawn_subject_at(pos: Vector2, id: String) -> Node:
+func _spawn_subject_at(pos: Vector2, id: String, job: String = "farmhand") -> Node:
 	var subj := SubjectScript.new()
 	add_child(subj)
 	subj.global_position = pos
 	subj.setup(world, town_hall, id)
+	subj.job = job
 	return subj
+
+
+## R-08 slice 2: reassign a settler's job (validated against SUBJECT_JOBS). The
+## job field is what persists in the world save, so assignment survives save/load.
+## Returns false for an unknown id or an unknown job (spending/changing nothing).
+func assign_subject_job(id: String, job: String) -> bool:
+	if job not in SUBJECT_JOBS:
+		return false
+	for s in get_tree().get_nodes_in_group("subjects"):
+		if not s.is_queued_for_deletion() and str(s.subject_id) == id:
+			s.job = job
+			s.queue_redraw()
+			return true
+	return false
+
+
+## R-08 slice 2: the Town Hall panel's per-settler button path -- cycle a settler
+## to the next job in SUBJECT_JOBS and refresh the panel.
+func _on_subject_job_cycle(id: String) -> void:
+	for s in get_tree().get_nodes_in_group("subjects"):
+		if not s.is_queued_for_deletion() and str(s.subject_id) == id:
+			var idx: int = SUBJECT_JOBS.find(str(s.job))
+			var next_job: String = str(SUBJECT_JOBS[(idx + 1) % SUBJECT_JOBS.size()])
+			assign_subject_job(id, next_job)
+			log_event("%s reassigned to %s." % [id, next_job])
+			break
+	hud.refresh_town_panel()
 
 
 ## R-08: serialize the visible settlers for the world save (identity/pos/job/hunger).
