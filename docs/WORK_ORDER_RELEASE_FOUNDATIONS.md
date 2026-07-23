@@ -280,6 +280,47 @@ work. It is a seams-first sequence, not a rewrite.
     (pause/settings/keybinds, save-management, build preview + feedback, crafting
     navigation).
 
+- **R-08 (Subject labor MVP) — slice 1 IN PROGRESS (visible farmhand settler).**
+  - **Actor.** `scripts/entities/subject.gd` — a `CharacterBody2D` farmhand that
+    is a concrete visible actor layered ON TOP of the existing abstract
+    `town_hall.population`/food model (which is unchanged). It roams the surface
+    within a bounded radius of the Town Hall (`WORK_RADIUS_CELLS = 22`), steers to
+    the nearest ripe crop, harvests it, and deposits the yield into the hall
+    stockpile, and idles `hungry` when the settlement has run out of food.
+    Procedural `_draw` only — no art assets (R-10 owns art).
+  - **Population / economy contract (canonical accounting model).** The abstract
+    `town_hall.population` food model — `game_root.consume_daily_food()` ->
+    `town_hall.consume_food(daily_food_need())` once per dawn — is the **single**
+    authority that CHARGES food from the stockpile. A visible subject is one of
+    those `population` members made concrete; it **never deducts food itself**, so
+    the same settler is never charged twice (once by the abstract population
+    upkeep and again by an individual subject upkeep). A subject's `hungry`/idle
+    state is therefore a **read** of settlement food availability (an empty food
+    stockpile), not a charge: harvesting only ADDS food (production), and nothing
+    in the actor SUBTRACTS food. The abstract population/food model is unchanged.
+  - **World hooks.** `world.nearest_ripe_crop(from, radius)` and
+    `world.harvest_crop(cell)` (removes the `crop_ripe` block and returns its
+    `drops` = `{food:3, crop_seeds:1}`).
+  - **Wiring.** `game_root` preloads `SubjectScript`, spawns one farmhand near the
+    Town Hall in `_ready` when the `subjects` group is empty, and exposes
+    `serialize_subjects()`/`apply_subjects()`; `save_manager` collects/applies
+    `"subjects"` in world state (identity/job/hunger/position persist).
+    `apply_subjects()` `remove_from_group()`s outgoing settlers before their
+    deferred `queue_free`, so repeated application cannot duplicate or
+    double-count entities; a missing/empty array (legacy pre-R-08 world state)
+    clears the group safely and the `_ready` fallback re-seeds a starter farmhand.
+  - **Evidence.** 7 `r08_` smoke checks: subject spawns visible; farmhand harvests
+    to stockpile [food 0->3]; **population is the sole food charger** (subject's
+    per-frame accounting run 30x leaves the stock untouched while
+    `town_hall.consume_food` is the one that deducts); farmhand goes hungry/idle
+    when food is exhausted (a ripe crop in range is left standing) and hunger
+    clears on restock without the subject spending food; subject persists across
+    save; repeated `apply_subjects` yields exactly one live subject; legacy world
+    state without a `subjects` key loads safely (0 subjects, no crash). Live
+    counts filter `is_queued_for_deletion()`. Source smoke **376/376**, exported
+    **370/370 + 6 skipped**, VERIFY PASS; zoomed settler capture reviewed.
+    **Remaining slices:** hauler/repairer job, multiple subjects, assignment.
+
 ## Technical decisions already made
 
 1. Treat `RF-01` as confirmed risk: Godot documentation recommends

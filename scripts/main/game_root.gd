@@ -8,6 +8,7 @@ extends Node2D
 signal music_event(kind: String)
 
 const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
+const SubjectScript := preload("res://scripts/entities/subject.gd")   # R-08
 const ActionFx := preload("res://scripts/fx/action_fx.gd")   # FQ-09M confirmations
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
 const ProgressionRegistryClass := preload("res://scripts/data/progression_registry.gd")
@@ -154,6 +155,10 @@ func _ready() -> void:
 	_craft_panel.setup(player, town_hall)
 	_craft_panel.craft_requested.connect(_on_craft_panel_craft)
 	_craft_panel.build_requested.connect(_on_craft_panel_build)
+	# R-08: the visible farmhand settler. Saved subjects were restored above by
+	# apply_state -> apply_subjects; if none exist (a fresh world), spawn one.
+	if get_tree().get_nodes_in_group("subjects").is_empty():
+		_spawn_subject_at(town_hall.global_position + Vector2(56, -40), "farmhand_1")
 	if OS.get_environment("COHERONIA_SMOKE") == "1":
 		var smoke := preload("res://scripts/main/smoke_test.gd").new()
 		smoke.name = "SmokeTest"
@@ -1177,6 +1182,41 @@ func load_game() -> bool:
 
 ## Serialize live threats to a save-friendly array.
 ## Fix 2: also saves max_hp so restores can preserve the damage bar correctly.
+## R-08: spawn a visible settler at `pos`, wired to world + town hall.
+func _spawn_subject_at(pos: Vector2, id: String) -> Node:
+	var subj := SubjectScript.new()
+	add_child(subj)
+	subj.global_position = pos
+	subj.setup(world, town_hall, id)
+	return subj
+
+
+## R-08: serialize the visible settlers for the world save (identity/pos/job/hunger).
+func serialize_subjects() -> Array:
+	var out: Array = []
+	for s in get_tree().get_nodes_in_group("subjects"):
+		if is_instance_valid(s) and not s.is_queued_for_deletion():
+			out.append(s.to_dict())
+	return out
+
+
+## R-08: restore visible settlers from a saved array (replacing any live ones).
+## queue_free() is deferred, so a freed subject lingers in the "subjects" group
+## until end of frame; we remove_from_group() it immediately so a second
+## apply_subjects() in the same frame (or a load right after boot) cannot see --
+## and therefore cannot duplicate or double-count -- the outgoing settlers. After
+## this returns the group holds exactly the newly restored entries. A missing/
+## empty array (legacy pre-R-08 world state) is safe: it simply clears the group,
+## and the fresh-world fallback in _ready() re-seeds a starter farmhand.
+func apply_subjects(data: Array) -> void:
+	for s in get_tree().get_nodes_in_group("subjects"):
+		s.remove_from_group("subjects")
+		s.queue_free()
+	for entry in data:
+		var subj := _spawn_subject_at(Vector2.ZERO, str(entry.get("id", "farmhand_1")))
+		subj.from_dict(entry)
+
+
 func serialize_threats() -> Array:
 	var out: Array = []
 	for threat in get_tree().get_nodes_in_group("threats"):

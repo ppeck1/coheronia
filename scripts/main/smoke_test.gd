@@ -4198,6 +4198,127 @@ func _run() -> void:
 		"ok=%s bad=[%s] axe=%s sword=%s armor=%s" % [str(_ci_ok), _ci_bad,
 			str(_ci_axe), str(_ci_sword), str(_ci_armor)])
 
+	# --- R-08 slice 1: visible farmhand settler ---
+	# (a) exactly one LIVE visible subject exists with the farmhand job (an earlier
+	# load queue_free'd a subject that may not have been reaped yet this frame).
+	var _r08_live: Array = []
+	for _r08_s in get_tree().get_nodes_in_group("subjects"):
+		if not _r08_s.is_queued_for_deletion():
+			_r08_live.append(_r08_s)
+	var _sub: Node2D = _r08_live[0] if _r08_live.size() > 0 else null
+	var _r08_count: int = _r08_live.size()
+	_check("r08_subject_spawns_visible",
+		_sub != null and _r08_count == 1 and str(_sub.job) == "farmhand",
+		"count=%d job=%s" % [_r08_count, str(_sub.job) if _sub != null else "-"])
+
+	# (b) the farmhand harvests a ripe crop in range and deposits its yield (+3
+	# food) into the Town Hall stockpile. (Reverted by the fq09w reload below.)
+	var _r08_cell: Vector2i = world.cell_of(_sub.global_position)
+	world.cells[_r08_cell] = "crop_ripe"
+	world.deltas[_r08_cell] = "crop_ripe"
+	_sub.global_position = world.cell_center(_r08_cell)
+	var _r08_food0: int = int(hall.stockpile.get("food", 0))
+	var _r08_worked: bool = _sub.run_job(0.1)
+	var _r08_harvested: bool = world.block_at(_r08_cell) != "crop_ripe"
+	var _r08_gain: bool = int(hall.stockpile.get("food", 0)) == _r08_food0 + 3
+	_check("r08_farmhand_harvests_to_stockpile",
+		_r08_worked and _r08_harvested and _r08_gain,
+		"worked=%s harvested=%s food %d->%d" % [str(_r08_worked), str(_r08_harvested),
+			_r08_food0, int(hall.stockpile.get("food", 0))])
+
+	# (c) POPULATION / ECONOMY CONTRACT: the abstract town_hall.population food
+	# model is the SINGLE food-accounting authority; a visible subject never
+	# charges food itself, so the same settler is never charged twice. Seed a
+	# known stock and run the subject's per-frame accounting many times -- the
+	# stock must be untouched. Then prove the abstract model IS the charger:
+	# consume_food() (the once-per-dawn population upkeep) is what deducts.
+	var _r08_saved_food: int = int(hall.stockpile.get("food", 0))
+	hall.stockpile["food"] = 5
+	for _r08_i in 30:
+		_sub.refresh_hunger()
+	var _r08_no_charge: bool = int(hall.stockpile.get("food", 0)) == 5 and not bool(_sub.hungry)
+	var _r08_pop_meal: Dictionary = hall.consume_food(3)
+	var _r08_pop_charges: bool = int(_r08_pop_meal.get("eaten", 0)) == 3 \
+		and int(hall.stockpile.get("food", 0)) == 2
+	_check("r08_population_is_sole_food_charger",
+		_r08_no_charge and _r08_pop_charges,
+		"subj_no_charge=%s pop_charges=%s food=%d" % [str(_r08_no_charge),
+			str(_r08_pop_charges), int(hall.stockpile.get("food", 0))])
+
+	# (c2) harvest-then-hunger: with a ripe crop in range but the settlement food
+	# exhausted (as the abstract dawn upkeep would leave it), the farmhand reads
+	# hunger and idles -- it does NOT harvest -- so the crop is left standing.
+	# Restocking clears hunger, still without the subject ever spending food.
+	hall.stockpile.erase("food")
+	var _r08_idle_cell: Vector2i = world.cell_of(_sub.global_position)
+	world.cells[_r08_idle_cell] = "crop_ripe"
+	world.deltas[_r08_idle_cell] = "crop_ripe"
+	_sub.global_position = world.cell_center(_r08_idle_cell)
+	_sub.refresh_hunger()
+	var _r08_hungry: bool = bool(_sub.hungry)
+	var _r08_worked_hungry := false
+	if not _sub.hungry:                       # mirrors _physics_process: hungry => idle
+		var _r08_wh: bool = _sub.run_job(0.1)
+		_r08_worked_hungry = _r08_wh
+	var _r08_crop_standing: bool = world.block_at(_r08_idle_cell) == "crop_ripe"
+	hall.stockpile["food"] = 4
+	_sub.refresh_hunger()
+	var _r08_fed: bool = not bool(_sub.hungry) and int(hall.stockpile.get("food", 0)) == 4
+	world.cells.erase(_r08_idle_cell)
+	world.deltas.erase(_r08_idle_cell)
+	hall.stockpile["food"] = _r08_saved_food
+	_check("r08_farmhand_hungry_idles_when_food_exhausted",
+		_r08_hungry and not _r08_worked_hungry and _r08_crop_standing and _r08_fed,
+		"hungry=%s worked_while_hungry=%s crop_standing=%s fed_clears=%s" % [
+			str(_r08_hungry), str(_r08_worked_hungry), str(_r08_crop_standing), str(_r08_fed)])
+
+	# (d) identity/position/job/hunger persist across serialize -> apply.
+	_sub.subject_id = "farmhand_test"
+	_sub.hungry = true
+	_sub.global_position = Vector2(1234.0, -56.0)
+	var _r08_ser: Array = root.serialize_subjects()
+	root.apply_subjects(_r08_ser)
+	var _r08_re: Node2D = null
+	for _r08_s2 in get_tree().get_nodes_in_group("subjects"):
+		if not _r08_s2.is_queued_for_deletion():
+			_r08_re = _r08_s2
+	var _r08_persist: bool = _r08_re != null \
+		and str(_r08_re.subject_id) == "farmhand_test" and bool(_r08_re.hungry) \
+		and is_equal_approx(_r08_re.global_position.x, 1234.0)
+	_check("r08_subject_persists_across_save",
+		_r08_ser.size() == 1 and _r08_persist,
+		"n=%d persist=%s" % [_r08_ser.size(), str(_r08_persist)])
+
+	# (e) save robustness -- repeated application cannot duplicate: applying the
+	# same serialized subject state twice leaves exactly one live subject.
+	# remove_from_group() retires the outgoing settler before its deferred
+	# queue_free, so the second apply cannot see -- or clone -- it.
+	var _r08_ser2: Array = root.serialize_subjects()
+	root.apply_subjects(_r08_ser2)
+	root.apply_subjects(_r08_ser2)
+	var _r08_dup_live := 0
+	for _r08_s3 in get_tree().get_nodes_in_group("subjects"):
+		if not _r08_s3.is_queued_for_deletion():
+			_r08_dup_live += 1
+	_check("r08_repeated_apply_no_duplicate",
+		_r08_ser2.size() == 1 and _r08_dup_live == 1,
+		"ser=%d live_after_double_apply=%d" % [_r08_ser2.size(), _r08_dup_live])
+
+	# (e2) save robustness -- legacy world state (pre-R-08, no "subjects" key)
+	# applies without error and leaves a clean, non-duplicated subjects group
+	# (apply_subjects receives [] via state.get("subjects", [])). The fq09w
+	# load_game() below restores the live world for the sections that follow.
+	var _r08_legacy: Dictionary = root.save_manager.collect_state()
+	_r08_legacy.erase("subjects")
+	var _r08_legacy_ok: bool = root.save_manager.apply_state(_r08_legacy)
+	var _r08_legacy_live := 0
+	for _r08_s4 in get_tree().get_nodes_in_group("subjects"):
+		if not _r08_s4.is_queued_for_deletion():
+			_r08_legacy_live += 1
+	_check("r08_legacy_state_without_subjects_loads_safely",
+		_r08_legacy_ok and _r08_legacy_live == 0,
+		"applied=%s live=%d" % [str(_r08_legacy_ok), _r08_legacy_live])
+
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
 	# registry and removal falls back (fq09v temp discipline; the wall
 	# tileset itself reads art once at world entry per the FQ-07 rule).

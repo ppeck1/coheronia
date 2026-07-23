@@ -1114,6 +1114,21 @@ deposit/status/Repair, dead forge/lantern/station plumbing removed (rg-verified)
 Empty-output forge/anvil recipes carry an explicit `icon` item id so every craft
 row has a real icon or documented no-icon state. Source **369/369**, exported
 **363/363 + 6 skipped**, VERIFY PASS.
+**R-08, subject labor MVP: slice 1 in progress (visible farmhand settler, local,
+uncommitted).** `scripts/entities/subject.gd` is a `CharacterBody2D` farmhand
+layered on top of the unchanged abstract `town_hall.population`/food model: it
+roams a bounded radius around the Town Hall, harvests the nearest ripe crop into
+the hall stockpile, and idles `hungry` when the settlement runs out of food.
+Canonical accounting model: the abstract population food model (dawn upkeep) is
+the single food charger; the visible subject never deducts food, so a settler is
+never charged twice (hunger is a read of an empty stockpile, not a charge).
+`world.nearest_ripe_crop`/`world.harvest_crop` back the job; `game_root`
+spawns/serializes subjects; `save_manager` persists identity/job/hunger/position;
+`apply_subjects` is duplicate-safe (remove_from_group before deferred free) and
+legacy world state without subjects loads safely. 7 `r08_` smoke checks (live
+counts filter `is_queued_for_deletion()`). Source **376/376**, exported
+**370/370 + 6 skipped**, VERIFY PASS. Remaining: hauler/repairer job, multiple
+subjects, assignment.
 R-06 (ownership decomposition) is deferred. Close each slice with validator,
 Capsule Doctor, a freshness-checked waited Godot smoke, and `git diff --check`.
 

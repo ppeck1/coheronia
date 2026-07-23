@@ -351,6 +351,36 @@ func eat_crop(cell: Vector2i) -> bool:
 	return true
 
 
+## R-08: the nearest RIPE crop within `radius` (Chebyshev), or (-1,-1). Unlike
+## nearest_crop this ignores seedlings -- a farmhand only harvests ripe crops.
+func nearest_ripe_crop(from: Vector2i, radius: int) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_d := radius + 1
+	for cell in cells:
+		if cells[cell] != "crop_ripe":
+			continue
+		var d: int = maxi(absi(cell.x - from.x), absi(cell.y - from.y))
+		if d <= radius and d < best_d:
+			best_d = d
+			best = cell
+	return best
+
+
+## R-08: a farmhand harvesting a ripe crop -- removes it and returns its drops
+## (food + seed). Only crop_ripe yields; anything else returns {}. Mirrors
+## eat_crop's bookkeeping but keeps the harvest yield for the settlement.
+func harvest_crop(cell: Vector2i) -> Dictionary:
+	if block_at(cell) != "crop_ripe":
+		return {}
+	var drops: Dictionary = BlockRegistry.get_block("crop_ripe").get("drops", {}).duplicate()
+	cells.erase(cell)
+	deltas[cell] = "air"
+	_set_tile(cell, "air")
+	crop_growth.erase(cell)
+	block_changed.emit(cell, "air")
+	return drops
+
+
 ## FQ-13: true if any ore-family block sits within `radius` (Chebyshev) of
 ## `cell`. The ore tick spawns only where the underground actually carries ore,
 ## so it reads as an ore-pocket nuisance rather than a generic crawler.

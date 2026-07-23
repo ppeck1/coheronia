@@ -1,6 +1,6 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-22 release foundations: R-00..R-05 done, R-07 next)
+## Current State (2026-07-23 release foundations: R-00..R-05 + R-07 done, R-08 slice 1 in progress)
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -1154,7 +1154,35 @@ deposit/status/Repair and the dead forge/lantern/station-build plumbing removed
 (existing art) so every visible craft row has a real icon or a documented no-icon
 state (`CraftPanel.recipe_icon_id`). No build mode, flipped actions, instructional
 text, or art. Source smoke **369/369**, exported **363/363 + 6 skipped**, VERIFY
-PASS. R-06 (ownership
+PASS.
+
+**R-08, subject labor MVP: slice 1 in progress (visible farmhand settler,
+local, uncommitted).** `scripts/entities/subject.gd` is a `CharacterBody2D`
+farmhand -- a concrete visible actor layered ON TOP of the unchanged abstract
+`town_hall.population`/food model. It roams a bounded radius around the Town
+Hall, steers to the nearest ripe crop, harvests it into the hall stockpile, and
+idles `hungry` when the settlement has run out of food. **Population/economy
+contract:** the abstract `town_hall.population` food model
+(`consume_daily_food` at dawn) is the single authority that charges food; a
+visible subject is a population member made concrete and never deducts food, so
+the same settler is never charged twice -- its `hungry`/idle state is a read of
+an empty food stockpile, not a charge (harvest only adds food). The abstract
+model is unchanged. `world.nearest_ripe_crop`/`world.harvest_crop` back the job;
+`game_root` preloads `SubjectScript`, spawns one farmhand near the Town Hall when
+the `subjects` group is empty, and exposes
+`serialize_subjects()`/`apply_subjects()`; `save_manager` persists
+identity/job/hunger/position in world state. `apply_subjects` `remove_from_group`s
+outgoing settlers before their deferred `queue_free`, so repeated application
+cannot duplicate entities, and a legacy state without a `subjects` key loads
+safely. Procedural `_draw` only -- no art (R-10 owns art). 7 `r08_` smoke checks
+(spawns visible; harvests to stockpile; population is sole food charger;
+hungry/idle when food exhausted; persists across save; repeated-apply no
+duplicate; legacy-without-subjects loads safely; live counts filter
+`is_queued_for_deletion()`). Source **376/376**, exported **370/370 + 6
+skipped**, VERIFY PASS; zoomed settler capture reviewed. Remaining slices:
+hauler/repairer job, multiple subjects, assignment.
+
+R-06 (ownership
 decomposition of `hud.gd`/`game_root.gd`) is deferred. See
 `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
 
