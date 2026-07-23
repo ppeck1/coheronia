@@ -1150,8 +1150,11 @@ have/need gating and Build rows for unbuilt stations; `game_root` routes crafts 
 station (Town Hall gear -> special `forge_*` methods); a `GameState.craft_panel_open`
 flag freezes player input while open. The Town Hall panel is trimmed to
 deposit/status/Repair and the dead forge/lantern/station-build plumbing removed
-(rg-verified). No build mode, flipped actions, instructional text, or art. Source
-smoke **368/368**, exported **362/362 + 6 skipped**, VERIFY PASS. R-06 (ownership
+(rg-verified). Empty-output forge/anvil recipes carry an explicit `icon` item id
+(existing art) so every visible craft row has a real icon or a documented no-icon
+state (`CraftPanel.recipe_icon_id`). No build mode, flipped actions, instructional
+text, or art. Source smoke **369/369**, exported **363/363 + 6 skipped**, VERIFY
+PASS. R-06 (ownership
 decomposition of `hud.gd`/`game_root.gd`) is deferred. See
 `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
 

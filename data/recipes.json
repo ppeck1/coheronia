@@ -83,6 +83,7 @@
         "stone": 2
       },
       "outputs": {},
+      "icon": "axe",
       "station": "town_hall"
     },
     {
@@ -93,6 +94,7 @@
         "stone": 3
       },
       "outputs": {},
+      "icon": "sword",
       "station": "town_hall"
     },
     {
@@ -103,6 +105,7 @@
         "stone": 4
       },
       "outputs": {},
+      "icon": "armor",
       "station": "town_hall"
     },
     {
@@ -159,6 +162,7 @@
       "inputs": { "iron_ingot": 3 },
       "outputs": {},
       "equip_slots": { "weapon": "sword_iron" },
+      "icon": "sword_iron",
       "station": "anvil"
     },
     {
@@ -167,6 +171,7 @@
       "inputs": { "iron_ingot": 5 },
       "outputs": {},
       "equip_slots": { "helmet": "helmet_iron", "torso": "torso_iron", "feet": "feet_iron" },
+      "icon": "torso_iron",
       "station": "anvil"
     }
   ]

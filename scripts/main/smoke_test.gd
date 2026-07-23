@@ -4174,6 +4174,30 @@ func _run() -> void:
 		_cm_base and _cm_open and _cm_reclosed,
 		"base=%s open=%s reclosed=%s" % [str(_cm_base), str(_cm_open), str(_cm_reclosed)])
 
+	# (q) icon contract: every visible craft row resolves to an item-specific icon
+	# id (item_icon is always non-null, so an empty id would be a meaningless
+	# shared swatch), OR carries an explicit `icon` key = a documented no-icon
+	# state. The empty-output forge recipes (craft_axe/sword/armor_set) resolve via
+	# `icon` metadata to REAL gear art (visual_texture, not a swatch fallback).
+	var _ci_ok := true
+	var _ci_bad := ""
+	for _ci_st in ["hand", "town_hall", "workbench", "furnace", "anvil"]:
+		for _ci_rec: Dictionary in BlockRegistry.recipes_for_station(_ci_st):
+			var _ci_id: String = _cp2.recipe_icon_id(_ci_rec)
+			if _ci_id == "" and not _ci_rec.has("icon"):
+				_ci_ok = false
+				_ci_bad += str(_ci_rec.get("recipe_id", "")) + " "
+	var _ci_axe: bool = _cp2.recipe_icon_id(BlockRegistry.get_recipe("craft_axe")) == "axe" \
+		and BlockRegistry.visual_texture("items", "axe") != null
+	var _ci_sword: bool = _cp2.recipe_icon_id(BlockRegistry.get_recipe("craft_sword")) == "sword" \
+		and BlockRegistry.visual_texture("items", "sword") != null
+	var _ci_armor: bool = _cp2.recipe_icon_id(BlockRegistry.get_recipe("craft_armor_set")) == "armor" \
+		and BlockRegistry.visual_texture("items", "armor") != null
+	_check("r07_craft_rows_icon_contract",
+		_ci_ok and _ci_axe and _ci_sword and _ci_armor,
+		"ok=%s bad=[%s] axe=%s sword=%s armor=%s" % [str(_ci_ok), _ci_bad,
+			str(_ci_axe), str(_ci_sword), str(_ci_armor)])
+
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
 	# registry and removal falls back (fq09v temp discipline; the wall
 	# tileset itself reads art once at world entry per the FQ-07 rule).

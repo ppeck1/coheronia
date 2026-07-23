@@ -180,8 +180,8 @@ func _recipe_row(recipe: Dictionary) -> Control:
 	var icon := TextureRect.new()
 	icon.custom_minimum_size = Vector2(20, 20)
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var out_id := _first_key(recipe.get("outputs", {}))
-	icon.texture = BlockRegistry.item_icon(out_id) if out_id != "" else null
+	var icon_id := recipe_icon_id(recipe)
+	icon.texture = BlockRegistry.item_icon(icon_id) if icon_id != "" else null
 	row.add_child(icon)
 	var name_lbl := Label.new()
 	name_lbl.text = str(recipe.get("display_name", rid))
@@ -238,3 +238,14 @@ func _first_key(d: Dictionary) -> String:
 	for k in d:
 		return str(k)
 	return ""
+
+
+## R-07 icon contract: the item id whose icon represents a recipe row. Uses the
+## explicit `icon` recipe metadata (for recipes with empty outputs -- the forged
+## gear craft_axe/craft_sword/craft_armor_set) else the first output id. A "" here
+## is an intentional, documented no-icon state (the row then shows no icon rather
+## than a meaningless empty-id swatch).
+func recipe_icon_id(recipe: Dictionary) -> String:
+	if recipe.has("icon"):
+		return str(recipe.get("icon", ""))   # explicit; "" = intentional no icon
+	return _first_key(recipe.get("outputs", {}))

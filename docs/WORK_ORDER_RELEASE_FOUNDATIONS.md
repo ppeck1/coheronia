@@ -261,15 +261,24 @@ work. It is a seams-first sequence, not a rewrite.
     deposit/status/**Repair**; the dead forge/lantern/station-build signals,
     handlers, and station-section rebuild plumbing were removed with it (rg-verified
     no callers). C is the only entry point for now; the hardcoded C=torch is gone.
-  - **Evidence.** 15 `r07_` smoke checks (pause freeze/resume, rebind apply/reset,
+  - **Icon contract (follow-up).** Recipes with empty outputs (the special forge
+    gear: `craft_axe`/`craft_sword`/`craft_armor_set` and `anvil_iron_sword`/
+    `anvil_iron_armor`) carry an explicit `icon` item id in `data/recipes.json`
+    (existing item art -- no assets created). `CraftPanel.recipe_icon_id` resolves a
+    row's icon from the `icon` key (if present) else the first output; an explicit
+    `""` is an intentional documented no-icon state. `item_icon` always returns a
+    texture, so an empty resolved id would be a meaningless shared swatch -- the
+    contract forbids that for a visible row.
+  - **Evidence.** 16 `r07_` smoke checks (pause freeze/resume, rebind apply/reset,
     duplicate reject, persist->reset->apply, save-and-quit-requires-success, settings
     fit 640x360, REBINDABLE contract, mouse-fixed rows, delete-requires-confirm,
     restore-reloads-save, place-reason feedback matrix, preview-active-for-placeable,
     craft-panel routes hand/town/build, craft-panel gating+source, town-panel
-    crafting removed, craft-panel toggle+modal). Source smoke **368/368**, exported
-    **362/362 + 6 skipped**, VERIFY PASS; dark-cave preview + crafting-panel captures
-    reviewed. **All four R-07 slices complete** (pause/settings/keybinds,
-    save-management, build preview + feedback, crafting navigation).
+    crafting removed, craft-panel toggle+modal, craft-rows icon contract). Source
+    smoke **369/369**, exported **363/363 + 6 skipped**, VERIFY PASS; dark-cave
+    preview + crafting-panel captures reviewed. **All four R-07 slices complete**
+    (pause/settings/keybinds, save-management, build preview + feedback, crafting
+    navigation).
 
 ## Technical decisions already made
 

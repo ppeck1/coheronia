@@ -1111,7 +1111,9 @@ closes) grouping every recipe by source with have/need gating + Build rows;
 `game_root` routes crafts by station (Town Hall gear -> special forge_* methods);
 `GameState.craft_panel_open` freezes player input; Town Hall panel trimmed to
 deposit/status/Repair, dead forge/lantern/station plumbing removed (rg-verified).
-Source **368/368**, exported **362/362 + 6 skipped**, VERIFY PASS.
+Empty-output forge/anvil recipes carry an explicit `icon` item id so every craft
+row has a real icon or documented no-icon state. Source **369/369**, exported
+**363/363 + 6 skipped**, VERIFY PASS.
 R-06 (ownership decomposition) is deferred. Close each slice with validator,
 Capsule Doctor, a freshness-checked waited Godot smoke, and `git diff --check`.
 
