@@ -65,6 +65,12 @@ func _run() -> void:
 	await _shot("04_town_hall")
 	hud.toggle_town_panel()
 
+	# R-07: the unified Crafting panel (C) -- every recipe grouped by source with
+	# have/need gating and Build rows for unbuilt stations.
+	root._craft_panel.open()
+	await _shot("15_crafting")
+	root._craft_panel.close()
+
 	# Independent top modules: Map and Events remain visible together, with
 	# the contextual stack positioned below the taller surface.
 	if not hud._event_panel.visible:

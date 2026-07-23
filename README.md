@@ -26,11 +26,12 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 
 ## Screenshots
 
-*Captured 2026-07-21 from the live build.*
+*Captured 2026-07-23 from the live build.*
 
 | | |
 |---|---|
-| ![Night falls — torch light holds the line](docs/screenshots/02_night_torchlight.png)<br>*Night, torchlight, and real-time light occlusion* | ![Town Hall panel with stockpile and forge stations](docs/screenshots/04_town_hall.png)<br>*Town Hall: stockpile, station chain, and crafted-state controls* |
+| ![The unified crafting panel opened with C](docs/screenshots/15_crafting.png)<br>*Press **C** for the unified crafting panel — every recipe grouped by source (Hand, Town Hall, and each built station), with have/need per input and Build rows for stations you haven't raised yet* | ![Town Hall panel with deposit, status, and repair](docs/screenshots/04_town_hall.png)<br>*The Town Hall now keeps deposit, settlement status, and structural repair; crafting and station building moved to the crafting panel* |
+| ![Night falls — torch light holds the line](docs/screenshots/02_night_torchlight.png)<br>*Night, torchlight, and real-time light occlusion* | ![World creation with size, seed, preset, and rule controls](docs/screenshots/08_world_create.png)<br>*World creation exposes size, seed, preset, difficulty, generation, and rule toggles — all data-driven* |
 | ![The inventory board with loadout, backpack, and dock](docs/screenshots/03_inventory.png)<br>*Open the inventory with **I** to drag and drop carried stacks, dock assignments, and compatible equipment; use **Sort** to organize the backpack* | ![Runtime-driven health and attunement vessels at partial charge](docs/screenshots/10_vessel_damage_states.png)<br>*The native HUD keeps vessel fills, values, slots, icons, counts, and actions live at runtime* |
 | ![Character panel showing the composed figure and all equipment slots](docs/screenshots/13_character.png)<br>*The Character panel is rebuilt on runtime children — the composed figure renders through the same `PlayerVisual` the world draws, beside live identity, status, and all 13 equipment slots* | ![Viewport-relative skill constellation tree](docs/screenshots/05_skill_tree.png)<br>*The skill tree is a viewport-relative star map that scales from 640×360 to 1280×720; nodes, prerequisites, and perk spending come straight from JSON* |
 | ![Character creation with a live composed preview](docs/screenshots/07_character_create.png)<br>*Character creation shows a live figure through the shared render path — what you pick is what you get — in a scrolling form with a pinned Create/Back action row* | ![Underground at midday held back by torchlight](docs/screenshots/09_underground_midday_torch.png)<br>*Roof-aware cave darkness: dig deep and daylight stays behind you unless you open a shaft; torches hold the dark off locally* |
@@ -53,7 +54,7 @@ Direct link: [prologue](docs/screenshots/clips/coheronia.prologue.07162026.1125.
 
 Watch the latest gameplay demonstration: [https://youtu.be/KoWppfdjSX8](https://youtu.be/KoWppfdjSX8)
 
-> The screenshots on this page (captured 2026-07-21) are the definitive reference for the current interface — the native HUD and inventory board, the rebuilt Character panel, the viewport-relative skill tree, and the contour backdrop.
+> The screenshots on this page (captured 2026-07-23) are the definitive reference for the current interface — the native HUD and inventory board, the unified crafting panel, the repair-only Town Hall, the rebuilt Character panel, the viewport-relative skill tree, and the contour backdrop.
 
 ---
 
