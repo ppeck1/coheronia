@@ -1136,18 +1136,24 @@ under-earth backing at high camera angles) with a deterministic geometry smoke
 check and a before/after capture. Source smoke **352/352**, exported **346/346 +
 6 skipped**, zero triangulation errors; static/wiki green.
 
-**R-07, playability baseline, is IN PROGRESS (slices 1-3 done).** Control model
-unchanged (left click = mine/attack, right click = place/use). Slice 1
-(pause/settings/keybinds, `0160ada`) and slice 2 (save management: delete
-confirmation + in-game Restore, `183a311`) are pushed; slice 3 (build preview +
-reasoned invalid-placement feedback) is local: `player.place_reason` is the single
-validity authority, `try_place` emits the reason on failure (no silent fails), and
-`scripts/world/build_preview.gd` draws a green-valid / red-invalid ghost of the
-selected placeable block at the aim cell on a `follow_viewport` CanvasLayer (so the
-day/night/cave `CanvasModulate` never dims it). No build mode, no flipped actions,
-no instructional text. Source smoke **364/364**, exported **358/358 + 6 skipped**.
-**Remaining R-07 slice: crafting navigation.** R-06 (ownership decomposition of
-`hud.gd`/`game_root.gd`) is deferred. See `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
+**R-07, playability baseline: all four slices done (slices 1-2 pushed; 3-4 local).**
+Control model unchanged (left click = mine/attack, right click = place/use).
+Slice 1 (pause/settings/keybinds, `0160ada`) and slice 2 (save management: delete
+confirmation + in-game Restore, `183a311`) are pushed. Slice 3 (build preview +
+reasoned invalid-placement feedback, `ded9d0f`) is local: `player.place_reason`
+authority, `try_place` emits the reason (no silent fails), and `build_preview.gd`
+draws a green/red aim ghost on a `follow_viewport` CanvasLayer (undimmed by the
+world tint). Slice 4 (crafting navigation) is local and uncommitted:
+`scripts/ui/craft_panel.gd` is a unified Crafting panel (C toggles, Esc closes)
+grouping every recipe by source (Hand/Town Hall/Workbench/Furnace/Anvil) with
+have/need gating and Build rows for unbuilt stations; `game_root` routes crafts by
+station (Town Hall gear -> special `forge_*` methods); a `GameState.craft_panel_open`
+flag freezes player input while open. The Town Hall panel is trimmed to
+deposit/status/Repair and the dead forge/lantern/station-build plumbing removed
+(rg-verified). No build mode, flipped actions, instructional text, or art. Source
+smoke **368/368**, exported **362/362 + 6 skipped**, VERIFY PASS. R-06 (ownership
+decomposition of `hud.gd`/`game_root.gd`) is deferred. See
+`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`.
 
 **PR-09** remains deferred/planning-only. **PR-10**, iron gear, sword/tool
 frames, HUD chrome, and all other final visual assets remain art-lane work

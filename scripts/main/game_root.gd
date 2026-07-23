@@ -17,6 +17,7 @@ const MapStateScript := preload("res://scripts/world/map_state.gd")
 const PauseMenuScript := preload("res://scripts/ui/pause_menu.gd")   # R-07
 const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
 const BuildPreviewScript := preload("res://scripts/world/build_preview.gd")   # R-07
+const CraftPanelScript := preload("res://scripts/ui/craft_panel.gd")   # R-07
 
 const DAY_LENGTH_SECONDS := 100.0
 const NIGHT_START := 0.65          # time_of_day fraction where night begins
@@ -55,6 +56,7 @@ const CAVE_CRAWLER_CAP := 2
 
 var _pause_menu: CanvasLayer   # R-07: real pause/settings/keybinds
 var _build_preview: Node2D     # R-07: placement ghost + validity tint
+var _craft_panel: CanvasLayer   # R-07: unified crafting/building navigation
 var time_of_day := 0.25
 var _clock_refresh_accum := 0.0
 var day_count := 1
@@ -145,6 +147,13 @@ func _ready() -> void:
 	_build_preview = BuildPreviewScript.new()
 	_preview_layer.add_child(_build_preview)
 	_build_preview.setup(player, world)
+	# R-07: the unified crafting panel (C). Crafting/building lives here; the Town
+	# Hall panel keeps only Repair.
+	_craft_panel = CraftPanelScript.new()
+	add_child(_craft_panel)
+	_craft_panel.setup(player, town_hall)
+	_craft_panel.craft_requested.connect(_on_craft_panel_craft)
+	_craft_panel.build_requested.connect(_on_craft_panel_build)
 	if OS.get_environment("COHERONIA_SMOKE") == "1":
 		var smoke := preload("res://scripts/main/smoke_test.gd").new()
 		smoke.name = "SmokeTest"
@@ -452,13 +461,6 @@ func _wire_signals() -> void:
 	player.inventory_changed.connect(_refresh_goals)   # FQ-14: gather progress
 	hud.deposit_requested.connect(_on_deposit_requested)
 	hud.repair_requested.connect(_on_repair_requested)
-	hud.forge_requested.connect(_on_forge_requested)
-	hud.forge_axe_requested.connect(_on_forge_axe_requested)
-	hud.forge_sword_requested.connect(_on_forge_sword_requested)
-	hud.forge_armor_requested.connect(_on_forge_armor_requested)
-	hud.lantern_requested.connect(_on_lantern_requested)
-	hud.build_station_requested.connect(_on_build_station_requested)
-	hud.craft_station_requested.connect(_on_craft_station_requested)
 
 
 func _position_actors() -> void:
@@ -541,11 +543,25 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("interact") or event.is_action_pressed("toggle_town"):
 		_try_interact()
+	elif event.is_action_pressed("craft"):
+		# R-07: C opens the unified crafting panel (replaces the old instant torch).
+		if hud.inventory_panel_open():
+			hud.toggle_inventory_panel()
+		if hud.skill_panel_open():
+			hud.toggle_skill_panel()
+		if hud.character_panel_open():
+			hud.toggle_character_panel()
+		if hud.town_panel_open():
+			hud.toggle_town_panel()
+		if _craft_panel != null:
+			_craft_panel.toggle()
 	elif event.is_action_pressed("ui_cancel"):
 		# R-07: Esc closes an open panel first; otherwise it opens the pause menu
 		# (which freezes the sim and offers Resume/Settings/Save/Save & Quit)
 		# instead of the old abrupt save-and-exit.
-		if hud.skill_panel_open():
+		if _craft_panel != null and _craft_panel.is_open():
+			_craft_panel.close()
+		elif hud.skill_panel_open():
 			hud.toggle_skill_panel()
 		elif hud.inventory_panel_open():
 			hud.toggle_inventory_panel()
@@ -1046,56 +1062,6 @@ func _on_repair_requested() -> void:
 	hud.refresh_town_panel()
 
 
-func _on_forge_requested() -> void:
-	if town_hall.forge_pick(player):
-		log_event("Forged a sturdier pick (tier 2). Ore is now mineable, and mining is faster.")
-		award_xp("tool_crafted")
-		_craft_confirm_fx(town_hall.global_position)
-	else:
-		log_event("Cannot forge pick (already forged, or stockpile lacks 3 wood + 5 stone).")
-	hud.refresh_town_panel()
-	_refresh_goals()   # FQ-14: forging a tool completes the craft objective
-
-
-func _on_forge_axe_requested() -> void:
-	if town_hall.forge_axe(player):
-		log_event("Crafted an axe (tier 1). Wood and plants harvest faster.")
-		award_xp("tool_crafted")
-		_craft_confirm_fx(town_hall.global_position)
-	else:
-		log_event("Cannot craft axe (already crafted, or stockpile lacks 4 wood + 2 stone).")
-	hud.refresh_town_panel()
-	_refresh_goals()   # FQ-14: crafting the axe completes the craft objective
-
-
-func _on_forge_sword_requested() -> void:
-	if town_hall.forge_sword(player):
-		log_event("Forged a crude sword. Your strikes hit much harder.")
-		award_xp("tool_crafted")
-		_craft_confirm_fx(town_hall.global_position)
-	else:
-		log_event("Cannot forge sword (already armed, or stockpile lacks 2 wood + 3 stone).")
-	hud.refresh_town_panel()
-
-
-func _on_forge_armor_requested() -> void:
-	if town_hall.forge_armor(player):
-		log_event("Forged a crude armor set. Incoming blows are softened.")
-		award_xp("tool_crafted")
-		_craft_confirm_fx(town_hall.global_position)
-	else:
-		log_event("Cannot forge armor (already armored, or stockpile lacks 6 wood + 4 stone).")
-	hud.refresh_town_panel()
-
-
-func _on_lantern_requested() -> void:
-	if town_hall.craft_from_stockpile("craft_lantern", player):
-		log_event("Crafted a lantern. It shines farther than a torch (slot 5).")
-	else:
-		log_event("Cannot craft lantern (stockpile lacks 2 ore + 1 wood).")
-	hud.refresh_town_panel()
-
-
 ## FQ-11: builds a craft station (workbench/furnace/anvil) from the stockpile.
 func _on_build_station_requested(station_id: String) -> void:
 	var station_name := str(BlockRegistry.station_def(station_id).get("display_name", station_id))
@@ -1121,6 +1087,52 @@ func _on_craft_station_requested(recipe_id: String) -> void:
 	else:
 		log_event("Cannot craft %s (station not built, slot occupied, or stockpile short)." % recipe_name)
 	hud.refresh_town_panel()
+
+
+## R-07: the unified crafting panel routes a craft to the right backend by the
+## recipe's station -- hand recipes spend the player's inventory, town-hall and
+## station recipes the Town Hall stockpile.
+func _on_craft_panel_craft(recipe_id: String) -> void:
+	var recipe := BlockRegistry.get_recipe(recipe_id)
+	var station := str(recipe.get("station", "hand"))
+	if station == "hand":
+		player.craft(recipe_id)   # success -> crafted signal logs/fx/xp; fail -> player_event
+	elif station == "town_hall":
+		# Town Hall gear recipes run the special forge methods (set tool tiers /
+		# equip gear); the rest are generic stockpile crafts (e.g. the lantern).
+		var rname := str(recipe.get("display_name", recipe_id))
+		var ok := false
+		match recipe_id:
+			"basic_pick_upgrade":
+				ok = town_hall.forge_pick(player)
+			"craft_axe":
+				ok = town_hall.forge_axe(player)
+			"craft_sword":
+				ok = town_hall.forge_sword(player)
+			"craft_armor_set":
+				ok = town_hall.forge_armor(player)
+			_:
+				ok = town_hall.craft_from_stockpile(recipe_id, player)
+		if ok:
+			log_event("Crafted: %s." % rname)
+			award_xp("tool_crafted")
+			_craft_confirm_fx(town_hall.global_position)
+		else:
+			log_event("Cannot craft %s (stockpile short or slot already filled)." % rname)
+	else:
+		_on_craft_station_requested(recipe_id)   # workbench/furnace/anvil (logs/fx/xp)
+	if _craft_panel != null:
+		_craft_panel.refresh()
+	hud.update_inventory()
+	_refresh_goals()
+
+
+## R-07: the crafting panel also owns station building (moved out of the Town Hall
+## panel, which now keeps only Repair).
+func _on_craft_panel_build(station_id: String) -> void:
+	_on_build_station_requested(station_id)
+	if _craft_panel != null:
+		_craft_panel.refresh()
 
 
 func _on_player_mined(block_id: String, drops: Dictionary) -> void:

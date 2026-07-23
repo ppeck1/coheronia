@@ -226,7 +226,7 @@ work. It is a seams-first sequence, not a rewrite.
     (`a33e03a`): source smoke **352/352**, exported smoke **346/346 + 6 skipped**,
     zero backdrop triangulation errors.
 
-- **R-07 (Playability baseline) — IN PROGRESS (slices 1-3 done).** Control model
+- **R-07 (Playability baseline) — all four slices done (local; slices 1-2 pushed).** Control model
   unchanged (left click = mine/attack, right click = place/use).
   - **Slice 1 (pause/settings/keybinds), pushed `0160ada`.** `scripts/ui/pause_menu.gd`
     is a `PROCESS_MODE_ALWAYS` CanvasLayer; Escape (after closing any open panel)
@@ -249,12 +249,27 @@ work. It is a seams-first sequence, not a rewrite.
     on its own `follow_viewport` CanvasLayer so the world day/night/cave
     `CanvasModulate` never dims it. No build mode, no flipped actions, no
     instructional text, no art assets.
-  - **Evidence.** 12 `r07_` smoke checks (pause freeze/resume, rebind apply/reset,
+  - **Slice 4 (crafting navigation), local.** `scripts/ui/craft_panel.gd` is a
+    unified Crafting panel (C toggles it, Esc closes it) grouping every recipe by
+    source -- Hand, Town Hall, Workbench, Furnace, Anvil -- plus a Build row for
+    each unbuilt station; inputs show have/need from the right source (inventory
+    for hand, stockpile for stations) and Craft/Build is disabled when short.
+    `game_root` routes each craft by station, including the Town Hall gear recipes
+    to their special `forge_*` methods (empty-output `craft_axe` etc. would no-op
+    via `craft_from_stockpile`). A `GameState.craft_panel_open` flag freezes player
+    input while open (no click-through). The Town Hall panel is trimmed to
+    deposit/status/**Repair**; the dead forge/lantern/station-build signals,
+    handlers, and station-section rebuild plumbing were removed with it (rg-verified
+    no callers). C is the only entry point for now; the hardcoded C=torch is gone.
+  - **Evidence.** 15 `r07_` smoke checks (pause freeze/resume, rebind apply/reset,
     duplicate reject, persist->reset->apply, save-and-quit-requires-success, settings
     fit 640x360, REBINDABLE contract, mouse-fixed rows, delete-requires-confirm,
-    restore-reloads-save, place-reason feedback matrix, preview-active-for-placeable).
-    Source smoke **364/364**, exported **358/358 + 6 skipped**, VERIFY PASS; dark-cave
-    preview captures reviewed. **Remaining R-07 slice: crafting navigation.**
+    restore-reloads-save, place-reason feedback matrix, preview-active-for-placeable,
+    craft-panel routes hand/town/build, craft-panel gating+source, town-panel
+    crafting removed, craft-panel toggle+modal). Source smoke **368/368**, exported
+    **362/362 + 6 skipped**, VERIFY PASS; dark-cave preview + crafting-panel captures
+    reviewed. **All four R-07 slices complete** (pause/settings/keybinds,
+    save-management, build preview + feedback, crafting navigation).
 
 ## Technical decisions already made
 

@@ -4110,6 +4110,70 @@ func _run() -> void:
 		_r07_prev_wood == "wood" and _r07_prev_food == "",
 		"wood=[%s] food=[%s]" % [_r07_prev_wood, _r07_prev_food])
 
+	# --- R-07 slice 4: unified crafting panel + Town Hall trim ---
+	# (m) the panel routes by station: a hand recipe spends the player's inventory;
+	# building a station spends the Town Hall stockpile. (Reverted by the fq09w
+	# reload below.)
+	var _cp = root._craft_panel
+	player.inventory.add("wood", 2)
+	player.inventory.add("stone", 2)
+	var _cm_torch0: int = player.inventory.count("torch")
+	root._on_craft_panel_craft("craft_torch")   # hand: 1 wood + 1 stone -> 3 torch
+	var _cm_hand: bool = player.inventory.count("torch") >= _cm_torch0 + 3
+	hall.stockpile["wood"] = int(hall.stockpile.get("wood", 0)) + 12
+	hall.stockpile["stone"] = int(hall.stockpile.get("stone", 0)) + 6
+	hall.stations_built["workbench"] = false   # earlier fq11 tests may have built it
+	root._on_craft_panel_build("workbench")
+	var _cm_build: bool = hall.station_built("workbench")
+	# a Town Hall gear recipe routes to its special forge method (empty-output
+	# craft_axe would do nothing via craft_from_stockpile), setting the tool tier.
+	hall.stockpile["wood"] = int(hall.stockpile.get("wood", 0)) + 4
+	hall.stockpile["stone"] = int(hall.stockpile.get("stone", 0)) + 2
+	player.axe_tier = 0
+	root._on_craft_panel_craft("craft_axe")
+	var _cm_axe: bool = player.axe_tier >= 1
+	_check("r07_craft_panel_routes_hand_town_and_build",
+		_cp != null and _cm_hand and _cm_build and _cm_axe,
+		"hand=%s build=%s axe=%s" % [str(_cm_hand), str(_cm_build), str(_cm_axe)])
+
+	# (n) have/need gating: an unaffordable recipe reports a reason, and the input
+	# source is correct -- inventory for hand, stockpile for stations.
+	var _cn_short: String = _cp._short_reason("hand", {"wood": 99999})
+	var _cn_inv: int = _cp._stock_of("hand", "wood")
+	var _cn_stock: int = _cp._stock_of("furnace", "coal")
+	_check("r07_craft_panel_gating_and_source",
+		_cn_short.begins_with("Need more") \
+		and _cn_inv == int(player.inventory.count("wood")) \
+		and _cn_stock == int(hall.stockpile.get("coal", 0)),
+		"short=[%s] inv=%d stock=%d" % [_cn_short, _cn_inv, _cn_stock])
+
+	# (o) crafting/building ownership has transferred to CraftPanel: the Town Hall
+	# panel's forge/lantern/station signals are gone (only Repair remains).
+	_check("r07_town_panel_crafting_removed",
+		root._craft_panel != null and hud.has_signal("repair_requested") \
+		and not hud.has_signal("forge_requested") \
+		and not hud.has_signal("lantern_requested") \
+		and not hud.has_signal("build_station_requested") \
+		and not hud.has_signal("craft_station_requested"),
+		"craftpanel=%s repair_sig=%s forge_sig=%s build_sig=%s" % [
+			str(root._craft_panel != null), str(hud.has_signal("repair_requested")),
+			str(hud.has_signal("forge_requested")),
+			str(hud.has_signal("build_station_requested"))])
+
+	# (p) C-key entry point: toggle opens/closes, and while open the input-capture
+	# flag is set so player gameplay (mine/place) is frozen -- no click-through.
+	# (close() is what both the C toggle and Esc invoke.)
+	var _cp2 = root._craft_panel
+	_cp2.close()
+	var _cm_base: bool = not _cp2.is_open() and not GameState.craft_panel_open
+	_cp2.toggle()
+	var _cm_open: bool = _cp2.is_open() and GameState.craft_panel_open
+	_cp2.close()
+	var _cm_reclosed: bool = not _cp2.is_open() and not GameState.craft_panel_open
+	_check("r07_craft_panel_toggle_and_modal",
+		_cm_base and _cm_open and _cm_reclosed,
+		"base=%s open=%s reclosed=%s" % [str(_cm_base), str(_cm_open), str(_cm_reclosed)])
+
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
 	# registry and removal falls back (fq09v temp discipline; the wall
 	# tileset itself reads art once at world entry per the FQ-07 rule).

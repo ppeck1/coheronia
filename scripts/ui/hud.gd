@@ -5,13 +5,6 @@ extends CanvasLayer
 
 signal deposit_requested
 signal repair_requested
-signal forge_requested
-signal forge_axe_requested
-signal forge_sword_requested
-signal forge_armor_requested
-signal lantern_requested
-signal build_station_requested(station_id: String)
-signal craft_station_requested(recipe_id: String)
 
 ## Low-health fraction mirrors player._low_health_fraction (data-driven
 ## default 0.25); the HUD does not read player state directly so it keeps a
@@ -45,13 +38,7 @@ var _event_time_label: Label
 var _log_lines: Array[String] = []
 var _town_panel: PanelContainer
 var _town_info: Label
-var _forge_button: Button
-var _forge_axe_button: Button
-var _forge_sword_button: Button
-var _forge_armor_button: Button
 var _repair_button: Button
-var _lantern_button: Button
-var _station_box: VBoxContainer   # FQ-11: dynamic build/craft section
 var _stock_empty_label: Label
 var _save_label: Label   # no longer built (FQ-19); kept for the null-guarded setter
 var _has_save_hint := false
@@ -2564,30 +2551,8 @@ func _build_town_panel() -> void:
 	_repair_button.text = "Repair (2 stone → -25 damage)"
 	_repair_button.pressed.connect(func() -> void: repair_requested.emit())
 	box.add_child(_repair_button)
-	_forge_button = Button.new()
-	_forge_button.text = "Forge pick upgrade (3 wood + 5 stone)"
-	_forge_button.pressed.connect(func() -> void: forge_requested.emit())
-	box.add_child(_forge_button)
-	_forge_axe_button = Button.new()
-	_forge_axe_button.text = "Craft axe (4 wood + 2 stone)"
-	_forge_axe_button.pressed.connect(func() -> void: forge_axe_requested.emit())
-	box.add_child(_forge_axe_button)
-	_forge_sword_button = Button.new()
-	_forge_sword_button.text = "Forge crude sword (2 wood + 3 stone)"
-	_forge_sword_button.pressed.connect(func() -> void: forge_sword_requested.emit())
-	box.add_child(_forge_sword_button)
-	_forge_armor_button = Button.new()
-	_forge_armor_button.text = "Forge crude armor set (6 wood + 4 stone)"
-	_forge_armor_button.pressed.connect(func() -> void: forge_armor_requested.emit())
-	box.add_child(_forge_armor_button)
-	_lantern_button = Button.new()
-	_lantern_button.text = "Craft lantern (2 ore + 1 wood)"
-	_lantern_button.pressed.connect(func() -> void: lantern_requested.emit())
-	box.add_child(_lantern_button)
-	# FQ-11: build/craft the station chain (workbench -> furnace -> anvil),
-	# rebuilt from data + built-state on every panel refresh.
-	_station_box = VBoxContainer.new()
-	box.add_child(_station_box)
+	# R-07: crafting and station building moved to the unified Crafting panel (C);
+	# the Town Hall panel keeps deposit, status, and Repair.
 	_refresh_station_icons()
 	_label(box, "Press E to close")
 
@@ -2596,11 +2561,6 @@ func _build_town_panel() -> void:
 ## art are picked up on the next panel refresh.
 func _refresh_station_icons() -> void:
 	_repair_button.icon = BlockRegistry.item_icon("stone")
-	_forge_button.icon = BlockRegistry.item_icon("pick")
-	_forge_axe_button.icon = BlockRegistry.item_icon("axe")
-	_forge_sword_button.icon = BlockRegistry.item_icon("sword")
-	_forge_armor_button.icon = BlockRegistry.item_icon("armor")
-	_lantern_button.icon = BlockRegistry.item_icon("lantern")
 
 
 ## Wave C: openable inventory panel (I to toggle). Shows all carried stacks
@@ -3956,95 +3916,8 @@ func refresh_town_panel() -> void:
 		var n: int = int(town_hall.stockpile[item_id])
 		_stock_grid_counts[item_id] = n
 		_make_item_tile(_stock_grid, item_id, n)
-	if player != null:
-		var forged: bool = player.tool_tier >= 2
-		_forge_button.disabled = forged
-		_forge_button.text = "Pick forged (tier 2)" if forged else "Forge pick upgrade (3 wood + 5 stone)"
-		if _forge_axe_button != null:
-			var axe_forged: bool = player.axe_tier >= 1
-			_forge_axe_button.disabled = axe_forged
-			_forge_axe_button.text = "Axe crafted (tier 1)" if axe_forged else "Craft axe (4 wood + 2 stone)"
-		# FQ-04: sword/armor buttons reflect the equipped gear state.
-		if _forge_sword_button != null:
-			var armed: bool = str(player.equipped_dict().get("weapon", "")) != ""
-			var offhand_armed: bool = str(player.equipped_dict().get("offhand_weapon", "")) != ""
-			_forge_sword_button.disabled = armed and offhand_armed
-			_forge_sword_button.text = "Weapon slots full" if armed and offhand_armed \
-				else "Forge offhand sword (2 wood + 3 stone)" if armed \
-				else "Forge crude sword (2 wood + 3 stone)"
-		if _forge_armor_button != null:
-			var armored: bool = str(player.equipped_dict().get("torso", "")) != ""
-			_forge_armor_button.disabled = armored
-			_forge_armor_button.text = "Armor forged" if armored \
-				else "Forge crude armor set (6 wood + 4 stone)"
-	_rebuild_station_section()
-
-
-## FQ-11: rebuilds the station chain from data + built-state each refresh.
-## Each unbuilt station shows a Build button (disabled/annotated when its
-## prerequisite is missing or the stockpile is short); each built station
-## lists its recipes as craft buttons (disabled when unaffordable or, for
-## gear, when the target slot is already filled).
-func _rebuild_station_section() -> void:
-	if _station_box == null:
-		return
-	for child in _station_box.get_children():
-		child.queue_free()
-	var header := _label(_station_box, "— Craft Stations —")
-	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	for station in BlockRegistry.station_defs():
-		var sid := str(station.get("id", ""))
-		var sname := str(station.get("display_name", sid))
-		if not town_hall.station_built(sid):
-			var btn := Button.new()
-			if not town_hall.station_prereq_met(sid):
-				var prereq := str(station.get("prereq", ""))
-				btn.text = "Build %s — needs %s first" % [sname, prereq.capitalize()]
-				btn.disabled = true
-			else:
-				btn.text = "Build %s (%s)" % [sname, _cost_text(station.get("build_cost", {}))]
-				btn.disabled = not _stock_has(station.get("build_cost", {}))
-				btn.pressed.connect(func() -> void: build_station_requested.emit(sid))
-			_station_box.add_child(btn)
-			continue
-		_label(_station_box, "%s:" % sname)
-		for recipe in BlockRegistry.recipes_for_station(sid):
-			var rid := str(recipe.get("recipe_id", ""))
-			var rname := str(recipe.get("display_name", rid))
-			var rbtn := Button.new()
-			rbtn.text = "  %s (%s)" % [rname, _cost_text(recipe.get("inputs", {}))]
-			var slot_blocked := false
-			for slot in recipe.get("equip_slots", {}):
-				if player == null:
-					slot_blocked = true
-				elif str(slot) == "weapon":
-					slot_blocked = str(player.equipped_dict().get("weapon", "")) != "" \
-						and str(player.equipped_dict().get("offhand_weapon", "")) != ""
-				elif str(player.equipped_dict().get(slot, "")) != "":
-					slot_blocked = true
-			rbtn.disabled = not _stock_has(recipe.get("inputs", {})) or slot_blocked
-			if slot_blocked:
-				rbtn.text = "  %s (already equipped)" % rname
-			rbtn.pressed.connect(func() -> void: craft_station_requested.emit(rid))
-			_station_box.add_child(rbtn)
-
-
-## FQ-11: "2 Stone, 1 Coal" style cost string from an inputs/cost dict.
-func _cost_text(cost: Dictionary) -> String:
-	var parts: Array[String] = []
-	for item_id in cost:
-		parts.append("%d %s" % [int(cost[item_id]), BlockRegistry.display_name(item_id)])
-	return ", ".join(parts)
-
-
-## FQ-11: true when the stockpile can cover every item in a cost dict.
-func _stock_has(cost: Dictionary) -> bool:
-	if town_hall == null:
-		return false
-	for item_id in cost:
-		if int(town_hall.stockpile.get(item_id, 0)) < int(cost[item_id]):
-			return false
-	return true
+	# R-07: crafting/building moved to the Crafting panel (C); refresh_town_panel
+	# now only reflects status, stockpile, and Repair.
 
 
 func _refresh_stock() -> void:

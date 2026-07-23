@@ -260,7 +260,7 @@ func apply_ancestry_effects(effects: Dictionary) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if GameState.hud_edit_mode:
+	if GameState.hud_edit_mode or GameState.craft_panel_open:
 		velocity = Vector2.ZERO
 		return
 	if not is_on_floor():
@@ -294,8 +294,6 @@ func _physics_process(delta: float) -> void:
 	_handle_mining(delta)
 	if Input.is_action_just_pressed("place"):
 		try_place(world.cell_of(get_global_mouse_position()), selected_item())
-	if Input.is_action_just_pressed("craft"):
-		craft("craft_torch")
 	if Input.is_action_just_pressed("farm_action"):
 		try_farm(world.cell_of(get_global_mouse_position()))
 	queue_redraw()
