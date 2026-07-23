@@ -1099,9 +1099,14 @@ per-column quads (was a self-intersecting polygon dropping the under-earth backi
 at high camera) with a geometry smoke check + before/after capture. Source
 **352/352**, exported **346/346 + 6 skipped**, zero triangulation errors.
 
-The next code-lane item is **R-07, playability baseline**, defined in
-`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`: pause/settings/keybinds, save-management
-UI, build preview + reasoned invalid-placement feedback, then crafting navigation.
+**R-07, playability baseline, is IN PROGRESS** (defined in
+`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`). Control model unchanged (left = mine,
+right = place/use). Slice 1 pause/settings/keybinds (`0160ada`) and slice 2 save
+management -- delete confirmation + in-game Restore (`183a311`) are pushed; slice 3
+build preview + reasoned invalid-placement feedback is local (`player.place_reason`
+authority; `try_place` emits the reason; `build_preview.gd` green/red aim ghost on a
+follow_viewport CanvasLayer, undimmed by the world tint). Source **364/364**,
+exported **358/358 + 6 skipped**. **Remaining R-07 slice: crafting navigation.**
 R-06 (ownership decomposition) is deferred. Close each slice with validator,
 Capsule Doctor, a freshness-checked waited Godot smoke, and `git diff --check`.
 

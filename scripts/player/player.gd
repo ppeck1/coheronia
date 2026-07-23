@@ -396,14 +396,34 @@ func process_mining(cell: Vector2i, delta: float) -> bool:
 	return true
 
 
-func try_place(cell: Vector2i, block_id: String) -> bool:
-	if not _in_reach(cell):
-		return false
+## R-07: why placing `block_id` at `cell` would fail, or "" if it is valid. The
+## single authority for both the placement feedback and the build-preview tint.
+## Pure -- no side effects. Order matters (reach is reported before occupancy).
+func place_reason(cell: Vector2i, block_id: String) -> String:
+	if block_id == "" or not BlockRegistry.is_placeable(block_id):
+		return "You can't place that."
 	if inventory.count(block_id) <= 0:
-		return false
+		return "No %s left to place." % BlockRegistry.display_name(block_id)
+	if not _in_reach(cell):
+		return "That spot is out of reach."
+	if world.block_at(cell) != "air":
+		return "Something is already there."
 	if _cell_overlaps_body(cell) and BlockRegistry.is_solid(block_id):
+		return "You are standing there."
+	return ""
+
+
+func try_place(cell: Vector2i, block_id: String) -> bool:
+	# Only a placeable block is a placement attempt; a selected tool right-click
+	# is silently ignored (no nagging feedback).
+	if block_id == "" or not BlockRegistry.is_placeable(block_id):
+		return false
+	var reason := place_reason(cell, block_id)
+	if reason != "":
+		player_event.emit(reason)
 		return false
 	if not world.place_block(cell, block_id):
+		player_event.emit("You can't build there.")
 		return false
 	inventory.remove(block_id)
 	inventory_changed.emit()

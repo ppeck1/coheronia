@@ -16,6 +16,7 @@ const GoalTrackerScript := preload("res://scripts/main/goal_tracker.gd")
 const MapStateScript := preload("res://scripts/world/map_state.gd")
 const PauseMenuScript := preload("res://scripts/ui/pause_menu.gd")   # R-07
 const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
+const BuildPreviewScript := preload("res://scripts/world/build_preview.gd")   # R-07
 
 const DAY_LENGTH_SECONDS := 100.0
 const NIGHT_START := 0.65          # time_of_day fraction where night begins
@@ -53,6 +54,7 @@ const CAVE_CRAWLER_CAP := 2
 @onready var threats: Node2D = $Threats
 
 var _pause_menu: CanvasLayer   # R-07: real pause/settings/keybinds
+var _build_preview: Node2D     # R-07: placement ghost + validity tint
 var time_of_day := 0.25
 var _clock_refresh_accum := 0.0
 var day_count := 1
@@ -131,6 +133,18 @@ func _ready() -> void:
 	_pause_menu.save_requested.connect(_on_pause_save)
 	_pause_menu.save_and_quit_requested.connect(_on_pause_save_and_quit)
 	_pause_menu.restore_requested.connect(_on_pause_restore)
+	# R-07: render the build preview on its own follow-the-camera CanvasLayer so
+	# it tracks the aim cell but is NOT dimmed by the world's day/night/cave
+	# CanvasModulate (otherwise the ghost vanishes underground). Layer 0 sits above
+	# the root world canvas and below the HUD (layer 1).
+	var _preview_layer := CanvasLayer.new()
+	_preview_layer.name = "BuildPreviewLayer"
+	_preview_layer.follow_viewport_enabled = true
+	_preview_layer.layer = 0
+	add_child(_preview_layer)
+	_build_preview = BuildPreviewScript.new()
+	_preview_layer.add_child(_build_preview)
+	_build_preview.setup(player, world)
 	if OS.get_environment("COHERONIA_SMOKE") == "1":
 		var smoke := preload("res://scripts/main/smoke_test.gd").new()
 		smoke.name = "SmokeTest"

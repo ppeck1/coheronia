@@ -226,6 +226,36 @@ work. It is a seams-first sequence, not a rewrite.
     (`a33e03a`): source smoke **352/352**, exported smoke **346/346 + 6 skipped**,
     zero backdrop triangulation errors.
 
+- **R-07 (Playability baseline) — IN PROGRESS (slices 1-3 done).** Control model
+  unchanged (left click = mine/attack, right click = place/use).
+  - **Slice 1 (pause/settings/keybinds), pushed `0160ada`.** `scripts/ui/pause_menu.gd`
+    is a `PROCESS_MODE_ALWAYS` CanvasLayer; Escape (after closing any open panel)
+    opens it and freezes the sim via `get_tree().paused`. Resume / Settings / Save /
+    Save & Quit (Save & Quit leaves only on a successful save). Settings covers
+    Music/SFX volume (`audio_settings`) and keyboard rebinding
+    (`scripts/shell/input_settings.gd`; overrides in `profile["keybinds"]`;
+    `rebind`/`apply` ignore non-`REBINDABLE`; duplicate keys rejected; mouse-bound
+    actions shown fixed). Fits down to a 640x360 logical viewport (Reset/Back always
+    reachable).
+  - **Slice 2 (save management), pushed `183a311`.** Shell world/character deletes
+    route through a `ConfirmationDialog` (`shell_ui.gd`); the pause menu gains a
+    visible **Restore Save** (confirm -> `game_root.load_game()`) so recovery needs
+    no hidden F9.
+  - **Slice 3 (build preview + reasoned placement feedback), local.**
+    `player.place_reason(cell, block_id)` is the single validity authority (""=valid,
+    else a specific reason); `try_place` emits it via `player_event` on failure (no
+    silent fails). `scripts/world/build_preview.gd` draws a translucent ghost of the
+    selected placeable block at the aim cell (green valid / red invalid, 1px border),
+    on its own `follow_viewport` CanvasLayer so the world day/night/cave
+    `CanvasModulate` never dims it. No build mode, no flipped actions, no
+    instructional text, no art assets.
+  - **Evidence.** 12 `r07_` smoke checks (pause freeze/resume, rebind apply/reset,
+    duplicate reject, persist->reset->apply, save-and-quit-requires-success, settings
+    fit 640x360, REBINDABLE contract, mouse-fixed rows, delete-requires-confirm,
+    restore-reloads-save, place-reason feedback matrix, preview-active-for-placeable).
+    Source smoke **364/364**, exported **358/358 + 6 skipped**, VERIFY PASS; dark-cave
+    preview captures reviewed. **Remaining R-07 slice: crafting navigation.**
+
 ## Technical decisions already made
 
 1. Treat `RF-01` as confirmed risk: Godot documentation recommends

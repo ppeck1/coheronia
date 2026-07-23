@@ -4037,6 +4037,79 @@ func _run() -> void:
 		"gated=%s restored=%s day=%d" % [str(_r07_gated), str(_r07_restored),
 			root.day_count])
 
+	# --- R-07 slice 3: build preview + reasoned invalid-placement feedback ---
+	# (k) place_reason is the single validity authority (valid -> ""), and a failed
+	# try_place emits the reason (no silent fails). Mutations here are wiped by the
+	# fq09w_world_restored load_game that follows this block.
+	player.inventory.add("wood", 5)
+	var _r07_pcell: Vector2i = world.cell_of(player.global_position)
+	var _r07_valid: Vector2i = Vector2i(99999, 99999)
+	for _r07_dy in range(-3, 2):
+		for _r07_dx in range(-3, 4):
+			var _r07_c: Vector2i = _r07_pcell + Vector2i(_r07_dx, _r07_dy)
+			var _r07_rc: String = player.place_reason(_r07_c, "wood")
+			if _r07_rc == "":
+				_r07_valid = _r07_c
+				break
+		if _r07_valid.x != 99999:
+			break
+	var _r07_valid_ok: bool = _r07_valid.x != 99999
+	# reach is reported before occupancy: a far cell reads out-of-reach.
+	var _r07_far: String = player.place_reason(_r07_pcell + Vector2i(60, 0), "wood")
+	# an AIR cell overlapping the body reports the standing-there reason for a
+	# solid block. Find a body-overlapping cell and clear it to air first (the
+	# feet cell is solid); the break is reverted by the fq09w reload below.
+	var _r07_bodyr: String = "(none)"
+	for _r07_by in range(-3, 3):
+		for _r07_bx in range(-2, 3):
+			var _r07_bc: Vector2i = _r07_pcell + Vector2i(_r07_bx, _r07_by)
+			if player._cell_overlaps_body(_r07_bc):
+				world.break_block(_r07_bc)   # guarantee air at a body cell
+				_r07_bodyr = player.place_reason(_r07_bc, "wood")
+				break
+		if _r07_bodyr != "(none)":
+			break
+	# with zero stock the missing-block reason wins.
+	var _r07_had: int = player.inventory.count("wood")
+	while player.inventory.count("wood") > 0:
+		player.inventory.remove("wood")
+	var _r07_nostockr: String = player.place_reason(_r07_valid, "wood")
+	player.inventory.add("wood", _r07_had)
+	# a failed try_place emits the reason to player_event.
+	var _r07_evt := {"m": ""}
+	var _r07_cb := func(msg: String): _r07_evt["m"] = msg
+	player.player_event.connect(_r07_cb)
+	var _r07_placed: bool = player.try_place(_r07_valid, "wood") if _r07_valid_ok else false
+	var _r07_occ: String = player.place_reason(_r07_valid, "wood")   # now occupied
+	player.try_place(_r07_pcell + Vector2i(60, 0), "wood")           # invalid -> emits
+	var _r07_fb: String = str(_r07_evt["m"])
+	player.player_event.disconnect(_r07_cb)
+	_check("r07_place_reason_feedback",
+		_r07_valid_ok and _r07_placed and _r07_far.contains("reach") \
+		and _r07_bodyr.contains("standing") and _r07_nostockr.begins_with("No ") \
+		and _r07_occ.contains("already") and _r07_fb.contains("reach"),
+		"valid=%s placed=%s far=[%s] body=[%s] nostock=[%s] occ=[%s] fb=[%s]" % [
+			str(_r07_valid_ok), str(_r07_placed), _r07_far, _r07_bodyr,
+			_r07_nostockr, _r07_occ, _r07_fb])
+
+	# (l) the build preview shows only for a placeable selected item (a ghost for
+	# a held block, nothing for a tool/consumable).
+	var _r07_hb: Array = player.hotbar.duplicate()
+	var _r07_slot: int = player.selected_slot
+	player.hotbar.clear()
+	player.hotbar.append("wood")
+	player.selected_slot = 0
+	var _r07_prev_wood: String = root._build_preview.active_item()
+	player.hotbar.clear()
+	player.hotbar.append("food")
+	player.selected_slot = 0
+	var _r07_prev_food: String = root._build_preview.active_item()
+	player.hotbar.assign(_r07_hb)
+	player.selected_slot = _r07_slot
+	_check("r07_build_preview_active_for_placeable",
+		_r07_prev_wood == "wood" and _r07_prev_food == "",
+		"wood=[%s] food=[%s]" % [_r07_prev_wood, _r07_prev_food])
+
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
 	# registry and removal falls back (fq09v temp discipline; the wall
 	# tileset itself reads art once at world entry per the FQ-07 rule).
