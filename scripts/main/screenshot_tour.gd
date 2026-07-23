@@ -71,6 +71,34 @@ func _run() -> void:
 	await _shot("15_crafting")
 	root._craft_panel.close()
 
+	# R-08: the visible farmhand settler at work -- a mature crop by the hall, the
+	# settler beside it (frozen for a clean compose), and the harvest in the event
+	# log. The subject is a concrete actor over the unchanged abstract population.
+	if not hud._event_panel.visible:
+		hud._toggle_event_module()
+	var _subjects: Array = get_tree().get_nodes_in_group("subjects")
+	if not _subjects.is_empty():
+		var farmhand: Node2D = _subjects[0]
+		farmhand.set_physics_process(false)
+		# Right of the torch line (dx 5/8) so the settler + crop read cleanly. A
+		# short row of tilled soil + ripe crops makes the "harvest" obviously a farm.
+		var crop_cell := Vector2i(hall_cell.x + 12, ground_y - 1)
+		for cx in range(crop_cell.x - 1, crop_cell.x + 3):
+			var soil := Vector2i(cx, ground_y)
+			if world.block_at(soil) != "air":
+				world.break_block(soil)
+			world.place_block(soil, "farm_soil")
+			var top := Vector2i(cx, ground_y - 1)
+			if world.block_at(top) != "air":
+				world.break_block(top)
+			world.place_block(top, "crop_ripe")
+		farmhand.global_position = world.cell_center(Vector2i(crop_cell.x - 1, crop_cell.y))
+		player.global_position = world.cell_center(Vector2i(crop_cell.x + 3, crop_cell.y))
+		player.velocity = Vector2.ZERO
+		player.get_node("Camera2D").reset_smoothing()
+		root.log_event("The farmhand gathers a ripe crop for the stockpile.")
+		await _shot("16_farmhand")
+
 	# Independent top modules: Map and Events remain visible together, with
 	# the contextual stack positioned below the taller surface.
 	if not hud._event_panel.visible:

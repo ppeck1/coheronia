@@ -2,15 +2,15 @@
 
 **A portfolio case study in data-driven Godot architecture, verified gameplay systems, and AI-orchestrated engineering.**
 
-Dig, build, and light a side-view frontier settlement — then keep it alive as a tiny civilization sim scores your shelter, food, light, and defenses in real time and answers with settlers, raids, and storms.
+Dig, build, and light a side-view frontier settlement — then keep it alive as a tiny civilization sim scores your shelter, food, light, and defenses in real time and answers with settlers, raids, and storms. Those settlers are now stepping out of the numbers: the first **visible farmhand** walks the surface, harvests your ripe crops into the stockpile, and goes hungry when the food runs out — real work against the same world state that drives the aggregate simulation.
 
 ![Daytime settlement with the Town Hall, torch line, and live HUD](docs/screenshots/01_settlement_day.png)
 
-`Godot 4.6 · GDScript · data-driven design · 346-check in-engine smoke suite · adaptive music · layered image-first UI pipeline`
+`Godot 4.6 · GDScript · data-driven design · 376-check in-engine smoke suite · adaptive music · layered image-first UI pipeline`
 
 ## What it is
 
-Coheronia sits between a survival sandbox and a civilization pressure sim. Minute to minute you mine tunnels, roof the hall, place torches, and haul food home. The settlement model turns those physical acts into three live pressures — **Coherence, Load, and Resilience** — computed from real world state (shelter blocks, light sources, stockpile, threats), never faked. A coherent, fed, lit settlement attracts settlers and ratchets from Camp to Hamlet to Village; a neglected one starves, empties, and cracks under night raids and storms.
+Coheronia sits between a survival sandbox and a civilization pressure sim. Minute to minute you mine tunnels, roof the hall, place torches, and haul food home. The settlement model turns those physical acts into three live pressures — **Coherence, Load, and Resilience** — computed from real world state (shelter blocks, light sources, stockpile, threats), never faked. A coherent, fed, lit settlement attracts settlers and ratchets from Camp to Hamlet to Village; a neglected one starves, empties, and cracks under night raids and storms. Those settlers are beginning to exist as persistent, visible actors: a farmhand who walks out and harvests crops into the stockpile, drawing on the same world-state authorities that drive the aggregate model rather than a parallel bookkeeping of its own.
 
 It is also a **portfolio project in AI-orchestrated software engineering**: every increment is scoped in a task queue, implemented against explicit data authorities, reviewed independently, and checked in-engine. The repository exposes both the playable architecture and the evidence trail: state ownership, validation commands, variable matrix, handoff, and an inspectable project wiki.
 
@@ -19,6 +19,7 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 | Architecture concern | Concrete implementation | Evidence in this repository |
 |---|---|---|
 | **Simulation from world state** | Shelter, light, stockpile, threats, and population feed Coherence, Load, and Resilience. | [`scripts/settlement/`](scripts/settlement) · [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md) |
+| **Visible subject simulation** | A farmhand actor harvests ripe crops into the stockpile against the same world/stockpile authorities as the aggregate sim; the abstract population stays the single food-accounting authority, so a settler is never charged food twice. | [`scripts/entities/subject.gd`](scripts/entities/subject.gd) · [`scripts/world/world.gd`](scripts/world/world.gd) |
 | **Persistent state ownership** | Characters own inventory, loadout, and progression; worlds own terrain deltas and settlement simulation. | [`scripts/shell/`](scripts/shell) · [`scripts/inventory/`](scripts/inventory) |
 | **Data-first design** | Blocks, recipes, enemies, equipment, ancestries, and world presets are JSON authorities. | [`data/`](data) · [`scripts/validate_repo.py`](scripts/validate_repo.py) |
 | **Runtime UI composition** | HUD chrome is separate from live values; inventory mutations are validated at the UI boundary. | [`scripts/ui/hud.gd`](scripts/ui/hud.gd) · [`scripts/ui/inventory_slot_cell.gd`](scripts/ui/inventory_slot_cell.gd) |
@@ -27,6 +28,9 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 ## Screenshots
 
 *Captured 2026-07-23 from the live build.*
+
+![A visible farmhand settler beside a tilled row of ripe crops by the Town Hall, with the harvest reported in the event log](docs/screenshots/16_farmhand.png)
+*New in R-08: a **visible farmhand settler** works the land beside the Town Hall — it walks to a ripe crop, harvests it into the stockpile (see the event log), and idles hungry if the settlement runs out of food. It is a concrete actor layered over the unchanged abstract population, which stays the single food-accounting authority.*
 
 | | |
 |---|---|
@@ -68,6 +72,7 @@ Watch the latest gameplay demonstration: [https://youtu.be/KoWppfdjSX8](https://
 - **Deterministic, configurable world generation** — seed + settings always produce the same world: terrain amplitude/frequency, ore/tree/bush density on independent seed channels, three world sizes, and unified leafy trees the player walks in front of and harvests for wood, so the surface stays walkable.
 - **Survival loop with teeth** — hardness-timed mining with crack-stage feedback, tool tiers (forged pick, axe, crude sword and armor with flat mitigation), a metallurgy chain that smelts depth-banded ores into ingots at the furnace and forges iron gear at the anvil, berry bushes that need soil and regrow, plantable farming (till soil, sow seeds, ripen, harvest food) as a reliable food path, food, health, i-frames, collapse penalties, and passive recovery near the hall.
 - **A settlement that reacts** — day/night cycle, night threats scaled by six difficulty axes, raiders drawn to fat stockpiles (plus torchbearers that burn the hall faster), crop-eating thornrats that pressure your farms and ore ticks that cling to the veins, cave crawlers underground, storms mitigated by real roof coverage, population 1–8 that eats, leaves, and arrives based on computed Coherence.
+- **Settlers that do real work (new)** — the first **visible farmhand** is a persistent actor that roams within a bounded radius of the Town Hall, walks to the nearest ripe crop, harvests it into the stockpile, and idles hungry when the settlement's food runs out. It is layered *on top of* the abstract population — that aggregate model stays the single food-accounting authority, so the same settler is never charged food twice — and its identity, job, hunger, and position persist in the world save.
 - **A world with depth** — a parallax scenic backdrop behind everything, natural backing walls revealed by mining (deterministic from the seed, provably unable to affect collision or lighting), and roof-aware cave darkness at any hour: dig deep and the daylight stays behind you unless you open a shaft to the sky, while your torches hold the dark off locally.
 - **An adaptive score** — one original suite composed as a single piece in four states (day, night, underground, crisis) plus six phase-locked stems, switching seamlessly at the next musical bar from real game state: pressure builds it toward crisis with hysteresis so the music never thrashes, the hearth harmony swells with settlement Coherence, the work pulse follows your pick, the fracture layer wakes only at the collapse edge — and it all crossfades home when the settlement holds. Event stingers (dawn, nightfall, raid, attunement, base advance) ring out over a brief music-bus duck without ever stopping the score, Music/Sound sliders on the title screen set the runtime buses, and the whole director keeps breathing through pause. Native Godot `AudioStreamInteractive` + `AudioStreamSynchronized` — no middleware.
 - **Progression stack** — six XP types feed player levels; levels grant perk points spent in a visual skill tree; base levels gate population; Attunement (the magic resource) regenerates and powers a first light-pulse ability, with ancestry/equipment/perk hooks already live.
@@ -125,7 +130,7 @@ terrain history, settlement, and progression. Persistence lives in
 
 This repo doubles as an experiment in disciplined AI-driven development:
 
-- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 346 checks across mining, save/load round-trips, legacy migrations, UI panel contents, Map/Events coexistence, HUD-kit layering, physics traversal, armor math, adaptive-music transitions, the character-rendering contract, body-specific gear resolution and alignment, directional action animation, the shared-path creation/character-select preview, the runtime-children Character panel, the backdrop contour skirt, the viewport-relative skill panel, and event stingers. The full suite is at **346/346** on 2026-07-21 (the real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun; the `fq19_map_events_coexist` geometry check is sensitive to a contaminated persisted `shell.json` and passes from a clean profile).
+- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 376 checks across mining, save/load round-trips, legacy migrations, UI panel contents, Map/Events coexistence, HUD-kit layering, physics traversal, armor math, adaptive-music transitions, the character-rendering contract, body-specific gear resolution and alignment, directional action animation, the shared-path creation/character-select preview, the runtime-children Character panel, the backdrop contour skirt, the viewport-relative skill panel, the visible-subject labor loop, and event stingers. The full suite is at **376/376** in source on 2026-07-23, and CI builds the game and re-runs it against the *exported* artifact at **370/370** (six `res://`-fixture checks skip only under read-only export). Two runtime notes: the real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun; the `fq19_map_events_coexist` geometry check is sensitive to a contaminated persisted `shell.json` and passes from a clean profile.
 - **Evidence over claims.** Increment scope, decisions, review findings, and validation state are summarized in [`docs/HANDOFF.md`](docs/HANDOFF.md). Historical raw protocol artifacts are still tracked; their fit with the current public-repository profile is explicitly flagged for owner review rather than silently presented as settled policy.
 - **Independent review loop.** Each change was reviewed by a separate agent pass before commit; findings (from save-corruption edge cases to invisible-tint rendering bugs) are documented and fixed in the ledgers.
 - **Task queue discipline.** Work follows [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) one bounded increment at a time — FQ-00 through FQ-09 plus the FQ-09R/S/V/C/W/A/M and U0–U3 refinements (skill-tree star map, variant art pools, the opening cinematic, backdrops and cave darkness, the asset roadmap, action effects, and the full adaptive-music arc) on top of the v0.1–v0.6 foundation, each documented in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md).
@@ -150,11 +155,13 @@ Or open the folder in the Godot editor and press Play.
 | Inventory / Skill tree | I / K |
 | Goals / Map | O / M |
 | Eat food / Attunement pulse | H / R |
-| Craft torch | C |
-| Save / Load | F5 / F9 |
-| Save & exit to shell | Esc |
+| Crafting panel | C |
+| Quick save / load | F5 / F9 |
+| Pause menu — settings, keybinds, save, restore, quit | Esc |
 
-**Verify the build** (validators + the 346-check in-engine suite):
+Esc opens a real pause menu (it closes an open panel first); saving and world-restore are exposed there, and rebinds live under its Settings screen. F5/F9 remain quick save/load.
+
+**Verify the build** (validators + the 376-check in-engine suite):
 
 ```powershell
 python scripts/validate_repo.py
@@ -168,7 +175,7 @@ Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-r
 # results: user://smoke_results.json
 ```
 
-**Regenerate the README screenshots** (staged capture tour — 15 shots across the shell and gameplay tours, including the character-create screen at 1280×720 and 640×360; run windowed, not `--headless`, so the frame capture resolves):
+**Regenerate the README screenshots** (staged capture tour — 16 shots across the shell and gameplay tours, including the visible farmhand at work and the character-create screen at 1280×720 and 640×360; run windowed, not `--headless`, so the frame capture resolves):
 
 ```powershell
 $env:COHERONIA_SHOTS = "1"
@@ -185,6 +192,8 @@ data/*.json ───────► registries / validators ──────�
 shell profile ───► character state ───► inventory / equipment / dock ───► runtime HUD
                                                     │
 world save ──────► terrain deltas + simulation ────┴──► smoke harness + evidence docs
+                                                    │
+world/stockpile ─► visible subjects (farmhand) ────┘   harvest → stockpile, hunger
 ```
 
 ```text
@@ -194,6 +203,8 @@ scenes/main  + scripts/main      game root (day/night, storms, threats, progress
 scripts/world                    deterministic generation, block grid, lighting,
                                  data-authority registry
 scripts/player                   movement, mining, combat, equipment, attunement, perks
+scripts/entities                 visible subject actors (R-08 farmhand): bounded
+                                 roam, crop harvest into the stockpile, hunger
 scripts/settlement               Town Hall + the Coherence/Load/Resilience model
 scripts/ui                       layered HUD-kit assembly, movable modules,
                                  icon-grid panels, skill tree
@@ -205,6 +216,14 @@ docs/                            handoff, variable matrix, task queue, future de
 ```
 
 Persistence: `user://shell.json` (profile + characters) and `user://worlds/<id>.json` (one file per world: config + terrain deltas + simulation state).
+
+## Current build
+
+Dated shipped milestones, newest first (full detail in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md)):
+
+- **2026-07-23 — R-08 slice 1: visible farmhand settler.** First concrete subject actor — bounded roam, ripe-crop harvest into the stockpile, hunger/idle when food is exhausted, save persistence — with the abstract population kept as the single food-accounting authority (no double-charge). Source smoke **376/376**; exported artifact **370/370**.
+- **through 2026-07-22 — R-00–R-07: release foundations + playability baseline.** Export-safe resource loading, atomic saves, isolated verification, pinned CI that builds *and launches* the exported artifact, public-repo cleanup; then pause/settings/keybinds, save-slot management, build-preview placement feedback, and a unified crafting panel.
+- **2026-07-21 — presentation recovery arc (PR-00–PR-08).** Character-rendering contract, gear resolution/alignment, directional action animation, the shared-path creation preview, the runtime-children Character panel, the contour backdrop, and the viewport-relative skill tree.
 
 ## Roadmap
 
