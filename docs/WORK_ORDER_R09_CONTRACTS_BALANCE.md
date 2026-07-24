@@ -1,7 +1,8 @@
 # R-09 — Contracts & Balance (Work Order)
 
-**Status: DESIGN APPROVED. Slice 1 IMPLEMENTED + verified (source smoke 392/392
-×2, 0 skipped, 2026-07-24). Slices 2–3 NOT STARTED.**
+**Status: DESIGN APPROVED. Slice 1 IMPLEMENTED + verified, incl. the accept/
+reload re-evaluation hardening (source smoke 394/394 ×2, 0 skipped; exported
+388/388 + 6 skipped, 2026-07-24). Slices 2–3 NOT STARTED.**
 
 This document is the row-level authority for R-09. Slice 1 (contract foundation)
 is implemented per the design below; slices 2–3 remain design-only.

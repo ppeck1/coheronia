@@ -11,14 +11,16 @@ run design-first per operator gate. The approved design lives in
 authoritative state (no shadow counters), latches completion on first threshold
 reach, and grants rewards transactionally through the player inventory only. The
 world save schema bumped **0.5 → 0.6** (accepts 0.6/0.5/0.4; missing contracts
-key migrates to empty). Validator + asset audit + capsule doctor green; source
-waited-GUI smoke **392/392 ×2**, 0 skipped (8 new `r09_` checks). **Immediate
-follow-up:** confirm the push's GitHub CI (R-04) Linux export run is green
-(watch cross-platform smoke flakes, the recurring lesson in
-`WORK_ORDER_RELEASE_FOUNDATIONS.md`). **Next:** R-09 slice 2 (more objective +
+key migrates to empty). A small R-09.1 hardening pass added the accept-time and
+F9/Restore-reload re-evaluation edges (an already-satisfied contract completes
+on accept or reload) with two more `r09_` checks. Validator + asset audit +
+capsule doctor green; source waited-GUI smoke **394/394 ×2**, 0 skipped (10
+`r09_` checks); exported **388/388 + 6 skipped**; **CI green** (R-04 verified the
+Linux export + exported-artifact run). **Next:** R-09 slice 2 (more objective +
 reward types, a contracts panel) then slice 3 (deterministic fixed-seed balance
-report). R-06 (ownership decomposition) deferred; R-10 (HUD/art) art lane. Do
-not start a new arc without the operator choosing it. Push control is separate
+report), per `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`. R-06 (ownership
+decomposition) deferred; R-10 (HUD/art) art lane. Do not start a new arc without
+the operator choosing it. Push control is separate
 from commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;

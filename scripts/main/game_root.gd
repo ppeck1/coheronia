@@ -1192,6 +1192,9 @@ func load_game() -> bool:
 	hud.update_inventory()
 	_refresh_hud_progression()
 	settlement.compute()
+	# R-09: F9/Restore reload latches any active contract already satisfied by the
+	# reloaded live stockpile (apply_state restored records + stockpile above).
+	contracts.evaluate()
 	return true
 
 
@@ -1299,7 +1302,12 @@ func apply_contracts(data: Array) -> void:
 ## R-09: accept a directed goal (available -> active). For the future contracts
 ## panel; returns success.
 func accept_contract(id: String) -> bool:
-	return contracts.accept(id)
+	var ok: bool = contracts.accept(id)
+	if ok:
+		# R-09: accepting an already-satisfied contract completes it now, without
+		# waiting for the next stockpile_changed.
+		contracts.evaluate()
+	return ok
 
 
 ## R-09: claim a completed contract's reward (transactional; reward+status or

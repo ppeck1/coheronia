@@ -1028,7 +1028,7 @@ authored in `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
 
 | Slice | Row | State |
 |---|---|---|
-| R-09.1 | Contract foundation: lifecycle + `stockpile_at_least`/`grant_items`, save 0.5→0.6 | Done 2026-07-24 (source smoke 392/392) |
+| R-09.1 | Contract foundation: lifecycle + `stockpile_at_least`/`grant_items`, save 0.5→0.6, accept/reload re-eval edges | Done 2026-07-24 (source 394/394, exported 388/388 + 6 skipped) |
 | R-09.2 | Objective + reward expansion; contracts panel | Not started |
 | R-09.3 | Deterministic fixed-seed balance report | Not started |
 
@@ -1038,21 +1038,22 @@ authored in `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
 You are working in <repo-root>.
 
 Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md,
-docs/PRESENTATION_RECOVERY_MATRIX.md, and
-docs/WORK_ORDER_RELEASE_FOUNDATIONS.md. FQ-00 through FQ-21 are done; the
-native HUD-kit stabilization is merged. PR-00..PR-02, PR-03A/PR-03B, PR-04,
-PR-05, PR-06 (code lane), PR-07, and PR-08 are done -- the suite is 346/346 (PR-08
-plus a character-create scroll/fixed-actions follow-up). The entire code lane of
-the presentation recovery arc is complete: gear overlay resolution/alignment;
-directional action animation; the shared-path creation/select preview; the
-Character HUD rebuilt on runtime children; the backdrop contour skirt; the skill
-panel is viewport-relative (pr08); and the character-create form now scrolls with
-a pinned Create/Back action row (pr08_char_create_form_scrolls_actions_pinned).
-Mining/combat mechanics unchanged.
+docs/WORK_ORDER_RELEASE_FOUNDATIONS.md, and
+docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md (the active-arc row authority). FQ-00
+through FQ-21, the presentation recovery arc (PR-00..PR-08 code lane), and the
+Release Foundations arc through R-08 are all done and pushed. PR-09 (later skill
+expansion) and PR-10 (HUD chrome / image) remain non-code lanes; R-06 (ownership
+decomposition) is deferred; R-10 is an art lane. Do not start any of those.
 
-The remaining presentation rows are NOT code-lane work: PR-09 (later skill
-expansion) is deferred/planning-only; PR-10 (HUD chrome / image follow-up) is a
-pure art lane. Do not start either.
+**The active arc is R-09 (Contracts + balance).** R-09 slice 1 (contract
+foundation) is DONE and pushed: the `available -> active -> completed ->
+claimed` lifecycle, `stockpile_at_least`/`grant_items`, live-state observation
+with latching, transactional claim, accept/reload re-evaluation edges, and the
+0.5 -> 0.6 save bump. Source smoke 394/394 (two consecutive), exported 388/388 +
+6 skipped, CI green. **Next: R-09 slice 2** -- expand the objective and reward
+vocabulary and add a player-facing contracts panel, per
+docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md; then slice 3 (deterministic fixed-seed
+balance report). Do not start slice 2 until the current work is committed.
 
 The **Release Foundations** arc (`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`) is the
 active code-lane sequence. **R-00 (Export-readiness audit) and R-01 (Export-safe
@@ -1147,7 +1148,7 @@ left to the stockpile via `world.nearest_item_drop`. Pickups raise a green
 persist in the world save (`serialize/apply_item_drops`, duplicate-safe,
 legacy-safe). 6 new `r08_` checks (+ 2 enemy-loot checks updated; `17_ground_drops`
 tour shot reviewed); source **384/384** (two consecutive runs), validator PASS.
-Not yet committed (operator gates commit/push).
+Committed and pushed 2026-07-24 (all of R-08 complete).
 
 **R-08 slice 1 (visible farmhand settler).** `scripts/entities/subject.gd` is a `CharacterBody2D` farmhand
 layered on top of the unchanged abstract `town_hall.population`/food model: it
@@ -1161,8 +1162,8 @@ spawns/serializes subjects; `save_manager` persists identity/job/hunger/position
 `apply_subjects` is duplicate-safe (remove_from_group before deferred free) and
 legacy world state without subjects loads safely. 7 `r08_` smoke checks (live
 counts filter `is_queued_for_deletion()`). Source **376/376**, exported
-**370/370 + 6 skipped**, VERIFY PASS. Remaining: hauler/repairer job, multiple
-subjects, assignment.
+**370/370 + 6 skipped**, VERIFY PASS. (Hauler/repairer jobs, multiple subjects,
+and assignment shipped in R-08 slices 2-3.)
 R-06 (ownership decomposition) is deferred. Close each slice with validator,
 Capsule Doctor, a freshness-checked waited Godot smoke, and `git diff --check`.
 

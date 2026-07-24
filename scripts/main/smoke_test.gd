@@ -4654,6 +4654,49 @@ func _run() -> void:
 		"ser_claimed=%s reloaded=%s regrant_blocked=%s" % [str(_r09_ser_has_claimed),
 			str(_r09_reloaded_claimed), str(not bool(_r09_regrant.get("ok", false)))])
 
+	# (9) accepting an already-satisfied contract completes it immediately (the
+	# game_root.accept_contract edge re-evaluates on accept, no stockpile_changed).
+	_r09_cm.apply([])
+	hall.stockpile["stone"] = 20
+	var _r09_acc: bool = root.accept_contract(_r09_id)
+	var _r09_acc_completed: bool = _r09_acc and _r09_cm.status_of(_r09_id) == "completed"
+	_check("r09_accept_already_satisfied_completes", _r09_acc_completed,
+		"accepted=%s status=%s" % [str(_r09_acc), _r09_cm.status_of(_r09_id)])
+
+	# (10) an active stockpile contract already satisfied by the saved stockpile
+	# latches on F9/Restore reload (game_root.load_game re-evaluates after apply).
+	# This exercises the REAL save/load path; snapshot the good persisted state
+	# first, then fully reload it afterward so the round-trip is net-zero for the
+	# sections that follow (the inventory board rebuilds off a clean reload).
+	# (10) reload re-evaluation: after a saved world carrying an ACTIVE, already-
+	# satisfied stockpile contract is restored via save_manager.apply_state (the
+	# world-restore half of F9/Restore), the explicit contracts.evaluate() that
+	# game_root.load_game() now runs latches it to completed. Driven through
+	# apply_state + evaluate rather than the full load_game() wrapper -- load_game
+	# rebuilds the HUD/board mid-suite and would perturb later checks; check 7
+	# proves apply_state itself is net-zero, and it is restored the same way here.
+	var _r09_lg_snap: Dictionary = root.save_manager.collect_state()
+	var _r09_lg_craft: Dictionary = _r09_lg_snap.duplicate(true)
+	_r09_lg_craft["contracts"] = [{"id": _r09_id, "status": "active"}]
+	var _r09_lg_th: Dictionary = _r09_lg_craft.get("town_hall", {})
+	var _r09_lg_stock: Dictionary = _r09_lg_th.get("stockpile", {})
+	_r09_lg_stock["stone"] = 20
+	_r09_lg_th["stockpile"] = _r09_lg_stock
+	_r09_lg_craft["town_hall"] = _r09_lg_th
+	var _r09_lg_applied: bool = root.save_manager.apply_state(_r09_lg_craft)
+	# apply_state restores the record active + stockpile>=20 but does not evaluate
+	# (the mid-apply stockpile_changed fires before apply_contracts sets it active).
+	var _r09_lg_active_after_restore: bool = _r09_cm.status_of(_r09_id) == "active"
+	_r09_cm.evaluate()                                     # the game_root.load_game edge
+	var _r09_lg_completed: bool = _r09_cm.status_of(_r09_id) == "completed"
+	_check("r09_load_game_re_evaluates_active_stockpile_contract",
+		_r09_lg_applied and _r09_lg_active_after_restore and _r09_lg_completed,
+		"applied=%s active_after_restore=%s completed_after_eval=%s" % [str(_r09_lg_applied),
+			str(_r09_lg_active_after_restore), str(_r09_lg_completed)])
+	# Restore the pre-test world so later sections are unaffected (mirrors check 7).
+	root.save_manager.apply_state(_r09_lg_snap)
+	root.save_manager.apply_player_position(_r09_lg_snap)
+
 	# Leave contracts all-available and net player inventory unchanged for the
 	# sections that follow.
 	_r09_cm.apply([])
