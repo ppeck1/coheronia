@@ -1,6 +1,21 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-24 release foundations: R-00..R-05 + R-07 done, R-08 slices 1–3 done; slice 3 uncommitted)
+## Current State (2026-07-24 release foundations: R-00..R-05 + R-07 done, R-08 slices 1–3 done + PUSHED)
+
+**NEXT INSTANCE — start here.** `origin/main == 43f304e` (R-08 slice 3, pushed
+2026-07-24; slice 2 `4890c04` pushed in the same batch). The working tree is
+clean. R-08 (Subject labor MVP) is functionally complete: visible
+farmhand/repairer/hauler settlers, a loose ground-drop layer (gravity,
+inventory-icon rendering, radius auto-pickup, "+N Item" pickup toast), and
+save/assignment. **Immediate follow-up:** the push kicked off the GitHub CI
+(R-04, `.github/workflows/ci.yml`) which runs the Linux **export** verification
+that this slice was NOT locally export-verified against — confirm that run is
+green (source smoke was 384/384 ×2 on Windows; watch for cross-platform smoke
+flakes, the recurring lesson in `WORK_ORDER_RELEASE_FOUNDATIONS.md`). **Then**
+the operator picks the next arc: R-09 (contracts + balance) is the next R-series
+row; R-06 (ownership decomposition) is deferred; R-10 (HUD/art) stays an art
+lane. Do not start a new arc without the operator choosing it. Push control is
+separate from commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -1204,8 +1219,10 @@ pickup panel. The screenshot tour gained `17_ground_drops` (drops falling to res
 icon-drawn, with the pickup toast) — capture reviewed (drops sit on the ground with
 shadows, rendered as their inventory icons). Only `item_drop._draw` uses existing
 icon art (no new art produced; R-10 still owns art). Source smoke **384/384** (two
-consecutive runs), validator PASS, capsule `public_repo` healthy. **Not yet
-committed (operator gates commit/push).**
+consecutive runs), validator PASS, capsule `public_repo` healthy. **Committed +
+pushed 2026-07-24 (`43f304e`, with slice 2 `4890c04`); origin/main == 43f304e.**
+Not export-verified locally — the R-04 CI run triggered by the push covers the
+Linux export.
 
 **R-08 slice 1 (visible farmhand settler).** `scripts/entities/subject.gd` is a `CharacterBody2D`
 farmhand -- a concrete visible actor layered ON TOP of the unchanged abstract
