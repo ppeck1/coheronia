@@ -1018,19 +1018,19 @@ production and are queued in the matrix's image-production follow-up table
 with exact asset ids, sizes, defects, contract paths, and acceptance
 checks -- a code lane never produces final PNGs.
 
-## Release Foundations + Contracts Arc (Active)
+## Release Foundations + Contracts Arc (Complete Through R-09)
 
 The Release Foundations arc (`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`) is
-complete through R-08 (R-00..R-05 export/save/CI/cleanup, R-07 playability
-baseline, R-08 subject-labor MVP). R-06 (ownership decomposition) is deferred;
-R-10 (HUD/art) is an art lane. The active row is **R-09 (Contracts + balance)**,
-authored in `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
+complete through R-09 (R-00..R-05 export/save/CI/cleanup, R-07 playability
+baseline, R-08 subject-labor MVP, R-09 contracts + balance). R-06 (ownership
+decomposition) is deferred; R-10 (HUD/art) is an art lane. The R-09 authority is
+`docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
 
 | Slice | Row | State |
 |---|---|---|
 | R-09.1 | Contract foundation: lifecycle + `stockpile_at_least`/`grant_items`, save 0.5→0.6, accept/reload re-eval edges | Done 2026-07-24 (source 394/394, exported 388/388 + 6 skipped) |
-| R-09.2 | Objective + reward expansion; contracts panel | Not started |
-| R-09.3 | Deterministic fixed-seed balance report | Not started |
+| R-09.2 | Objective + reward expansion; contracts panel | Done 2026-07-24 (source 401/401, exported 395/395 + 6 skipped) |
+| R-09.3 | Deterministic fixed-seed balance report | Done 2026-07-24 (source 403/403, exported 397/397 + 6 skipped; `docs/reports/r09_balance_report.*`) |
 
 ## Current Fable Continuation
 
@@ -1040,20 +1040,23 @@ You are working in <repo-root>.
 Read README.md, docs/HANDOFF.md, docs/FABLE_TASK_QUEUE.md,
 docs/WORK_ORDER_RELEASE_FOUNDATIONS.md, and
 docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md (the active-arc row authority). FQ-00
-through FQ-21, the presentation recovery arc (PR-00..PR-08 code lane), and the
-Release Foundations arc through R-08 are all done and pushed. PR-09 (later skill
-expansion) and PR-10 (HUD chrome / image) remain non-code lanes; R-06 (ownership
-decomposition) is deferred; R-10 is an art lane. Do not start any of those.
+through FQ-21, the presentation recovery arc (PR-00..PR-08 code lane), the
+Release Foundations arc through R-08, and **R-09 (Contracts + balance)** are all
+done and pushed. PR-09 (later skill expansion) and PR-10 (HUD chrome / image)
+remain non-code lanes; R-06 (ownership decomposition) is deferred; R-10 is an
+art lane. Do not start any of those unless the operator explicitly chooses them.
 
-**The active arc is R-09 (Contracts + balance).** R-09 slice 1 (contract
-foundation) is DONE and pushed: the `available -> active -> completed ->
+**R-09 is complete.** It includes the `available -> active -> completed ->
 claimed` lifecycle, `stockpile_at_least`/`grant_items`, live-state observation
-with latching, transactional claim, accept/reload re-evaluation edges, and the
-0.5 -> 0.6 save bump. Source smoke 394/394 (two consecutive), exported 388/388 +
-6 skipped, CI green. **Next: R-09 slice 2** -- expand the objective and reward
-vocabulary and add a player-facing contracts panel, per
-docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md; then slice 3 (deterministic fixed-seed
-balance report). Do not start slice 2 until the current work is committed.
+with latching, transactional claim, accept/reload re-evaluation edges, the 0.5
+-> 0.6 save bump, the remaining approved objective vocabulary
+(`station_built`, `survive_to_day`, `defeat_enemies`, `craft_items`), event-only
+progress persisted by stable objective id, `grant_xp` rewards routed through
+`award_xp`, a player-facing Contracts panel from the Town Hall, and the
+deterministic fixed-seed balance report (`r09_fixed_seed_steward_policy`) with
+tracked JSON/markdown baselines in `docs/reports/`. Source smoke 403/403;
+exported Windows smoke 397/397 + 6 skipped. The next code arc is intentionally
+unselected.
 
 The **Release Foundations** arc (`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`) is the
 active code-lane sequence. **R-00 (Export-readiness audit) and R-01 (Export-safe

@@ -7,6 +7,7 @@ extends Node
 const MusicManifest := preload("res://scripts/audio/music_manifest.gd")
 const AudioSettings := preload("res://scripts/audio/audio_settings.gd")   # R-07
 const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
+const ContractBalanceReportScript := preload("res://scripts/contracts/balance_report.gd")   # R-09.3
 
 var _results: Array = []
 var _details: Dictionary = {}
@@ -4696,6 +4697,154 @@ func _run() -> void:
 	# Restore the pre-test world so later sections are unaffected (mirrors check 7).
 	root.save_manager.apply_state(_r09_lg_snap)
 	root.save_manager.apply_player_position(_r09_lg_snap)
+
+	# (11) R-09.2 reconstructable objectives: station_built and survive_to_day.
+	var _r092_day_saved: int = root.day_count
+	var _r092_stations_saved: Dictionary = hall.stations_built.duplicate(true)
+	var _r092_xp_saved: Dictionary = root.xp_totals.duplicate(true)
+	var _r092_base_xp_saved: int = root.base_xp
+	var _r092_level_saved: int = root.player_level
+	var _r092_level_start_saved: int = root._level_start_xp
+
+	_r09_cm.apply([])
+	hall.stations_built["workbench"] = false
+	var _r092_station_accept: bool = root.accept_contract("workbench_charter")
+	hall.stations_built["workbench"] = true
+	_r09_cm.evaluate()
+	_check("r09_objective_station_built",
+		_r092_station_accept and _r09_cm.status_of("workbench_charter") == "completed",
+		"status=%s" % _r09_cm.status_of("workbench_charter"))
+
+	_r09_cm.apply([])
+	root.day_count = 1
+	var _r092_day_accept: bool = root.accept_contract("second_dawn")
+	var _r092_day_active: bool = _r09_cm.status_of("second_dawn") == "active"
+	root.day_count = 2
+	_r09_cm.evaluate()
+	_check("r09_objective_survive_to_day",
+		_r092_day_accept and _r092_day_active and _r09_cm.status_of("second_dawn") == "completed",
+		"active_at_day1=%s status=%s" % [str(_r092_day_active), _r09_cm.status_of("second_dawn")])
+
+	# (12) Event-only objectives count only post-activation events and freeze at
+	# completion.
+	_r09_cm.apply([])
+	_r09_cm.note_event("defeat_enemies")
+	_r09_cm.accept("first_hunt")
+	_r09_cm.note_event("defeat_enemies")
+	var _r092_defeat_p1: Dictionary = _r09_cm.objective_progress("first_hunt")
+	var _r092_defeat_active: bool = _r09_cm.status_of("first_hunt") == "active" \
+		and int(_r092_defeat_p1.get("current", 0)) == 1
+	_r09_cm.note_event("defeat_enemies")
+	var _r092_defeat_done: bool = _r09_cm.status_of("first_hunt") == "completed"
+	_r09_cm.note_event("defeat_enemies")
+	var _r092_defeat_p2: Dictionary = _r09_cm.objective_progress("first_hunt")
+	_check("r09_event_progress_after_activation_only",
+		_r092_defeat_active and _r092_defeat_done and int(_r092_defeat_p2.get("current", 0)) == 2,
+		"p1=%d p2=%d status=%s" % [int(_r092_defeat_p1.get("current", 0)),
+			int(_r092_defeat_p2.get("current", 0)), _r09_cm.status_of("first_hunt")])
+
+	_r09_cm.apply([])
+	_r09_cm.accept("torch_practice")
+	_r09_cm.note_event("craft_items", "craft_torch")
+	var _r092_ser_progress: Array = _r09_cm.serialize()
+	_r09_cm.apply(_r092_ser_progress)
+	var _r092_reload_progress: Dictionary = _r09_cm.objective_progress("torch_practice")
+	_r09_cm.evaluate()
+	var _r092_reload_still_active: bool = _r09_cm.status_of("torch_practice") == "active" \
+		and int(_r092_reload_progress.get("current", 0)) == 1
+	_r09_cm.note_event("craft_items", "craft_torch")
+	_check("r09_event_progress_persists_no_replay",
+		_r092_reload_still_active and _r09_cm.status_of("torch_practice") == "completed",
+		"reload_progress=%d status=%s" % [
+			int(_r092_reload_progress.get("current", 0)), _r09_cm.status_of("torch_practice")])
+
+	# (13) craft_items keys by recipe and two contracts on the same event type
+	# keep independent objective ids/progress.
+	_r09_cm.apply([])
+	_r09_cm.accept("torch_order")
+	_r09_cm.accept("torch_practice")
+	_r09_cm.note_event("craft_items", "smelt_iron")
+	var _r092_wrong_key_ok: bool = int(_r09_cm.objective_progress("torch_order").get("current", 0)) == 0 \
+		and int(_r09_cm.objective_progress("torch_practice").get("current", 0)) == 0
+	_r09_cm.note_event("craft_items", "craft_torch")
+	var _r092_first_done: bool = _r09_cm.status_of("torch_order") == "completed" \
+		and _r09_cm.status_of("torch_practice") == "active" \
+		and int(_r09_cm.objective_progress("torch_practice").get("current", 0)) == 1
+	_r09_cm.note_event("craft_items", "craft_torch")
+	var _r092_second_done: bool = _r09_cm.status_of("torch_practice") == "completed"
+	_check("r09_multi_contract_independent",
+		_r092_wrong_key_ok and _r092_first_done and _r092_second_done,
+		"wrong_key=%s order=%s practice=%s" % [str(_r092_wrong_key_ok),
+			_r09_cm.status_of("torch_order"), _r09_cm.status_of("torch_practice")])
+
+	# (14) grant_xp routes through the real progression authority.
+	_r09_cm.apply([])
+	hall.stations_built["workbench"] = true
+	root.accept_contract("workbench_charter")
+	var _r092_civic_before: int = int(root.xp_totals.get("civic", 0.0))
+	var _r092_xp_claim: bool = root.claim_contract("workbench_charter")
+	var _r092_civic_after: int = int(root.xp_totals.get("civic", 0.0))
+	_check("r09_reward_routes_through_authority",
+		_r092_xp_claim and _r09_cm.status_of("workbench_charter") == "claimed" \
+			and _r092_civic_after > _r092_civic_before,
+		"claim=%s civic %d->%d" % [str(_r092_xp_claim), _r092_civic_before, _r092_civic_after])
+
+	# (15) the player-facing contracts panel lists definitions, accepts a
+	# satisfied contract into completed, and claims it once.
+	_r09_cm.apply([])
+	hall.stockpile["stone"] = 20
+	var _r092_panel = root._contracts_panel
+	_r092_panel.open()
+	var _r092_panel_lists: bool = _r092_panel.is_open() \
+		and _r092_panel.contract_count() >= 6 \
+		and _r092_panel.contract_row_status("stone_reserve") == "available" \
+		and _r092_panel.contract_row_action_enabled("stone_reserve")
+	root.accept_contract("stone_reserve")
+	_r092_panel.refresh()
+	var _r092_panel_completed: bool = _r092_panel.contract_row_status("stone_reserve") == "completed" \
+		and _r092_panel.contract_row_action_enabled("stone_reserve")
+	root.claim_contract("stone_reserve")
+	_r092_panel.refresh()
+	var _r092_panel_claimed: bool = _r092_panel.contract_row_status("stone_reserve") == "claimed" \
+		and not _r092_panel.contract_row_action_enabled("stone_reserve")
+	_r092_panel.close()
+	_check("r09_contracts_panel_status_actions",
+		_r092_panel_lists and _r092_panel_completed and _r092_panel_claimed,
+		"lists=%s completed=%s claimed=%s" % [str(_r092_panel_lists),
+			str(_r092_panel_completed), str(_r092_panel_claimed)])
+
+	# (16) R-09.3: deterministic fixed-seed balance report. The smoke drives the
+	# same pure report logic as the CI driver; timestamps are stripped before
+	# comparison.
+	var _r093_runner = ContractBalanceReportScript.new()
+	var _r093_a: Dictionary = _r093_runner.run_report()
+	var _r093_b: Dictionary = _r093_runner.run_report()
+	var _r093_norm_a: Dictionary = _r093_runner.normalized_payload(_r093_a)
+	var _r093_norm_b: Dictionary = _r093_runner.normalized_payload(_r093_b)
+	var _r093_deterministic: bool = JSON.stringify(_r093_norm_a) == JSON.stringify(_r093_norm_b) \
+		and str(_r093_a.get("metadata", {}).get("scenario_id", "")) == "r09_fixed_seed_steward_policy" \
+		and int(_r093_a.get("metadata", {}).get("world_seed", 0)) == 90240724
+	_check("r09_balance_report_deterministic", _r093_deterministic,
+		"scenario=%s days=%d" % [str(_r093_a.get("metadata", {}).get("scenario_id", "")),
+			int(_r093_a.get("metadata", {}).get("days", 0))])
+
+	var _r093_contracts_before := FileAccess.get_file_as_string("res://data/contracts.json")
+	var _r093_xp_before := FileAccess.get_file_as_string("res://data/progression/player_xp.json")
+	var _r093_recipes_before := FileAccess.get_file_as_string("res://data/recipes.json")
+	_r093_runner.run_report()
+	var _r093_no_mutation: bool = _r093_contracts_before == FileAccess.get_file_as_string("res://data/contracts.json") \
+		and _r093_xp_before == FileAccess.get_file_as_string("res://data/progression/player_xp.json") \
+		and _r093_recipes_before == FileAccess.get_file_as_string("res://data/recipes.json")
+	_check("r09_balance_report_no_mutation", _r093_no_mutation,
+		"contracts/xp/recipes unchanged")
+
+	root.day_count = _r092_day_saved
+	hall.stations_built = _r092_stations_saved.duplicate(true)
+	root.xp_totals = _r092_xp_saved.duplicate(true)
+	root.base_xp = _r092_base_xp_saved
+	root.player_level = _r092_level_saved
+	root._level_start_xp = _r092_level_start_saved
+	root._refresh_hud_progression()
 
 	# Leave contracts all-available and net player inventory unchanged for the
 	# sections that follow.

@@ -35,6 +35,8 @@ REQUIRED_FILES = [
     "data/player_visuals.json",
     "data/items.json",
     "data/contracts.json",
+    "scripts/contracts/balance_report.gd",
+    "scripts/ci/balance_report.py",
     "art/source_templates/ASSET_TEMPLATE.md",
     "art/source_templates/BACKGROUND_TEMPLATE.md",
     "scripts/shell/prologue.gd",
@@ -749,12 +751,21 @@ for im_id, im in items_meta["items"].items():
         fail(f"items.json entry {im_id} must be a dict")
 print("PASS items data")
 
-# R-09: contract (directed-goal) definitions. Slice 1 is deliberately narrow --
-# exactly one objective and one reward per contract, from a fixed vocabulary,
-# with every referenced id validated. See docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md.
-CONTRACT_OBJECTIVE_TYPES = {"stockpile_at_least"}
-CONTRACT_REWARD_TYPES = {"grant_items"}
+# R-09: contract (directed-goal) definitions. R-09.2 keeps the vocabulary narrow
+# and validates every referenced authority id. See
+# docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md.
+CONTRACT_OBJECTIVE_TYPES = {
+    "stockpile_at_least",
+    "station_built",
+    "survive_to_day",
+    "defeat_enemies",
+    "craft_items",
+}
+CONTRACT_REWARD_TYPES = {"grant_items", "grant_xp"}
+EVENT_OBJECTIVE_TYPES = {"defeat_enemies", "craft_items"}
 _item_ids = set(items_meta["items"].keys())
+_contract_xp_data = json.loads((ROOT / "data/progression/player_xp.json").read_text(encoding="utf-8"))
+_xp_event_ids = {ev.get("event_id") for ev in _contract_xp_data.get("xp_events", [])}
 contracts_data = json.loads((ROOT / "data/contracts.json").read_text(encoding="utf-8"))
 if not isinstance(contracts_data.get("contracts"), list):
     fail("contracts.json missing contracts list")
@@ -787,6 +798,22 @@ for c in contracts_data["contracts"]:
             fail(f"contracts.json {cid}: objective item {obj.get('item')!r} not in items.json")
         if not isinstance(obj.get("count"), int) or obj["count"] <= 0:
             fail(f"contracts.json {cid}: objective count must be a positive int")
+    elif otype == "station_built":
+        if obj.get("station") not in station_by_id:
+            fail(f"contracts.json {cid}: objective station {obj.get('station')!r} not in recipes.json stations")
+    elif otype == "survive_to_day":
+        if not isinstance(obj.get("day"), int) or obj["day"] <= 1:
+            fail(f"contracts.json {cid}: survive_to_day day must be an int > 1")
+    elif otype == "defeat_enemies":
+        if not isinstance(obj.get("count"), int) or obj["count"] <= 0:
+            fail(f"contracts.json {cid}: defeat_enemies count must be a positive int")
+    elif otype == "craft_items":
+        if obj.get("recipe") not in recipe_ids:
+            fail(f"contracts.json {cid}: objective recipe {obj.get('recipe')!r} not in recipes.json")
+        if not isinstance(obj.get("count"), int) or obj["count"] <= 0:
+            fail(f"contracts.json {cid}: craft_items count must be a positive int")
+    if otype in EVENT_OBJECTIVE_TYPES and "." not in oid:
+        fail(f"contracts.json {cid}: event-only objective oid should be stable and namespaced")
     rtype = rew.get("type")
     if rtype not in CONTRACT_REWARD_TYPES:
         fail(f"contracts.json {cid}: invalid reward type {rtype!r}")
@@ -799,7 +826,26 @@ for c in contracts_data["contracts"]:
                 fail(f"contracts.json {cid}: reward item {rid!r} not in items.json")
             if not isinstance(rn, int) or rn <= 0:
                 fail(f"contracts.json {cid}: reward count for {rid} must be a positive int")
+    elif rtype == "grant_xp":
+        if rew.get("event_id") not in _xp_event_ids:
+            fail(f"contracts.json {cid}: grant_xp event_id {rew.get('event_id')!r} not in player_xp.json")
 print("PASS contracts data")
+_balance_text = (ROOT / "scripts/contracts/balance_report.gd").read_text(encoding="utf-8")
+for needle in [
+    "SCENARIO_ID",
+    "WORLD_SEED",
+    "func normalized_payload",
+    "func write_outputs",
+    "func markdown_for",
+]:
+    if needle not in _balance_text:
+        fail(f"balance_report.gd missing {needle}")
+_balance_driver_text = (ROOT / "scripts/ci/balance_report.py").read_text(encoding="utf-8")
+if "normalized(first) != normalized(second)" not in _balance_driver_text or "data_hashes()" not in _balance_driver_text:
+    fail("scripts/ci/balance_report.py must compare normalized runs and assert no data mutation")
+if "run_balance_report" not in (ROOT / "scripts/ci/verify.py").read_text(encoding="utf-8"):
+    fail("scripts/ci/verify.py must run the R-09.3 balance report when Godot is supplied")
+print("PASS contract balance report")
 _va_missing = 0
 for va_cat, va_ids in [
     ("blocks", [b for b in blocks if b != "air"]),

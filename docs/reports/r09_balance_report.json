@@ -1,0 +1,246 @@
+{
+  "bottlenecks": [],
+  "contract_completion_latency_days": {
+    "first_hunt": 2,
+    "second_dawn": 1,
+    "stone_reserve": 1,
+    "torch_order": 0,
+    "torch_practice": 1,
+    "workbench_charter": 1
+  },
+  "days": [
+    {
+      "actions": [
+        "craft_torch"
+      ],
+      "bottlenecks": [],
+      "contracts": {
+        "first_hunt": "active",
+        "second_dawn": "active",
+        "stone_reserve": "active",
+        "torch_order": "claimed",
+        "torch_practice": "active",
+        "workbench_charter": "active"
+      },
+      "day": 1,
+      "inflow": {
+        "coal": 2,
+        "food": 3,
+        "stone": 12,
+        "wood": 10
+      },
+      "outflow": {
+        "coal": 1,
+        "wood": 1
+      },
+      "pressure": {
+        "coherence": 41.0,
+        "load": 59.0,
+        "resilience": 70.5,
+        "threat": 2.0
+      },
+      "reward_value": 4,
+      "rewards_claimed": [
+        {
+          "base_xp": 0,
+          "contract": "torch_order",
+          "items": {
+            "crop_seeds": 2
+          },
+          "xp": {}
+        }
+      ],
+      "stockpile": {
+        "coal": 1,
+        "food": 3,
+        "stone": 12,
+        "wood": 9
+      }
+    },
+    {
+      "actions": [
+        "build_workbench",
+        "craft_torch",
+        "defeat_enemy"
+      ],
+      "bottlenecks": [],
+      "contracts": {
+        "first_hunt": "active",
+        "second_dawn": "claimed",
+        "stone_reserve": "claimed",
+        "torch_order": "claimed",
+        "torch_practice": "claimed",
+        "workbench_charter": "claimed"
+      },
+      "day": 2,
+      "inflow": {
+        "food": 2,
+        "stone": 15,
+        "wood": 8
+      },
+      "outflow": {
+        "coal": 1,
+        "stone": 6,
+        "wood": 13
+      },
+      "pressure": {
+        "coherence": 65.0,
+        "load": 30.0,
+        "resilience": 72.0,
+        "threat": 8.0
+      },
+      "reward_value": 39,
+      "rewards_claimed": [
+        {
+          "base_xp": 0,
+          "contract": "stone_reserve",
+          "items": {
+            "torch": 3
+          },
+          "xp": {}
+        },
+        {
+          "base_xp": 2,
+          "contract": "workbench_charter",
+          "items": {},
+          "xp": {
+            "civic": 10
+          }
+        },
+        {
+          "base_xp": 0,
+          "contract": "second_dawn",
+          "items": {
+            "food": 4
+          },
+          "xp": {}
+        },
+        {
+          "base_xp": 2,
+          "contract": "torch_practice",
+          "items": {},
+          "xp": {
+            "craft": 8
+          }
+        }
+      ],
+      "stockpile": {
+        "food": 5,
+        "stone": 21,
+        "wood": 4
+      }
+    },
+    {
+      "actions": [
+        "defeat_enemy"
+      ],
+      "bottlenecks": [],
+      "contracts": {
+        "first_hunt": "claimed",
+        "second_dawn": "claimed",
+        "stone_reserve": "claimed",
+        "torch_order": "claimed",
+        "torch_practice": "claimed",
+        "workbench_charter": "claimed"
+      },
+      "day": 3,
+      "inflow": {
+        "coal": 1,
+        "food": 4,
+        "stone": 4
+      },
+      "outflow": {},
+      "pressure": {
+        "coherence": 79.0,
+        "load": 24.0,
+        "resilience": 81.5,
+        "threat": 12.0
+      },
+      "reward_value": 14,
+      "rewards_claimed": [
+        {
+          "base_xp": 2,
+          "contract": "first_hunt",
+          "items": {},
+          "xp": {
+            "combat": 12
+          }
+        }
+      ],
+      "stockpile": {
+        "coal": 1,
+        "food": 9,
+        "stone": 25,
+        "wood": 4
+      }
+    },
+    {
+      "actions": [
+        "stabilize_stockpile"
+      ],
+      "bottlenecks": [],
+      "contracts": {
+        "first_hunt": "claimed",
+        "second_dawn": "claimed",
+        "stone_reserve": "claimed",
+        "torch_order": "claimed",
+        "torch_practice": "claimed",
+        "workbench_charter": "claimed"
+      },
+      "day": 4,
+      "inflow": {
+        "food": 3,
+        "stone": 3,
+        "wood": 4
+      },
+      "outflow": {},
+      "pressure": {
+        "coherence": 88.0,
+        "load": 19.0,
+        "resilience": 100.0,
+        "threat": 2.0
+      },
+      "reward_value": 0,
+      "rewards_claimed": [],
+      "stockpile": {
+        "coal": 1,
+        "food": 12,
+        "stone": 28,
+        "wood": 8
+      }
+    }
+  ],
+  "final_contract_status": {
+    "first_hunt": "claimed",
+    "second_dawn": "claimed",
+    "stone_reserve": "claimed",
+    "torch_order": "claimed",
+    "torch_practice": "claimed",
+    "workbench_charter": "claimed"
+  },
+  "metadata": {
+    "days": 4,
+    "generated_at": "2026-07-24T11:08:26",
+    "policy": "Steward bootstrap: store stone, build workbench, craft torches, survive and hunt",
+    "scenario_id": "r09_fixed_seed_steward_policy",
+    "scope": "Deterministic evidence under one scripted policy; not global balance proof.",
+    "world_seed": 90240724
+  },
+  "proposed_tuning": [
+    "No automatic balance mutation. Under this policy every R-09.2 contract reaches claimed by day 4.",
+    "Keep `first_hunt` at 2 defeats for now; it completes later than the setup contracts and supplies the intended combat pacing contrast."
+  ],
+  "reward_totals": {
+    "base_xp": 6,
+    "items": {
+      "crop_seeds": 2,
+      "food": 4,
+      "torch": 3
+    },
+    "xp": {
+      "civic": 10,
+      "combat": 12,
+      "craft": 8
+    }
+  }
+}

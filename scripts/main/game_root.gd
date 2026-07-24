@@ -21,6 +21,7 @@ const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
 const BuildPreviewScript := preload("res://scripts/world/build_preview.gd")   # R-07
 const CraftPanelScript := preload("res://scripts/ui/craft_panel.gd")   # R-07
 const ContractModelScript := preload("res://scripts/contracts/contract_model.gd")   # R-09
+const ContractsPanelScript := preload("res://scripts/ui/contracts_panel.gd")   # R-09
 
 const DAY_LENGTH_SECONDS := 100.0
 const NIGHT_START := 0.65          # time_of_day fraction where night begins
@@ -60,6 +61,7 @@ const CAVE_CRAWLER_CAP := 2
 var _pause_menu: CanvasLayer   # R-07: real pause/settings/keybinds
 var _build_preview: Node2D     # R-07: placement ghost + validity tint
 var _craft_panel: CanvasLayer   # R-07: unified crafting/building navigation
+var _contracts_panel: CanvasLayer   # R-09: player-facing directed goals
 var time_of_day := 0.25
 var _clock_refresh_accum := 0.0
 var day_count := 1
@@ -163,6 +165,9 @@ func _ready() -> void:
 	_craft_panel.setup(player, town_hall)
 	_craft_panel.craft_requested.connect(_on_craft_panel_craft)
 	_craft_panel.build_requested.connect(_on_craft_panel_build)
+	_contracts_panel = ContractsPanelScript.new()
+	add_child(_contracts_panel)
+	_contracts_panel.setup(self)
 	# R-08: the visible settler crew. Saved subjects were restored above by
 	# apply_state -> apply_subjects; if none exist (a fresh world), spawn the
 	# starting crew -- a farmhand and a repairer, one on each side of the hall.
@@ -444,6 +449,7 @@ func _wire_references() -> void:
 	settlement.game_root = self
 	contracts.town_hall = town_hall   # R-09: live authority reads + reward grant
 	contracts.player = player
+	contracts.game_root = self
 	save_manager.world = world
 	save_manager.player = player
 	save_manager.town_hall = town_hall
@@ -480,6 +486,7 @@ func _wire_signals() -> void:
 	player.inventory_changed.connect(_refresh_goals)   # FQ-14: gather progress
 	hud.deposit_requested.connect(_on_deposit_requested)
 	hud.repair_requested.connect(_on_repair_requested)
+	hud.contracts_requested.connect(_open_contracts_panel)
 	hud.subject_job_cycle_requested.connect(_on_subject_job_cycle)   # R-08 slice 2
 
 
@@ -579,7 +586,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		# R-07: Esc closes an open panel first; otherwise it opens the pause menu
 		# (which freezes the sim and offers Resume/Settings/Save/Save & Quit)
 		# instead of the old abrupt save-and-exit.
-		if _craft_panel != null and _craft_panel.is_open():
+		if _contracts_panel != null and _contracts_panel.is_open():
+			_contracts_panel.close()
+		elif _craft_panel != null and _craft_panel.is_open():
 			_craft_panel.close()
 		elif hud.skill_panel_open():
 			hud.toggle_skill_panel()
@@ -773,6 +782,7 @@ func _on_dawn() -> void:
 	log_event("Dawn breaks. The pressure recedes." if survived > 0 else "Dawn breaks.")
 	award_xp("night_survived")
 	consume_daily_food()
+	contracts.evaluate()   # R-09: survive_to_day reads day_count live
 	settlement.compute()
 	music_event.emit("dawn")
 
@@ -1019,6 +1029,7 @@ func spawn_enemy_for_test(enemy_id: String) -> Node:
 func _on_threat_died() -> void:
 	log_event("A threat was destroyed.")
 	award_xp("enemy_defeated")
+	contracts.note_event("defeat_enemies")
 	settlement.compute()
 	call_deferred("_refresh_threat_display")
 
@@ -1088,6 +1099,7 @@ func _on_build_station_requested(station_id: String) -> void:
 	if town_hall.build_station(station_id):
 		log_event("Built the %s." % station_name)
 		award_xp("tool_crafted")
+		contracts.evaluate()   # R-09: station_built reads live station state
 		_craft_confirm_fx(town_hall.global_position)
 	else:
 		log_event("Cannot build the %s (already built, prerequisite missing, or stockpile short)." % station_name)
@@ -1103,6 +1115,7 @@ func _on_craft_station_requested(recipe_id: String) -> void:
 	if town_hall.craft_station(recipe_id, player):
 		log_event("Crafted: %s." % recipe_name)
 		award_xp("tool_crafted")
+		contracts.note_event("craft_items", recipe_id)
 		_craft_confirm_fx(town_hall.global_position)
 	else:
 		log_event("Cannot craft %s (station not built, slot occupied, or stockpile short)." % recipe_name)
@@ -1136,6 +1149,7 @@ func _on_craft_panel_craft(recipe_id: String) -> void:
 		if ok:
 			log_event("Crafted: %s." % rname)
 			award_xp("tool_crafted")
+			contracts.note_event("craft_items", recipe_id)
 			_craft_confirm_fx(town_hall.global_position)
 		else:
 			log_event("Cannot craft %s (stockpile short or slot already filled)." % rname)
@@ -1170,6 +1184,7 @@ func _on_player_placed(_block_id: String) -> void:
 func _on_player_crafted(recipe_id: String) -> void:
 	log_event("Crafted %s." % BlockRegistry.get_recipe(recipe_id).get("display_name", recipe_id))
 	award_xp("tool_crafted")
+	contracts.note_event("craft_items", recipe_id)
 	_craft_confirm_fx(player.global_position)
 
 
@@ -1316,7 +1331,18 @@ func claim_contract(id: String) -> bool:
 	var res: Dictionary = contracts.claim(id)
 	if bool(res.get("ok", false)):
 		log_event("Contract complete: %s" % str(contracts.definition(id).get("title", id)))
+		_refresh_hud_progression()
 	return bool(res.get("ok", false))
+
+
+func contract_snapshot() -> Array:
+	contracts.evaluate()
+	return contracts.snapshot()
+
+
+func _open_contracts_panel() -> void:
+	if _contracts_panel != null:
+		_contracts_panel.open()
 
 
 func serialize_threats() -> Array:

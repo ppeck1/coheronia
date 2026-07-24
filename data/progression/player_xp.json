@@ -8,7 +8,8 @@
         "enemy_defeated",
         "raid_survived",
         "boss_defeated",
-        "subject_defended"
+        "subject_defended",
+        "contract_reward_combat"
       ],
       "unlock_direction": "Health, weapon handling, active abilities, threat control"
     },
@@ -46,7 +47,8 @@
         "subject_fed",
         "town_hall_repaired",
         "crisis_resolved",
-        "subject_needs_met"
+        "subject_needs_met",
+        "contract_reward_civic"
       ],
       "unlock_direction": "Leadership perks, morale effects, legitimacy, command radius"
     },
@@ -70,7 +72,8 @@
         "tool_crafted",
         "tool_upgraded",
         "workstation_built",
-        "rare_drop_used"
+        "rare_drop_used",
+        "contract_reward_craft"
       ],
       "unlock_direction": "Recipe quality, durability, station efficiency, experimentation"
     }
@@ -164,6 +167,39 @@
       ],
       "also_awards": {
         "base_xp": 1
+      }
+    },
+    {
+      "event_id": "contract_reward_combat",
+      "xp_type": "combat",
+      "base_amount": 12,
+      "scales_with": [
+        "contract"
+      ],
+      "also_awards": {
+        "base_xp": 2
+      }
+    },
+    {
+      "event_id": "contract_reward_civic",
+      "xp_type": "civic",
+      "base_amount": 10,
+      "scales_with": [
+        "contract"
+      ],
+      "also_awards": {
+        "base_xp": 2
+      }
+    },
+    {
+      "event_id": "contract_reward_craft",
+      "xp_type": "craft",
+      "base_amount": 8,
+      "scales_with": [
+        "contract"
+      ],
+      "also_awards": {
+        "base_xp": 2
       }
     },
     {

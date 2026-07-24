@@ -1,27 +1,25 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-24: R-00..R-05 + R-07 + R-08 done; R-09 slice 1 done)
+## Current State (2026-07-24: R-00..R-05 + R-07 + R-08 done; R-09 complete)
 
-**NEXT INSTANCE — start here.** R-09 (Contracts + balance) is the active arc,
-run design-first per operator gate. The approved design lives in
-`docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md` (row authority). **R-09 slice 1
-(contract foundation) is DONE:** a data-driven directed-goals system
-(`scripts/contracts/contract_model.gd` + `data/contracts.json`) with a persisted
-`available → active → completed → claimed` lifecycle that observes *live*
-authoritative state (no shadow counters), latches completion on first threshold
-reach, and grants rewards transactionally through the player inventory only. The
-world save schema bumped **0.5 → 0.6** (accepts 0.6/0.5/0.4; missing contracts
-key migrates to empty). A small R-09.1 hardening pass added the accept-time and
-F9/Restore-reload re-evaluation edges (an already-satisfied contract completes
-on accept or reload) with two more `r09_` checks. Validator + asset audit +
-capsule doctor green; source waited-GUI smoke **394/394 ×2**, 0 skipped (10
-`r09_` checks); exported **388/388 + 6 skipped**; **CI green** (R-04 verified the
-Linux export + exported-artifact run). **Next:** R-09 slice 2 (more objective +
-reward types, a contracts panel) then slice 3 (deterministic fixed-seed balance
-report), per `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`. R-06 (ownership
-decomposition) deferred; R-10 (HUD/art) art lane. Do not start a new arc without
-the operator choosing it. Push control is separate
-from commit control — never push unless told.
+**NEXT INSTANCE — start here.** R-09 (Contracts + balance) is COMPLETE per
+`docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`: data-driven directed goals
+(`scripts/contracts/contract_model.gd` + `data/contracts.json`) now cover
+stockpile thresholds, built stations, day survival, defeated enemies, and crafted
+recipes; event-only progress persists only by stable objective id; rewards route
+transactionally through existing player-facing authorities (`player.inventory`
+and `game_root.award_xp`); and the Town Hall **Contracts** panel exposes
+Accept/Claim/status/progress rows. The world save schema is **0.6** (accepts
+0.6/0.5/0.4; missing contracts migrates to empty). R-09.3 adds the deterministic
+fixed-seed scenario `r09_fixed_seed_steward_policy` with JSON + markdown
+evidence (`build/balance_report.*`, tracked baseline
+`docs/reports/r09_balance_report.*`) and no balance/data mutation. Validator,
+asset audit, HUD-kit verify, gear alignment, capsule doctor, wiki link check,
+balance report generation, source waited-GUI smoke, and exported Windows smoke
+are green: source **403/403**, 0 skipped; export **397/397 + 6 skipped**
+(2026-07-24). **Next code arc is intentionally unselected.** R-06 (ownership
+decomposition) remains deferred; R-10/HUD polish remains art lane. Push control
+is separate from commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is

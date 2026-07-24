@@ -1,11 +1,16 @@
 # R-09 — Contracts & Balance (Work Order)
 
-**Status: DESIGN APPROVED. Slice 1 IMPLEMENTED + verified, incl. the accept/
-reload re-evaluation hardening (source smoke 394/394 ×2, 0 skipped; exported
-388/388 + 6 skipped, 2026-07-24). Slices 2–3 NOT STARTED.**
+**Status: IMPLEMENTED + verified.** Slice 1 shipped the accept/reload
+re-evaluation hardening (source smoke 394/394 ×2, 0 skipped; exported 388/388 +
+6 skipped, 2026-07-24). Slice 2 shipped the approved objective/reward expansion
+and Contracts panel (source smoke 401/401, 0 skipped; exported Windows smoke
+395/395 + 6 skipped, 2026-07-24). Slice 3 shipped the deterministic balance
+report (source smoke 403/403, 0 skipped; exported Windows smoke 397/397 + 6
+skipped, 2026-07-24).
 
-This document is the row-level authority for R-09. Slice 1 (contract foundation)
-is implemented per the design below; slices 2–3 remain design-only.
+This document is the row-level authority for R-09. Slice 1 (contract foundation),
+Slice 2 (objective/reward expansion + panel), and Slice 3 (deterministic balance
+report) are implemented per the design below.
 `docs/HANDOFF.md`,
 `docs/FABLE_TASK_QUEUE.md`, and `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md` (R-09
 row) point here.
@@ -70,8 +75,8 @@ mechanics, so acceptance is simply the `available → active` transition.
 - **completed** — objective threshold first reached; **latches** (see §4).
 - **claimed** — reward granted exactly once (see §5); terminal.
 
-`failed` / `expired` are **not** in Slice 1 (expiry is omitted entirely; see
-§7). They arrive with Slice 2 only when implemented and tested.
+`failed` / `expired` are **not** in R-09.1 or R-09.2 (expiry is omitted entirely;
+see §7). They arrive only in a later explicit slice when implemented and tested.
 
 Persistence is minimal: the world save stores a record only for contracts that
 have advanced beyond `available` (i.e. active/completed/claimed). A defined
@@ -112,7 +117,7 @@ transition, guarded by the persisted status. Claiming an already-`claimed`
 contract is a no-op. Reloading after claim restores status `claimed` and never
 re-grants.
 
-## 6. Event-only objective rules (Slice 2)
+## 6. Event-only objective rules (Slice 2, implemented)
 
 - Count **only events that occur after activation**. Events before `active` or
   after `completed` do not accumulate.
@@ -125,7 +130,8 @@ re-grants.
 
 ## 7. Data schema
 
-**`data/contracts.json`** (definition; validated). No expiry field in Slice 1.
+**`data/contracts.json`** (definition; validated). No expiry field in R-09.1 or
+R-09.2.
 
 ```json
 {
@@ -156,7 +162,8 @@ settlement, which is world-owned, not the roaming character):
 
 Reconstructable objectives persist no `progress` (recomputed live). Event-only
 objectives (Slice 2) add `"progress": { "<objective_oid>": <int> }`. Expiry
-fields are added only when Slice 2 implements and tests them.
+fields remain absent from R-09.1/R-09.2 and must be added only with a later
+tested lifecycle slice.
 
 ## 8. Authority map
 
@@ -205,8 +212,8 @@ contract (Slice-1 narrowness enforced structurally).
 | Slice | Scope | New vocab | Deliverables |
 |---|---|---|---|
 | **R-09.1 — Foundation** | Definitions + validation; persistent lifecycle `available→active→completed→claimed`; explicit `stockpile_at_least` semantics with latching; transactional claim + `can_accept`; **one** contract (`stone_reserve`); no-double-pay; save `0.5→0.6` migration. Headless (no UI). | `stockpile_at_least` / `grant_items` | `contract_model.gd`, `contracts.json`, validator block, save wiring + version bump, focused smoke |
-| **R-09.2 — Objective & reward expansion** | Add the 4 remaining objective types + `grant_xp`; event-only accumulator rules (§6); contracts panel (accept/claim/status); multi-contract + reload-edge coverage; optional expiry (adds `expired`/`failed` + expiry schema, implemented **and tested** together). | +`station_built`, `survive_to_day`, `defeat_enemies`, `craft_items` / +`grant_xp` | UI panel, event-progress wiring, expanded smoke |
-| **R-09.3 — Deterministic balance report** | Fixed-seed **named scenario** + scripted policy over N in-game days; reports inflow/outflow, contract completion latency, pressure timeseries, reward value, bottlenecks; JSON + markdown; **no auto-mutation**. | (none — reporting) | balance runner, report artifacts, determinism smoke, documented baseline + proposed tuning for separate review |
+| **R-09.2 — Objective & reward expansion** | Add the 4 remaining objective types + `grant_xp`; event-only accumulator rules (§6); contracts panel (accept/claim/status/progress/reward); multi-contract + reload-edge coverage; expiry intentionally still omitted. | +`station_built`, `survive_to_day`, `defeat_enemies`, `craft_items` / +`grant_xp` | DONE: UI panel, event-progress wiring, expanded smoke (source 401/401; exported 395/395 + 6 skipped) |
+| **R-09.3 — Deterministic balance report** | Fixed-seed **named scenario** + scripted policy over N in-game days; reports inflow/outflow, contract completion latency, pressure timeseries, reward value, bottlenecks; JSON + markdown; **no auto-mutation**. | (none — reporting) | DONE: `scripts/contracts/balance_report.gd`, `scripts/ci/balance_report.py`, tracked baseline `docs/reports/r09_balance_report.{md,json}`, smoke `r09_balance_report_*`, verifier hook |
 
 ## 12. Balance report design (Slice 3)
 
@@ -221,7 +228,9 @@ dispensed, and bottleneck flags (contracts unmet within a window).
 - **The report identifies its scenario and scripted policy.** Results are
   described as **deterministic evidence under that policy**, not proof of
   global balance.
-- Emits `build/balance_report.json` + a markdown summary.
+- Emits `build/balance_report.json` + `build/balance_report.md`; the reviewed
+  baseline is tracked at `docs/reports/r09_balance_report.json` and
+  `docs/reports/r09_balance_report.md`.
 - **Changes no balance values** — it proposes tuning deltas in the markdown for
   separate human review.
 - Determinism is asserted by comparing **normalized report payloads** (metadata
@@ -248,14 +257,24 @@ dispensed, and bottleneck flags (contracts unmet within a window).
 | `r09_balance_report_deterministic` | two fixed-seed runs produce identical **normalized** payloads | 3 |
 | `r09_balance_report_no_mutation` | report run alters no data/balance values | 3 |
 
-## 14. Constraint checklist
+## 14. Closeout evidence (2026-07-24)
+
+- `scripts/ci/verify.py --godot ... --export`: **VERIFY PASS**.
+- Source waited-GUI smoke: **403/403**, 0 skipped.
+- Balance report driver: **PASS** (`r09_fixed_seed_steward_policy`, 4 days).
+- Exported Windows smoke: **397/397**, 6 skipped (`res://` fixture checks only
+  under read-only export).
+- Report artifacts: `build/balance_report.{json,md}` generated; reviewed
+  baselines tracked in `docs/reports/r09_balance_report.{json,md}`.
+
+## 15. Constraint checklist
 
 Real-state observation ✓ · no shadow inventories/counters ✓ · idempotent,
 no double-pay ✓ · full lifecycle persisted ✓ · reload-around-completion safe ✓
 · reconstruct-where-practical / persist-events-only-when-necessary ✓ · progress
 by stable objective id ✓ · data-driven + validated ✓ · clear validation
 failures ✓ · one objective + one reward per contract (narrow, not a quest
-engine) ✓ · no expiry in Slice 1 ✓ · cross-system pressure not arbitrary
+engine) ✓ · no expiry in R-09.1/R-09.2 ✓ · cross-system pressure not arbitrary
 counts ✓ · lifecycle before economy rebalance ✓ · scenario/policy-scoped
 deterministic report, normalized comparison, evidence-not-mutation ✓ ·
 backward-compatible saves (0.5/0.4 accepted, missing key → empty) ✓ · no

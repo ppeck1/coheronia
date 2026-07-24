@@ -65,6 +65,20 @@ func _run() -> void:
 	await _shot("04_town_hall")
 	hud.toggle_town_panel()
 
+	# R-09: directed contracts from the Town Hall. Stage a mixed list so the
+	# public shot shows available, active, completed, and claimed rows.
+	root.contracts.apply([])
+	hall.stockpile["stone"] = 24
+	hall.stations_built["workbench"] = true
+	root.accept_contract("stone_reserve")
+	root.accept_contract("workbench_charter")
+	root.claim_contract("workbench_charter")
+	root.accept_contract("first_hunt")
+	root.contracts.evaluate()
+	root._contracts_panel.open()
+	await _shot("18_contracts_panel")
+	root._contracts_panel.close()
+
 	# R-07: the unified Crafting panel (C) -- every recipe grouped by source with
 	# have/need gating and Build rows for unbuilt stations.
 	root._craft_panel.open()

@@ -6,7 +6,7 @@ Dig, build, and light a side-view frontier settlement — then keep it alive as 
 
 ![Daytime settlement with the Town Hall, torch line, and live HUD](docs/screenshots/01_settlement_day.png)
 
-`Godot 4.6 · GDScript · data-driven design · 394-check in-engine smoke suite · adaptive music · layered image-first UI pipeline`
+`Godot 4.6 · GDScript · data-driven design · 403-check in-engine smoke suite · adaptive music · layered image-first UI pipeline`
 
 ## What it is
 
@@ -35,6 +35,9 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 ![Loose item drops resting on the ground beside the player, drawn with their inventory icons](docs/screenshots/17_ground_drops.png)
 *Also new in R-08: **loose items now live on the ground.** Mining yield and enemy loot drop as physical items that fall under gravity and rest on the ground, drawn with the very same icons the inventory uses. The player auto-collects anything within reach (with a **"+N item"** pickup toast), and a **hauler** settler — a third assignable job beside the farmhand and repairer — carries whatever is left back to the Town Hall stockpile.*
 
+![The Contracts panel showing available, active, completed, and claimed directed goals](docs/screenshots/18_contracts_panel.png)
+*New in R-09: **Contracts** are directed settlement goals that observe live world state instead of keeping shadow counters. The Town Hall panel exposes Accept/Claim actions, progress, status, and rewards for stockpile, station, survival, combat, and crafting objectives.*
+
 | | |
 |---|---|
 | ![The unified crafting panel opened with C](docs/screenshots/15_crafting.png)<br>*Press **C** for the unified crafting panel — every recipe grouped by source (Hand, Town Hall, and each built station), with have/need per input and Build rows for stations you haven't raised yet* | ![Town Hall panel with deposit, status, and repair](docs/screenshots/04_town_hall.png)<br>*The Town Hall now keeps deposit, settlement status, and structural repair; crafting and station building moved to the crafting panel* |
@@ -61,7 +64,7 @@ Direct link: [prologue](docs/screenshots/clips/coheronia.prologue.07162026.1125.
 
 Watch the latest gameplay demonstration: [https://youtu.be/KoWppfdjSX8](https://youtu.be/KoWppfdjSX8)
 
-> The screenshots on this page (captured 2026-07-24) are the definitive reference for the current interface — the native HUD and inventory board, the unified crafting panel, the repair-only Town Hall, the rebuilt Character panel, the viewport-relative skill tree, the contour backdrop, and the R-08 visible settlers with ground-drop loot.
+> The screenshots on this page (captured 2026-07-24) are the definitive reference for the current interface — the native HUD and inventory board, the unified crafting panel, the repair-only Town Hall, the Contracts panel, the rebuilt Character panel, the viewport-relative skill tree, the contour backdrop, and the R-08 visible settlers with ground-drop loot.
 
 ---
 
@@ -83,7 +86,7 @@ Watch the latest gameplay demonstration: [https://youtu.be/KoWppfdjSX8](https://
 - **Learns as you play** — a compact, state-driven goal panel walks the first loop (gather → light the hall → deposit → forge a tool/build a station → survive the night) from real game state, not scripted tutorial text: it advances only when you actually do the thing, never regresses, re-derives the right step after a save/reload, and tucks away with a keypress (**O**).
 - **Scoutable world** — a schematic map panel (**M**) reveals the world band by band *as you explore* — nothing is X-rayed. It marks the Town Hall, your position, ore pockets, and live enemy pressure inside scouted bands only; discovered regions persist compactly in the world save, and the explorer "Biome Reveal" perk widens each step's scouted band. Map and Events are independent movable modules and can remain open together.
 - **Authored visual coverage with real variety** — all data-referenced blocks, inventory/live-drop icons, and live enemies now have canonical pixel art; seventeen high-repetition block ids carry three deterministic per-cell looks, every enemy family carries three lifetime-stable looks, and every player body offers two authored alternatives beyond its canonical form. Items deliberately stay canonical-only so a stack never changes icon during a refresh.
-- **Everything is data** — blocks, recipes, enemies, 12 ancestries, XP curves, base levels, perk lanes, equipment, world presets, and item metadata are JSON authorities validated by a repo linter; most balance changes never touch code.
+- **Everything is data** — blocks, recipes, enemies, 12 ancestries, XP curves, base levels, perk lanes, equipment, world presets, item metadata, and directed-goal contracts are JSON authorities validated by a repo linter; most balance changes never touch code.
 
 ## Characters are data
 
@@ -133,7 +136,7 @@ terrain history, settlement, and progression. Persistence lives in
 
 This repo doubles as an experiment in disciplined AI-driven development:
 
-- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 394 checks across mining, save/load round-trips, legacy migrations, UI panel contents, Map/Events coexistence, HUD-kit layering, physics traversal, armor math, adaptive-music transitions, the character-rendering contract, body-specific gear resolution and alignment, directional action animation, the shared-path creation/character-select preview, the runtime-children Character panel, the backdrop contour skirt, the viewport-relative skill panel, the visible-subject labor loop, directed-goal contracts, and event stingers. The full suite is at **394/394** in source on 2026-07-24, and CI builds the game and re-runs it against the *exported* artifact at **388/388** (six `res://`-fixture checks skip only under read-only export). Two runtime notes: the real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun; the `fq19_map_events_coexist` geometry check is sensitive to a contaminated persisted `shell.json` and passes from a clean profile.
+- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 403 checks across mining, save/load round-trips, legacy migrations, UI panel contents, Map/Events coexistence, HUD-kit layering, physics traversal, armor math, adaptive-music transitions, the character-rendering contract, body-specific gear resolution and alignment, directional action animation, the shared-path creation/character-select preview, the runtime-children Character panel, the backdrop contour skirt, the viewport-relative skill panel, the visible-subject labor loop, directed-goal contracts, the contracts panel, the deterministic contract balance report, and event stingers. The full suite is at **403/403** in source on 2026-07-24; the exported Windows artifact launches and runs at **397/397** with six `res://` fixture checks skipped only under read-only export. Two runtime notes: the real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun; the `fq19_map_events_coexist` geometry check is sensitive to a contaminated persisted `shell.json` and passes from a clean profile.
 - **Evidence over claims.** Increment scope, decisions, review findings, and validation state are summarized in [`docs/HANDOFF.md`](docs/HANDOFF.md). Historical raw protocol artifacts are still tracked; their fit with the current public-repository profile is explicitly flagged for owner review rather than silently presented as settled policy.
 - **Independent review loop.** Each change was reviewed by a separate agent pass before commit; findings (from save-corruption edge cases to invisible-tint rendering bugs) are documented and fixed in the ledgers.
 - **Task queue discipline.** Work follows [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) one bounded increment at a time — FQ-00 through FQ-09 plus the FQ-09R/S/V/C/W/A/M and U0–U3 refinements (skill-tree star map, variant art pools, the opening cinematic, backdrops and cave darkness, the asset roadmap, action effects, and the full adaptive-music arc) on top of the v0.1–v0.6 foundation, each documented in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md).
@@ -164,7 +167,7 @@ Or open the folder in the Godot editor and press Play.
 
 Esc opens a real pause menu (it closes an open panel first); saving and world-restore are exposed there, and rebinds live under its Settings screen. F5/F9 remain quick save/load.
 
-**Verify the build** (validators + the 394-check in-engine suite):
+**Verify the build** (validators + the 403-check in-engine suite):
 
 ```powershell
 python scripts/validate_repo.py
@@ -178,7 +181,7 @@ Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-r
 # results: user://smoke_results.json
 ```
 
-**Regenerate the README screenshots** (staged capture tour — 17 shots across the shell and gameplay tours, including the visible farmhand at work, loose ground-drop loot, and the character-create screen at 1280×720 and 640×360; run windowed, not `--headless`, so the frame capture resolves):
+**Regenerate the README screenshots** (staged capture tour — 18 shots across the shell and gameplay tours, including the Contracts panel, visible farmhand at work, loose ground-drop loot, and the character-create screen at 1280×720 and 640×360; run windowed, not `--headless`, so the frame capture resolves):
 
 ```powershell
 $env:COHERONIA_SHOTS = "1"
@@ -224,6 +227,8 @@ Persistence: `user://shell.json` (profile + characters) and `user://worlds/<id>.
 
 Dated shipped milestones, newest first (full detail in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md)):
 
+- **2026-07-24 — R-09 slice 3: deterministic balance report.** The contract arc now includes a fixed-seed named scenario (`r09_fixed_seed_steward_policy`) that simulates a scripted 4-day policy, records inflow/outflow, completion latency, pressure, reward value, bottlenecks, and proposed tuning, and emits JSON + markdown evidence without mutating balance data. Baselines are tracked in [`docs/reports/r09_balance_report.md`](docs/reports/r09_balance_report.md) and [`docs/reports/r09_balance_report.json`](docs/reports/r09_balance_report.json). Source smoke **403/403**; exported Windows smoke **397/397** + 6 skipped.
+- **2026-07-24 — R-09 slice 2: contract vocabulary + panel.** Contracts now cover stockpile thresholds, built stations, day survival, defeated enemies, and crafted recipes; event-only objectives persist a small accumulator keyed by stable objective id and count only after activation. Rewards route through the existing player inventory or player XP authorities. A new Town Hall **Contracts** panel lists every contract, shows progress/status/reward, and exposes Accept/Claim actions. Source smoke **401/401**; exported Windows smoke **395/395** + 6 skipped.
 - **2026-07-24 — R-09 slice 1: contract (directed-goal) foundation.** A data-driven contracts system with a persisted `available → active → completed → claimed` lifecycle that observes *live* authoritative state (no shadow counters), latches completion on first threshold reach, and grants rewards transactionally through the player inventory only. Accepting or reloading (F9/Restore) an already-satisfied contract completes it immediately. The world save schema bumps to **0.6** (legacy 0.5/0.4 load as empty, a named migration check proves it). Source smoke **394/394** (two consecutive runs); exported **388/388** + 6 skipped, CI green.
 - **through 2026-07-24 — R-08: subject-labor MVP.** Visible farmhand, repairer, and hauler settlers with save-persisted job assignment, layered over the unchanged abstract population (the single food-accounting authority, so a settler is never charged food twice), plus a loose ground-drop layer — mining yield and enemy loot fall under gravity, render with the inventory's own icons, auto-collect within reach (a **"+N item"** toast), and are hauled to the stockpile. Source smoke **384/384**.
 - **through 2026-07-22 — R-00–R-07: release foundations + playability baseline.** Export-safe resource loading, atomic saves, isolated verification, pinned CI that builds *and launches* the exported artifact, public-repo cleanup; then pause/settings/keybinds, save-slot management, build-preview placement feedback, and a unified crafting panel.
@@ -235,8 +240,8 @@ The full adaptive-music arc, the opening cinematic, and the first real art pass
 are done; the active queue ([`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md))
 continues in bounded increments:
 
-- **Shipped** — **FQ-10–21** delivered ore families, metallurgy, farming, three pressure-specific enemies, deterministic visual pools, the state-driven goal panel, persistent scouting, and the native 19-asset HUD dock with movable Map/Events modules (the old sliced-band constructions survive only as fallbacks). The **presentation recovery** (PR-00–08), **release foundations + playability baseline** (R-00–07), the **subject-labor MVP** (R-08), and the **contract foundation** (R-09 slice 1) followed — see **[Current build](#current-build)** above for those dated milestones.
-- **Next up** — **R-09 slices 2–3**: expand the contract system with more objective and reward types and a player-facing contracts panel, then a deterministic fixed-seed **balance report** that records tuning evidence without mutating balance values — building on the shipped contract foundation.
+- **Shipped** — **FQ-10–21** delivered ore families, metallurgy, farming, three pressure-specific enemies, deterministic visual pools, the state-driven goal panel, persistent scouting, and the native 19-asset HUD dock with movable Map/Events modules (the old sliced-band constructions survive only as fallbacks). The **presentation recovery** (PR-00–08), **release foundations + playability baseline** (R-00–07), the **subject-labor MVP** (R-08), and the full **contract + balance arc** (R-09 slices 1–3) followed — see **[Current build](#current-build)** above for those dated milestones.
+- **Next up** — the next code arc is intentionally unselected. R-06 ownership decomposition remains deferred unless a concrete blocker appears, and R-10/HUD polish stays an art lane.
 - **More enemies** from a 16-entry design roster (mini-bosses and the hollow_king / world_worm bosses remain), each landing with its gameplay consumer.
 - **Art backlog** — polish the current HUD chrome one contract-safe PNG at a time via the [`HUD Asset Replacement Studio`](docs/wiki/hud_asset_replacement_studio.md); extend body-specific gear beyond the currently covered crude armor, pick, and axe families; refine action poses; and expand opening-scene animation only where it improves the existing authored cel pools.
 - **Deeper systems** sketched in [`docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`](docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md): the research bench MVP, perk-spending across more lanes, underground-start generation for deep ancestries, and the civic layer (laws, districts, factions, legitimacy). Ancestries beyond the five playable ones exist as validated data awaiting their phases.
@@ -245,7 +250,7 @@ continues in bounded increments:
 
 - **Gear overlays resolve and align; motion still needs a pass.** 120 body-specific PNGs (crude helmet/torso/feet plus three-phase pick/axe swings) resolve against the character's effective body id so authored gear stays visible across load/world-transition/forge refreshes, and a data-owned per-rig `gear_offset` seats helmets onto the head (`scripts/art/verify_gear_alignment.py` enforces contact). Action animation plays a data-driven, target-aimed windup→impact→recovery swing. What still needs work: pick/axe art snaps through three poses (anchors, arc continuity, mirroring, timing), and the sword has no authored attack sequence yet. See `docs/CHARACTER_RENDERING_CONTRACT.md`.
 - **The HUD architecture is stabilized, but the art is provisional.** The primary dock now separates static chrome from runtime values and uses JSON-owned native geometry. Some framed panel states still show padding, masking, or oversized opaque-region defects, particularly in automated captures; the legacy painted/sliced constructions remain fallback code, not the target design.
-- **Smoke is green, but two checks are timing-sensitive.** Source **394/394**; the exported artifact launches and runs **388/388** (six `res://`-fixture checks skip only under read-only export), 2026-07-24. The real-time `fq09u1_live_clip_switch` music check occasionally cold-flakes and passes on rerun, and `fq19_map_events_coexist` is sensitive to a contaminated persisted `shell.json` and passes from a clean profile. The completed presentation-recovery code lane (PR-00–08) is tracked in `docs/PRESENTATION_RECOVERY_MATRIX.md`.
+- **Smoke is green, but two checks are timing-sensitive.** Source **403/403**; the exported Windows artifact launches and runs **397/397** (six `res://`-fixture checks skip only under read-only export), 2026-07-24. The real-time `fq09u1_live_clip_switch` music check occasionally cold-flakes and passes on rerun, and `fq19_map_events_coexist` is sensitive to a contaminated persisted `shell.json` and passes from a clean profile. The completed presentation-recovery code lane (PR-00–08) is tracked in `docs/PRESENTATION_RECOVERY_MATRIX.md`.
 - **Several systems remain partly abstract.** Beyond the visible farmhand/repairer/hauler settlers (R-08), the settlement is still driven by an abstract population count rather than individual NPCs — the visible subject is layered on top of that unchanged model, which stays the single food-accounting authority so a settler is never charged food twice. Enemies walk and hop without pathfinding; the adaptive score is one suite still being balanced; and current finite maps have one surface biome.
 
 ---

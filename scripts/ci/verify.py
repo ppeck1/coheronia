@@ -112,6 +112,11 @@ def run_smoke(godot: str) -> bool:
     return ok
 
 
+def run_balance_report(py: str, godot: str) -> bool:
+    rc = _run([py, "scripts/ci/balance_report.py", "--godot", godot])
+    return rc == 0
+
+
 def run_exported_smoke(artifact: Path) -> bool:
     """Launch the EXPORTED artifact in smoke mode and enforce the contract:
     it must launch, pass every non-skipped check, and skip exactly the
@@ -198,6 +203,8 @@ def main() -> int:
         else:
             if not run_smoke(args.godot):
                 failures.append("source_smoke")
+            if not run_balance_report(args.python, args.godot):
+                failures.append("balance_report")
             if args.export:
                 artifact = run_export(args.godot, args.export_preset)
                 if artifact is None:

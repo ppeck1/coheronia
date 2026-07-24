@@ -11,6 +11,63 @@
         "count": 20
       },
       "reward": { "type": "grant_items", "items": { "torch": 3 } }
+    },
+    {
+      "id": "workbench_charter",
+      "title": "Workbench Charter",
+      "description": "Build a workbench for the settlement.",
+      "objective": {
+        "oid": "workbench_charter.station",
+        "type": "station_built",
+        "station": "workbench"
+      },
+      "reward": { "type": "grant_xp", "event_id": "contract_reward_civic" }
+    },
+    {
+      "id": "second_dawn",
+      "title": "Second Dawn",
+      "description": "Keep the settlement alive until day 2.",
+      "objective": {
+        "oid": "second_dawn.day",
+        "type": "survive_to_day",
+        "day": 2
+      },
+      "reward": { "type": "grant_items", "items": { "food": 4 } }
+    },
+    {
+      "id": "first_hunt",
+      "title": "First Hunt",
+      "description": "Defeat 2 enemies after accepting this contract.",
+      "objective": {
+        "oid": "first_hunt.defeat",
+        "type": "defeat_enemies",
+        "count": 2
+      },
+      "reward": { "type": "grant_xp", "event_id": "contract_reward_combat" }
+    },
+    {
+      "id": "torch_order",
+      "title": "Torch Order",
+      "description": "Craft a torch bundle after accepting this contract.",
+      "objective": {
+        "oid": "torch_order.craft",
+        "type": "craft_items",
+        "recipe": "craft_torch",
+        "count": 1
+      },
+      "reward": { "type": "grant_items", "items": { "crop_seeds": 2 } }
+    },
+    {
+      "id": "torch_practice",
+      "title": "Torch Practice",
+      "description": "Craft 2 torch bundles after accepting this contract.",
+      "objective": {
+        "oid": "torch_practice.craft",
+        "type": "craft_items",
+        "recipe": "craft_torch",
+        "count": 2
+      },
+      "reward": { "type": "grant_xp", "event_id": "contract_reward_craft" }
     }
   ]
 }

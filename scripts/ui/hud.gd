@@ -5,6 +5,7 @@ extends CanvasLayer
 
 signal deposit_requested
 signal repair_requested
+signal contracts_requested
 signal subject_job_cycle_requested(id: String)   # R-08 slice 2: settler job assignment
 
 ## Low-health fraction mirrors player._low_health_fraction (data-driven
@@ -2580,6 +2581,10 @@ func _build_town_panel() -> void:
 	_repair_button.text = "Repair (2 stone → -25 damage)"
 	_repair_button.pressed.connect(func() -> void: repair_requested.emit())
 	box.add_child(_repair_button)
+	var contracts := Button.new()
+	contracts.text = "Contracts"
+	contracts.pressed.connect(func() -> void: contracts_requested.emit())
+	box.add_child(contracts)
 	# R-07: crafting and station building moved to the unified Crafting panel (C);
 	# the Town Hall panel keeps deposit, status, and Repair.
 	_refresh_station_icons()
