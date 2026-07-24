@@ -280,7 +280,7 @@ work. It is a seams-first sequence, not a rewrite.
     (pause/settings/keybinds, save-management, build preview + feedback, crafting
     navigation).
 
-- **R-08 (Subject labor MVP) — slices 1–2 done; slice 3 (hauler) pending.**
+- **R-08 (Subject labor MVP) — slices 1–3 done.**
   - **Actor.** `scripts/entities/subject.gd` — a `CharacterBody2D` farmhand that
     is a concrete visible actor layered ON TOP of the existing abstract
     `town_hall.population`/food model (which is unchanged). It roams the surface
@@ -337,9 +337,39 @@ work. It is a seams-first sequence, not a rewrite.
     a `subjects` key loads safely (0 subjects, no crash). Live counts filter
     `is_queued_for_deletion()`. Source smoke **378/378**, exported **372/372 + 6
     skipped**, VERIFY PASS; settler capture reviewed.
-    **Remaining:** slice 3 — ground item drops + radius auto-pickup, enabling a
-    real **hauler** job (operator-authorized; isolated as its own change because
-    the mining→inventory path is widely asserted).
+  - **Slice 3 — ground item drops, radius auto-pickup, and the hauler job.**
+    A loose ground layer now sits under the economy: `scripts/entities/item_drop.gd`
+    is a `Node2D` (group `item_drops`) carrying `item`/`count`, with
+    `to_dict`/`from_dict`. It **falls under accelerating gravity** (accumulated
+    `_vy`) until the cell below is solid, then rests snapped on that block's top
+    with a soft ground shadow, and it is **drawn with the same
+    `BlockRegistry.item_icon` the inventory uses**, so a freed drop on the map
+    matches its backpack slot. Mining yield and enemy loot are rerouted through it —
+    `player.process_mining` and `simple_threat._roll_drops` now call
+    `world.spawn_item_drop(pos, id, n)` instead of adding straight to a backpack. The
+    player auto-collects any drop within `Player.PICKUP_RADIUS` (40 px) via
+    `collect_ground_drops()` — run each physics frame and synchronously right after
+    mining, so a player standing on their own yield still pockets it immediately (all
+    prior mining→inventory assertions stay green), while a block broken beyond that
+    radius or an enemy killed away from the player is left on the ground. A **pickup
+    notification** fires as items are swept: `collect_ground_drops` aggregates the
+    stack and emits `items_picked_up({id:count})` → `game_root` → `hud.notify_pickup`,
+    a green **"+N Item"** contextual toast that accumulates across a scattered pile.
+    A third job `hauler` (`_run_hauler`/`_deposit_drop`, now in `SUBJECT_JOBS`)
+    targets `world.nearest_item_drop(home, WORK_RADIUS_CELLS)`, walks to it, and
+    deposits the stack into the hall stockpile — production only, never spending food.
+    Drops persist in the world save
+    (`game_root.serialize_item_drops`/`apply_item_drops`, `save_manager` collects
+    `"item_drops"`; a repeated apply cannot duplicate; legacy saves clear the
+    ground). The starting crew stays two (farmhand + repairer); the hauler is
+    reachable by cycling a settler's job in the Town Hall panel. **Evidence:** 6 new
+    `r08_` checks (mining routes through a ground drop; radius auto-pickup near/far;
+    the hauler carries a drop to the stockpile; enemy loot spills to the ground not
+    the pack; drops survive save with no duplication; the pickup toast shows the
+    count) plus the two enemy-loot checks updated to the new path, and the
+    `17_ground_drops` tour capture (reviewed: drops rest on the ground with shadows,
+    rendered as their inventory icons). Source smoke **384/384** (two consecutive
+    runs), validator PASS, capsule `public_repo` healthy.
 
 ## Technical decisions already made
 

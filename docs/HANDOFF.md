@@ -1,6 +1,6 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-23 release foundations: R-00..R-05 + R-07 done, R-08 slice 1 in progress)
+## Current State (2026-07-24 release foundations: R-00..R-05 + R-07 done, R-08 slices 1–3 done; slice 3 uncommitted)
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
@@ -1156,7 +1156,7 @@ state (`CraftPanel.recipe_icon_id`). No build mode, flipped actions, instruction
 text, or art. Source smoke **369/369**, exported **363/363 + 6 skipped**, VERIFY
 PASS.
 
-**R-08, subject labor MVP: slices 1–2 done; slice 3 (hauler) pending.**
+**R-08, subject labor MVP: slices 1–3 done (slice 3 not yet committed).**
 Slice 2 adds a `repairer` job (walks to the hall and calls `town_hall.repair()`
 — the player's Repair authority, −25 damage/2 stone — when `can_repair()`, else
 idles), a starting **crew** of two (farmhand + repairer, one per side of the
@@ -1166,10 +1166,46 @@ Town Hall panel (`Settler N: <Job>` buttons →
 `hud.subject_job_cycle_requested` → `_on_subject_job_cycle`). `run_job()`
 dispatches by job; `_draw` distinguishes farmhand (green/hoe) from repairer
 (slate-blue/hammer); the job persists in the save. 9 `r08_` smoke checks; source
-**378/378**, exported **372/372 + 6 skipped**, VERIFY PASS. Slice 3 (operator-
-authorized) will add ground item drops + radius auto-pickup to enable a real
-**hauler**, isolated as its own change because the mining→inventory path is
-widely asserted.
+**378/378**, exported **372/372 + 6 skipped**, VERIFY PASS.
+
+**R-08 slice 3 (ground item drops + radius auto-pickup + hauler job).** A loose
+ground layer now sits under the economy. `scripts/entities/item_drop.gd` is a
+`Node2D` (group `item_drops`) carrying `item`/`count`, saved via
+`to_dict`/`from_dict`. It **falls under accelerating gravity** (accumulated `_vy`)
+until the cell below is solid, then rests snapped on that block's top with a soft
+ground shadow, and it is **drawn with the same `BlockRegistry.item_icon` the
+inventory uses**, so a freed drop on the map matches its backpack slot. **The mining→inventory
+and enemy-loot→inventory paths are rerouted through it:** `player.process_mining`
+and `simple_threat._roll_drops` now call `world.spawn_item_drop(pos, id, n)`
+instead of adding straight to a backpack. The player **auto-collects** any drop
+within `Player.PICKUP_RADIUS` (40 px) via `collect_ground_drops()` — run each
+physics frame (walk over loot) and synchronously right after mining, so a player
+standing on their own yield still pockets it immediately (every prior
+mining/loot→inventory smoke assertion stays green), while a block broken beyond
+that radius or an enemy killed away from the player is **left on the ground**. A
+third job **`hauler`** (`_run_hauler`/`_deposit_drop`, added to `SUBJECT_JOBS`)
+targets `world.nearest_item_drop(home, WORK_RADIUS_CELLS)`, walks to it, and
+deposits the stack into the hall stockpile — production only, never spending food;
+`_draw` gives it a tan body + a back crate. Drops persist in the world save
+(`game_root.serialize_item_drops`/`apply_item_drops`; `save_manager` collects
+`"item_drops"`; a repeated apply cannot duplicate, and a legacy save without the
+key clears the ground). The starting crew stays two — the hauler is reachable by
+cycling a settler's job in the Town Hall panel (farmhand→repairer→hauler).
+**Pickup notification:** `player.collect_ground_drops()` aggregates what it swept
+and emits `items_picked_up({id:count})` → `game_root` → `hud.notify_pickup`, which
+raises a green **"+N Item"** contextual toast (child 3 of the FQ-19 stack, so the
+fixed item/save/interact order is unchanged); repeated pickups while it shows
+accumulate into it ("+12 Stone") and reset once it fades. 6 new `r08_` checks
+(mining routes through a ground drop; radius auto-pickup near/far; hauler carries a
+drop to the stockpile; enemy loot spills to the ground not the pack; drops survive
+save with no duplication; the pickup toast shows the count) plus the two
+enemy-loot checks moved to the new path; `fq19x` order check extended to pin the
+pickup panel. The screenshot tour gained `17_ground_drops` (drops falling to rest,
+icon-drawn, with the pickup toast) — capture reviewed (drops sit on the ground with
+shadows, rendered as their inventory icons). Only `item_drop._draw` uses existing
+icon art (no new art produced; R-10 still owns art). Source smoke **384/384** (two
+consecutive runs), validator PASS, capsule `public_repo` healthy. **Not yet
+committed (operator gates commit/push).**
 
 **R-08 slice 1 (visible farmhand settler).** `scripts/entities/subject.gd` is a `CharacterBody2D`
 farmhand -- a concrete visible actor layered ON TOP of the unchanged abstract

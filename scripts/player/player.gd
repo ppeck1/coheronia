@@ -7,6 +7,7 @@ signal health_changed(health: float, max_health: float)
 signal attunement_changed(attunement: float, max_attunement: float)
 signal attunement_pulsed   # FQ-09U3: fires only when a pulse actually casts
 signal mined(block_id: String, drops: Dictionary)
+signal items_picked_up(items: Dictionary)   # R-08 slice 3: {item_id: count} swept off the ground
 signal crafted(recipe_id: String)
 signal placed(block_id: String)
 signal player_event(message: String)
@@ -15,6 +16,11 @@ const SPEED := 140.0
 const JUMP_VELOCITY := -300.0
 const GRAVITY := 820.0
 const REACH_TILES := 5.0
+## R-08 slice 3: loose ground items within this radius are swept into the
+## backpack. Wider than the block the player stands on (so their own mining lands
+## in the pack immediately) but well inside mining reach, so a block broken at
+## arm's length leaves its yield on the ground for a hauler.
+const PICKUP_RADIUS := 40.0
 # FQ-09M: self-freeing action effects (presentation only, never saved).
 const ActionFx := preload("res://scripts/fx/action_fx.gd")
 
@@ -292,6 +298,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_handle_hotbar()
 	_handle_mining(delta)
+	collect_ground_drops()   # R-08 slice 3: walk over loose items to pick them up
 	if Input.is_action_just_pressed("place"):
 		try_place(world.cell_of(get_global_mouse_position()), selected_item())
 	if Input.is_action_just_pressed("farm_action"):
@@ -385,13 +392,41 @@ func process_mining(cell: Vector2i, delta: float) -> bool:
 		return false
 	var block_id: String = world.block_at(cell)
 	var drops: Dictionary = world.break_block(cell)
-	inventory.add_many(drops)
+	# R-08 slice 3: the yield now lands as loose ground items at the mined cell.
+	# The player is standing at the block, so collect_ground_drops() below sweeps
+	# it straight into the backpack (their own mining is unchanged from the pack's
+	# point of view); a block broken beyond PICKUP_RADIUS is left for a hauler.
+	for item_id in drops:
+		world.spawn_item_drop(world.cell_center(cell), str(item_id), int(drops[item_id]))
 	if block_id == "berry_bush" and bush_bonus_food > 0:
-		inventory.add("food", bush_bonus_food)
+		world.spawn_item_drop(world.cell_center(cell), "food", bush_bonus_food)
 	_reset_mining()
-	inventory_changed.emit()
+	collect_ground_drops()
 	mined.emit(block_id, drops)
 	return true
+
+
+## R-08 slice 3: absorb every loose ground item within PICKUP_RADIUS into the
+## backpack. Called each physics frame (walking over drops) and synchronously
+## right after mining (the player stands on their own yield). Public so the smoke
+## can drive pickup deterministically. Returns true if anything was collected.
+func collect_ground_drops() -> bool:
+	if world == null:
+		return false
+	var picked: Dictionary = {}
+	for d in get_tree().get_nodes_in_group("item_drops"):
+		if not is_instance_valid(d) or d.is_queued_for_deletion():
+			continue
+		if global_position.distance_to(d.global_position) <= PICKUP_RADIUS:
+			var id: String = str(d.item_id)
+			var n: int = int(d.count)
+			inventory.add(id, n)
+			picked[id] = int(picked.get(id, 0)) + n
+			d.queue_free()
+	if not picked.is_empty():
+		inventory_changed.emit()
+		items_picked_up.emit(picked)   # HUD raises a "+N Item" pickup toast
+	return not picked.is_empty()
 
 
 ## R-07: why placing `block_id` at `cell` would fail, or "" if it is valid. The

@@ -1114,15 +1114,26 @@ deposit/status/Repair, dead forge/lantern/station plumbing removed (rg-verified)
 Empty-output forge/anvil recipes carry an explicit `icon` item id so every craft
 row has a real icon or documented no-icon state. Source **369/369**, exported
 **363/363 + 6 skipped**, VERIFY PASS.
-**R-08, subject labor MVP: slices 1–2 done; slice 3 (hauler) pending.** Slice 2
+**R-08, subject labor MVP: slices 1–3 done.** Slice 2
 adds a `repairer` job (repairs the hall via `town_hall.repair()` when
 `can_repair()`, else idles), a starting crew of two (farmhand + repairer), and
 job assignment (`assign_subject_job` validated against `SUBJECT_JOBS`, driven
 from a "Settlers" list of cycle-buttons in the Town Hall panel; the job persists
 in the save). 9 `r08_` smoke checks; source **378/378**, exported **372/372 + 6
-skipped**, VERIFY PASS. Slice 3 (operator-authorized) adds ground item drops +
-radius auto-pickup to enable a real hauler, isolated because the
-mining→inventory path is widely asserted.
+skipped**, VERIFY PASS. **Slice 3 (ground drops + hauler)** adds a loose ground
+layer: `scripts/entities/item_drop.gd` (`Node2D`, group `item_drops`, saved) that
+**falls under accelerating gravity** to rest snapped on the ground with a shadow
+and is **drawn with the inventory's own `BlockRegistry.item_icon`**. Mining yield
+and enemy loot are rerouted through `world.spawn_item_drop`; the player
+auto-collects within `Player.PICKUP_RADIUS` (40 px, swept each physics frame and
+synchronously after mining, so their own mining still pockets immediately — prior
+mining→inventory asserts stay green), and a third `hauler` job carries whatever is
+left to the stockpile via `world.nearest_item_drop`. Pickups raise a green
+**"+N Item"** toast (`items_picked_up` → `hud.notify_pickup`, accumulating). Drops
+persist in the world save (`serialize/apply_item_drops`, duplicate-safe,
+legacy-safe). 6 new `r08_` checks (+ 2 enemy-loot checks updated; `17_ground_drops`
+tour shot reviewed); source **384/384** (two consecutive runs), validator PASS.
+Not yet committed (operator gates commit/push).
 
 **R-08 slice 1 (visible farmhand settler).** `scripts/entities/subject.gd` is a `CharacterBody2D` farmhand
 layered on top of the unchanged abstract `town_hall.population`/food model: it

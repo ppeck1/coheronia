@@ -157,20 +157,19 @@ func take_hit(amount: int) -> void:
 		queue_redraw()
 
 
-## Roll each drop entry and add won items to the player inventory.
+## Roll each drop entry and spill won items onto the ground at the point of death.
+## R-08 slice 3: loot is no longer teleported into the player's backpack -- it
+## drops as a loose ground item that the player auto-collects when adjacent and a
+## hauler settler carries off otherwise.
 func _roll_drops() -> void:
-	if player == null or drops.is_empty():
+	if world == null or drops.is_empty():
 		return
-	var added := false
 	for drop in drops:
 		var chance: float = float(drop.get("chance", 0.0))
 		if drop_chance_override >= 0.0:
 			chance = drop_chance_override
 		if randf() < chance * loot_mult:
-			player.inventory.add(str(drop.get("item_id", "")), 1)
-			added = true
-	if added:
-		player.inventory_changed.emit()
+			world.spawn_item_drop(global_position, str(drop.get("item_id", "")), 1)
 
 
 ## FQ-08: health-bar fill fraction (1.0 = unhurt) for the hurt bar.

@@ -137,6 +137,9 @@ var _ctx_item_label: Label
 var _ctx_save_panel: PanelContainer
 var _ctx_interact_panel: PanelContainer
 var _ctx_interact_label: Label
+var _ctx_pickup_panel: PanelContainer          # R-08 slice 3: "+N Item" pickup toast
+var _ctx_pickup_label: Label
+var _ctx_pickup_counts: Dictionary = {}         # item_id -> running total while the toast shows
 var _ctx_tweens: Dictionary = {}   # PanelContainer -> Tween
 var _ctx_last_item := ""
 var _hud_widgets: Dictionary = {}
@@ -2417,6 +2420,11 @@ func _build_context_stack() -> void:
 	_ctx_interact_panel = _make_context_entry()
 	_ctx_interact_label = _ctx_interact_panel.get_child(0) as Label
 	_ctx_interact_label.add_theme_color_override("font_color", Color(0.89, 0.75, 0.43))
+	# R-08 slice 3: the pickup toast is appended last so the fixed FQ-19 priority
+	# order (item, save, interact) at the top of the stack is unchanged.
+	_ctx_pickup_panel = _make_context_entry()
+	_ctx_pickup_label = _ctx_pickup_panel.get_child(0) as Label
+	_ctx_pickup_label.add_theme_color_override("font_color", Color(0.60, 0.86, 0.52))
 
 
 func _make_context_entry() -> PanelContainer:
@@ -2468,6 +2476,25 @@ func _show_context_entry(panel: PanelContainer, hold_seconds: float) -> void:
 func notify_saved() -> void:
 	if _ctx_save_panel != null:
 		_show_context_entry(_ctx_save_panel, 2.2)
+
+
+## R-08 slice 3: a "+N Item" pickup toast, fired when the player sweeps loose
+## items off the ground (player.items_picked_up). While the toast is still
+## showing, further pickups accumulate into it -- walking across a scattered pile
+## reads as one growing "+12 Stone" rather than a flicker of separate toasts. The
+## tally resets once the toast has faded and a fresh pickup arrives.
+func notify_pickup(items: Dictionary) -> void:
+	if _ctx_pickup_panel == null or items.is_empty():
+		return
+	if not _ctx_pickup_panel.visible:
+		_ctx_pickup_counts.clear()
+	for id in items:
+		_ctx_pickup_counts[id] = int(_ctx_pickup_counts.get(id, 0)) + int(items[id])
+	var parts: Array[String] = []
+	for id in _ctx_pickup_counts:
+		parts.append("+%d %s" % [int(_ctx_pickup_counts[id]), BlockRegistry.display_name(str(id))])
+	_ctx_pickup_label.text = ", ".join(parts)
+	_show_context_entry(_ctx_pickup_panel, 1.9)
 
 
 ## FQ-19: contextual interaction prompt; empty text hides it.

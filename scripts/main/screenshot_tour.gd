@@ -102,6 +102,23 @@ func _run() -> void:
 		root.log_event("The farmhand gathers a ripe crop for the stockpile.")
 		await _shot("16_farmhand")
 
+		# R-08 slice 3: loose ground item drops. They spawn in the air, fall under
+		# gravity, and rest on the ground drawn with the SAME icons the inventory
+		# uses; the "+N Item" pickup toast reports what was gathered.
+		var _gd_base: Vector2 = world.cell_center(Vector2i(hall_cell.x + 17, ground_y - 2))
+		for _gd in [["wood", 3, -34.0], ["stone", 2, -12.0], ["food", 1, 12.0], ["ore", 4, 34.0]]:
+			world.spawn_item_drop(_gd_base + Vector2(_gd[2] as float, -30.0), str(_gd[0]), int(_gd[1]))
+		player.global_position = _gd_base + Vector2(78.0, 0.0)   # outside pickup radius, keeps drops in frame
+		player.velocity = Vector2.ZERO
+		player.get_node("Camera2D").reset_smoothing()
+		for i in range(34):
+			await get_tree().physics_frame        # let them fall and settle on the ground
+		hud.notify_pickup({"wood": 3, "stone": 2})
+		root.log_event("Loose drops settle on the ground, ready to gather.")
+		await _shot("17_ground_drops")
+		for _d in get_tree().get_nodes_in_group("item_drops"):
+			_d.queue_free()
+
 	# Independent top modules: Map and Events remain visible together, with
 	# the contextual stack positioned below the taller surface.
 	if not hud._event_panel.visible:

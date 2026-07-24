@@ -30,6 +30,7 @@ func collect_state() -> Dictionary:
 		"time": game_root.time_state(),
 		"threats": game_root.serialize_threats(),
 		"subjects": game_root.serialize_subjects(),
+		"item_drops": game_root.serialize_item_drops(),
 		"bush_regrow": world.serialize_bush_regrow(),
 		"crop_growth": world.serialize_crop_growth(),
 		"map_revealed": game_root.map_revealed_serialized(),
@@ -120,6 +121,7 @@ func apply_state(state: Dictionary) -> bool:
 	game_root.apply_time_state(state.get("time", {}))
 	game_root.apply_threats(state.get("threats", []))
 	game_root.apply_subjects(state.get("subjects", []))
+	game_root.apply_item_drops(state.get("item_drops", []))
 	return true
 
 

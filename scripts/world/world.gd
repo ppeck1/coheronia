@@ -43,6 +43,7 @@ var _wall_source_ids: Dictionary = {}   # wall_id -> tileset source id
 var _sky_line: Dictionary = {}
 
 const BackdropScript := preload("res://scripts/world/world_backdrop.gd")
+const ItemDropScript := preload("res://scripts/entities/item_drop.gd")   # R-08 slice 3
 const WALL_MATERIALS := {"dirt_wall": "dirt", "stone_wall": "stone"}
 
 const BLOCK_COLORS := {
@@ -379,6 +380,36 @@ func harvest_crop(cell: Vector2i) -> Dictionary:
 	crop_growth.erase(cell)
 	block_changed.emit(cell, "air")
 	return drops
+
+
+## R-08 slice 3: spawn a loose ground item at `pos`. Mining yield and enemy loot
+## route their drops through here so a hauler settler can carry them to the
+## stockpile; the player auto-collects any within reach (Player.collect_ground_drops).
+## Refuses an empty id or a non-positive count -- neither is a real ground item.
+func spawn_item_drop(pos: Vector2, item_id: String, count: int = 1) -> Node:
+	if item_id == "" or count <= 0:
+		return null
+	var drop := ItemDropScript.new()
+	add_child(drop)
+	drop.setup(self, item_id, count, pos)
+	return drop
+
+
+## R-08 slice 3: the nearest live ground item drop within `radius` cells
+## (Chebyshev) of `from`, or null. Skips drops already queued for deletion so a
+## just-collected drop is never chased. Used by the hauler to pick a target.
+func nearest_item_drop(from: Vector2i, radius: int) -> Node:
+	var best: Node = null
+	var best_d: int = radius + 1
+	for d in get_tree().get_nodes_in_group("item_drops"):
+		if not is_instance_valid(d) or d.is_queued_for_deletion():
+			continue
+		var c: Vector2i = cell_of(d.global_position)
+		var dist: int = maxi(absi(c.x - from.x), absi(c.y - from.y))
+		if dist <= radius and dist < best_d:
+			best_d = dist
+			best = d
+	return best
 
 
 ## FQ-13: true if any ore-family block sits within `radius` (Chebyshev) of

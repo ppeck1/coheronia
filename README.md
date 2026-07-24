@@ -27,10 +27,13 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 
 ## Screenshots
 
-*Captured 2026-07-23 from the live build.*
+*Captured 2026-07-24 from the live build.*
 
 ![A visible farmhand settler beside a tilled row of ripe crops by the Town Hall, with the harvest reported in the event log](docs/screenshots/16_farmhand.png)
 *New in R-08: a **visible farmhand settler** works the land beside the Town Hall — it walks to a ripe crop, harvests it into the stockpile (see the event log), and idles hungry if the settlement runs out of food. It is a concrete actor layered over the unchanged abstract population, which stays the single food-accounting authority.*
+
+![Loose item drops resting on the ground beside the player, drawn with their inventory icons](docs/screenshots/17_ground_drops.png)
+*Also new in R-08: **loose items now live on the ground.** Mining yield and enemy loot drop as physical items that fall under gravity and rest on the ground, drawn with the very same icons the inventory uses. The player auto-collects anything within reach (with a **"+N item"** pickup toast), and a **hauler** settler — a third assignable job beside the farmhand and repairer — carries whatever is left back to the Town Hall stockpile.*
 
 | | |
 |---|---|
@@ -58,7 +61,7 @@ Direct link: [prologue](docs/screenshots/clips/coheronia.prologue.07162026.1125.
 
 Watch the latest gameplay demonstration: [https://youtu.be/KoWppfdjSX8](https://youtu.be/KoWppfdjSX8)
 
-> The screenshots on this page (captured 2026-07-23) are the definitive reference for the current interface — the native HUD and inventory board, the unified crafting panel, the repair-only Town Hall, the rebuilt Character panel, the viewport-relative skill tree, and the contour backdrop.
+> The screenshots on this page (captured 2026-07-24) are the definitive reference for the current interface — the native HUD and inventory board, the unified crafting panel, the repair-only Town Hall, the rebuilt Character panel, the viewport-relative skill tree, the contour backdrop, and the R-08 visible settlers with ground-drop loot.
 
 ---
 
@@ -175,7 +178,7 @@ Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-r
 # results: user://smoke_results.json
 ```
 
-**Regenerate the README screenshots** (staged capture tour — 16 shots across the shell and gameplay tours, including the visible farmhand at work and the character-create screen at 1280×720 and 640×360; run windowed, not `--headless`, so the frame capture resolves):
+**Regenerate the README screenshots** (staged capture tour — 17 shots across the shell and gameplay tours, including the visible farmhand at work, loose ground-drop loot, and the character-create screen at 1280×720 and 640×360; run windowed, not `--headless`, so the frame capture resolves):
 
 ```powershell
 $env:COHERONIA_SHOTS = "1"

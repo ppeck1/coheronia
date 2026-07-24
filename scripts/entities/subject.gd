@@ -24,8 +24,10 @@ const WORK_RADIUS_CELLS := 22     # bounded roam around home
 const HARVEST_DIST := 14.0
 const REPAIR_DIST := 20.0         # the hall is wider than a crop cell
 const HOME_IDLE_DIST := 10.0
+const HAUL_DIST := 14.0
 const BODY_COL := Color(0.52, 0.78, 0.5)
 const REPAIRER_COL := Color(0.5, 0.62, 0.82)
+const HAULER_COL := Color(0.78, 0.66, 0.42)
 const HUNGRY_COL := Color(0.82, 0.62, 0.38)
 const TRIM_COL := Color(0.30, 0.24, 0.18)
 
@@ -84,6 +86,8 @@ func run_job(delta: float) -> bool:
 			return _run_farmhand(delta)
 		"repairer":
 			return _run_repairer(delta)
+		"hauler":
+			return _run_hauler(delta)
 	return false
 
 
@@ -121,6 +125,35 @@ func _run_repairer(_delta: float) -> bool:
 	return true
 
 
+## Hauler: gather loose ground items (mined yield, enemy loot) within the work
+## radius of home and carry them to the hall stockpile. Targets the nearest drop;
+## once in range, deposits the whole stack. Idle when the ground is clear. Like
+## the farmhand this is PRODUCTION for the settlement -- it only ADDS to the
+## stockpile and never spends food.
+func _run_hauler(_delta: float) -> bool:
+	var home_cell: Vector2i = world.cell_of(_home)
+	var drop = world.nearest_item_drop(home_cell, WORK_RADIUS_CELLS)
+	if drop == null:
+		return false
+	var dpos: Vector2 = drop.global_position
+	if global_position.distance_to(dpos) <= HAUL_DIST:
+		_deposit_drop(drop)
+		velocity.x = 0.0
+		return true
+	velocity.x = signf(dpos.x - global_position.x) * MOVE_SPEED
+	return true
+
+
+## Deposit a ground drop's whole stack into the stockpile and remove it. Guards a
+## drop already reaped this frame so the stack is never double-counted.
+func _deposit_drop(drop) -> void:
+	if drop == null or not is_instance_valid(drop) or drop.is_queued_for_deletion():
+		return
+	town_hall.stockpile[drop.item_id] = int(town_hall.stockpile.get(drop.item_id, 0)) + int(drop.count)
+	drop.queue_free()
+	town_hall.stockpile_changed.emit()
+
+
 ## Harvest a ripe crop cell and deposit its yield (food + seed) into the stockpile.
 ## This is PRODUCTION -- it only ADDS to the stockpile. Food consumption is owned
 ## solely by the abstract population model (see the contract note at the top).
@@ -145,7 +178,11 @@ func refresh_hunger() -> void:
 
 
 func _draw() -> void:
-	var base_col: Color = REPAIRER_COL if job == "repairer" else BODY_COL
+	var base_col: Color = BODY_COL
+	if job == "repairer":
+		base_col = REPAIRER_COL
+	elif job == "hauler":
+		base_col = HAULER_COL
 	var col: Color = HUNGRY_COL if hungry else base_col
 	draw_rect(Rect2(-5, -22, 10, 22), col)          # torso/legs
 	draw_circle(Vector2(0, -26), 5, col)            # head
@@ -153,6 +190,8 @@ func _draw() -> void:
 	if job == "repairer":
 		draw_line(Vector2(6, -16), Vector2(11, -25), TRIM_COL, 2.0)   # hammer handle
 		draw_rect(Rect2(9, -28, 5, 4), TRIM_COL)                      # hammer head
+	elif job == "hauler":
+		draw_rect(Rect2(4, -18, 8, 8), TRIM_COL)                      # a crate on the back
 	else:
 		draw_line(Vector2(5, -18), Vector2(11, -26), TRIM_COL, 2.0)   # a hoe
 

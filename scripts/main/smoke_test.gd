@@ -656,12 +656,15 @@ func _run() -> void:
 		and str(raider_node.enemy_id) == "raider_basic",
 		"family=%s" % (str(raider_node.family) if raider_node != null else "null"))
 
-	# Kill slime with forced 1.0 drop chance; all drops should land.
+	# Kill slime with forced 1.0 drop chance ON the player; R-08 slice 3 spills
+	# loot onto the ground and the adjacent player collects it into the backpack.
 	var inv_before: int = player.inventory.total()
 	if slime_node != null and is_instance_valid(slime_node):
+		slime_node.global_position = player.global_position
 		slime_node.drop_chance_override = 1.0
 		slime_node.take_hit(99)
 	await get_tree().process_frame
+	player.collect_ground_drops()
 	_check("enemy_drop_on_death", player.inventory.total() > inv_before,
 		"inventory total %d→%d" % [inv_before, player.inventory.total()])
 
@@ -774,12 +777,15 @@ func _run() -> void:
 		"torch_hp=%d thorn_hp=%d" % [
 			_fq13_torch_node.hp, _fq13_thorn_node.hp])
 
-	# (f) a new enemy's drops enter the inventory on death.
+	# (f) a new enemy's drops reach the player on death. R-08 slice 3 routes loot
+	# through a ground drop; killed on the player, the adjacent player collects it.
 	var _fq13_inv_before: int = player.inventory.total()
 	if _fq13_thorn_node != null and is_instance_valid(_fq13_thorn_node):
+		_fq13_thorn_node.global_position = player.global_position
 		_fq13_thorn_node.drop_chance_override = 1.0
 		_fq13_thorn_node.take_hit(99)
 	await get_tree().process_frame
+	player.collect_ground_drops()
 	_check("fq13_new_enemy_drops", player.inventory.total() > _fq13_inv_before,
 		"inventory total %d→%d" % [_fq13_inv_before, player.inventory.total()])
 
@@ -4373,6 +4379,130 @@ func _run() -> void:
 		_r08_legacy_ok and _r08_legacy_live == 0,
 		"applied=%s live=%d" % [str(_r08_legacy_ok), _r08_legacy_live])
 
+	# --- R-08 slice 3: ground item drops, radius auto-pickup, and the hauler job ---
+	var _r08g_home: Vector2 = hall.global_position
+	var _r08g_player_pos: Vector2 = player.global_position
+	_r08_clear_ground_drops()
+
+	# (g1) mining now routes its yield through a ground drop: a block broken within
+	# reach but beyond PICKUP_RADIUS leaves its yield on the ground, NOT in the pack.
+	# Mine an injected air-pocket block (returns to air, so terrain is left as found).
+	var _r08g_reroute_ok := false
+	var _r08g_reroute_detail := "no air cell to mine"
+	var _r08g_cell: Vector2i = world.cell_of(_r08g_home) + Vector2i(0, -6)
+	if world.block_at(_r08g_cell) == "air":
+		world.cells[_r08g_cell] = "dirt"
+		world.deltas[_r08g_cell] = "dirt"
+		var _r08g_center: Vector2 = world.cell_center(_r08g_cell)
+		player.global_position = _r08g_center + Vector2(58.0, 0.0)   # in reach (<80), out of pickup (>40)
+		var _r08g_dirt0: int = player.inventory.count("dirt")
+		player.process_mining(_r08g_cell, 0.0)
+		var _r08g_broke: bool = player.process_mining(_r08g_cell, player.mine_required + 0.05)
+		var _r08g_on_ground := false
+		for _r08g_d in get_tree().get_nodes_in_group("item_drops"):
+			if is_instance_valid(_r08g_d) and not _r08g_d.is_queued_for_deletion() \
+					and str(_r08g_d.item_id) == "dirt":
+				_r08g_on_ground = true
+		_r08g_reroute_ok = _r08g_broke \
+			and player.inventory.count("dirt") == _r08g_dirt0 and _r08g_on_ground
+		_r08g_reroute_detail = "broke=%s dirt %d->%d on_ground=%s" % [str(_r08g_broke),
+			_r08g_dirt0, player.inventory.count("dirt"), str(_r08g_on_ground)]
+		world.cells.erase(_r08g_cell)
+		world.deltas.erase(_r08g_cell)
+	_check("r08_mining_routes_through_ground_drops", _r08g_reroute_ok, _r08g_reroute_detail)
+
+	# (g2) radius auto-pickup: a drop beyond PICKUP_RADIUS is left alone; once the
+	# player stands on it, the whole stack sweeps into the backpack and it is gone.
+	_r08_clear_ground_drops()
+	var _r08p_far: Vector2 = player.global_position + Vector2(300.0, 0.0)
+	var _r08p_drop: Node = world.spawn_item_drop(_r08p_far, "wood", 3)
+	var _r08p_wood0: int = player.inventory.count("wood")
+	var _r08p_no_pick: bool = not player.collect_ground_drops()
+	player.global_position = _r08p_far
+	var _r08p_got: bool = player.collect_ground_drops()
+	var _r08p_ok: bool = _r08p_no_pick and _r08p_got \
+		and player.inventory.count("wood") == _r08p_wood0 + 3 \
+		and (not is_instance_valid(_r08p_drop) or _r08p_drop.is_queued_for_deletion())
+	_check("r08_player_radius_autopickup", _r08p_ok,
+		"no_pick=%s got=%s wood %d->%d" % [str(_r08p_no_pick), str(_r08p_got),
+			_r08p_wood0, player.inventory.count("wood")])
+
+	# (g3) the hauler job: a settler carries a loose ground drop to the stockpile.
+	_r08_clear_ground_drops()
+	var _r08h_pos: Vector2 = _r08g_home + Vector2(24.0, -8.0)
+	var _r08h_drop: Node = world.spawn_item_drop(_r08h_pos, "stone", 2)
+	var _r08h_sub: Node = root._spawn_subject_at(_r08h_pos, "hauler_test", "hauler")
+	var _r08h_stock0: int = int(hall.stockpile.get("stone", 0))
+	var _r08h_worked: bool = _r08h_sub.run_job(0.1)
+	var _r08h_gain: bool = int(hall.stockpile.get("stone", 0)) == _r08h_stock0 + 2
+	var _r08h_gone: bool = not is_instance_valid(_r08h_drop) or _r08h_drop.is_queued_for_deletion()
+	_check("r08_hauler_carries_ground_drop_to_stockpile",
+		str(_r08h_sub.job) == "hauler" and _r08h_worked and _r08h_gain and _r08h_gone,
+		"job=%s worked=%s stone %d->%d gone=%s" % [str(_r08h_sub.job), str(_r08h_worked),
+			_r08h_stock0, int(hall.stockpile.get("stone", 0)), str(_r08h_gone)])
+	_r08h_sub.remove_from_group("subjects")
+	_r08h_sub.queue_free()
+
+	# (g4) enemy loot spills onto the ground (not straight into the pack): killed
+	# far from the player, its drop stays loose and the backpack is untouched.
+	_r08_clear_ground_drops()
+	var _r08e_threat: Node = root.spawn_enemy_for_test("thornrat")
+	var _r08e_inv0: int = player.inventory.total()
+	var _r08e_ground := false
+	if _r08e_threat != null and is_instance_valid(_r08e_threat):
+		_r08e_threat.global_position = player.global_position + Vector2(400.0, 0.0)
+		_r08e_threat.drop_chance_override = 1.0
+		_r08e_threat.take_hit(99)
+		for _r08e_d in get_tree().get_nodes_in_group("item_drops"):
+			if is_instance_valid(_r08e_d) and not _r08e_d.is_queued_for_deletion():
+				_r08e_ground = true
+	var _r08e_no_autocollect: bool = player.inventory.total() == _r08e_inv0
+	_check("r08_enemy_loot_drops_to_ground", _r08e_ground and _r08e_no_autocollect,
+		"ground=%s inv unchanged=%s (total=%d)" % [str(_r08e_ground),
+			str(_r08e_no_autocollect), player.inventory.total()])
+
+	# (g5) ground drops persist through the world save, and a repeated apply cannot
+	# duplicate them (mirrors the subject/threat serialize discipline).
+	_r08_clear_ground_drops()
+	world.spawn_item_drop(_r08g_home + Vector2(30.0, -10.0), "stone", 4)
+	world.spawn_item_drop(_r08g_home + Vector2(-30.0, -10.0), "wood", 1)
+	var _r08sv_ser: Array = root.serialize_item_drops()
+	root.apply_item_drops(_r08sv_ser)
+	var _r08sv_live := 0
+	var _r08sv_stone_ok := false
+	for _r08sv_d in get_tree().get_nodes_in_group("item_drops"):
+		if _r08sv_d.is_queued_for_deletion():
+			continue
+		_r08sv_live += 1
+		if str(_r08sv_d.item_id) == "stone" and int(_r08sv_d.count) == 4:
+			_r08sv_stone_ok = true
+	root.apply_item_drops(_r08sv_ser)
+	var _r08sv_after := 0
+	for _r08sv_d2 in get_tree().get_nodes_in_group("item_drops"):
+		if not _r08sv_d2.is_queued_for_deletion():
+			_r08sv_after += 1
+	_check("r08_ground_drops_persist_across_save",
+		_r08sv_ser.size() == 2 and _r08sv_live == 2 and _r08sv_stone_ok and _r08sv_after == 2,
+		"ser=%d live=%d stone_ok=%s after_double=%d" % [_r08sv_ser.size(), _r08sv_live,
+			str(_r08sv_stone_ok), _r08sv_after])
+
+	# (g6) picking up loose items raises a "+N <Item>" notification with the count.
+	_r08_clear_ground_drops()
+	if hud._ctx_pickup_panel != null:
+		hud._ctx_pickup_panel.visible = false
+		hud._ctx_pickup_counts.clear()
+	world.spawn_item_drop(player.global_position, "stone", 5)
+	player.collect_ground_drops()
+	var _r08n_text: String = hud._ctx_pickup_label.text if hud._ctx_pickup_panel != null else ""
+	var _r08n_ok: bool = hud._ctx_pickup_panel != null and hud._ctx_pickup_panel.visible \
+		and ("5" in _r08n_text) and (BlockRegistry.display_name("stone") in _r08n_text)
+	_check("r08_pickup_notification_shows_count", _r08n_ok,
+		"text=%s visible=%s" % [_r08n_text,
+			str(hud._ctx_pickup_panel.visible if hud._ctx_pickup_panel != null else false)])
+
+	_r08_clear_ground_drops()
+	player.global_position = _r08g_player_pos
+
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
 	# registry and removal falls back (fq09v temp discipline; the wall
 	# tileset itself reads art once at world entry per the FQ-07 rule).
@@ -5406,7 +5536,8 @@ func _run() -> void:
 	var _fq19x_order_ok: bool = hud._context_stack != null \
 		and hud._context_stack.get_child(0) == hud._ctx_item_panel \
 		and hud._context_stack.get_child(1) == hud._ctx_save_panel \
-		and hud._context_stack.get_child(2) == hud._ctx_interact_panel
+		and hud._context_stack.get_child(2) == hud._ctx_interact_panel \
+		and hud._context_stack.get_child(3) == hud._ctx_pickup_panel   # R-08 slice 3
 	var _fq19x_slot0: int = player.selected_slot
 	player.selected_slot = (player.selected_slot + 1) % 5
 	hud.update_inventory()
@@ -5984,6 +6115,15 @@ func _mine_cell(world: Node2D, player: CharacterBody2D, cell: Vector2i) -> int:
 			return frames
 		await get_tree().process_frame
 	return frames
+
+
+## R-08 slice 3: retire every loose ground item drop so each drop check starts on
+## clean ground. remove_from_group first (queue_free is deferred) so a scan in the
+## same frame cannot see the outgoing drops.
+func _r08_clear_ground_drops() -> void:
+	for d in get_tree().get_nodes_in_group("item_drops"):
+		d.remove_from_group("item_drops")
+		d.queue_free()
 
 
 func _count_blocks(world: Node2D, block_id: String) -> int:

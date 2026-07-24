@@ -9,7 +9,7 @@ signal music_event(kind: String)
 
 const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
 const SubjectScript := preload("res://scripts/entities/subject.gd")   # R-08
-const SUBJECT_JOBS := ["farmhand", "repairer"]   # R-08 slice 2: assignable jobs
+const SUBJECT_JOBS := ["farmhand", "repairer", "hauler"]   # R-08 slice 2/3: assignable jobs
 const ActionFx := preload("res://scripts/fx/action_fx.gd")   # FQ-09M confirmations
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
 const ProgressionRegistryClass := preload("res://scripts/data/progression_registry.gd")
@@ -447,6 +447,7 @@ func _wire_references() -> void:
 
 func _wire_signals() -> void:
 	player.inventory_changed.connect(hud.update_inventory)
+	player.items_picked_up.connect(hud.notify_pickup)   # R-08 slice 3: pickup toast
 	player.health_changed.connect(hud.update_health)
 	player.attunement_changed.connect(hud.update_attunement)
 	player.mined.connect(_on_player_mined)
@@ -1247,6 +1248,30 @@ func apply_subjects(data: Array) -> void:
 	for entry in data:
 		var subj := _spawn_subject_at(Vector2.ZERO, str(entry.get("id", "farmhand_1")))
 		subj.from_dict(entry)
+
+
+## R-08 slice 3: serialize the loose ground item drops for the world save
+## (item/count/position). Filters drops already reaped this frame.
+func serialize_item_drops() -> Array:
+	var out: Array = []
+	for d in get_tree().get_nodes_in_group("item_drops"):
+		if is_instance_valid(d) and not d.is_queued_for_deletion():
+			out.append(d.to_dict())
+	return out
+
+
+## R-08 slice 3: restore loose ground drops from a saved array (replacing any
+## live ones). Mirrors apply_subjects: outgoing drops leave the group immediately
+## so a repeated apply cannot duplicate them; a missing/empty array (legacy
+## pre-slice-3 world state) simply clears the ground.
+func apply_item_drops(data: Array) -> void:
+	for d in get_tree().get_nodes_in_group("item_drops"):
+		d.remove_from_group("item_drops")
+		d.queue_free()
+	for entry in data:
+		world.spawn_item_drop(
+			Vector2(float(entry.get("x", 0.0)), float(entry.get("y", 0.0))),
+			str(entry.get("item", "")), int(entry.get("count", 1)))
 
 
 func serialize_threats() -> Array:
