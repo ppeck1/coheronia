@@ -20,6 +20,7 @@ const PauseMenuScript := preload("res://scripts/ui/pause_menu.gd")   # R-07
 const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
 const BuildPreviewScript := preload("res://scripts/world/build_preview.gd")   # R-07
 const CraftPanelScript := preload("res://scripts/ui/craft_panel.gd")   # R-07
+const ContractModelScript := preload("res://scripts/contracts/contract_model.gd")   # R-09
 
 const DAY_LENGTH_SECONDS := 100.0
 const NIGHT_START := 0.65          # time_of_day fraction where night begins
@@ -77,6 +78,9 @@ var _last_light_score := 0.0
 # FQ-15: discovered-region tracker for the map panel + open-map refresh throttle.
 var _map_state = null
 var _map_refresh_timer := 0.0
+## R-09: directed goals (contracts). RefCounted model owned here; observes live
+## authoritative state, persisted world-side with the save.
+var contracts = null                # ContractModel instance
 
 var _progression_registry = null    # ProgressionRegistryClass instance
 var _ancestry_registry = null       # AncestryRegistryClass instance
@@ -101,6 +105,8 @@ func _ready() -> void:
 	_ancestry_registry = AncestryRegistryClass.new()
 	_goal_tracker = GoalTrackerScript.new()
 	_map_state = MapStateScript.new()
+	contracts = ContractModelScript.new()   # R-09 directed goals
+	contracts.load_definitions()
 	# Initialise XP totals to 0.0 (float) for every known type.
 	for t: Dictionary in _progression_registry.xp_types():
 		xp_totals[str(t.get("id", ""))] = 0.0
@@ -128,6 +134,7 @@ func _ready() -> void:
 	log_event("Welcome to Coheronia. Shelter and light the Town Hall.")
 	hud.set_save_hint(save_manager.has_save())
 	settlement.compute()
+	contracts.evaluate()   # R-09: latch any active contract already satisfied on load
 	_refresh_goals()   # FQ-14: seed the goal panel from the (possibly loaded) state
 	# R-07: apply the user's saved key rebindings, then mount the pause menu (a
 	# PROCESS_MODE_ALWAYS layer that freezes the sim via get_tree().paused).
@@ -435,6 +442,8 @@ func _wire_references() -> void:
 	settlement.world = world
 	settlement.town_hall = town_hall
 	settlement.game_root = self
+	contracts.town_hall = town_hall   # R-09: live authority reads + reward grant
+	contracts.player = player
 	save_manager.world = world
 	save_manager.player = player
 	save_manager.town_hall = town_hall
@@ -456,7 +465,8 @@ func _wire_signals() -> void:
 	player.player_event.connect(log_event)
 	town_hall.stockpile_changed.connect(func() -> void:
 		hud.update_inventory()
-		settlement.compute())
+		settlement.compute()
+		contracts.evaluate())   # R-09: latch reconstructable objectives on stock change
 	settlement.updated.connect(hud.update_settlement)
 	settlement.updated.connect(
 		func(_c: float, _l: float, _r: float, _i: Dictionary, _lb: Array) -> void:
@@ -1272,6 +1282,33 @@ func apply_item_drops(data: Array) -> void:
 		world.spawn_item_drop(
 			Vector2(float(entry.get("x", 0.0)), float(entry.get("y", 0.0))),
 			str(entry.get("item", "")), int(entry.get("count", 1)))
+
+
+## R-09: serialize directed-goal (contract) lifecycle for the world save.
+## Only contracts advanced beyond `available` produce a record.
+func serialize_contracts() -> Array:
+	return contracts.serialize()
+
+
+## R-09: restore contract lifecycle records. A missing/empty array (legacy pre-
+## R-09 world state) restores to all-available.
+func apply_contracts(data: Array) -> void:
+	contracts.apply(data)
+
+
+## R-09: accept a directed goal (available -> active). For the future contracts
+## panel; returns success.
+func accept_contract(id: String) -> bool:
+	return contracts.accept(id)
+
+
+## R-09: claim a completed contract's reward (transactional; reward+status or
+## neither). Logs the outcome; returns success.
+func claim_contract(id: String) -> bool:
+	var res: Dictionary = contracts.claim(id)
+	if bool(res.get("ok", false)):
+		log_event("Contract complete: %s" % str(contracts.definition(id).get("title", id)))
+	return bool(res.get("ok", false))
 
 
 func serialize_threats() -> Array:

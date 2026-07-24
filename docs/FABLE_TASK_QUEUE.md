@@ -1018,6 +1018,20 @@ production and are queued in the matrix's image-production follow-up table
 with exact asset ids, sizes, defects, contract paths, and acceptance
 checks -- a code lane never produces final PNGs.
 
+## Release Foundations + Contracts Arc (Active)
+
+The Release Foundations arc (`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`) is
+complete through R-08 (R-00..R-05 export/save/CI/cleanup, R-07 playability
+baseline, R-08 subject-labor MVP). R-06 (ownership decomposition) is deferred;
+R-10 (HUD/art) is an art lane. The active row is **R-09 (Contracts + balance)**,
+authored in `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
+
+| Slice | Row | State |
+|---|---|---|
+| R-09.1 | Contract foundation: lifecycle + `stockpile_at_least`/`grant_items`, save 0.5→0.6 | Done 2026-07-24 (source smoke 392/392) |
+| R-09.2 | Objective + reward expansion; contracts panel | Not started |
+| R-09.3 | Deterministic fixed-seed balance report | Not started |
+
 ## Current Fable Continuation
 
 ```text

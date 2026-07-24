@@ -1,0 +1,16 @@
+{
+  "contracts": [
+    {
+      "id": "stone_reserve",
+      "title": "Stone Reserve",
+      "description": "Store at least 20 stone in the Town Hall stockpile.",
+      "objective": {
+        "oid": "stone_reserve.stock",
+        "type": "stockpile_at_least",
+        "item": "stone",
+        "count": 20
+      },
+      "reward": { "type": "grant_items", "items": { "torch": 3 } }
+    }
+  ]
+}

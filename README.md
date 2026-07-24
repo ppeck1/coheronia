@@ -6,7 +6,7 @@ Dig, build, and light a side-view frontier settlement — then keep it alive as 
 
 ![Daytime settlement with the Town Hall, torch line, and live HUD](docs/screenshots/01_settlement_day.png)
 
-`Godot 4.6 · GDScript · data-driven design · 376-check in-engine smoke suite · adaptive music · layered image-first UI pipeline`
+`Godot 4.6 · GDScript · data-driven design · 392-check in-engine smoke suite · adaptive music · layered image-first UI pipeline`
 
 ## What it is
 
@@ -224,7 +224,8 @@ Persistence: `user://shell.json` (profile + characters) and `user://worlds/<id>.
 
 Dated shipped milestones, newest first (full detail in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md)):
 
-- **2026-07-23 — R-08 slice 1: visible farmhand settler.** First concrete subject actor — bounded roam, ripe-crop harvest into the stockpile, hunger/idle when food is exhausted, save persistence — with the abstract population kept as the single food-accounting authority (no double-charge). Source smoke **376/376**; exported artifact **370/370**.
+- **2026-07-24 — R-09 slice 1: contract (directed-goal) foundation.** A data-driven contracts system with a persisted `available → active → completed → claimed` lifecycle that observes *live* authoritative state (no shadow counters), latches completion on first threshold reach, and grants rewards transactionally through the player inventory only. The world save schema bumps to **0.6** (legacy 0.5/0.4 load as empty, a named migration check proves it). Source smoke **392/392** (two consecutive runs); exported-artifact parity verified in CI.
+- **through 2026-07-24 — R-08: subject-labor MVP.** Visible farmhand, repairer, and hauler settlers with save-persisted job assignment, layered over the unchanged abstract population (the single food-accounting authority, so a settler is never charged food twice), plus a loose ground-drop layer — mining yield and enemy loot fall under gravity, render with the inventory's own icons, auto-collect within reach (a **"+N item"** toast), and are hauled to the stockpile. Source smoke **384/384**.
 - **through 2026-07-22 — R-00–R-07: release foundations + playability baseline.** Export-safe resource loading, atomic saves, isolated verification, pinned CI that builds *and launches* the exported artifact, public-repo cleanup; then pause/settings/keybinds, save-slot management, build-preview placement feedback, and a unified crafting panel.
 - **2026-07-21 — presentation recovery arc (PR-00–PR-08).** Character-rendering contract, gear resolution/alignment, directional action animation, the shared-path creation preview, the runtime-children Character panel, the contour backdrop, and the viewport-relative skill tree.
 
@@ -234,8 +235,8 @@ The full adaptive-music arc, the opening cinematic, and the first real art pass
 are done; the active queue ([`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md))
 continues in bounded increments:
 
-- **Shipped** — **FQ-10–21** delivered ore families, metallurgy, farming, three pressure-specific enemies, deterministic visual pools, the state-driven goal panel, persistent scouting, and the native 19-asset HUD dock with movable Map/Events modules (the old sliced-band constructions survive only as fallbacks). The **presentation recovery** (PR-00–08), **release foundations + playability baseline** (R-00–07), and the first **visible farmhand settler** (R-08) followed — see **[Current build](#current-build)** above for those dated milestones.
-- **Next up** — the rest of the subject-labor MVP (hauler/repairer jobs, multiple subjects, assignment), then a data-defined contracts and balance layer on the goal system.
+- **Shipped** — **FQ-10–21** delivered ore families, metallurgy, farming, three pressure-specific enemies, deterministic visual pools, the state-driven goal panel, persistent scouting, and the native 19-asset HUD dock with movable Map/Events modules (the old sliced-band constructions survive only as fallbacks). The **presentation recovery** (PR-00–08), **release foundations + playability baseline** (R-00–07), the **subject-labor MVP** (R-08), and the **contract foundation** (R-09 slice 1) followed — see **[Current build](#current-build)** above for those dated milestones.
+- **Next up** — **R-09 slices 2–3**: expand the contract system with more objective and reward types and a player-facing contracts panel, then a deterministic fixed-seed **balance report** that records tuning evidence without mutating balance values — building on the shipped contract foundation.
 - **More enemies** from a 16-entry design roster (mini-bosses and the hollow_king / world_worm bosses remain), each landing with its gameplay consumer.
 - **Art backlog** — polish the current HUD chrome one contract-safe PNG at a time via the [`HUD Asset Replacement Studio`](docs/wiki/hud_asset_replacement_studio.md); extend body-specific gear beyond the currently covered crude armor, pick, and axe families; refine action poses; and expand opening-scene animation only where it improves the existing authored cel pools.
 - **Deeper systems** sketched in [`docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`](docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md): the research bench MVP, perk-spending across more lanes, underground-start generation for deep ancestries, and the civic layer (laws, districts, factions, legitimacy). Ancestries beyond the five playable ones exist as validated data awaiting their phases.

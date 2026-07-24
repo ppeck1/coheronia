@@ -3,8 +3,8 @@ extends Node
 ## goes through GameState into the current world's file (the world is a
 ## configured simulation container: config + terrain history + state).
 
-const SAVE_VERSION := "0.5"
-const ACCEPTED_VERSIONS := ["0.5", "0.4"]
+const SAVE_VERSION := "0.6"
+const ACCEPTED_VERSIONS := ["0.6", "0.5", "0.4"]
 
 var world: Node2D
 var player: CharacterBody2D
@@ -35,6 +35,7 @@ func collect_state() -> Dictionary:
 		"crop_growth": world.serialize_crop_growth(),
 		"map_revealed": game_root.map_revealed_serialized(),
 		"progression": game_root.progression_state(),
+		"contracts": game_root.serialize_contracts(),
 	}
 
 
@@ -122,6 +123,8 @@ func apply_state(state: Dictionary) -> bool:
 	game_root.apply_threats(state.get("threats", []))
 	game_root.apply_subjects(state.get("subjects", []))
 	game_root.apply_item_drops(state.get("item_drops", []))
+	# R-09: contract lifecycle (world-owned). Missing key (legacy 0.4/0.5) -> empty.
+	game_root.apply_contracts(state.get("contracts", []))
 	return true
 
 

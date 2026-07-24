@@ -34,6 +34,7 @@ REQUIRED_FILES = [
     "data/visual_assets.json",
     "data/player_visuals.json",
     "data/items.json",
+    "data/contracts.json",
     "art/source_templates/ASSET_TEMPLATE.md",
     "art/source_templates/BACKGROUND_TEMPLATE.md",
     "scripts/shell/prologue.gd",
@@ -747,6 +748,58 @@ for im_id, im in items_meta["items"].items():
     if not isinstance(im, dict):
         fail(f"items.json entry {im_id} must be a dict")
 print("PASS items data")
+
+# R-09: contract (directed-goal) definitions. Slice 1 is deliberately narrow --
+# exactly one objective and one reward per contract, from a fixed vocabulary,
+# with every referenced id validated. See docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md.
+CONTRACT_OBJECTIVE_TYPES = {"stockpile_at_least"}
+CONTRACT_REWARD_TYPES = {"grant_items"}
+_item_ids = set(items_meta["items"].keys())
+contracts_data = json.loads((ROOT / "data/contracts.json").read_text(encoding="utf-8"))
+if not isinstance(contracts_data.get("contracts"), list):
+    fail("contracts.json missing contracts list")
+_seen_contract_ids: set[str] = set()
+_seen_objective_ids: set[str] = set()
+for c in contracts_data["contracts"]:
+    if not isinstance(c, dict):
+        fail("contracts.json: each contract must be an object")
+    cid = c.get("id")
+    if not isinstance(cid, str) or not cid:
+        fail("contracts.json: contract missing string id")
+    if cid in _seen_contract_ids:
+        fail(f"contracts.json: duplicate contract id {cid}")
+    _seen_contract_ids.add(cid)
+    obj = c.get("objective")
+    rew = c.get("reward")
+    if not isinstance(obj, dict) or not isinstance(rew, dict):
+        fail(f"contracts.json {cid}: needs exactly one objective and one reward object")
+    oid = obj.get("oid")
+    if not isinstance(oid, str) or not oid:
+        fail(f"contracts.json {cid}: objective missing string oid")
+    if oid in _seen_objective_ids:
+        fail(f"contracts.json: duplicate objective oid {oid}")
+    _seen_objective_ids.add(oid)
+    otype = obj.get("type")
+    if otype not in CONTRACT_OBJECTIVE_TYPES:
+        fail(f"contracts.json {cid}: invalid objective type {otype!r}")
+    if otype == "stockpile_at_least":
+        if obj.get("item") not in _item_ids:
+            fail(f"contracts.json {cid}: objective item {obj.get('item')!r} not in items.json")
+        if not isinstance(obj.get("count"), int) or obj["count"] <= 0:
+            fail(f"contracts.json {cid}: objective count must be a positive int")
+    rtype = rew.get("type")
+    if rtype not in CONTRACT_REWARD_TYPES:
+        fail(f"contracts.json {cid}: invalid reward type {rtype!r}")
+    if rtype == "grant_items":
+        gi = rew.get("items")
+        if not isinstance(gi, dict) or not gi:
+            fail(f"contracts.json {cid}: grant_items needs a non-empty items map")
+        for rid, rn in gi.items():
+            if rid not in _item_ids:
+                fail(f"contracts.json {cid}: reward item {rid!r} not in items.json")
+            if not isinstance(rn, int) or rn <= 0:
+                fail(f"contracts.json {cid}: reward count for {rid} must be a positive int")
+print("PASS contracts data")
 _va_missing = 0
 for va_cat, va_ids in [
     ("blocks", [b for b in blocks if b != "air"]),

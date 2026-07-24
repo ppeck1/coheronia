@@ -1,21 +1,25 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-24 release foundations: R-00..R-05 + R-07 done, R-08 slices 1–3 done + PUSHED)
+## Current State (2026-07-24: R-00..R-05 + R-07 + R-08 done; R-09 slice 1 done)
 
-**NEXT INSTANCE — start here.** `origin/main == 43f304e` (R-08 slice 3, pushed
-2026-07-24; slice 2 `4890c04` pushed in the same batch). The working tree is
-clean. R-08 (Subject labor MVP) is functionally complete: visible
-farmhand/repairer/hauler settlers, a loose ground-drop layer (gravity,
-inventory-icon rendering, radius auto-pickup, "+N Item" pickup toast), and
-save/assignment. **Immediate follow-up:** the push kicked off the GitHub CI
-(R-04, `.github/workflows/ci.yml`) which runs the Linux **export** verification
-that this slice was NOT locally export-verified against — confirm that run is
-green (source smoke was 384/384 ×2 on Windows; watch for cross-platform smoke
-flakes, the recurring lesson in `WORK_ORDER_RELEASE_FOUNDATIONS.md`). **Then**
-the operator picks the next arc: R-09 (contracts + balance) is the next R-series
-row; R-06 (ownership decomposition) is deferred; R-10 (HUD/art) stays an art
-lane. Do not start a new arc without the operator choosing it. Push control is
-separate from commit control — never push unless told.
+**NEXT INSTANCE — start here.** R-09 (Contracts + balance) is the active arc,
+run design-first per operator gate. The approved design lives in
+`docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md` (row authority). **R-09 slice 1
+(contract foundation) is DONE:** a data-driven directed-goals system
+(`scripts/contracts/contract_model.gd` + `data/contracts.json`) with a persisted
+`available → active → completed → claimed` lifecycle that observes *live*
+authoritative state (no shadow counters), latches completion on first threshold
+reach, and grants rewards transactionally through the player inventory only. The
+world save schema bumped **0.5 → 0.6** (accepts 0.6/0.5/0.4; missing contracts
+key migrates to empty). Validator + asset audit + capsule doctor green; source
+waited-GUI smoke **392/392 ×2**, 0 skipped (8 new `r09_` checks). **Immediate
+follow-up:** confirm the push's GitHub CI (R-04) Linux export run is green
+(watch cross-platform smoke flakes, the recurring lesson in
+`WORK_ORDER_RELEASE_FOUNDATIONS.md`). **Next:** R-09 slice 2 (more objective +
+reward types, a contracts panel) then slice 3 (deterministic fixed-seed balance
+report). R-06 (ownership decomposition) deferred; R-10 (HUD/art) art lane. Do
+not start a new arc without the operator choosing it. Push control is separate
+from commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is

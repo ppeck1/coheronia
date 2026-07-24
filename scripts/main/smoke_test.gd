@@ -4503,6 +4503,164 @@ func _run() -> void:
 	_r08_clear_ground_drops()
 	player.global_position = _r08g_player_pos
 
+	# --- R-09 slice 1: contracts (directed goals) -----------------------------
+	# Drive the model directly (no awaits) for determinism: the objective reads
+	# the LIVE stockpile, completion latches, and claim is transactional. See
+	# docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md.
+	var _r09_cm = root.contracts
+	var _r09_id := "stone_reserve"
+	var _r09_torch_base: int = player.inventory.count("torch")
+
+	# (1) the runtime model parsed the narrow-vocab definition (the validator is
+	# the hard schema gate; this confirms the game sees a well-formed contract).
+	var _r09_def: Dictionary = _r09_cm.definition(_r09_id)
+	var _r09_obj: Dictionary = _r09_def.get("objective", {})
+	var _r09_rew: Dictionary = _r09_def.get("reward", {})
+	var _r09_defs_ok: bool = _r09_id in _r09_cm.contract_ids() \
+		and str(_r09_obj.get("type", "")) == "stockpile_at_least" \
+		and str(_r09_obj.get("item", "")) == "stone" \
+		and int(_r09_obj.get("count", 0)) == 20 \
+		and str(_r09_rew.get("type", "")) == "grant_items" \
+		and int((_r09_rew.get("items", {})).get("torch", 0)) == 3
+	_check("r09_contract_definitions_valid", _r09_defs_ok,
+		"objective=%s reward=%s" % [str(_r09_obj.get("type", "")), str(_r09_rew.get("type", ""))])
+
+	# (2) full lifecycle available -> active -> completed -> claimed grants torch x3.
+	_r09_cm.apply([])
+	hall.stockpile["stone"] = 0
+	var _r09_avail: bool = _r09_cm.status_of(_r09_id) == "available"
+	var _r09_accepted: bool = _r09_cm.accept(_r09_id) and _r09_cm.status_of(_r09_id) == "active"
+	_r09_cm.evaluate()
+	var _r09_active_low: bool = _r09_cm.status_of(_r09_id) == "active"
+	hall.stockpile["stone"] = 20
+	_r09_cm.evaluate()
+	var _r09_completed: bool = _r09_cm.status_of(_r09_id) == "completed"
+	var _r09_t0: int = player.inventory.count("torch")
+	var _r09_claim: Dictionary = _r09_cm.claim(_r09_id)
+	var _r09_life_ok: bool = _r09_avail and _r09_accepted and _r09_active_low and _r09_completed \
+		and bool(_r09_claim.get("ok", false)) and _r09_cm.status_of(_r09_id) == "claimed" \
+		and player.inventory.count("torch") == _r09_t0 + 3
+	_check("r09_lifecycle_available_active_completed_claimed", _r09_life_ok,
+		"avail=%s active_low=%s completed=%s status=%s torch+%d" % [str(_r09_avail),
+			str(_r09_active_low), str(_r09_completed), _r09_cm.status_of(_r09_id),
+			player.inventory.count("torch") - _r09_t0])
+
+	# (3) stockpile_at_least completes on the FIRST reach of the threshold.
+	_r09_cm.apply([])
+	_r09_cm.accept(_r09_id)
+	hall.stockpile["stone"] = 19
+	_r09_cm.evaluate()
+	var _r09_at19: bool = _r09_cm.status_of(_r09_id) == "active"
+	hall.stockpile["stone"] = 20
+	_r09_cm.evaluate()
+	var _r09_at20: bool = _r09_cm.status_of(_r09_id) == "completed"
+	_check("r09_stockpile_at_least_first_reach", _r09_at19 and _r09_at20,
+		"active_at_19=%s completed_at_20=%s" % [str(_r09_at19), str(_r09_at20)])
+
+	# (4) completion latches: spending stock below the threshold never reverts it.
+	_r09_cm.apply([])
+	_r09_cm.accept(_r09_id)
+	hall.stockpile["stone"] = 25
+	_r09_cm.evaluate()
+	var _r09_latch_done: bool = _r09_cm.status_of(_r09_id) == "completed"
+	hall.stockpile["stone"] = 0
+	_r09_cm.evaluate()
+	var _r09_latch_kept: bool = _r09_cm.status_of(_r09_id) == "completed"
+	_check("r09_completion_latches", _r09_latch_done and _r09_latch_kept,
+		"completed=%s kept_after_drop=%s" % [str(_r09_latch_done), str(_r09_latch_kept)])
+
+	# (5) claim is transactional and cannot double-pay.
+	_r09_cm.apply([])
+	_r09_cm.accept(_r09_id)
+	hall.stockpile["stone"] = 20
+	_r09_cm.evaluate()
+	var _r09_tp0: int = player.inventory.count("torch")
+	var _r09_first: Dictionary = _r09_cm.claim(_r09_id)
+	var _r09_after_first: int = player.inventory.count("torch")
+	var _r09_second: Dictionary = _r09_cm.claim(_r09_id)   # already claimed -> no-op
+	var _r09_nodouble_ok: bool = bool(_r09_first.get("ok", false)) \
+		and _r09_after_first == _r09_tp0 + 3 \
+		and not bool(_r09_second.get("ok", false)) \
+		and player.inventory.count("torch") == _r09_tp0 + 3
+	_check("r09_claim_transactional_no_double_pay", _r09_nodouble_ok,
+		"first=%s second=%s torch %d->%d" % [str(_r09_first.get("ok", false)),
+			str(_r09_second.get("ok", false)), _r09_tp0, player.inventory.count("torch")])
+
+	# (6) when the reward cannot be accepted, claim is a safe no-op (stays
+	# completed, grants nothing) and succeeds once the authority returns.
+	_r09_cm.apply([])
+	_r09_cm.accept(_r09_id)
+	hall.stockpile["stone"] = 20
+	_r09_cm.evaluate()
+	var _r09_ta0: int = player.inventory.count("torch")
+	_r09_cm.player = null                                   # force can_accept -> false
+	var _r09_blocked: Dictionary = _r09_cm.claim(_r09_id)
+	var _r09_blocked_ok: bool = not bool(_r09_blocked.get("ok", false)) \
+		and str(_r09_blocked.get("reason", "")) == "cannot_accept" \
+		and _r09_cm.status_of(_r09_id) == "completed" \
+		and player.inventory.count("torch") == _r09_ta0
+	_r09_cm.player = player                                 # restore authority
+	var _r09_retry: Dictionary = _r09_cm.claim(_r09_id)
+	var _r09_accept_ok: bool = _r09_blocked_ok and bool(_r09_retry.get("ok", false)) \
+		and player.inventory.count("torch") == _r09_ta0 + 3
+	_check("r09_claim_inventory_cannot_accept", _r09_accept_ok,
+		"blocked=%s reason=%s retry=%s" % [str(not bool(_r09_blocked.get("ok", false))),
+			str(_r09_blocked.get("reason", "")), str(_r09_retry.get("ok", false))])
+
+	# (7) save-version migration 0.5 -> 0.6: a legacy world with no contracts key
+	# loads as all-available and re-saves under 0.6 with a contracts array.
+	var _r09_state_now: Dictionary = root.save_manager.collect_state()
+	var _r09_ver_ok: bool = root.save_manager.SAVE_VERSION == "0.6" \
+		and "0.6" in root.save_manager.ACCEPTED_VERSIONS \
+		and "0.5" in root.save_manager.ACCEPTED_VERSIONS \
+		and "0.4" in root.save_manager.ACCEPTED_VERSIONS \
+		and str(_r09_state_now.get("save_version", "")) == "0.6" \
+		and _r09_state_now.has("contracts")
+	var _r09_legacy: Dictionary = _r09_state_now.duplicate(true)
+	_r09_legacy.erase("contracts")
+	_r09_legacy["save_version"] = "0.5"
+	var _r09_applied: bool = root.save_manager.apply_state(_r09_legacy)
+	var _r09_migrated_empty: bool = _r09_cm.status_of(_r09_id) == "available"
+	var _r09_resave: Dictionary = root.save_manager.collect_state()
+	var _r09_resave_ok: bool = str(_r09_resave.get("save_version", "")) == "0.6" \
+		and _r09_resave.has("contracts") and typeof(_r09_resave["contracts"]) == TYPE_ARRAY
+	root.save_manager.apply_state(_r09_state_now)   # restore the live world snapshot
+	_check("r09_save_migration_0_5_to_0_6",
+		_r09_ver_ok and _r09_applied and _r09_migrated_empty and _r09_resave_ok,
+		"ver_ok=%s applied=%s migrated_available=%s resave06=%s" % [str(_r09_ver_ok),
+			str(_r09_applied), str(_r09_migrated_empty), str(_r09_resave_ok)])
+
+	# (8) claimed state persists across serialize/apply and never re-grants on
+	# reload (idempotent completion).
+	_r09_cm.apply([])
+	_r09_cm.accept(_r09_id)
+	hall.stockpile["stone"] = 20
+	_r09_cm.evaluate()
+	_r09_cm.claim(_r09_id)
+	var _r09_ser: Array = _r09_cm.serialize()
+	var _r09_ser_has_claimed := false
+	for _r09_e in _r09_ser:
+		if str(_r09_e.get("id", "")) == _r09_id and str(_r09_e.get("status", "")) == "claimed":
+			_r09_ser_has_claimed = true
+	_r09_cm.apply(_r09_ser)                                  # simulate reload
+	var _r09_reloaded_claimed: bool = _r09_cm.status_of(_r09_id) == "claimed"
+	var _r09_tr0: int = player.inventory.count("torch")
+	var _r09_regrant: Dictionary = _r09_cm.claim(_r09_id)   # must be a no-op
+	_r09_cm.evaluate()
+	var _r09_persist_ok: bool = _r09_ser_has_claimed and _r09_reloaded_claimed \
+		and not bool(_r09_regrant.get("ok", false)) \
+		and player.inventory.count("torch") == _r09_tr0
+	_check("r09_claimed_state_persists", _r09_persist_ok,
+		"ser_claimed=%s reloaded=%s regrant_blocked=%s" % [str(_r09_ser_has_claimed),
+			str(_r09_reloaded_claimed), str(not bool(_r09_regrant.get("ok", false)))])
+
+	# Leave contracts all-available and net player inventory unchanged for the
+	# sections that follow.
+	_r09_cm.apply([])
+	var _r09_extra: int = player.inventory.count("torch") - _r09_torch_base
+	if _r09_extra > 0:
+		player.inventory.remove("torch", _r09_extra)
+
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
 	# registry and removal falls back (fq09v temp discipline; the wall
 	# tileset itself reads art once at world entry per the FQ-07 rule).
