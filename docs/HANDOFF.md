@@ -19,21 +19,28 @@ balance report generation, source waited-GUI smoke, and exported Windows smoke
 are green: source **403/403**, 0 skipped; export **397/397 + 6 skipped**
 (2026-07-24).
 
-**NEXT CODE ARC = R-06 (Incremental ownership decomposition), approved
-2026-07-27, design-first.** Authority:
-`docs/WORK_ORDER_R06_OWNERSHIP_DECOMPOSITION.md` (status: DESIGN APPROVED —
-IMPLEMENTATION NOT STARTED). R-06 is a pure structural refactor of the two
-RF-09 ownership points — `hud.gd` (3,990 lines) and `game_root.gd` (1,705
-lines) — behind a **frozen public façade**: no behavior change, no save-format
-change, no version bump. Six ordered, operator-gated slices (R-06.1
-chrome/theme resolver → R-06.2 edit-mode controller → R-06.3 crest/vessel →
-R-06.4 inventory board → R-06.5 game_root session services → R-06.6 retire
-historical fallbacks after export verify). Each slice lifts one existing
-cluster into a collaborator, preserves every public signature, keeps all
-pre-existing fq/pr/r07 checks green (the regression proof), and adds one
-`r06_*` seam check. **Awaiting operator go-ahead to start Slice R-06.1.**
-R-10/HUD polish remains art lane. Push control is separate from commit control
-— never push unless told.
+**CURRENT CODE ARC = R-06 (Incremental ownership decomposition), approved
+2026-07-27, design-first — IN PROGRESS.** Authority:
+`docs/WORK_ORDER_R06_OWNERSHIP_DECOMPOSITION.md`. R-06 is a pure structural
+refactor of the two RF-09 ownership points — `hud.gd` (was 3,990 lines) and
+`game_root.gd` (1,705 lines) — behind a **frozen public façade**: no behavior
+change, no save-format change, no version bump. Six ordered, operator-gated
+slices (R-06.1 chrome/theme resolver → R-06.2 edit-mode controller → R-06.3
+crest/vessel → R-06.4 inventory board → R-06.5 game_root session services →
+R-06.6 retire historical fallbacks after export verify). Each slice lifts one
+existing cluster into a collaborator, preserves every public signature, keeps
+all pre-existing fq/pr/r07 checks green (the regression proof), and adds one
+`r06_*` seam check.
+
+**Slice R-06.1 (chrome & theme resolver) DONE 2026-07-27** — the stateless
+resolver + slicer-geometry parsers lifted to `scripts/ui/hud/hud_chrome.gd`
+(`RefCounted` static, preloaded, no `class_name`); `hud.gd` keeps delegating
+wrappers; seam check `r06_chrome_resolver_delegates` added. **Source smoke
+404/404 (0 skipped), validator PASS, capsule healthy, `git diff --check`
+clean.** Committed, NOT pushed (export rides the R-04 push CI). **Next = Slice
+R-06.2 (edit-mode controller), awaiting operator go-ahead.** R-10/HUD polish
+remains art lane. Push control is separate from commit control — never push
+unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is

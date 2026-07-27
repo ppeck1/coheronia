@@ -1,6 +1,18 @@
 # R-06 — Incremental Ownership Decomposition (Work Order)
 
-**Status: DESIGN APPROVED — IMPLEMENTATION NOT STARTED.**
+**Status: IN PROGRESS — Slice R-06.1 DONE (2026-07-27).**
+
+**R-06.1 (Chrome & theme resolver) shipped 2026-07-27.** The stateless
+painted-chrome / themed-PNG resolver and the slicer-geometry parsers were
+lifted out of `hud.gd` into `scripts/ui/hud/hud_chrome.gd` (a `RefCounted`
+static helper, no `class_name`, preloaded). `hud.gd` keeps thin delegating
+wrappers for every symbol still called (`_painted_texture_for_theme`,
+`_normalize_hud_visual_theme`, `_load_band_geometry`, `_load_hud_kit_layout`,
+`_json_rect`, `_json_vec`); the purely-internal `_themed_texture_matches_fallback`
+moved wholesale with no dead wrapper. No public signature, save format, or
+behavior changed. Seam check `r06_chrome_resolver_delegates` added. **Source
+waited-GUI smoke 404/404, 0 skipped; validator PASS; capsule healthy;
+`git diff --check` clean.** (Export verification rides the R-04 push CI.)
 
 This document is the row-level authority for R-06. `docs/HANDOFF.md`,
 `docs/FABLE_TASK_QUEUE.md`, and `docs/WORK_ORDER_RELEASE_FOUNDATIONS.md` (R-06
@@ -160,7 +172,7 @@ R-06 adds **no data schema**, so validator changes are minimal:
 
 | Slice | Scope | Extracted collaborator | New seam check(s) |
 |---|---|---|---|
-| **R-06.1 — Chrome & theme resolver** | Lift the stateless painted-chrome / themed-PNG resolver + slicer geometry math out of `hud.gd`. No live state moves. Proves the extraction pattern end-to-end on the safest seam. | `scripts/ui/hud/hud_chrome.gd` (`RefCounted`/static) | `r06_chrome_resolver_delegates` |
+| **R-06.1 — Chrome & theme resolver** ✅ DONE | Lift the stateless painted-chrome / themed-PNG resolver + slicer geometry math out of `hud.gd`. No live state moves. Proves the extraction pattern end-to-end on the safest seam. | `scripts/ui/hud/hud_chrome.gd` (`RefCounted`/static) | `r06_chrome_resolver_delegates` — **source 404/404** |
 | **R-06.2 — Edit-mode controller** | Lift drag/resize/grip, widget registry, natural-size defaults, and the `reset_hud_layout` + `shell.json` layout persistence. Self-contained; heavily pre-covered by fq17/fq20. | `scripts/ui/hud/hud_edit_controller.gd` (child node) | `r06_edit_controller_delegates` |
 | **R-06.3 — Crest / vessel subsystem** | Lift health/attunement/settlement bars, vessel sockets + fills, attunement effects. The FQ-19/21 hotspot. | `scripts/ui/hud/hud_crest.gd` (child node) | `r06_crest_delegates` |
 | **R-06.4 — Inventory board / toolbelt** | Lift hotbar, inventory board, drag/drop sort, and all dock/backpack/equipment/stockpile grid accessors. Largest cluster. | `scripts/ui/hud/hud_inventory_board.gd` (child node) | `r06_inventory_board_delegates` |

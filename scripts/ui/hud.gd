@@ -12,8 +12,6 @@ signal subject_job_cycle_requested(id: String)   # R-08 slice 2: settler job ass
 ## default 0.25); the HUD does not read player state directly so it keeps a
 ## small local const matching the documented default for the tint threshold.
 const LOW_HEALTH_TINT_FRACTION := 0.25
-const HUD_VISUAL_THEME_SEPARATOR := "__"
-const HUD_VISUAL_THEME_MAX_LENGTH := 48
 
 var player: CharacterBody2D
 var town_hall: Node2D
@@ -102,6 +100,8 @@ const InventorySlotCellScript := preload("res://scripts/ui/inventory_slot_cell.g
 var _skill_panel: PanelContainer
 # FQ-15: map/minimap panel (M); hidden until opened, fed a snapshot by game_root.
 const MapPanelScript := preload("res://scripts/ui/map_panel.gd")
+# R-06.1: stateless painted-chrome / theme resolver + slicer-geometry parsers.
+const HudChrome := preload("res://scripts/ui/hud/hud_chrome.gd")
 var _map_panel: Control
 var _map_open := false
 # FQ-07/FQ-09: toolbelt slot tiles — always-visible item icons (real art or
@@ -810,28 +810,9 @@ func _painted_texture(id: String) -> Texture2D:
 
 
 func _painted_texture_for_theme(id: String, theme_id: String) -> Texture2D:
-	var fallback: Texture2D = BlockRegistry.visual_texture("ui_painted", id)
-	if fallback == null:
-		return null
-	var safe_theme := _normalize_hud_visual_theme(theme_id)
-	if safe_theme.is_empty():
-		return fallback
-	var themed: Texture2D = BlockRegistry.visual_texture(
-		"ui_painted", "%s%s%s" % [id, HUD_VISUAL_THEME_SEPARATOR, safe_theme])
-	if not _themed_texture_matches_fallback(themed, fallback):
-		return fallback
-	return themed
-
-
-func _themed_texture_matches_fallback(themed: Texture2D,
-		fallback: Texture2D) -> bool:
-	if themed == null or fallback == null or themed.get_size() != fallback.get_size():
-		return false
-	var themed_image: Image = themed.get_image()
-	var fallback_image: Image = fallback.get_image()
-	return themed_image != null and fallback_image != null \
-		and not themed_image.is_empty() and not fallback_image.is_empty() \
-		and themed_image.get_format() == fallback_image.get_format()
+	# R-06.1: delegates to the stateless HudChrome resolver; facade preserved
+	# so the fq21 theme smoke keeps driving hud._painted_texture_for_theme.
+	return HudChrome.painted_texture_for_theme(id, theme_id)
 
 
 func _initial_hud_visual_theme() -> String:
@@ -844,20 +825,7 @@ func _initial_hud_visual_theme() -> String:
 
 
 func _normalize_hud_visual_theme(raw_id: String) -> String:
-	var raw := raw_id.strip_edges().to_lower()
-	var normalized := ""
-	for index in range(raw.length()):
-		var code := raw.unicode_at(index)
-		if (code >= 97 and code <= 122) or (code >= 48 and code <= 57) \
-				or code == 95:
-			normalized += raw[index]
-		elif code == 32 or code == 45:
-			normalized += "_"
-		else:
-			return ""
-	if normalized.length() > HUD_VISUAL_THEME_MAX_LENGTH:
-		return ""
-	return normalized
+	return HudChrome.normalize_hud_visual_theme(raw_id)
 
 
 func hud_visual_theme_id() -> String:
@@ -1696,21 +1664,11 @@ var _scaled_tex_cache: Dictionary = {}   # "id@scale" -> ImageTexture
 ## FQ-21: slicer-measured band geometry — hud.gd never hand-syncs mockup
 ## coordinates again (that was the source of the masking misalignments).
 func _load_band_geometry() -> Dictionary:
-	var raw := FileAccess.get_file_as_string(
-		"res://art/generated/ui_painted/dock_band_geometry.json")
-	if raw.is_empty():
-		return {}
-	var parsed: Variant = JSON.parse_string(raw)
-	return parsed if parsed is Dictionary else {}
+	return HudChrome.load_band_geometry()
 
 
 func _load_hud_kit_layout() -> Dictionary:
-	var raw := FileAccess.get_file_as_string(
-		"res://art/generated/ui_painted/hud_dock_layout.json")
-	if raw.is_empty():
-		return {}
-	var parsed: Variant = JSON.parse_string(raw)
-	return parsed if parsed is Dictionary else {}
+	return HudChrome.load_hud_kit_layout()
 
 
 func _hud_kit_available(layout: Dictionary) -> bool:
@@ -1733,10 +1691,7 @@ func _hud_kit_available(layout: Dictionary) -> bool:
 
 
 func _json_rect(value: Variant) -> Rect2:
-	if value is Array and (value as Array).size() >= 4:
-		return Rect2(float(value[0]), float(value[1]),
-			float(value[2]), float(value[3]))
-	return Rect2()
+	return HudChrome.json_rect(value)
 
 
 func _place(control: Control, rect: Rect2) -> void:
@@ -1754,9 +1709,7 @@ func _texture_style(asset_id: String, draw_center: bool = true) -> StyleBoxTextu
 
 
 func _json_vec(pair: Variant) -> Vector2:
-	if pair is Array and (pair as Array).size() >= 2:
-		return Vector2(float(pair[0]), float(pair[1]))
-	return Vector2.ZERO
+	return HudChrome.json_vec(pair)
 
 
 ## A texture pre-resized on the CPU (TextureRect STRETCH_TILE tiles at the

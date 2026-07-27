@@ -8,6 +8,7 @@ const MusicManifest := preload("res://scripts/audio/music_manifest.gd")
 const AudioSettings := preload("res://scripts/audio/audio_settings.gd")   # R-07
 const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
 const ContractBalanceReportScript := preload("res://scripts/contracts/balance_report.gd")   # R-09.3
+const HudChrome := preload("res://scripts/ui/hud/hud_chrome.gd")   # R-06.1
 
 var _results: Array = []
 var _details: Dictionary = {}
@@ -1255,6 +1256,29 @@ func _run() -> void:
 			str(_fq21_theme_missing == _fq21_theme_base),
 			str(_fq21_theme_invalid == _fq21_theme_base),
 			str(_fq21_theme_unsafe == _fq21_theme_base)])
+
+	# R-06.1 seam: the chrome/theme resolver + slicer-geometry parsers now live
+	# in HudChrome; hud.gd's facade must delegate identically (same result the
+	# fq21 checks above already depend on, now sourced from the collaborator).
+	var _r06_norm_ok: bool = HudChrome.normalize_hud_visual_theme("Ember Light") == "ember_light" \
+		and hud._normalize_hud_visual_theme("Ember Light") == HudChrome.normalize_hud_visual_theme("Ember Light") \
+		and HudChrome.normalize_hud_visual_theme("../bad") == "" \
+		and hud._normalize_hud_visual_theme("../bad") == ""
+	var _r06_rect_ok: bool = HudChrome.json_rect([3, 4, 5, 6]) == Rect2(3, 4, 5, 6) \
+		and hud._json_rect([3, 4, 5, 6]) == HudChrome.json_rect([3, 4, 5, 6]) \
+		and HudChrome.json_rect("nope") == Rect2()
+	var _r06_vec_ok: bool = HudChrome.json_vec([7, 8]) == Vector2(7, 8) \
+		and hud._json_vec([7, 8]) == HudChrome.json_vec([7, 8])
+	var _r06_layout_ok: bool = hud._load_hud_kit_layout() == HudChrome.load_hud_kit_layout() \
+		and hud._load_band_geometry() == HudChrome.load_band_geometry() \
+		and not HudChrome.load_hud_kit_layout().is_empty()
+	var _r06_theme_ok: bool = hud._painted_texture_for_theme("slot_normal", "") \
+		== HudChrome.painted_texture_for_theme("slot_normal", "")
+	_check("r06_chrome_resolver_delegates",
+		_r06_norm_ok and _r06_rect_ok and _r06_vec_ok and _r06_layout_ok and _r06_theme_ok,
+		"norm=%s rect=%s vec=%s layout=%s theme=%s" % [
+			str(_r06_norm_ok), str(_r06_rect_ok), str(_r06_vec_ok),
+			str(_r06_layout_ok), str(_r06_theme_ok)])
 
 	# HUD v4: a legacy dock transform can never move/scale the anchored band.
 	var _fq21_layout_before: Variant = GameState.profile.get("hud_layout", {}).duplicate(true)
