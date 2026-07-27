@@ -51,6 +51,8 @@ const BLOCK_COLORS := {
 	"grass": Color(0.30, 0.62, 0.25),
 	"wood": Color(0.62, 0.45, 0.22),
 	"stone": Color(0.45, 0.46, 0.50),
+	"deepstone": Color(0.28, 0.30, 0.37),
+	"bedrock": Color(0.14, 0.14, 0.17),
 	"ore": Color(0.72, 0.62, 0.35),
 	"coal": Color(0.18, 0.18, 0.20),
 	"copper_ore": Color(0.78, 0.44, 0.28),

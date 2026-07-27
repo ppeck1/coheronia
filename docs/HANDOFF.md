@@ -77,9 +77,19 @@ slices: WD-1 deeper world + data-driven strata (+ `gen_version` guard so existin
 seed+delta worlds regenerate unchanged) → WD-2 cave carve pass (surface-crust /
 hall / bedrock safety) → WD-3 hell biome + `lava` hazard (via `player.take_damage`)
 + ember ambient. Architecture already supports it: size is data-driven, saves are
-seed+delta (size-independent), rendering is culled TileMapLayer. **Awaiting
-operator go-ahead to start Slice WD-1.** R-10/HUD polish remains art lane. Push
-control is separate from commit control — never push unless told.
+seed+delta (size-independent), rendering is culled TileMapLayer.
+
+**Slice WD-1 (deeper world + strata) DONE 2026-07-27.** New `vast` 480x320 size;
+data-driven `strata` (`stone`->`deepstone` by depth); `deepstone`/`bedrock`
+blocks; unmineable bedrock floor; extended `ore_table`; save-compat via
+`gen_version` (new worlds stamped v2 at create; legacy worlds default v1 and
+regenerate unchanged — the v1 gen path is untouched). Vast world (130k cells)
+generates in ~1.1s deterministically. 5 `wd_` checks; **source smoke 411/411,
+validator PASS, asset audit clean, capsule healthy, `diff --check` clean.**
+Committed, NOT pushed (export rides R-04 CI). **Next = Slice WD-2 (cave carve
+pass: mixed caverns + tunnels, with surface-crust/hall/bedrock safety), awaiting
+operator go-ahead.** R-10/HUD polish remains art lane. Push control is separate
+from commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is

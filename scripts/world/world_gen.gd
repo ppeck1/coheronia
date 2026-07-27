@@ -8,6 +8,19 @@ extends RefCounted
 const TREE_MIN_H := 3
 const TREE_MAX_H := 5
 
+## World Depths: bump this when the generator changes in a way that alters the
+## terrain a given seed produces. New worlds are stamped with it at creation
+## (game_state.create_world); worlds created earlier keep their stored version
+## (absent -> 1) so their seed+delta terrain regenerates unchanged.
+##   v1 = legacy (dirt over stone, ore families, solid fill, no caves/hell)
+##   v2 = World Depths (data-driven strata, deepstone, unmineable bedrock floor;
+##        caves + hell land under this same version as WD-2/WD-3 add them)
+const CURRENT_GEN_VERSION := 2
+
+## v2 only: unmineable floor rows at the very bottom so a deep world (and, later,
+## caves) can never expose the world's lower edge.
+const BEDROCK_THICKNESS := 2
+
 
 ## Returns { "cells": {Vector2i: block_id}, "surface": {int x: int y},
 ##           "width": int, "height": int }.
@@ -21,6 +34,10 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 	var surface_base := int(dims.get("surface_base", 30))
 	var amplitude := 9.0 * config.gen("terrain_amplitude")
 	var dirt_depth := maxi(1, int(config.gen("dirt_depth")))
+	# World Depths: v2 fills below the topsoil from a data-driven strata table and
+	# caps the world with an unmineable bedrock floor. v1 is untouched.
+	var gen_version := config.gen_version()
+	var strata: Array = WorldConfig.settings().get("strata", []) if gen_version >= 2 else []
 
 	var noise := FastNoiseLite.new()
 	noise.seed = world_seed
@@ -51,7 +68,10 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 				cells[pos] = "dirt"
 			else:
 				var depth := y - surf_y
-				if ore_abundance > 0.0 and depth > 8 \
+				if gen_version >= 2:
+					cells[pos] = _v2_deep_block(x, y, depth, height, strata,
+						ore_families, ore_noise, ore_abundance, ore_threshold)
+				elif ore_abundance > 0.0 and depth > 8 \
 						and ore_noise.get_noise_2d(float(x), float(y)) > ore_threshold:
 					cells[pos] = "ore"
 				else:
@@ -110,14 +130,40 @@ static func _build_ore_families(world_seed: int, ore_abundance: float) -> Array:
 
 
 ## FQ-10: first ore family (in table order) whose depth band contains this cell
-## and whose channel clears its threshold; "stone" when none match. Deterministic
-## from seed+cell, so the same world always yields the same ore layout.
-static func _ore_family_at(families: Array, x: int, y: int, depth: int) -> String:
+## and whose channel clears its threshold; the stratum base block when none match.
+## Deterministic from seed+cell, so the same world always yields the same ore
+## layout. `base_block` defaults to "stone" so the legacy (v1) call is unchanged.
+static func _ore_family_at(families: Array, x: int, y: int, depth: int,
+		base_block := "stone") -> String:
 	for fam in families:
 		if depth >= int(fam["min_depth"]) and depth <= int(fam["max_depth"]) \
 				and (fam["noise"] as FastNoiseLite).get_noise_2d(float(x), float(y)) \
 					> float(fam["threshold"]):
 			return str(fam["id"])
+	return base_block
+
+
+## World Depths (v2): the base block for a below-topsoil cell. Bedrock floors the
+## bottom rows (unmineable); the generic ore vein and ore families overlay on the
+## strata base (stone -> deepstone by depth). Deterministic from seed+cell.
+static func _v2_deep_block(x: int, y: int, depth: int, height: int, strata: Array,
+		families: Array, ore_noise: FastNoiseLite, ore_abundance: float,
+		ore_threshold: float) -> String:
+	if y >= height - BEDROCK_THICKNESS:
+		return "bedrock"
+	if ore_abundance > 0.0 and depth > 8 \
+			and ore_noise.get_noise_2d(float(x), float(y)) > ore_threshold:
+		return "ore"
+	return _ore_family_at(families, x, y, depth, _stratum_base(strata, depth))
+
+
+## World Depths (v2): the first strata band (in table order) whose depth range
+## contains this depth; "stone" when the table is empty or no band matches.
+static func _stratum_base(strata: Array, depth: int) -> String:
+	for s in strata:
+		if depth >= int((s as Dictionary).get("min_depth", 0)) \
+				and depth <= int((s as Dictionary).get("max_depth", 99999999)):
+			return str((s as Dictionary).get("base", "stone"))
 	return "stone"
 
 

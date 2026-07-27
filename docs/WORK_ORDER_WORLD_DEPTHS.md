@@ -1,6 +1,25 @@
 # World Depths — Deeper World, Caves & Hell (Work Order)
 
-**Status: DESIGN — IMPLEMENTATION NOT STARTED.**
+**Status: IN PROGRESS — Slice WD-1 DONE (2026-07-27).**
+
+**WD-1 (deeper world + strata) shipped 2026-07-27.** New `vast` size preset
+(480x320, surface_base 48); data-driven `strata` table (`stone` -> `deepstone`
+by depth) replacing the hard dirt/stone split; new `deepstone` (harder stone,
+drops stone, no new item) and `bedrock` (protected/unmineable) blocks; an
+unmineable bedrock floor; `ore_table` max_depths extended for the descent
+(min/frequency/threshold/seed_offset unchanged so legacy worlds are byte-identical).
+Save-compat guard: `WorldGen.CURRENT_GEN_VERSION = 2`, stamped into new worlds at
+`create_world`; `WorldConfig.gen_version()` defaults to 1 when absent (NOT in
+`defaults()`), so existing seed+delta worlds regenerate their original terrain.
+The v1 generation path is untouched (new logic is entirely in the
+`gen_version >= 2` branch). **Perf: the vast world (130,429 cells) generates in
+~1.1s, deterministic.** 5 `wd_` smoke checks; **source smoke 411/411, 0 skipped;
+validator PASS (incl. new strata/blocks check); asset audit clean; capsule
+healthy; `git diff --check` clean.** Visual captures deferred to WD-2/WD-3 (WD-1's
+deeper strata are underground; the smoke proves depth placement + bedrock).
+
+---
+
 
 This is the row-level authority for the World Depths arc. Operator approved it
 2026-07-27 as a new gameplay arc (the first non–Release-Foundations arc since
@@ -160,7 +179,7 @@ the in-RAM grid):
 
 | Slice | Scope | Exit gate |
 |---|---|---|
-| **WD-1 — Deeper world + strata** | New big size preset (~480×~320); data-driven `strata` table replacing the hard `dirt_depth` split; new `deepstone`/`bedrock` blocks; unmineable bedrock floor; extended `ore_table` for the new depth; `gen_version` guard so existing worlds regenerate unchanged; generation-time + save-size perf checks. **No caves yet.** | New size generates deterministically within the perf budget; existing (pre-bump) worlds regenerate identically; bedrock floor bounds the world; strata place correctly by depth; smoke green (source + exported). |
+| **WD-1 — Deeper world + strata** ✅ DONE | New `vast` 480×320 preset; data-driven `strata`; `deepstone`/`bedrock` blocks; unmineable bedrock floor; extended `ore_table`; `gen_version` legacy guard; gen ~1.1s. | **Met: source 411/411; vast generates deterministically in 1.1s; legacy worlds regenerate unchanged (no new-block leak); bedrock floor unmineable; strata by depth; save size-independent.** |
 | **WD-2 — Cave systems** | Carve pass (mixed caverns + tunnels) with surface-crust / hall / bedrock safety; depth-gated; ore only in remaining solid; cave ambience verified. | Caves appear at depth as air pockets; surface crust, hall footprint, and bedrock are never carved; world stays deterministic; player can descend into caves; smoke green. |
 | **WD-3 — Lava / hell biome + hazard** | Hell stratum (`hellstone`/`obsidian`), `lava` pools (non-solid, glowing), data-driven `contact_damage` mechanic via `player.take_damage`, hell ambient tint, optional deep-resource payoff. | Hell generates at the deepest band; lava emits light and damages the player on contact (deterministic check); ambient reads as hell; obsidian/deep ore mineable; smoke green. |
 

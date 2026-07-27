@@ -361,6 +361,33 @@ for axis in ["enemy", "ruler", "survival", "economy", "social", "impressionabili
         fail(f"world_settings.json ui_help.axis_help missing axis: {axis}")
 print("PASS world settings")
 
+# World Depths (WD-1): the deeper world adds the `vast` size, a data-driven
+# `strata` table (base blocks by depth), and the deepstone/bedrock blocks.
+if "vast" not in world_settings["sizes"]:
+    fail("world_settings.json missing 'vast' size (World Depths)")
+for wd_block in ["deepstone", "bedrock"]:
+    if wd_block not in blocks:
+        fail(f"blocks.json missing World Depths block: {wd_block}")
+if not blocks.get("bedrock", {}).get("is_solid", False):
+    fail("blocks.json: bedrock must be solid")
+if "protected" not in blocks.get("bedrock", {}).get("settlement_tags", []):
+    fail("blocks.json: bedrock must be 'protected' (unmineable world floor)")
+strata = world_settings.get("strata")
+if not isinstance(strata, list) or not strata:
+    fail("world_settings.json missing non-empty strata table")
+_prev_max = -1
+for band in strata:
+    base = band.get("base", "")
+    if base not in blocks:
+        fail(f"strata base '{base}' is not a defined block")
+    lo, hi = band.get("min_depth", -1), band.get("max_depth", -1)
+    if not (0 <= lo <= hi):
+        fail(f"strata band base='{base}' has an invalid depth range [{lo}, {hi}]")
+    if lo <= _prev_max:
+        fail(f"strata bands must be ordered and non-overlapping (base='{base}')")
+    _prev_max = hi
+print("PASS world depths strata + blocks")
+
 # FQ-10: the ore_table drives depth-banded ore-family generation. Every entry
 # must name a real block, keep a sane depth band, a usable threshold, and a
 # unique noise seed offset so families stay independent and deterministic.

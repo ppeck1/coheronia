@@ -348,6 +348,39 @@
         "settlement_anchor",
         "protected"
       ]
+    },
+    "deepstone": {
+      "display_name": "Deepstone",
+      "hardness": 1.9,
+      "required_tool_tier": 1,
+      "drops": {
+        "stone": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "pick",
+      "settlement_tags": [
+        "structure",
+        "defense"
+      ]
+    },
+    "bedrock": {
+      "display_name": "Bedrock",
+      "hardness": 9999.0,
+      "required_tool_tier": 999,
+      "drops": {},
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "pick",
+      "settlement_tags": [
+        "protected"
+      ]
     }
   }
 }

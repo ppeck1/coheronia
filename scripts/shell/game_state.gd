@@ -369,6 +369,9 @@ func create_world(config_dict: Dictionary) -> String:
 	var config := WorldConfig.new(config_dict)
 	if config.seed_value() == 0:
 		config.data["seed"] = (randi() % 999983) + 1
+	# World Depths: stamp the current generation version so this world always
+	# regenerates the same terrain its deltas assume, even as WorldGen evolves.
+	config.data["gen_version"] = WorldGen.CURRENT_GEN_VERSION
 	var world_id := _make_id("world")
 	var payload := {
 		"world_version": SHELL_VERSION,

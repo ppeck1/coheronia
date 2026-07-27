@@ -621,6 +621,76 @@ func _run() -> void:
 			"x=%.1f target=%.1f trunk_x=%d" % [
 				player.global_position.x, _fq09r_target_x, _fq09r_walk_trunk.x])
 
+	# --- World Depths WD-1: deeper world + data-driven strata + bedrock floor +
+	# gen_version legacy guard. Pure-gen checks drive WorldGen directly (isolates
+	# generation cost from tilemap render); the save-independence check uses the
+	# live world. All restored by the config reset below. ---
+	var _wd_cfg := WorldConfig.new({"size": "vast", "gen_version": 2})
+	var _wd_t0 := Time.get_ticks_msec()
+	var _wd_gen := WorldGen.generate(2024, _wd_cfg)
+	var _wd_gen_ms := Time.get_ticks_msec() - _wd_t0
+	var _wd_cells: Dictionary = _wd_gen["cells"]
+	var _wd_surf: Dictionary = _wd_gen["surface"]
+	var _wd_h := int(_wd_gen["height"])
+	var _wd_dims_ok: bool = int(_wd_gen["width"]) == 480 and _wd_h == 320
+	var _wd_gen2 := WorldGen.generate(2024, _wd_cfg)
+	var _wd_deterministic: bool = (_wd_gen2["cells"] as Dictionary).size() == _wd_cells.size()
+	_check("wd_big_size_generates_within_budget",
+		_wd_dims_ok and _wd_deterministic and _wd_gen_ms < 12000,
+		"%dx%d gen=%dms cells=%d deterministic=%s" % [int(_wd_gen["width"]), _wd_h,
+			_wd_gen_ms, _wd_cells.size(), str(_wd_deterministic)])
+
+	var _wd_deepstone_deep := false
+	var _wd_deepstone_shallow := false
+	var _wd_stone_shallow := false
+	for _wd_c: Vector2i in _wd_cells:
+		var _wd_bid: String = str(_wd_cells[_wd_c])
+		var _wd_depth: int = _wd_c.y - int(_wd_surf.get(_wd_c.x, 0))
+		if _wd_bid == "deepstone":
+			if _wd_depth > 70:
+				_wd_deepstone_deep = true
+			else:
+				_wd_deepstone_shallow = true
+		elif _wd_bid == "stone" and _wd_depth > 4 and _wd_depth <= 70:
+			_wd_stone_shallow = true
+	_check("wd_strata_place_by_depth",
+		_wd_stone_shallow and _wd_deepstone_deep and not _wd_deepstone_shallow,
+		"stone_shallow=%s deepstone_deep=%s deepstone_shallow=%s" % [
+			str(_wd_stone_shallow), str(_wd_deepstone_deep), str(_wd_deepstone_shallow)])
+
+	var _wd_bedrock_floor := true
+	for _wd_x in range(0, 480, 37):
+		if str(_wd_cells.get(Vector2i(_wd_x, _wd_h - 1), "")) != "bedrock":
+			_wd_bedrock_floor = false
+			break
+	var _wd_bedrock_unmineable: bool = BlockRegistry.has_tag("bedrock", "protected")
+	_check("wd_bedrock_floor_bounds_world",
+		_wd_bedrock_floor and _wd_bedrock_unmineable,
+		"bottom_row_bedrock=%s unmineable=%s" % [
+			str(_wd_bedrock_floor), str(_wd_bedrock_unmineable)])
+
+	var _wd_v1 := WorldGen.generate(2024, WorldConfig.new({"size": "large"}))
+	var _wd_v1_cells: Dictionary = _wd_v1["cells"]
+	var _wd_v1_leaks_new := false
+	for _wd_c2: Vector2i in _wd_v1_cells:
+		var _wd_b2: String = str(_wd_v1_cells[_wd_c2])
+		if _wd_b2 == "deepstone" or _wd_b2 == "bedrock":
+			_wd_v1_leaks_new = true
+			break
+	_check("wd_gen_version_preserves_legacy_world", not _wd_v1_leaks_new,
+		"legacy(v1) large leaks deepstone/bedrock=%s (must be false)" % str(_wd_v1_leaks_new))
+
+	GameState.current_config = WorldConfig.new({"size": "vast", "gen_version": 2})
+	world.setup(2024)
+	var _wd_vast_deltas: int = world.serialize_deltas().size()
+	GameState.current_config = WorldConfig.new({"size": "small"})
+	world.setup(2024)
+	var _wd_small_deltas: int = world.serialize_deltas().size()
+	_check("wd_save_size_independent_of_world_size",
+		_wd_vast_deltas == 0 and _wd_small_deltas == 0,
+		"vast_deltas=%d small_deltas=%d (both 0 => base terrain regenerated, not saved)" % [
+			_wd_vast_deltas, _wd_small_deltas])
+
 	GameState.current_config = original_config
 	_check("world_restored_after_config_tests", root.load_game())
 

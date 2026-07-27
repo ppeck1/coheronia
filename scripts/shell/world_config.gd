@@ -57,6 +57,16 @@ func size_id() -> String:
 	return str(data.get("size", "medium"))
 
 
+## World Depths: the generation version this world was CREATED with. Absent ->
+## 1 (legacy: pre-strata/caves/hell terrain). Stamped at create_world time and
+## never inferred from current defaults, so an existing seed+delta world always
+## regenerates the exact terrain its deltas assume. Deliberately NOT in
+## defaults() -- _init overlays defaults onto old configs, which would wrongly
+## promote a legacy world to a new gen version.
+func gen_version() -> int:
+	return int(data.get("gen_version", 1))
+
+
 func size_dims() -> Dictionary:
 	var sizes: Dictionary = WorldConfig.settings().get("sizes", {})
 	return sizes.get(size_id(), {"width": 240, "height": 80, "surface_base": 30})
