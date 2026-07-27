@@ -1309,6 +1309,26 @@ func _run() -> void:
 			str(_r06g_size_ok), str(_r06g_grip_ok), str(_r06g_min_ok),
 			str(_r06g_max_ok), str(_r06g_clamp_slack_ok), str(_r06g_clamp_noslack_ok)])
 
+	# R-06.3 seam: vessel/chrome texture prep now builds in HudChrome; hud.gd
+	# keeps the caches + source lookup. Textures are freshly built (not
+	# identity-equal), so assert resulting dimensions + null-safety.
+	var _r06t_mask_src: Texture2D = BlockRegistry.visual_texture("ui", "orb_fill_mask")
+	var _r06t_mask: Texture2D = HudChrome.glass_mask_from(_r06t_mask_src, 40)
+	var _r06t_mask_ok: bool = _r06t_mask != null and _r06t_mask.get_size() == Vector2(40, 40) \
+		and hud._glass_mask_texture(40) != null \
+		and hud._glass_mask_texture(40).get_size() == Vector2(40, 40) \
+		and HudChrome.glass_mask_from(null, 40) == null
+	var _r06t_scaled_src: Texture2D = hud._painted_texture("slot_normal")
+	var _r06t_scaled: Texture2D = HudChrome.scaled_texture_from(_r06t_scaled_src, 0.5)
+	var _r06t_scaled_ok: bool = _r06t_scaled_src != null and _r06t_scaled != null \
+		and _r06t_scaled.get_size() == (_r06t_scaled_src.get_size() * 0.5).round() \
+		and hud._scaled_texture("slot_normal", 0.5) != null \
+		and hud._scaled_texture("slot_normal", 0.5).get_size() == _r06t_scaled.get_size() \
+		and HudChrome.scaled_texture_from(null, 0.5) == null
+	_check("r06_texture_prep_delegates",
+		_r06t_mask_ok and _r06t_scaled_ok,
+		"mask=%s scaled=%s" % [str(_r06t_mask_ok), str(_r06t_scaled_ok)])
+
 	# HUD v4: a legacy dock transform can never move/scale the anchored band.
 	var _fq21_layout_before: Variant = GameState.profile.get("hud_layout", {}).duplicate(true)
 	hud._bottom_dock.position += Vector2(60.0, 0.0)

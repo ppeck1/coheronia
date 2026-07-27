@@ -1691,14 +1691,9 @@ func _scaled_texture(id: String, factor: float) -> Texture2D:
 	var key := "%s@%f" % [id, factor]
 	if _scaled_tex_cache.has(key):
 		return _scaled_tex_cache[key]
-	var src: Texture2D = _painted_texture(id)
-	if src == null:
-		return null
-	var img: Image = src.get_image()
-	img.resize(int(round(img.get_width() * factor)),
-		int(round(img.get_height() * factor)), Image.INTERPOLATE_LANCZOS)
-	var tex := ImageTexture.create_from_image(img)
-	_scaled_tex_cache[key] = tex
+	var tex := HudChrome.scaled_texture_from(_painted_texture(id), factor)
+	if tex != null:
+		_scaled_tex_cache[key] = tex
 	return tex
 
 
@@ -1709,13 +1704,10 @@ func _scaled_texture(id: String, factor: float) -> Texture2D:
 func _glass_mask_texture(diameter: int) -> Texture2D:
 	if _glass_mask_cache.has(diameter):
 		return _glass_mask_cache[diameter]
-	var src: Texture2D = BlockRegistry.visual_texture("ui", "orb_fill_mask")
-	if src == null:
-		return null
-	var disk: Image = src.get_image().get_region(Rect2i(5, 5, 22, 22))
-	disk.resize(diameter, diameter, Image.INTERPOLATE_BILINEAR)
-	var tex := ImageTexture.create_from_image(disk)
-	_glass_mask_cache[diameter] = tex
+	var tex := HudChrome.glass_mask_from(
+		BlockRegistry.visual_texture("ui", "orb_fill_mask"), diameter)
+	if tex != null:
+		_glass_mask_cache[diameter] = tex
 	return tex
 
 

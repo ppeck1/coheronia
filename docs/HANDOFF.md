@@ -43,12 +43,27 @@ child-node controller would add net coupling; operator chose to extract only
 the **portable geometry math** into `scripts/ui/hud/hud_edit_geometry.gd`
 (`RefCounted` static: measure/min-max/grip/clamp + 4 tuning consts), leaving the
 interactive controller in `hud.gd`. Delegating wrappers preserved; seam check
-`r06_edit_geometry_delegates`. **Source smoke 405/405 (0 skipped), validator
-PASS, capsule healthy, `diff --check` clean; fq17 grip/reset/clamp + fq21
-dock-invariant byte-identical.** Both R-06.1 and R-06.2 committed, NOT pushed
-(export rides the R-04 push CI). **Next = Slice R-06.3 (crest/vessel subsystem),
-awaiting operator go-ahead.** R-10/HUD polish remains art lane. Push control is
-separate from commit control — never push unless told.
+`r06_edit_geometry_delegates`. Source smoke 405/405.
+
+**Slice R-06.3 (crest/vessel) DONE 2026-07-27 — scope adjusted; texture-prep
+seam.** The crest/vessel node subsystem is smoke-driven (`hud._health_vessel_fill`
+×7, `_attunement_vessel_fill` ×6, `_health_fx` ×7, `update_health` ×11) and
+embedded in the kit assembly, so a node lift would add net coupling. Extracted
+the one clean seam: presentation **texture prep** (`scaled_texture_from` +
+`glass_mask_from`) into `HudChrome`; `hud.gd` keeps the caches + source lookup.
+Seam check `r06_texture_prep_delegates`. **Source smoke 406/406 (0 skipped),
+validator PASS, capsule healthy, `diff --check` clean; fq19 vessel + fq21 masking
+byte-identical.** R-06.1/6.2/6.3 committed, NOT pushed (export rides the R-04
+push CI).
+
+**Arc status: the clean stateless seams are largely exhausted.** Chrome/theme
+resolver, edit geometry, and vessel texture-prep are extracted. Remaining
+clusters (inventory board, crest/vessel *nodes*) are node-mutation-heavy and
+directly smoke-driven — they don't decompose to child nodes without a wide
+façade + many back-refs (net-negative). **R-06 is near diminishing returns; next
+step (R-06.4 inventory board vs. R-06.5 game_root session services vs. wrapping
+R-06 here) should be weighed with the operator.** R-10/HUD polish remains art
+lane. Push control is separate from commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is

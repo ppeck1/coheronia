@@ -1027,9 +1027,11 @@ decomposition) is the current arc (design-first, 2026-07-27); authority:
 `docs/WORK_ORDER_R06_OWNERSHIP_DECOMPOSITION.md`. Slices R-06.1 (chrome & theme
 resolver, 404/404) and R-06.2 (edit-mode geometry helper — scope adjusted from a
 full controller to the portable geometry math after finding net-negative
-coupling, 405/405) DONE 2026-07-27; next = R-06.3 crest/vessel subsystem,
-awaiting operator go-ahead.** R-10 (HUD/art) is an art lane. The R-09 authority
-is `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
+coupling, 405/405) and R-06.3 (crest/vessel — texture-prep seam only; node
+subsystem found non-decomposable, 406/406) DONE 2026-07-27. Clean stateless
+seams largely exhausted; R-06 near diminishing returns — weigh R-06.4/6.5 vs.
+wrapping the arc with the operator.** R-10 (HUD/art) is an art lane. The R-09
+authority is `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
 
 | Slice | Row | State |
 |---|---|---|

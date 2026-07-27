@@ -92,3 +92,34 @@ static func json_vec(pair: Variant) -> Vector2:
 	if pair is Array and (pair as Array).size() >= 2:
 		return Vector2(float(pair[0]), float(pair[1]))
 	return Vector2.ZERO
+
+
+## R-06.3: presentation texture prep (pure CPU image processing). hud.gd keeps
+## the per-instance caches and the source-texture lookup; only the build step
+## lives here.
+
+# The 32px orb fill mask's disk occupies art px 5..26 (a 22px region).
+const ORB_FILL_MASK_DISK := Rect2i(5, 5, 22, 22)
+
+
+## A texture pre-resized on the CPU (TextureRect STRETCH_TILE tiles at the
+## texture's native size, so the tile must be baked at display scale).
+static func scaled_texture_from(src: Texture2D, factor: float) -> Texture2D:
+	if src == null:
+		return null
+	var img: Image = src.get_image()
+	img.resize(int(round(img.get_width() * factor)),
+		int(round(img.get_height() * factor)), Image.INTERPOLATE_LANCZOS)
+	return ImageTexture.create_from_image(img)
+
+
+## The orb fill-mask disk cropped to its disk and resized to the exact glass
+## diameter, so TextureProgressBar can crop the liquid natively (nine-patch
+## stretching SQUASHES the disk instead of draining it -- the "health never
+## drops" bug the operator caught).
+static func glass_mask_from(src: Texture2D, diameter: int) -> Texture2D:
+	if src == null:
+		return null
+	var disk: Image = src.get_image().get_region(ORB_FILL_MASK_DISK)
+	disk.resize(diameter, diameter, Image.INTERPOLATE_BILINEAR)
+	return ImageTexture.create_from_image(disk)

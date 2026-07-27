@@ -1,6 +1,30 @@
 # R-06 — Incremental Ownership Decomposition (Work Order)
 
-**Status: IN PROGRESS — Slices R-06.1 and R-06.2 DONE (2026-07-27).**
+**Status: IN PROGRESS — Slices R-06.1, R-06.2, R-06.3 DONE (2026-07-27).**
+
+**R-06.3 (crest/vessel) shipped 2026-07-27 — scope adjusted; texture-prep seam.**
+The crest/vessel *node* subsystem proved to be the worst child-node candidate:
+its `update_*` methods are ~90% direct node mutation with almost no portable
+math, the vessel nodes are directly smoke-driven (`hud._health_vessel_fill` ×7,
+`_attunement_vessel_fill` ×6, `_health_fx` ×7, `update_health` ×11, plus
+`vessel_socket`/`replace_vessel_fill`), and the vessel construction is embedded
+in the native-kit assembly. Same finding class as R-06.2 — a node lift would add
+net coupling. The one genuinely clean seam is the **presentation texture prep**:
+`scaled_texture_from` (band tiling) and `glass_mask_from` (the vessel fill-mask
+disk — home of the nine-patch-squash "health never drains" bug) moved into
+`HudChrome` as pure CPU image builders; `hud.gd` keeps the per-instance caches
+(`_scaled_tex_cache`, `_glass_mask_cache`) and the source lookup, delegating only
+the build. Seam check `r06_texture_prep_delegates`. **Source smoke 406/406, 0
+skipped; validator PASS; capsule healthy; `diff --check` clean; fq19 vessel
+liquid/effects and fq21 masking-geometry confirmed byte-identical.**
+
+**Arc note (2026-07-27):** the two biggest clean stateless seams (chrome/theme
+resolver, edit geometry) plus vessel texture-prep are now extracted. The
+remaining HUD clusters (inventory board, and the crest/vessel *nodes*) are
+dominated by node mutation whose internals are directly smoke-driven, so they do
+not decompose to child nodes without a wide preserved façade + many back-refs
+(net-negative). R-06 is approaching diminishing returns; R-06.4/6.5 should be
+weighed against that before starting.
 
 **R-06.2 (edit-mode geometry) shipped 2026-07-27 — scope adjusted from the
 original sketch.** During implementation the edit-mode cluster proved to be
@@ -193,7 +217,7 @@ R-06 adds **no data schema**, so validator changes are minimal:
 |---|---|---|---|
 | **R-06.1 — Chrome & theme resolver** ✅ DONE | Lift the stateless painted-chrome / themed-PNG resolver + slicer geometry math out of `hud.gd`. No live state moves. Proves the extraction pattern end-to-end on the safest seam. | `scripts/ui/hud/hud_chrome.gd` (`RefCounted`/static) | `r06_chrome_resolver_delegates` — **source 404/404** |
 | **R-06.2 — Edit-mode geometry** ✅ DONE (scope adjusted) | Original sketch was a child-node controller; found net-negative coupling (see status note). Delivered instead: lift the **portable geometry math** (measure / min-max / grip / clamp) to a stateless helper; interactive controller stays in `hud.gd`. | `scripts/ui/hud/hud_edit_geometry.gd` (`RefCounted`/static) | `r06_edit_geometry_delegates` — **source 405/405** |
-| **R-06.3 — Crest / vessel subsystem** | Lift health/attunement/settlement bars, vessel sockets + fills, attunement effects. The FQ-19/21 hotspot. | `scripts/ui/hud/hud_crest.gd` (child node) | `r06_crest_delegates` |
+| **R-06.3 — Crest / vessel** ✅ DONE (scope adjusted) | Node subsystem is smoke-driven + embedded in kit assembly (net-negative to lift). Delivered instead: presentation **texture prep** (`scaled_texture_from` + `glass_mask_from`) into `HudChrome`; caches + node ownership stay in `hud.gd`. | `scripts/ui/hud/hud_chrome.gd` (extended) | `r06_texture_prep_delegates` — **source 406/406** |
 | **R-06.4 — Inventory board / toolbelt** | Lift hotbar, inventory board, drag/drop sort, and all dock/backpack/equipment/stockpile grid accessors. Largest cluster. | `scripts/ui/hud/hud_inventory_board.gd` (child node) | `r06_inventory_board_delegates` |
 | **R-06.5 — `game_root` session services** | After HUD seams settle, lift save/load orchestration + panel-toggle routing + HUD event wiring into a session service `game_root` owns. Public `game_root` surface preserved. | `scripts/main/session_services.gd` (child node / `RefCounted`) | `r06_session_services_delegates` |
 | **R-06.6 — Retire historical fallbacks** | Remove pre–native-kit HUD fallback branches now dead under the native kit. **Only after** an exported build confirms the native-kit path in R-06.1–06.4. | (deletions) | `r06_no_dead_hud_fallback` (asserts kit-primary path is the only path) |
@@ -208,7 +232,7 @@ after R-06.4 ships, since their value depends on how clean the HUD seams end up.
 | *(all existing fq/pr/r07 HUD checks)* | behavior unchanged across the lift — the regression proof | every |
 | `r06_chrome_resolver_delegates` | themed-PNG resolution + geometry come from the extracted helper; fallback still base-PNG | 1 |
 | `r06_edit_geometry_delegates` | `_hud_widget_size`/`_hud_grip_rect` delegate identically; min/max/clamp math holds on fixed inputs (incl. no-slack band axis) | 2 |
-| `r06_crest_delegates` | `update_health`/`update_attunement`/`update_settlement`/vessel socket route through the crest node with identical bar state | 3 |
+| `r06_texture_prep_delegates` | glass-mask + scaled-texture build in HudChrome produce identical dimensions; null-safe; hud wrappers cache + delegate | 3 |
 | `r06_inventory_board_delegates` | `update_inventory` + drag/drop + grid accessors route through the board node with identical counts | 4 |
 | `r06_session_services_delegates` | save/load + panel routing run through the session service; `game_root` public surface unchanged | 5 |
 | `r06_no_dead_hud_fallback` | native kit is the sole HUD path post-retirement; exported build confirmed first | 6 |
