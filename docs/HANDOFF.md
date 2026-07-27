@@ -68,8 +68,18 @@ on that lift → n/a. RF-09 ownership pressure meaningfully reduced; further
 controller decomposition is deferred until a concrete feature is blocked by the
 coupling. **R-06.1/6.2/6.3 + design pushed to origin 2026-07-27.**
 
-**NEXT CODE ARC: unselected.** R-10/HUD polish remains art lane. Push control is
-separate from commit control — never push unless told.
+**NEXT CODE ARC = World Depths (deeper world + caves + lava/hell), approved
+2026-07-27, design-first.** Authority: `docs/WORK_ORDER_WORLD_DEPTHS.md` (status:
+DESIGN — IMPLEMENTATION NOT STARTED). Full arc chosen: bigger world in both
+directions (new ~480×~320 size preset), mixed caverns + tunnels, and a lava/hell
+biome with a new data-driven environmental contact-damage mechanic. 3 gated
+slices: WD-1 deeper world + data-driven strata (+ `gen_version` guard so existing
+seed+delta worlds regenerate unchanged) → WD-2 cave carve pass (surface-crust /
+hall / bedrock safety) → WD-3 hell biome + `lava` hazard (via `player.take_damage`)
++ ember ambient. Architecture already supports it: size is data-driven, saves are
+seed+delta (size-independent), rendering is culled TileMapLayer. **Awaiting
+operator go-ahead to start Slice WD-1.** R-10/HUD polish remains art lane. Push
+control is separate from commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is

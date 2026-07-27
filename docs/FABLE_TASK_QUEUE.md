@@ -1018,6 +1018,19 @@ production and are queued in the matrix's image-production follow-up table
 with exact asset ids, sizes, defects, contract paths, and acceptance
 checks -- a code lane never produces final PNGs.
 
+## World Depths Arc (Current — deeper world + caves + hell)
+
+Approved 2026-07-27 as the current gameplay arc. Authority:
+`docs/WORK_ORDER_WORLD_DEPTHS.md` (DESIGN — implementation not started). Full
+scope: bigger world both directions (~480x~320 preset), mixed caverns + tunnels,
+lava/hell biome + a new environmental contact-damage mechanic.
+
+| Slice | Row | State |
+|---|---|---|
+| WD-1 | Deeper world + data-driven strata + `gen_version` guard + perf/save checks | Design approved; not started (awaiting go-ahead) |
+| WD-2 | Cave carve pass (mixed caverns + tunnels) with surface-crust/hall/bedrock safety | Design approved; not started |
+| WD-3 | Hell biome + `lava` hazard (via `player.take_damage`) + ember ambient | Design approved; not started |
+
 ## Release Foundations + Contracts Arc (Complete Through R-09)
 
 The Release Foundations arc (`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`) is
