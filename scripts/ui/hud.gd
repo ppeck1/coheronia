@@ -102,6 +102,8 @@ var _skill_panel: PanelContainer
 const MapPanelScript := preload("res://scripts/ui/map_panel.gd")
 # R-06.1: stateless painted-chrome / theme resolver + slicer-geometry parsers.
 const HudChrome := preload("res://scripts/ui/hud/hud_chrome.gd")
+# R-06.2: stateless HUD edit-mode geometry math (measure / min-max / grip / clamp).
+const HudEditGeometry := preload("res://scripts/ui/hud/hud_edit_geometry.gd")
 var _map_panel: Control
 var _map_open := false
 # FQ-07/FQ-09: toolbelt slot tiles — always-visible item icons (real art or
@@ -164,11 +166,10 @@ const HUD_WIDGET_IDS := ["crest", "goal", "events", "map", "modules", "dock"]
 const HUD_EDITABLE_WIDGET_IDS := ["crest", "goal", "events", "map", "modules"]
 # FQ-20/FQ-22 direct manipulation: continuous resize via panel size, never
 # Control.scale. Fractional transforms blur HUD chrome and expose nine-slice seams.
-const HUD_MIN_SIZE_FACTOR := 0.5
-const HUD_MAX_SIZE_FACTOR := 2.0
+# R-06.2: min/max size factors, safe margin, and grip size moved to
+# HudEditGeometry with the math that uses them. HUD_SIZE_STEP (edit-panel
+# Size-/Size+ buttons) stays here -- it is UI, not geometry.
 const HUD_SIZE_STEP := 0.1
-const HUD_SAFE_MARGIN := 12.0
-const HUD_GRIP_SIZE := 18.0
 # Layouts saved before the canvas_items stretch + split dock band (v2) or
 # before locks were retired for direct manipulation (v3), before the
 # full-width dock became transform-invariant (v4), before Map and Events
@@ -510,23 +511,11 @@ func _hud_grip_rect(widget_id: String) -> Rect2:
 	var control: Control = _hud_widgets.get(widget_id)
 	if control == null or not control.visible:
 		return Rect2()
-	var rect := control.get_global_rect()
-	return Rect2(rect.end - Vector2(HUD_GRIP_SIZE, HUD_GRIP_SIZE),
-		Vector2(HUD_GRIP_SIZE, HUD_GRIP_SIZE))
+	return HudEditGeometry.grip_rect(control.get_global_rect())
 
 
 func _hud_widget_size(control: Control) -> Vector2:
-	var measured := control.size
-	var minimum := control.custom_minimum_size
-	if minimum.x > measured.x:
-		measured.x = minimum.x
-	if minimum.y > measured.y:
-		measured.y = minimum.y
-	if measured.x <= 0.0:
-		measured.x = 160.0
-	if measured.y <= 0.0:
-		measured.y = 80.0
-	return measured.round()
+	return HudEditGeometry.widget_size(control)
 
 
 ## The content-driven default size of a widget. `_register_hud_widgets` runs in
@@ -535,28 +524,17 @@ func _hud_widget_size(control: Control) -> Vector2:
 ## is the size `reset_hud_layout` restores to, so it must match the widget's
 ## live size once its content has settled.
 func _hud_natural_size(control: Control) -> Vector2:
-	var natural := control.get_combined_minimum_size()
-	var minimum := control.custom_minimum_size
-	natural.x = maxf(natural.x, maxf(minimum.x, control.size.x))
-	natural.y = maxf(natural.y, maxf(minimum.y, control.size.y))
-	if natural.x <= 0.0:
-		natural.x = 160.0
-	if natural.y <= 0.0:
-		natural.y = 80.0
-	return natural.round()
+	return HudEditGeometry.natural_size(control)
 
 
 func _hud_min_size(widget_id: String, control: Control) -> Vector2:
 	var base: Vector2 = _hud_default_sizes.get(widget_id, _hud_widget_size(control))
-	return Vector2(maxf(base.x * HUD_MIN_SIZE_FACTOR, 120.0),
-		maxf(base.y * HUD_MIN_SIZE_FACTOR, 56.0)).round()
+	return HudEditGeometry.min_size(base)
 
 
 func _hud_max_size(widget_id: String, control: Control) -> Vector2:
-	var viewport_size := get_viewport().get_visible_rect().size
 	var base: Vector2 = _hud_default_sizes.get(widget_id, _hud_widget_size(control))
-	return Vector2(minf(base.x * HUD_MAX_SIZE_FACTOR, viewport_size.x - HUD_SAFE_MARGIN * 2.0),
-		minf(base.y * HUD_MAX_SIZE_FACTOR, viewport_size.y - HUD_SAFE_MARGIN * 2.0)).round()
+	return HudEditGeometry.max_size(base, get_viewport().get_visible_rect().size)
 
 
 func _set_hud_widget_size(widget_id: String, next_size: Vector2) -> void:
@@ -581,15 +559,10 @@ func _clamp_hud_widget(control: Control) -> void:
 	if _dock_band_active and control == _bottom_dock:
 		control.position = _hud_default_positions.get("dock", control.position)
 		return
-	var viewport_size := get_viewport().get_visible_rect().size
-	var widget_size := _hud_widget_size(control)
-	var max_position := viewport_size - widget_size - Vector2.ONE * HUD_SAFE_MARGIN
-	# A full-width widget (the FQ-21 band) has no horizontal slack; clamping
-	# with min > max would snap it to the margin.
-	if max_position.x >= HUD_SAFE_MARGIN:
-		control.position.x = clampf(control.position.x, HUD_SAFE_MARGIN, max_position.x)
-	if max_position.y >= HUD_SAFE_MARGIN:
-		control.position.y = clampf(control.position.y, HUD_SAFE_MARGIN, max_position.y)
+	# A full-width widget (the FQ-21 band) has no horizontal slack; HudEditGeometry
+	# leaves an axis with no slack as-is rather than snapping it to the margin.
+	control.position = HudEditGeometry.clamp_position(control.position,
+		_hud_widget_size(control), get_viewport().get_visible_rect().size)
 
 
 func _input(event: InputEvent) -> void:

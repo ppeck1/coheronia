@@ -9,6 +9,7 @@ const AudioSettings := preload("res://scripts/audio/audio_settings.gd")   # R-07
 const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
 const ContractBalanceReportScript := preload("res://scripts/contracts/balance_report.gd")   # R-09.3
 const HudChrome := preload("res://scripts/ui/hud/hud_chrome.gd")   # R-06.1
+const HudEditGeometry := preload("res://scripts/ui/hud/hud_edit_geometry.gd")   # R-06.2
 
 var _results: Array = []
 var _details: Dictionary = {}
@@ -1279,6 +1280,34 @@ func _run() -> void:
 		"norm=%s rect=%s vec=%s layout=%s theme=%s" % [
 			str(_r06_norm_ok), str(_r06_rect_ok), str(_r06_vec_ok),
 			str(_r06_layout_ok), str(_r06_theme_ok)])
+
+	# R-06.2 seam: the edit-mode geometry math now lives in HudEditGeometry;
+	# hud.gd's facade (_hud_widget_size / _hud_grip_rect, driven by fq17/fq21)
+	# must delegate identically, and the pure math holds on fixed inputs.
+	var _r06g_widget: Control = hud._hud_widgets.get("crest")
+	var _r06g_size_ok: bool = _r06g_widget != null \
+		and hud._hud_widget_size(_r06g_widget) == HudEditGeometry.widget_size(_r06g_widget)
+	# The wrapper returns Rect2() for a hidden widget, else the geometry rect --
+	# assert delegation for whichever state the crest is in.
+	var _r06g_grip_expected: Rect2 = HudEditGeometry.grip_rect(_r06g_widget.get_global_rect()) \
+		if (_r06g_widget != null and _r06g_widget.visible) else Rect2()
+	var _r06g_grip_ok: bool = _r06g_widget != null \
+		and hud._hud_grip_rect("crest") == _r06g_grip_expected
+	var _r06g_min_ok: bool = HudEditGeometry.min_size(Vector2(400.0, 200.0)) == Vector2(200.0, 100.0) \
+		and HudEditGeometry.min_size(Vector2(10.0, 10.0)) == Vector2(120.0, 56.0)
+	var _r06g_max_ok: bool = HudEditGeometry.max_size(Vector2(100.0, 100.0), Vector2(1280.0, 720.0)) \
+		== Vector2(200.0, 200.0)
+	var _r06g_clamp_slack_ok: bool = HudEditGeometry.clamp_position(
+		Vector2(-50.0, -50.0), Vector2(100.0, 100.0), Vector2(1280.0, 720.0)) == Vector2(12.0, 12.0)
+	# A full-width extent has no horizontal slack, so x is left untouched.
+	var _r06g_clamp_noslack_ok: bool = HudEditGeometry.clamp_position(
+		Vector2(0.0, 5.0), Vector2(1280.0, 40.0), Vector2(1280.0, 720.0)).x == 0.0
+	_check("r06_edit_geometry_delegates",
+		_r06g_size_ok and _r06g_grip_ok and _r06g_min_ok and _r06g_max_ok \
+			and _r06g_clamp_slack_ok and _r06g_clamp_noslack_ok,
+		"size=%s grip=%s min=%s max=%s clamp=%s noslack=%s" % [
+			str(_r06g_size_ok), str(_r06g_grip_ok), str(_r06g_min_ok),
+			str(_r06g_max_ok), str(_r06g_clamp_slack_ok), str(_r06g_clamp_noslack_ok)])
 
 	# HUD v4: a legacy dock transform can never move/scale the anchored band.
 	var _fq21_layout_before: Variant = GameState.profile.get("hud_layout", {}).duplicate(true)

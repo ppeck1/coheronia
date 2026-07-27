@@ -1024,8 +1024,10 @@ The Release Foundations arc (`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`) is
 complete through R-09 (R-00..R-05 export/save/CI/cleanup, R-07 playability
 baseline, R-08 subject-labor MVP, R-09 contracts + balance). **R-06 (ownership
 decomposition) is the current arc (design-first, 2026-07-27); authority:
-`docs/WORK_ORDER_R06_OWNERSHIP_DECOMPOSITION.md`. Slice R-06.1 (chrome & theme
-resolver) DONE 2026-07-27 (source 404/404); next = R-06.2 edit-mode controller,
+`docs/WORK_ORDER_R06_OWNERSHIP_DECOMPOSITION.md`. Slices R-06.1 (chrome & theme
+resolver, 404/404) and R-06.2 (edit-mode geometry helper — scope adjusted from a
+full controller to the portable geometry math after finding net-negative
+coupling, 405/405) DONE 2026-07-27; next = R-06.3 crest/vessel subsystem,
 awaiting operator go-ahead.** R-10 (HUD/art) is an art lane. The R-09 authority
 is `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
 

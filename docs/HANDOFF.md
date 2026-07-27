@@ -32,15 +32,23 @@ existing cluster into a collaborator, preserves every public signature, keeps
 all pre-existing fq/pr/r07 checks green (the regression proof), and adds one
 `r06_*` seam check.
 
-**Slice R-06.1 (chrome & theme resolver) DONE 2026-07-27** — the stateless
-resolver + slicer-geometry parsers lifted to `scripts/ui/hud/hud_chrome.gd`
-(`RefCounted` static, preloaded, no `class_name`); `hud.gd` keeps delegating
-wrappers; seam check `r06_chrome_resolver_delegates` added. **Source smoke
-404/404 (0 skipped), validator PASS, capsule healthy, `git diff --check`
-clean.** Committed, NOT pushed (export rides the R-04 push CI). **Next = Slice
-R-06.2 (edit-mode controller), awaiting operator go-ahead.** R-10/HUD polish
-remains art lane. Push control is separate from commit control — never push
-unless told.
+**Slice R-06.1 (chrome & theme resolver) DONE 2026-07-27** — stateless resolver
++ slicer-geometry parsers lifted to `scripts/ui/hud/hud_chrome.gd`; `hud.gd`
+keeps delegating wrappers; seam check `r06_chrome_resolver_delegates`. Source
+404/404.
+
+**Slice R-06.2 (edit-mode geometry) DONE 2026-07-27 — scope adjusted.** The
+edit-mode cluster is bidirectionally coupled and smoke-driven, so a full
+child-node controller would add net coupling; operator chose to extract only
+the **portable geometry math** into `scripts/ui/hud/hud_edit_geometry.gd`
+(`RefCounted` static: measure/min-max/grip/clamp + 4 tuning consts), leaving the
+interactive controller in `hud.gd`. Delegating wrappers preserved; seam check
+`r06_edit_geometry_delegates`. **Source smoke 405/405 (0 skipped), validator
+PASS, capsule healthy, `diff --check` clean; fq17 grip/reset/clamp + fq21
+dock-invariant byte-identical.** Both R-06.1 and R-06.2 committed, NOT pushed
+(export rides the R-04 push CI). **Next = Slice R-06.3 (crest/vessel subsystem),
+awaiting operator go-ahead.** R-10/HUD polish remains art lane. Push control is
+separate from commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is

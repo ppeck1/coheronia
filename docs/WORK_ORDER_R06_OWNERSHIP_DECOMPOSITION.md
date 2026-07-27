@@ -1,6 +1,25 @@
 # R-06 — Incremental Ownership Decomposition (Work Order)
 
-**Status: IN PROGRESS — Slice R-06.1 DONE (2026-07-27).**
+**Status: IN PROGRESS — Slices R-06.1 and R-06.2 DONE (2026-07-27).**
+
+**R-06.2 (edit-mode geometry) shipped 2026-07-27 — scope adjusted from the
+original sketch.** During implementation the edit-mode cluster proved to be
+bidirectionally coupled and its internals are part of the tested surface
+(`smoke_test` drives `hud._hud_widgets` ×14, `hud._hud_widget_size` ×5,
+`hud._resize_hud_widget`, `hud._save`/`_load_hud_layout`, `hud._hud_grip_rect`),
+and it reaches into ~7 HUD nodes + flags + `_goal_visible` + shared helpers. A
+full child-node controller would have required a **wide** preserved façade plus
+~15 back-references into `hud` — net *more* coupling. Operator decision
+(2026-07-27): extract only the **portable geometry math** into a stateless
+helper (mirroring R-06.1), and leave the interactive controller (input,
+overlay, drag/resize state, layout load/save/reset) in `hud.gd`. Delivered:
+`scripts/ui/hud/hud_edit_geometry.gd` (`RefCounted` static — `widget_size`,
+`natural_size`, `min_size`, `max_size`, `grip_rect`, `clamp_position`, plus the
+4 geometry tuning consts). `hud.gd` keeps delegating wrappers (`_hud_widget_size`,
+`_hud_natural_size`, `_hud_min_size`, `_hud_max_size`, `_hud_grip_rect`,
+`_clamp_hud_widget`). Seam check `r06_edit_geometry_delegates`. **Source smoke
+405/405, 0 skipped; validator PASS; capsule healthy; `git diff --check` clean;
+fq17 grip/reset/clamp and fq21 dock-invariant confirmed byte-identical.**
 
 **R-06.1 (Chrome & theme resolver) shipped 2026-07-27.** The stateless
 painted-chrome / themed-PNG resolver and the slicer-geometry parsers were
@@ -173,7 +192,7 @@ R-06 adds **no data schema**, so validator changes are minimal:
 | Slice | Scope | Extracted collaborator | New seam check(s) |
 |---|---|---|---|
 | **R-06.1 — Chrome & theme resolver** ✅ DONE | Lift the stateless painted-chrome / themed-PNG resolver + slicer geometry math out of `hud.gd`. No live state moves. Proves the extraction pattern end-to-end on the safest seam. | `scripts/ui/hud/hud_chrome.gd` (`RefCounted`/static) | `r06_chrome_resolver_delegates` — **source 404/404** |
-| **R-06.2 — Edit-mode controller** | Lift drag/resize/grip, widget registry, natural-size defaults, and the `reset_hud_layout` + `shell.json` layout persistence. Self-contained; heavily pre-covered by fq17/fq20. | `scripts/ui/hud/hud_edit_controller.gd` (child node) | `r06_edit_controller_delegates` |
+| **R-06.2 — Edit-mode geometry** ✅ DONE (scope adjusted) | Original sketch was a child-node controller; found net-negative coupling (see status note). Delivered instead: lift the **portable geometry math** (measure / min-max / grip / clamp) to a stateless helper; interactive controller stays in `hud.gd`. | `scripts/ui/hud/hud_edit_geometry.gd` (`RefCounted`/static) | `r06_edit_geometry_delegates` — **source 405/405** |
 | **R-06.3 — Crest / vessel subsystem** | Lift health/attunement/settlement bars, vessel sockets + fills, attunement effects. The FQ-19/21 hotspot. | `scripts/ui/hud/hud_crest.gd` (child node) | `r06_crest_delegates` |
 | **R-06.4 — Inventory board / toolbelt** | Lift hotbar, inventory board, drag/drop sort, and all dock/backpack/equipment/stockpile grid accessors. Largest cluster. | `scripts/ui/hud/hud_inventory_board.gd` (child node) | `r06_inventory_board_delegates` |
 | **R-06.5 — `game_root` session services** | After HUD seams settle, lift save/load orchestration + panel-toggle routing + HUD event wiring into a session service `game_root` owns. Public `game_root` surface preserved. | `scripts/main/session_services.gd` (child node / `RefCounted`) | `r06_session_services_delegates` |
@@ -188,7 +207,7 @@ after R-06.4 ships, since their value depends on how clean the HUD seams end up.
 |---|---|---|
 | *(all existing fq/pr/r07 HUD checks)* | behavior unchanged across the lift — the regression proof | every |
 | `r06_chrome_resolver_delegates` | themed-PNG resolution + geometry come from the extracted helper; fallback still base-PNG | 1 |
-| `r06_edit_controller_delegates` | drag/grip/reset run through the controller; `shell.json` layout round-trip byte-identical | 2 |
+| `r06_edit_geometry_delegates` | `_hud_widget_size`/`_hud_grip_rect` delegate identically; min/max/clamp math holds on fixed inputs (incl. no-slack band axis) | 2 |
 | `r06_crest_delegates` | `update_health`/`update_attunement`/`update_settlement`/vessel socket route through the crest node with identical bar state | 3 |
 | `r06_inventory_board_delegates` | `update_inventory` + drag/drop + grid accessors route through the board node with identical counts | 4 |
 | `r06_session_services_delegates` | save/load + panel routing run through the session service; `game_root` public surface unchanged | 5 |
