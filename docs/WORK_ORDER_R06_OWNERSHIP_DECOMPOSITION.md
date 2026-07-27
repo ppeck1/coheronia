@@ -1,6 +1,39 @@
 # R-06 — Incremental Ownership Decomposition (Work Order)
 
-**Status: IN PROGRESS — Slices R-06.1, R-06.2, R-06.3 DONE (2026-07-27).**
+**Status: SUBSTANTIALLY COMPLETE — 3 clean slices shipped; R-06.4/6.5/6.6
+assessed and closed as not-beneficial (2026-07-27).**
+
+R-06 delivered three green-to-green stateless extractions that consolidated
+presentation logic out of `hud.gd` behind a frozen façade: R-06.1 chrome/theme
+resolver, R-06.2 edit geometry, R-06.3 vessel/chrome texture-prep (`HudChrome`
++ `HudEditGeometry`). During the arc it became clear that **the clean stateless
+seams are what carried the value**, and the remaining planned slices do not
+have one:
+
+- **R-06.4 (inventory board), crest/vessel *nodes*** — dominated by node
+  mutation whose internals are directly smoke-driven (`hud._hud_widgets`,
+  `_health_vessel_fill`, board grid accessors, etc.). Lifting to a child node
+  needs a wide preserved façade + many back-references = **net-more** coupling.
+- **R-06.5 (game_root session services)** — profiled 2026-07-27. `game_root`
+  is even more state-coupled: save/load `serialize_*`/`apply_*` read and spawn
+  live nodes; event handlers route to hall/player/town_hall; progression state
+  is directly smoke-driven (`root.xp_totals` ×22, `base_level` ×14,
+  `player_level` ×10). The only portable math is the ~15-line XP→level curve
+  (`_recalc_player_level`), which is registry-dependent and marginal. No seam
+  comparable to the shipped slices.
+- **R-06.6 (retire historical fallbacks)** — was conditional on a full HUD
+  node lift that is not being done; no dead-fallback removal is warranted on
+  its own.
+
+**Decision (operator, 2026-07-27): wrap R-06 here.** Forcing the remaining
+clusters would violate the arc's own "no net coupling increase" principle. The
+RF-09 ownership-point pressure is meaningfully reduced; further decomposition of
+these controllers is not worth the regression risk against the current
+architecture and would be revisited only if a concrete future feature is blocked
+by the coupling. Final source smoke: **406/406, 0 skipped.**
+
+---
+
 
 **R-06.3 (crest/vessel) shipped 2026-07-27 — scope adjusted; texture-prep seam.**
 The crest/vessel *node* subsystem proved to be the worst child-node candidate:
@@ -218,9 +251,9 @@ R-06 adds **no data schema**, so validator changes are minimal:
 | **R-06.1 — Chrome & theme resolver** ✅ DONE | Lift the stateless painted-chrome / themed-PNG resolver + slicer geometry math out of `hud.gd`. No live state moves. Proves the extraction pattern end-to-end on the safest seam. | `scripts/ui/hud/hud_chrome.gd` (`RefCounted`/static) | `r06_chrome_resolver_delegates` — **source 404/404** |
 | **R-06.2 — Edit-mode geometry** ✅ DONE (scope adjusted) | Original sketch was a child-node controller; found net-negative coupling (see status note). Delivered instead: lift the **portable geometry math** (measure / min-max / grip / clamp) to a stateless helper; interactive controller stays in `hud.gd`. | `scripts/ui/hud/hud_edit_geometry.gd` (`RefCounted`/static) | `r06_edit_geometry_delegates` — **source 405/405** |
 | **R-06.3 — Crest / vessel** ✅ DONE (scope adjusted) | Node subsystem is smoke-driven + embedded in kit assembly (net-negative to lift). Delivered instead: presentation **texture prep** (`scaled_texture_from` + `glass_mask_from`) into `HudChrome`; caches + node ownership stay in `hud.gd`. | `scripts/ui/hud/hud_chrome.gd` (extended) | `r06_texture_prep_delegates` — **source 406/406** |
-| **R-06.4 — Inventory board / toolbelt** | Lift hotbar, inventory board, drag/drop sort, and all dock/backpack/equipment/stockpile grid accessors. Largest cluster. | `scripts/ui/hud/hud_inventory_board.gd` (child node) | `r06_inventory_board_delegates` |
-| **R-06.5 — `game_root` session services** | After HUD seams settle, lift save/load orchestration + panel-toggle routing + HUD event wiring into a session service `game_root` owns. Public `game_root` surface preserved. | `scripts/main/session_services.gd` (child node / `RefCounted`) | `r06_session_services_delegates` |
-| **R-06.6 — Retire historical fallbacks** | Remove pre–native-kit HUD fallback branches now dead under the native kit. **Only after** an exported build confirms the native-kit path in R-06.1–06.4. | (deletions) | `r06_no_dead_hud_fallback` (asserts kit-primary path is the only path) |
+| **R-06.4 — Inventory board / toolbelt** ⛔ CLOSED not-beneficial | Node-mutation-heavy; internals directly smoke-driven (`hud._hud_widgets`, grid accessors) → child-node lift is net-negative coupling. Not done. | — | — |
+| **R-06.5 — `game_root` session services** ⛔ CLOSED not-beneficial | Profiled 2026-07-27: save/load spawns/reads live nodes, event handlers route to nodes, progression state smoke-driven (`xp_totals` ×22). Only portable math is the marginal ~15-line XP→level curve. No clean seam. Not done. | — | — |
+| **R-06.6 — Retire historical fallbacks** ⛔ CLOSED n/a | Was conditional on the full HUD node lift (not done); no standalone dead-fallback removal warranted. | — | — |
 
 Slices land in order. R-06.5 and R-06.6 are re-confirmed with the operator
 after R-06.4 ships, since their value depends on how clean the HUD seams end up.

@@ -1028,10 +1028,11 @@ decomposition) is the current arc (design-first, 2026-07-27); authority:
 resolver, 404/404) and R-06.2 (edit-mode geometry helper — scope adjusted from a
 full controller to the portable geometry math after finding net-negative
 coupling, 405/405) and R-06.3 (crest/vessel — texture-prep seam only; node
-subsystem found non-decomposable, 406/406) DONE 2026-07-27. Clean stateless
-seams largely exhausted; R-06 near diminishing returns — weigh R-06.4/6.5 vs.
-wrapping the arc with the operator.** R-10 (HUD/art) is an art lane. The R-09
-authority is `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
+subsystem found non-decomposable, 406/406) DONE 2026-07-27. R-06 WRAPPED
+SUBSTANTIALLY COMPLETE at 3 clean stateless slices (pushed); R-06.4/6.5/6.6
+assessed + closed as not-beneficial (node-mutation-heavy + smoke-driven → child
+lift is net-negative coupling). Next code arc unselected.** R-10 (HUD/art) is an
+art lane. The R-09 authority is `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
 
 | Slice | Row | State |
 |---|---|---|

@@ -56,14 +56,20 @@ validator PASS, capsule healthy, `diff --check` clean; fq19 vessel + fq21 maskin
 byte-identical.** R-06.1/6.2/6.3 committed, NOT pushed (export rides the R-04
 push CI).
 
-**Arc status: the clean stateless seams are largely exhausted.** Chrome/theme
-resolver, edit geometry, and vessel texture-prep are extracted. Remaining
-clusters (inventory board, crest/vessel *nodes*) are node-mutation-heavy and
-directly smoke-driven — they don't decompose to child nodes without a wide
-façade + many back-refs (net-negative). **R-06 is near diminishing returns; next
-step (R-06.4 inventory board vs. R-06.5 game_root session services vs. wrapping
-R-06 here) should be weighed with the operator.** R-10/HUD polish remains art
-lane. Push control is separate from commit control — never push unless told.
+**R-06 SUBSTANTIALLY COMPLETE (operator decision 2026-07-27): wrapped at 3 clean
+slices.** The stateless-seam extractions (chrome/theme resolver, edit geometry,
+vessel/chrome texture-prep → `HudChrome` + `HudEditGeometry`) carried the value.
+R-06.4 (inventory board) and R-06.5 (game_root session services, profiled) were
+assessed and closed as **not-beneficial**: both are node-mutation-heavy with
+directly-smoke-driven internals (`hud._hud_widgets`; `root.xp_totals` ×22,
+`base_level` ×14, `player_level` ×10), so a child-node lift needs a wide façade +
+many back-refs = net-more coupling. R-06.6 (fallback retirement) was conditional
+on that lift → n/a. RF-09 ownership pressure meaningfully reduced; further
+controller decomposition is deferred until a concrete feature is blocked by the
+coupling. **R-06.1/6.2/6.3 + design pushed to origin 2026-07-27.**
+
+**NEXT CODE ARC: unselected.** R-10/HUD polish remains art lane. Push control is
+separate from commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is
