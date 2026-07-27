@@ -1022,9 +1022,11 @@ checks -- a code lane never produces final PNGs.
 
 The Release Foundations arc (`docs/WORK_ORDER_RELEASE_FOUNDATIONS.md`) is
 complete through R-09 (R-00..R-05 export/save/CI/cleanup, R-07 playability
-baseline, R-08 subject-labor MVP, R-09 contracts + balance). R-06 (ownership
-decomposition) is deferred; R-10 (HUD/art) is an art lane. The R-09 authority is
-`docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
+baseline, R-08 subject-labor MVP, R-09 contracts + balance). **R-06 (ownership
+decomposition) is the approved next arc (design-first, 2026-07-27); authority:
+`docs/WORK_ORDER_R06_OWNERSHIP_DECOMPOSITION.md` — implementation not started,
+awaiting operator go-ahead on Slice R-06.1.** R-10 (HUD/art) is an art lane. The
+R-09 authority is `docs/WORK_ORDER_R09_CONTRACTS_BALANCE.md`:
 
 | Slice | Row | State |
 |---|---|---|
