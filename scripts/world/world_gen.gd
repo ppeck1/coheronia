@@ -8,6 +8,9 @@ extends RefCounted
 const TREE_MIN_H := 3
 const TREE_MAX_H := 5
 
+## LQ-3: the liquid block ids the encapsulation pass seals inside rock.
+const LIQUID_BLOCK_IDS := ["lava", "water"]
+
 ## World Depths: bump this when the generator changes in a way that alters the
 ## terrain a given seed produces. New worlds are stamped with it at creation
 ## (game_state.create_world); worlds created earlier keep their stored version
@@ -15,7 +18,8 @@ const TREE_MAX_H := 5
 ##   v1 = legacy (dirt over stone, ore families, solid fill, no caves/hell)
 ##   v2 = World Depths (data-driven strata, deepstone, unmineable bedrock floor;
 ##        caves + hell land under this same version as WD-2/WD-3 add them)
-const CURRENT_GEN_VERSION := 2
+##   v3 = Liquid Physics (LQ-3): surface + underground water lakes
+const CURRENT_GEN_VERSION := 3
 
 ## v2 only: unmineable floor rows at the very bottom so a deep world (and, later,
 ## caves) can never expose the world's lower edge.
@@ -129,6 +133,20 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 			var above := Vector2i(x, surface[x] - 1)
 			if bush_rng.randf() < 0.07 * bush_density and not cells.has(above):
 				cells[above] = "berry_bush"
+
+	# Liquid Physics (v3, LQ-3): water lakes + liquid encapsulation. Runs last so
+	# surface ponds clear any trees/bushes in their footprint.
+	if gen_version >= 3:
+		var water_cfg: Dictionary = WorldConfig.settings().get("water", {})
+		if not water_cfg.is_empty():
+			_place_underground_water(cells, surface, width, height, world_seed, water_cfg)
+		# Seal every generated liquid (lava + underground water) inside solid rock,
+		# so it sits inert until the player MINES into it — a nearby edit no longer
+		# merely wakes an already-exposed pool. Runs before surface ponds so ponds
+		# keep their open tops.
+		_encapsulate_liquids(cells, surface, width, height, strata)
+		if not water_cfg.is_empty():
+			_place_surface_lakes(cells, surface, width, height, world_seed, water_cfg)
 
 	return {"cells": cells, "surface": surface,
 		"width": width, "height": height}
@@ -266,6 +284,116 @@ static func _place_hell_lava(cells: Dictionary, surface: Dictionary, width: int,
 				continue
 			if lava.get_noise_2d(float(x), float(y)) > lava_thr:
 				cells[pos] = "lava"
+
+
+## Liquid Physics (v3, LQ-3): pools water on cavity floors in a mid depth band
+## (above the hell/lava band, so water and lava stay separate at generation). The
+## caller seals these pockets with _encapsulate_liquids afterward. Deterministic.
+static func _place_underground_water(cells: Dictionary, surface: Dictionary, width: int,
+		height: int, world_seed: int, water_cfg: Dictionary) -> void:
+	# --- Underground lakes: pool water on cavity floors in a mid band. ---
+	var band_top := float(water_cfg.get("underground_band_top_frac", 0.30))
+	var band_bot := float(water_cfg.get("underground_band_bot_frac", 0.60))
+	var pool_depth := int(water_cfg.get("underground_pool_depth", 5))
+	var wnoise := FastNoiseLite.new()
+	wnoise.seed = world_seed + int(water_cfg.get("underground_seed_offset", 2551))
+	wnoise.frequency = float(water_cfg.get("underground_frequency", 0.05))
+	var wthr := float(water_cfg.get("underground_threshold", 0.35))
+	var bedrock_top := height - BEDROCK_THICKNESS
+	for x in range(width):
+		var surf_y: int = int(surface.get(x, 0))
+		var col_depth: int = maxi(1, bedrock_top - surf_y)
+		var y0: int = surf_y + int(band_top * float(col_depth))
+		var y1: int = surf_y + int(band_bot * float(col_depth))
+		# One lake decision per column (constant y sample) so lakes form coherent
+		# horizontal regions rather than speckle.
+		if wnoise.get_noise_2d(float(x), float(y0)) <= wthr:
+			continue
+		var filled := 0
+		for y in range(y1, y0 - 1, -1):   # bottom-up so water rests on floors
+			var pos := Vector2i(x, y)
+			if cells.has(pos):
+				filled = 0
+				continue
+			# Fill air that rests on a solid/water cell, capped at pool_depth.
+			if filled < pool_depth and cells.has(Vector2i(x, y + 1)):
+				cells[pos] = "water"
+				filled += 1
+
+
+## Liquid Physics (v3, LQ-3): seals every generated liquid pocket (lava +
+## underground water) inside solid rock by filling any AIR cell orthogonally
+## adjacent to a liquid with the depth-appropriate stratum block. The result:
+## generated liquid never borders open air, so it sits inert until the player
+## MINES into it — mining is what releases it, not merely a nearby edit. Runs
+## before surface ponds, which keep their intended open tops.
+static func _encapsulate_liquids(cells: Dictionary, surface: Dictionary,
+		width: int, height: int, strata: Array) -> void:
+	var bedrock_top := height - BEDROCK_THICKNESS
+	var seal: Dictionary = {}   # Vector2i -> solid block id
+	for pos: Vector2i in cells:
+		if not (str(cells[pos]) in LIQUID_BLOCK_IDS):
+			continue
+		for nb: Vector2i in [pos + Vector2i(0, 1), pos + Vector2i(0, -1),
+				pos + Vector2i(1, 0), pos + Vector2i(-1, 0)]:
+			if nb.x < 0 or nb.x >= width or nb.y < 0 or nb.y >= height:
+				continue
+			if cells.has(nb):
+				continue   # already rock or liquid — not an open side
+			var surf_y: int = int(surface.get(nb.x, 0))
+			var col_depth: int = maxi(1, bedrock_top - surf_y)
+			var f: float = float(maxi(0, nb.y - surf_y)) / float(col_depth)
+			seal[nb] = _stratum_base_frac(strata, f)
+	for nb: Vector2i in seal:
+		cells[nb] = seal[nb]
+
+
+## LQ-3: scatters surface ponds. Each is a tapered bowl carved into the surface
+## and filled with water to a flat top; rim columns keep their ground as banks.
+## Kept clear of the Town Hall column (stamped later at width / 2).
+static func _place_surface_lakes(cells: Dictionary, surface: Dictionary,
+		width: int, height: int, world_seed: int, water_cfg: Dictionary) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = world_seed + int(water_cfg.get("surface_lake_seed_offset", 3313))
+	var chance := float(water_cfg.get("surface_lake_chance", 0.10))
+	var min_w := int(water_cfg.get("surface_lake_min_w", 5))
+	var max_w := int(water_cfg.get("surface_lake_max_w", 10))
+	var min_d := int(water_cfg.get("surface_lake_min_depth", 3))
+	var max_d := int(water_cfg.get("surface_lake_max_depth", 6))
+	var hall_x := width / 2
+	var x := max_w + 2
+	while x < width - max_w - 2:
+		if absi(x - hall_x) > 12 and rng.randf() < chance:
+			var w := rng.randi_range(min_w, max_w)
+			var d := rng.randi_range(min_d, max_d)
+			_carve_surface_lake(cells, surface, x, w, d)
+			x += w * 2 + rng.randi_range(6, 14)
+		else:
+			x += rng.randi_range(6, 16)
+
+
+## LQ-3: carves one pond at column `cx`, half-width `w`, max depth `d`. The water
+## surface is flat at the centre's ground level; the bowl tapers to 0 at the rim
+## (so the outer columns stay dry banks). Terrain above the water line in the
+## footprint is cleared, and a dirt floor is guaranteed under the deepest cells.
+static func _carve_surface_lake(cells: Dictionary, surface: Dictionary,
+		cx: int, w: int, d: int) -> void:
+	var water_top: int = int(surface.get(cx, 0))
+	for lx in range(cx - w + 1, cx + w):
+		var dist: int = absi(lx - cx)
+		var depth_here: int = int(round(float(d) * (1.0 - float(dist) / float(w))))
+		if depth_here <= 0:
+			continue   # rim column: leave the ground as a bank
+		var bottom: int = water_top + depth_here
+		for y in range(0, bottom):
+			var pos := Vector2i(lx, y)
+			if y >= water_top:
+				cells[pos] = "water"
+			else:
+				cells.erase(pos)   # clear hills/trees above the water line
+		if not cells.has(Vector2i(lx, bottom)):
+			cells[Vector2i(lx, bottom)] = "dirt"   # a floor to hold the pond
+		surface[lx] = water_top
 
 
 ## Developer cheat: a switchback staircase from the surface to a safe hellstone

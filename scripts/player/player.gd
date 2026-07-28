@@ -74,6 +74,11 @@ var growth_threshold_delta := 0.0
 var hotbar: Array[String] = DEFAULT_DOCK_ASSIGNMENTS.duplicate()
 var selected_slot := 0
 
+# LQ-3: the bucket is a persistent tool; its fill state lives on the player
+# ("" = empty, else a liquid id like "water"/"lava"). Saved with world state.
+const BUCKET_ITEM := "bucket"
+var bucket_contents := ""
+
 # Ancestry effects (Phase B; reset in apply_character, set by apply_ancestry_effects).
 var ancestry_move_mult := 1.0
 var ancestry_jump_mult := 1.0
@@ -301,7 +306,9 @@ func _physics_process(delta: float) -> void:
 	collect_ground_drops()   # R-08 slice 3: walk over loose items to pick them up
 	_apply_environmental_hazard()   # WD-3: lava (and any contact_damage block)
 	if Input.is_action_just_pressed("place"):
-		try_place(world.cell_of(get_global_mouse_position()), selected_item())
+		var _place_cell: Vector2i = world.cell_of(get_global_mouse_position())
+		if not _try_use_bucket(_place_cell):
+			try_place(_place_cell, selected_item())
 	if Input.is_action_just_pressed("farm_action"):
 		try_farm(world.cell_of(get_global_mouse_position()))
 	queue_redraw()
@@ -445,6 +452,37 @@ func place_reason(cell: Vector2i, block_id: String) -> String:
 	if _cell_overlaps_body(cell) and BlockRegistry.is_solid(block_id):
 		return "You are standing there."
 	return ""
+
+
+## LQ-3: the bucket tool on the Place action. With the bucket selected, an empty
+## bucket scoops a full-ish liquid at the target (bucket_contents := that liquid);
+## a full bucket pours its liquid into an empty/floodable cell and empties. Not
+## consumed. Returns true when the bucket handled the press (so ordinary block
+## placement is skipped); false when the bucket isn't the selected item.
+func _try_use_bucket(cell: Vector2i) -> bool:
+	if selected_item() != BUCKET_ITEM:
+		return false
+	if not _in_reach(cell):
+		player_event.emit("That is out of reach.")
+		return true
+	if bucket_contents == "":
+		var scooped: String = world.scoop_liquid(cell)
+		if scooped == "":
+			player_event.emit("Aim the empty bucket at lava or water to scoop it.")
+			return true
+		bucket_contents = scooped
+		inventory_changed.emit()
+		ActionFx.spawn(world, "dust_puff", world.cell_center(cell))
+		player_event.emit("Filled the bucket with %s." % BlockRegistry.display_name(scooped).to_lower())
+	else:
+		if not world.place_liquid(cell, bucket_contents):
+			player_event.emit("You can't pour there.")
+			return true
+		ActionFx.spawn(world, "place_pulse", world.cell_center(cell))
+		player_event.emit("Poured %s." % BlockRegistry.display_name(bucket_contents).to_lower())
+		bucket_contents = ""
+		inventory_changed.emit()
+	return true
 
 
 func try_place(cell: Vector2i, block_id: String) -> bool:

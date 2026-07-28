@@ -1008,6 +1008,134 @@ func _run() -> void:
 	_check("lq_lava_damages_enemy", _lq_enemy_hurt,
 		"threat hp dropped from a lava tick")
 
+	# LQ-3: water is a second liquid — flows like lava but is a non-hazard (no
+	# contact damage, emits no light).
+	var _w_def: Dictionary = BlockRegistry.get_block("water")
+	_check("lq_water_is_liquid_non_hazard",
+		BlockRegistry.is_liquid("water") and not BlockRegistry.is_solid("water")
+			and BlockRegistry.contact_damage("water") == 0.0
+			and not bool(_w_def.get("emits_light", false)),
+		"is_liquid=%s solid=%s dmg=%.1f emits_light=%s" % [
+			str(BlockRegistry.is_liquid("water")), str(BlockRegistry.is_solid("water")),
+			BlockRegistry.contact_damage("water"), str(bool(_w_def.get("emits_light", false)))])
+
+	# LQ-3: lava + water react into obsidian (the lava cell solidifies, the water
+	# cell is consumed).
+	var _rx_lava := Vector2i(42, 7)
+	var _rx_water := Vector2i(42, 6)
+	world.cells[_rx_lava] = "lava"
+	world.cells[_rx_water] = "water"
+	world._fluid.wake(_rx_lava)
+	world._fluid.wake(_rx_water)
+	world.fluid_settle(16)
+	var _rx_lava_res: String = world.cells.get(_rx_lava, "air")
+	var _rx_water_res: String = world.cells.get(_rx_water, "air")
+	for _cc in [_rx_lava, _rx_water]:
+		world.cells.erase(_cc); world.liquid_level.erase(_cc)
+		world.deltas.erase(_cc); world._set_tile(_cc, "air")
+	world._fluid.active.clear()
+	_check("lq_water_plus_lava_makes_obsidian",
+		_rx_lava_res == "obsidian" and _rx_water_res != "water",
+		"lava->%s water->%s" % [_rx_lava_res, _rx_water_res])
+
+	# LQ-3: v3 worlds generate water lakes; v2 (World Depths) worlds carry none, so
+	# existing worlds stay byte-identical (the gen_version guard holds).
+	var _wg3: Dictionary = WorldGen.generate(2024, WorldConfig.new({"size": "medium", "gen_version": 3}))
+	var _wg2: Dictionary = WorldGen.generate(2024, WorldConfig.new({"size": "medium", "gen_version": 2}))
+	var _w3_count := 0
+	var _w3_surface := 0
+	var _w3_deep := 0
+	var _wg3_surf: Dictionary = _wg3["surface"]
+	for _c: Vector2i in (_wg3["cells"] as Dictionary):
+		if str((_wg3["cells"] as Dictionary)[_c]) == "water":
+			_w3_count += 1
+			if _c.y - int(_wg3_surf.get(_c.x, 0)) <= 4:
+				_w3_surface += 1
+			else:
+				_w3_deep += 1
+	var _w2_count := 0
+	for _c: Vector2i in (_wg2["cells"] as Dictionary):
+		if str((_wg2["cells"] as Dictionary)[_c]) == "water":
+			_w2_count += 1
+	_check("lq_water_lakes_generate", _w3_count > 0 and _w3_surface > 0 and _w3_deep > 0,
+		"v3 water=%d (surface=%d deep=%d)" % [_w3_count, _w3_surface, _w3_deep])
+	_check("lq_legacy_v2_has_no_water", _w2_count == 0,
+		"v2 water cells=%d (must be 0 for save-compat)" % _w2_count)
+
+	# LQ-3: generated underground liquid is encapsulated — no lava cell (and no
+	# deep water cell) borders open air, so the player must MINE into it to release
+	# it. Surface ponds (near the surface) are intentionally open, so exempt.
+	var _g3: Dictionary = _wg3["cells"]
+	var _g3w: int = int(_wg3["width"])
+	var _g3h: int = int(_wg3["height"])
+	var _enc_violations := 0
+	for _c: Vector2i in _g3:
+		var _id: String = str(_g3[_c])
+		var _deep: bool = _c.y - int(_wg3_surf.get(_c.x, 0)) > 6
+		if _id != "lava" and not (_id == "water" and _deep):
+			continue
+		for _nb: Vector2i in [_c + Vector2i(0, 1), _c + Vector2i(0, -1),
+				_c + Vector2i(1, 0), _c + Vector2i(-1, 0)]:
+			if _nb.x < 0 or _nb.x >= _g3w or _nb.y < 0 or _nb.y >= _g3h:
+				continue
+			if not _g3.has(_nb):
+				_enc_violations += 1
+				break
+	_check("lq_generated_liquid_encapsulated", _enc_violations == 0,
+		"underground liquid cells touching open air: %d (must be 0)" % _enc_violations)
+
+	# LQ-3: trees don't dam liquid — a non-solid tree in the flow path is flooded
+	# (background prop, not a wall), so lava/water pass through rather than stop.
+	var _tr_src := Vector2i(44, 5)
+	var _tr_tree := Vector2i(44, 6)
+	var _tr_floor := Vector2i(44, 7)
+	world.cells[_tr_floor] = "stone"
+	world.cells[Vector2i(43, 6)] = "stone"   # box the tree cell so flooded lava rests
+	world.cells[Vector2i(45, 6)] = "stone"
+	world.cells[_tr_tree] = "tree_trunk"     # a non-solid tree in the flow path
+	world.cells[_tr_src] = "lava"
+	world._fluid.wake(_tr_src)
+	world.fluid_settle(24)
+	var _tr_result: String = world.cells.get(_tr_tree, "air")
+	var _tr_flooded: bool = _tr_result == "lava"
+	for _cc in [_tr_src, _tr_tree, _tr_floor, Vector2i(43, 6), Vector2i(45, 6)]:
+		world.cells.erase(_cc); world.liquid_level.erase(_cc)
+		world.deltas.erase(_cc); world._set_tile(_cc, "air")
+	world._fluid.active.clear()
+	_check("lq_liquid_floods_trees", _tr_flooded,
+		"tree cell after flow -> %s (expected lava)" % _tr_result)
+
+	# LQ-3 bucket: an empty bucket scoops a liquid, a full bucket pours it elsewhere.
+	var _bk_water := Vector2i(46, 6)
+	var _bk_pour := Vector2i(48, 6)
+	world.cells[Vector2i(46, 7)] = "stone"     # floor so the scooped water is full
+	world.cells[_bk_water] = "water"
+	var _bk_prev_pos: Vector2 = player.global_position
+	var _bk_prev_slot: int = player.selected_slot
+	var _bk_prev_hotbar: Array = player.hotbar.duplicate()
+	player.hotbar.clear()
+	player.hotbar.append("bucket")
+	player.selected_slot = 0
+	player.bucket_contents = ""
+	player.global_position = world.cell_center(_bk_water)
+	var _bk_scooped: bool = player._try_use_bucket(_bk_water) \
+		and player.bucket_contents == "water" and world.block_at(_bk_water) == "air"
+	player.global_position = world.cell_center(_bk_pour)
+	var _bk_poured: bool = player._try_use_bucket(_bk_pour) \
+		and player.bucket_contents == "" and world.block_at(_bk_pour) == "water"
+	player.hotbar.clear()
+	for _hid in _bk_prev_hotbar:
+		player.hotbar.append(_hid)
+	player.selected_slot = _bk_prev_slot
+	player.global_position = _bk_prev_pos
+	player.bucket_contents = ""
+	for _cc in [_bk_water, _bk_pour, Vector2i(46, 7)]:
+		world.cells.erase(_cc); world.liquid_level.erase(_cc)
+		world.deltas.erase(_cc); world._set_tile(_cc, "air")
+	world._fluid.active.clear()
+	_check("lq_bucket_scoop_and_pour", _bk_scooped and _bk_poured,
+		"scooped=%s poured=%s" % [str(_bk_scooped), str(_bk_poured)])
+
 	# --- Character traits/roles affect the player ---
 	var default_speed: float = player.effective_mine_speed()
 	player.apply_character({"appearance": "umber", "traits": ["hardy", "miner"], "role": "warden"})

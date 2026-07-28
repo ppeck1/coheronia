@@ -135,6 +135,9 @@ func _step_cell(c: Vector2i) -> bool:
 	var kind: String = _world.cells.get(c, "air")
 	if not BlockRegistry.is_liquid(kind):
 		return false
+	# LQ-3: liquid-vs-liquid reaction (lava + water -> obsidian) before any flow.
+	if _try_react(c, kind):
+		return true
 	# Viscosity: a thick liquid only moves every Nth step, but stays awake so it
 	# resumes on its cadence rather than falling asleep between turns.
 	var viscosity := BlockRegistry.liquid_viscosity(kind)
@@ -180,6 +183,55 @@ func _step_cell(c: Vector2i) -> bool:
 	return moved
 
 
+## LQ-3: applies a liquid-vs-liquid reaction if `c` (of `kind`) is orthogonally
+## adjacent to a different liquid it reacts with. Lava declares
+## {with: water, into: obsidian}: the lava cell becomes obsidian (a solid) and
+## the touched water cell is consumed to air. Checked from both sides, so it
+## fires whichever cell the sim happens to process first. Returns true if a
+## reaction changed `c` (it is no longer a liquid to flow this step).
+func _try_react(c: Vector2i, kind: String) -> bool:
+	var mine: Dictionary = BlockRegistry.liquid_reaction(kind)
+	for nb: Vector2i in [c + Vector2i(0, 1), c + Vector2i(0, -1),
+			c + Vector2i(1, 0), c + Vector2i(-1, 0)]:
+		var other: String = _world.cells.get(nb, "air")
+		if other == kind or not BlockRegistry.is_liquid(other):
+			continue
+		if str(mine.get("with", "")) == other:
+			_solidify(c, str(mine.get("into", "")))
+			_dissolve(nb)
+			return true
+		var theirs: Dictionary = BlockRegistry.liquid_reaction(other)
+		if str(theirs.get("with", "")) == kind:
+			_solidify(nb, str(theirs.get("into", "")))
+			_dissolve(c)
+			return true
+	return false
+
+
+## LQ-3: convert a liquid cell into a solid reaction product (e.g. obsidian). A
+## terrain-id change, so it writes a delta + retiles (the solid tile carries its
+## own collision) + wakes neighbours so an adjacent liquid keeps reacting/flowing.
+func _solidify(cell: Vector2i, solid_id: String) -> void:
+	if solid_id == "":
+		return
+	_world.cells[cell] = solid_id
+	_world.liquid_level.erase(cell)
+	_world.deltas[cell] = solid_id
+	_world._set_tile(cell, solid_id)
+	_world.block_changed.emit(cell, solid_id)
+	wake_neighbours(cell)
+
+
+## LQ-3: consume a liquid cell to air (the reactant that is used up).
+func _dissolve(cell: Vector2i) -> void:
+	_world.cells.erase(cell)
+	_world.liquid_level.erase(cell)
+	_world.deltas[cell] = "air"
+	_world._set_tile(cell, "air")
+	_world.block_changed.emit(cell, "air")
+	wake_neighbours(cell)
+
+
 ## True if `cell` can accept more of `kind`: it is open air, or the same liquid
 ## not yet full. Solids and other blocks are barriers. Non-liquid decorations
 ## (torch/bush) read as barriers too — liquid does not flood them (LQ-1 scope).
@@ -192,7 +244,15 @@ func _can_receive(cell: Vector2i, kind: String) -> bool:
 		return true
 	if b == kind:
 		return _world.liquid_level.get(cell, MAX_LEVEL) < MAX_LEVEL - 0.0001
-	return false
+	# A different liquid: don't merge — the reaction pass (or nothing) handles it.
+	if BlockRegistry.is_liquid(b):
+		return false
+	# Solid rock and protected structures (bedrock, the Town Hall) dam liquid.
+	if BlockRegistry.is_solid(b) or BlockRegistry.has_tag(b, "protected"):
+		return false
+	# Non-solid decorations (trees, bushes, crops) are background props, not walls,
+	# so liquid floods through them rather than being dammed.
+	return true
 
 
 ## The fill level of `cell` as `kind` (its liquid_level, or 1.0 when a same-liquid
@@ -220,16 +280,16 @@ func _set_level(cell: Vector2i, kind: String, lvl: float) -> void:
 			_world.block_changed.emit(cell, "air")
 			_refresh_column_tiles(cell, kind)   # the cell above is now a surface
 		return
-	if was == "air":      # fill empty space with liquid
+	if was == kind:       # same liquid, level-only change -> retile by level (LQ-2)
+		_world.liquid_level[cell] = lvl
+		_world._set_tile(cell, kind)
+	else:                 # empty air OR a flooded non-solid decoration -> liquid
 		_world.cells[cell] = kind
 		_world.deltas[cell] = kind
 		_world.liquid_level[cell] = lvl
 		_world._set_tile(cell, kind)
 		_world.block_changed.emit(cell, kind)
 		_refresh_column_tiles(cell, kind)       # the cell below is now submerged
-	elif was == kind:     # same liquid, level-only change -> retile by level (LQ-2)
-		_world.liquid_level[cell] = lvl
-		_world._set_tile(cell, kind)
 
 
 ## LQ-2: re-tiles the cells directly above and below `cell` along the flow axis.

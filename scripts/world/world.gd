@@ -70,6 +70,7 @@ const BLOCK_COLORS := {
 	"hellstone": Color(0.34, 0.15, 0.15),
 	"obsidian": Color(0.16, 0.12, 0.20),
 	"lava": Color(0.95, 0.42, 0.12),
+	"water": Color(0.18, 0.42, 0.80),
 	"ore": Color(0.72, 0.62, 0.35),
 	"coal": Color(0.18, 0.18, 0.20),
 	"copper_ore": Color(0.78, 0.44, 0.28),
@@ -841,6 +842,18 @@ func _make_block_texture(block_id: String, t: int) -> ImageTexture:
 				img.set_pixel(x, y, c)
 		for x in range(t):   # hotter surface skin along the top of the cell
 			img.set_pixel(x, 0, hot)
+	elif block_id == "water":
+		# LQ-3: a translucent blue liquid — cells behind read through (alpha < 1),
+		# with lighter ripple flecks and a brighter surface skin. The fill-tile
+		# crops inherit this so partial water is translucent too.
+		var body := Color(color.r, color.g, color.b, 0.60)
+		var ripple := Color(0.52, 0.74, 0.95, 0.66)
+		for y in range(t):
+			for x in range(t):
+				var n := (x * 3 + y * 7 + x * y) % 13
+				img.set_pixel(x, y, ripple if n < 2 else body)
+		for x in range(t):   # cooler bright surface skin along the top of the cell
+			img.set_pixel(x, 0, Color(0.72, 0.86, 1.0, 0.72))
 	else:
 		img.fill(color)
 		# Slight edge shading for tile readability.
@@ -949,6 +962,45 @@ func fluid_settle(max_steps: int = 256) -> int:
 ## Cells currently awake in the fluid sim (0 => settled/asleep).
 func fluid_active_count() -> int:
 	return _fluid.active_count() if _fluid != null else 0
+
+
+## LQ-3 (bucket): scoop a full-ish liquid cell to air and return its liquid id,
+## or "" if the cell isn't a liquid at/near full. Refuses thin films so a bucket
+## can't dredge a puddle dry a sliver at a time.
+func scoop_liquid(cell: Vector2i) -> String:
+	var id := block_at(cell)
+	if not BlockRegistry.is_liquid(id):
+		return ""
+	if float(liquid_level.get(cell, 1.0)) < 0.5:
+		return ""
+	cells.erase(cell)
+	liquid_level.erase(cell)
+	deltas[cell] = "air"
+	_set_tile(cell, "air")
+	block_changed.emit(cell, "air")
+	if _fluid != null:
+		_fluid.wake_neighbours(cell)
+	return id
+
+
+## LQ-3 (bucket): pour a full liquid cell into `cell`. Succeeds into air or a
+## non-solid decoration (flooded), fails on solids, protected structures, or a
+## different liquid. Wakes the sim so the poured liquid immediately settles/flows.
+func place_liquid(cell: Vector2i, liquid_id: String) -> bool:
+	if not BlockRegistry.is_liquid(liquid_id):
+		return false
+	var here := block_at(cell)
+	if here != "air" and (BlockRegistry.is_solid(here) or BlockRegistry.is_liquid(here)
+			or BlockRegistry.has_tag(here, "protected")):
+		return false
+	cells[cell] = liquid_id
+	deltas[cell] = liquid_id
+	liquid_level[cell] = 1.0
+	_set_tile(cell, liquid_id)
+	block_changed.emit(cell, liquid_id)
+	if _fluid != null:
+		_fluid.wake_neighbours(cell)
+	return true
 
 
 ## Total liquid mass in the world (sum of fill levels; a liquid cell with no

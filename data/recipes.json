@@ -173,6 +173,13 @@
       "equip_slots": { "helmet": "helmet_iron", "torso": "torso_iron", "feet": "feet_iron" },
       "icon": "torso_iron",
       "station": "anvil"
+    },
+    {
+      "recipe_id": "craft_bucket",
+      "display_name": "Bucket",
+      "inputs": { "copper_ingot": 3 },
+      "outputs": { "bucket": 1 },
+      "station": "workbench"
     }
   ]
 }

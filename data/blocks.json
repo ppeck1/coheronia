@@ -432,6 +432,23 @@
       "liquid_flow_dir": 1,
       "liquid_density": 2.5,
       "liquid_viscosity": 2,
+      "liquid_reaction": { "with": "water", "into": "obsidian" },
+      "settlement_tags": []
+    },
+    "water": {
+      "display_name": "Water",
+      "hardness": 0.0,
+      "required_tool_tier": 999,
+      "drops": {},
+      "is_placeable": false,
+      "is_solid": false,
+      "blocks_light": false,
+      "emits_light": false,
+      "light_radius": 0,
+      "is_liquid": true,
+      "liquid_flow_dir": 1,
+      "liquid_density": 1.0,
+      "liquid_viscosity": 1,
       "settlement_tags": []
     }
   }

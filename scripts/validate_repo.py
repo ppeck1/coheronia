@@ -433,6 +433,38 @@ for block_id, block_def in blocks.items():
         fail(f"blocks.json: {block_id} liquid_density must be positive")
     if int(block_def.get("liquid_viscosity", 1)) < 1:
         fail(f"blocks.json: {block_id} liquid_viscosity must be >= 1")
+    reaction = block_def.get("liquid_reaction", {})
+    if reaction:
+        if reaction.get("with", "") not in blocks:
+            fail(f"blocks.json: {block_id} liquid_reaction.with must name a real block")
+        if reaction.get("into", "") not in blocks:
+            fail(f"blocks.json: {block_id} liquid_reaction.into must name a real block")
+
+# LQ-3: water is the second liquid, and lava reacts with it into obsidian.
+if "water" not in blocks:
+    fail("blocks.json missing the water block (LQ-3)")
+water_def = blocks.get("water", {})
+if not water_def.get("is_liquid", False) or water_def.get("is_solid", False):
+    fail("blocks.json: water must be a non-solid liquid")
+if water_def.get("contact_damage", 0.0) != 0.0:
+    fail("blocks.json: water must not deal contact damage")
+lava_reaction = lava_def.get("liquid_reaction", {})
+if lava_reaction.get("with") != "water" or lava_reaction.get("into") != "obsidian":
+    fail("blocks.json: lava must react with water into obsidian (LQ-3)")
+
+# LQ-3: the water lake generation config.
+water_gen = world_settings.get("water")
+if not isinstance(water_gen, dict) or not water_gen:
+    fail("world_settings.json missing non-empty water table (LQ-3)")
+if not (0.0 <= water_gen.get("underground_band_top_frac", -1)
+        < water_gen.get("underground_band_bot_frac", -1) <= 1.0):
+    fail("water underground band fractions must satisfy 0 <= top < bot <= 1")
+if int(water_gen.get("underground_pool_depth", 0)) < 1:
+    fail("water.underground_pool_depth must be >= 1")
+if not (0.0 < water_gen.get("underground_frequency", 0.0)):
+    fail("water.underground_frequency must be positive")
+if not (0.0 < water_gen.get("surface_lake_chance", -1) <= 1.0):
+    fail("water.surface_lake_chance must be in (0, 1]")
 print("PASS liquid physics schema")
 hell = world_settings.get("hell")
 if not isinstance(hell, dict) or not hell:

@@ -3,6 +3,7 @@
   "note": "Display metadata for item ids that are not blocks (drops, gear icons). Blocks keep their names in blocks.json; this file backfills everything else for the FQ-09 icon grids. color is the FQ-07 fallback swatch (hex, no #).",
   "items": {
     "dirt": { "color": "785430", "description": "Soft ground. Quick to place, quick to mine." },
+    "bucket": { "display_name": "Bucket", "color": "9a6a3a", "description": "Scoop a liquid (Place on lava/water), then pour it elsewhere (Place on an empty spot)." },
     "grass": { "color": "4d9e40", "description": "Surface turf. Drops dirt." },
     "wood": { "color": "9e7338", "description": "Building material and fuel." },
     "stone": { "color": "73757f", "description": "Sturdy building material." },

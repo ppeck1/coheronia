@@ -187,6 +187,13 @@ func liquid_viscosity(block_id: String) -> int:
 	return maxi(1, int(get_block(block_id).get("liquid_viscosity", 1)))
 
 
+## LQ-3: a liquid's contact reaction, e.g. lava's {"with": "water", "into":
+## "obsidian"} — when this liquid touches the "with" liquid, THIS cell becomes the
+## solid "into" block and the other liquid cell is consumed. Empty dict = inert.
+func liquid_reaction(block_id: String) -> Dictionary:
+	return get_block(block_id).get("liquid_reaction", {})
+
+
 func blocks_light(block_id: String) -> bool:
 	return bool(get_block(block_id).get("blocks_light", false))
 

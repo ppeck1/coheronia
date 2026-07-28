@@ -1,7 +1,42 @@
 # Liquid Physics — Flowing, Settling Fluids (Work Order)
 
-**Status: LQ-1 + LQ-2 (+ visual/feel polish) DONE (source-verified). Arc
-substantially complete — water/gas are future data-only adds on this engine.**
+**Status: LQ-1 + LQ-2 (+ polish) + LQ-3 (water) DONE (source-verified).**
+
+**LQ-3 (water + lava↔water reaction + lakes) shipped to source-green 2026-07-28.**
+Water is a second liquid — data-only on the engine (`is_liquid`, `liquid_flow_dir`
+1, `liquid_density` 1.0, `liquid_viscosity` 1, no `contact_damage`, no light) with
+a translucent blue tile. Lava gained `liquid_reaction {with: water, into:
+obsidian}`; the sim's new `_try_react` (checked before flow, from both sides)
+turns the lava cell to **obsidian** and consumes the touched water cell, so
+connecting a water pool to lava mines a route to obsidian. **Lake generation**
+(gen_version bumped **2 → 3**, so existing v2 worlds stay water-free and
+byte-identical): `world_gen._place_water` pools **underground lakes** on cavity
+floors in a mid band (above hell, so they stay separate at gen) and carves
+tapered **surface ponds** into the heightmap (RNG-scattered, clear of the hall).
+New `world_settings.water` config + validator checks. **Source smoke 432/432, 0
+skipped** (new `lq_water_is_liquid_non_hazard`, `lq_water_plus_lava_makes_obsidian`
+[lava→obsidian, water→air], `lq_water_lakes_generate` [v3 water=269:
+surface=35/deep=234], `lq_legacy_v2_has_no_water`); validator PASS; asset audit
+clean; capsule healthy; `diff --check` clean. Captures reviewed (a generated
+surface pond with banks; water poured on lava forming an obsidian band).
+
+**LQ-3 follow-ups (2026-07-28, operator-driven):** (1) **Encapsulation** — a v3
+generation pass (`world_gen._encapsulate_liquids`) seals every generated liquid
+(lava + underground water) inside solid rock by filling air-adjacent cells with
+the depth-appropriate stratum block, so liquid sits inert until the player MINES
+into it (mining releases it, not a mere nearby edit). Surface ponds run after the
+seal and keep their open tops. (2) **Trees don't dam liquid** — `_can_receive`
+now floods non-solid, non-protected decorations (trees/bushes) instead of treating
+them as walls; solids, protected structures (hall/bedrock), and a different liquid
+still stop it. (3) **Bigger/more-frequent ponds** (config-only). (4) **Bucket** —
+a craftable persistent tool (`copper_ingot` ×3 at the workbench) with fill-state
+on the player (`bucket_contents`, saved); Place with an empty bucket scoops a
+liquid, Place with a full bucket pours it (`world.scoop_liquid`/`place_liquid`).
+**Source smoke 435/435, 0 skipped** (adds `lq_generated_liquid_encapsulated`,
+`lq_liquid_floods_trees`, `lq_bucket_scoop_and_pour`); validator PASS; asset audit
+clean; capsule healthy; `diff --check` clean. Captures reviewed (a larger
+generated pond). **Deferred:** water **springs** (an infinite source block) — a
+self-contained source-block subsystem best done as its own slice.
 
 **Polish pass (2026-07-28, operator-driven):** the flat-square-with-a-glowing-
 circle look and a weak-feeling flow were reworked. Lava now renders as a molten

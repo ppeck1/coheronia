@@ -33,6 +33,21 @@
     "tunnel_width": 0.038,
     "tunnel_seed_offset": 913
   },
+  "_water_note": "LQ-3 (gen_version >= 3): water lakes. Underground lakes pool water on cavity floors in a mid depth band (underground_band_top_frac..bot_frac of column depth, above the hell/lava band so they stay separate at gen), gated by a low-freq channel and capped at underground_pool_depth cells. Surface ponds are tapered bowls carved into the surface and filled to a flat top, scattered by an RNG (surface_lake_chance) and kept clear of the Town Hall column.",
+  "water": {
+    "underground_band_top_frac": 0.30,
+    "underground_band_bot_frac": 0.60,
+    "underground_pool_depth": 6,
+    "underground_frequency": 0.05,
+    "underground_threshold": 0.35,
+    "underground_seed_offset": 2551,
+    "surface_lake_seed_offset": 3313,
+    "surface_lake_chance": 0.16,
+    "surface_lake_min_w": 6,
+    "surface_lake_max_w": 14,
+    "surface_lake_min_depth": 4,
+    "surface_lake_max_depth": 8
+  },
   "defaults": {
     "name": "New World",
     "size": "medium",

@@ -278,6 +278,50 @@ func _run() -> void:
 	world.fluid_settle(800)                     # settled: a flat partial pool
 	await _shot("21_lava_flow_settled")
 
+	# LQ-3 water: regenerate a v3 world and frame a REAL generated surface pond.
+	GameState.current_config = WorldConfig.new({"size": "medium", "seed": 2024, "gen_version": 3})
+	world.setup(2024)
+	root._position_actors()
+	var pond := Vector2i(-1, -1)
+	for wx in range(4, world.width - 4):
+		var sy: int = int(world.surface.get(wx, 0))
+		if world.block_at(Vector2i(wx, sy)) == "water":
+			pond = Vector2i(wx, sy)
+			break
+	if pond.x >= 0:
+		root.time_of_day = 0.4
+		root.is_night = false
+		root.canvas_modulate.color = root.DAY_TINT
+		player.global_position = world.cell_center(pond + Vector2i(3, -2))
+		player.velocity = Vector2.ZERO
+		player.get_node("Camera2D").reset_smoothing()
+		await _shot("23_water_surface_lake")
+
+	# LQ-3 reaction: pour water onto a lava pool and watch obsidian crust form.
+	world.fluid_paused = true
+	var _rx := hall_cell.x - 30
+	var _ry := int(world.surface.get(_rx, 30)) + 7
+	for _cy in range(_ry - 9, _ry + 2):         # clear a chamber
+		for _cx in range(_rx - 7, _rx + 8):
+			if world.block_at(Vector2i(_cx, _cy)) != "air":
+				world.break_block(Vector2i(_cx, _cy))
+	for _cx in range(_rx - 5, _rx + 6):         # basin floor + a lava layer in it
+		world.cells[Vector2i(_cx, _ry)] = "stone"; world._set_tile(Vector2i(_cx, _ry), "stone")
+		world.cells[Vector2i(_cx, _ry - 1)] = "lava"; world._set_tile(Vector2i(_cx, _ry - 1), "lava")
+	for _cy in range(_ry - 6, _ry + 1):         # basin walls
+		world.cells[Vector2i(_rx - 5, _cy)] = "stone"; world._set_tile(Vector2i(_rx - 5, _cy), "stone")
+		world.cells[Vector2i(_rx + 5, _cy)] = "stone"; world._set_tile(Vector2i(_rx + 5, _cy), "stone")
+	for _cy in range(_ry - 5, _ry - 2):         # a water column above the lava
+		world.cells[Vector2i(_rx, _cy)] = "water"; world._set_tile(Vector2i(_rx, _cy), "water")
+		world._fluid.wake(Vector2i(_rx, _cy))
+	player.global_position = world.cell_center(Vector2i(_rx + 3, _ry - 3))
+	player.velocity = Vector2.ZERO
+	player.get_node("Camera2D").reset_smoothing()
+	root.canvas_modulate.color = Color(0.7, 0.55, 0.5)
+	for _s in range(24):                        # let the water reach the lava
+		world.fluid_step()
+	await _shot("24_lava_water_obsidian")
+
 	print("SHOTS complete -> user://shots")
 	get_tree().quit(0)
 
