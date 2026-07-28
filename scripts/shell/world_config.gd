@@ -26,6 +26,9 @@ static func from_preset(preset_id: String) -> Dictionary:
 			config[section][key] = overrides[key]
 	if preset.has("environment_danger"):
 		config["environment_danger"] = preset["environment_danger"]
+	# A preset may pin the world size (e.g. the developer descent forces vast).
+	if preset.has("size"):
+		config["size"] = preset["size"]
 	config["preset"] = preset_id
 	return config
 
@@ -86,6 +89,13 @@ func environment_danger() -> float:
 
 func gen(key: String) -> float:
 	return float(data.get("generation", {}).get(key, 1.0))
+
+
+## A generation FLAG that defaults OFF (unlike gen(), which defaults to 1.0).
+## Used for opt-in dev/generation switches like the developer staircase, so an
+## ordinary world never enables them by omission.
+func gen_flag(key: String) -> bool:
+	return float(data.get("generation", {}).get(key, 0.0)) > 0.0
 
 
 func to_dict() -> Dictionary:

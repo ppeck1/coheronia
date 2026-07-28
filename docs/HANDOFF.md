@@ -120,8 +120,13 @@ data-driven strata, mixed caverns + tunnels, lava/hell biome + hazard mechanic;
 deterministic, save-compatible (gen_version), ~1s gen. **WD-4 (2026-07-28) made
 hell appear in ALL sizes** by converting strata/hell to fractions of each
 column's depth and deepening every size (small 200x170 -> vast 500x400);
-`wd_hell_in_all_sizes` proves small + large both contain hellstone + lava. Source
-smoke 418/418. **Next code arc: unselected.** R-10/HUD polish remains art lane. Push control is separate from
+`wd_hell_in_all_sizes` proves small + large both contain hellstone + lava.
+**A developer cheat preset `dev_descent` (2026-07-28)** forces Vast size, cranks
+ore abundance x6 (ore nearly everywhere), and carves a walkable switchback
+staircase from the surface to a safe hellstone landing in hell (opt-in
+`dev_staircase` generation flag via the new `WorldConfig.gen_flag`, which
+defaults OFF; `from_preset` now honors a preset `size`). `wd_dev_level_staircase_and_ore`
+covers it. Source smoke **419/419**. **Next code arc: unselected.** R-10/HUD polish remains art lane. Push control is separate from
 commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;

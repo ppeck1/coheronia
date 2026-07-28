@@ -100,6 +100,10 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 		# hell_cfg from the strata setup above.
 		if not hell_cfg.is_empty():
 			_place_hell_lava(cells, surface, width, height, world_seed, hell_cfg)
+		# Developer cheat: carve a switchback staircase from the surface down to a
+		# safe hellstone landing in the hell biome (opt-in via the dev_descent preset).
+		if config.gen_flag("dev_staircase"):
+			_carve_dev_staircase(cells, surface, width, height, hell_cfg)
 
 	# Trees, on their own seed channel. FQ-09R: one unified tree rule — every
 	# tree site grows a tree_trunk column topped by a tree_leaves canopy. Both
@@ -262,6 +266,47 @@ static func _place_hell_lava(cells: Dictionary, surface: Dictionary, width: int,
 				continue
 			if lava.get_noise_2d(float(x), float(y)) > lava_thr:
 				cells[pos] = "lava"
+
+
+## Developer cheat: a switchback staircase from the surface to a safe hellstone
+## landing deep in the hell biome. Each step is one cell down and one across,
+## reversing at the shaft walls, with headroom and a solid step floor, so it is
+## walkable. Runs after caves/lava, overriding whatever it passes through. Opt-in
+## via the dev_descent preset; never active in a normal world.
+static func _carve_dev_staircase(cells: Dictionary, surface: Dictionary,
+		width: int, height: int, hell_cfg: Dictionary) -> void:
+	var bedrock_top := height - BEDROCK_THICKNESS
+	var shaft_w := 14
+	var x0 := clampi(width / 2 + 16, 3, width - shaft_w - 4)   # just east of the hall
+	var surf_y := int(surface.get(x0, 0))
+	var col_depth := maxi(1, bedrock_top - surf_y)
+	# Descend well into hell (start_frac is where hell begins).
+	var start_frac := float(hell_cfg.get("start_frac", 0.68))
+	var target_y := surf_y + int((start_frac + 0.12) * float(col_depth))
+	target_y = mini(target_y, bedrock_top - 3)
+	var cx := x0
+	var y := surf_y + 1
+	var dir := 1
+	while y < target_y:
+		for hy in range(y - 2, y + 1):
+			if hy >= 0 and hy < bedrock_top:
+				cells.erase(Vector2i(cx, hy))
+		cells[Vector2i(cx, y + 1)] = "stone"   # solid, walkable step
+		cx += dir
+		y += 1
+		if cx <= x0:
+			cx = x0
+			dir = 1
+		elif cx >= x0 + shaft_w:
+			cx = x0 + shaft_w
+			dir = -1
+	# A safe hellstone landing at the bottom, with the lava cleared above it, so
+	# the descent never ends in a lava bath.
+	for lx in range(x0 - 2, x0 + shaft_w + 3):
+		for ly in range(target_y - 3, target_y + 1):
+			if ly >= 0 and ly < bedrock_top:
+				cells.erase(Vector2i(lx, ly))
+		cells[Vector2i(lx, target_y + 1)] = "hellstone"
 
 
 ## Stamps one tree: a tree_trunk column topped by a small tree_leaves canopy.

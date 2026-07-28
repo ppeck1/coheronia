@@ -800,6 +800,43 @@ func _run() -> void:
 		_wd_sizes_detail += "%s(hell=%s,lava=%s) " % [_wd_sz, str(_wd_sz_hell), str(_wd_sz_lava)]
 	_check("wd_hell_in_all_sizes", _wd_all_sizes_ok, _wd_sizes_detail)
 
+	# Developer "dev_descent" cheat preset: largest size, tons of ore, and a
+	# staircase to a safe hellstone landing deep in hell.
+	var _dev_dict: Dictionary = WorldConfig.from_preset("dev_descent")
+	_dev_dict["gen_version"] = 2
+	var _dev_gen := WorldGen.generate(2024, WorldConfig.new(_dev_dict))
+	var _dev_cells: Dictionary = _dev_gen["cells"]
+	var _dev_surf: Dictionary = _dev_gen["surface"]
+	var _dev_gh := int(_dev_gen["height"])
+	var _dev_gw := int(_dev_gen["width"])
+	var _dev_vast: bool = _dev_gw == 500 and _dev_gh == 400
+	var _dev_ore := 0
+	for _dc: Vector2i in _dev_cells:
+		match str(_dev_cells[_dc]):
+			"ore", "coal", "copper_ore", "tin_ore", "iron_ore", "silver_ore", "crystal":
+				_dev_ore += 1
+	var _dev_x0: int = clampi(_dev_gw / 2 + 16, 3, _dev_gw - 18)
+	var _dev_sy: int = int(_dev_surf.get(_dev_x0, 0))
+	var _dev_col: int = maxi(1, (_dev_gh - 2) - _dev_sy)
+	var _dev_target: int = mini(_dev_sy + int(0.80 * float(_dev_col)), (_dev_gh - 2) - 3)
+	var _dev_landing := false
+	for _lx in range(_dev_x0 - 2, _dev_x0 + 17):
+		if str(_dev_cells.get(Vector2i(_lx, _dev_target + 1), "")) == "hellstone" \
+				and not _dev_cells.has(Vector2i(_lx, _dev_target)):
+			_dev_landing = true
+			break
+	# The staircase must not appear in an ordinary world (opt-in flag only).
+	var _dev_normal := WorldGen.generate(2024, WorldConfig.new({"size": "vast", "gen_version": 2}))
+	var _dev_normal_ore := 0
+	for _nc: Vector2i in (_dev_normal["cells"] as Dictionary):
+		match str((_dev_normal["cells"] as Dictionary)[_nc]):
+			"ore", "coal", "copper_ore", "tin_ore", "iron_ore", "silver_ore", "crystal":
+				_dev_normal_ore += 1
+	_check("wd_dev_level_staircase_and_ore",
+		_dev_vast and _dev_ore > 15000 and _dev_landing and _dev_ore > _dev_normal_ore * 3,
+		"vast=%s dev_ore=%d normal_ore=%d landing=%s" % [
+			str(_dev_vast), _dev_ore, _dev_normal_ore, str(_dev_landing)])
+
 	var _wd_lava_def: Dictionary = BlockRegistry.get_block("lava")
 	var _wd_lava_props: bool = not BlockRegistry.is_solid("lava") \
 		and bool(_wd_lava_def.get("emits_light", false)) \

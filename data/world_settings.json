@@ -109,6 +109,14 @@
       "rules": { "enemies_scale_over_time": true },
       "generation": { "ore_abundance": 0.5, "tree_density": 0.6, "bush_density": 0.5 }
     },
+    "dev_descent": {
+      "display_name": "Developer Descent (cheat)",
+      "size": "vast",
+      "difficulty": { "enemy": 0.0, "ruler": 0.5, "survival": 0.5, "economy": 0.5, "social": 0.5, "impressionability": 0.5 },
+      "environment_danger": 0.0,
+      "rules": {},
+      "generation": { "ore_abundance": 6.0, "tree_density": 1.0, "bush_density": 1.0, "dev_staircase": 1.0 }
+    },
     "custom": {
       "display_name": "Custom",
       "difficulty": {},
@@ -162,6 +170,10 @@
       "mythic_survival": {
         "description": "A brutal test of survival against the hardest odds in Coheronia.",
         "deviations": "Enemy x2.0, Survival x2.0, Economy x1.75, Environment x2.0. Resources at 50-60%. Enemies scale over time."
+      },
+      "dev_descent": {
+        "description": "A developer sandbox: the largest world with a staircase carved straight down to hell and ore packed everywhere.",
+        "deviations": "Forces Vast size. No enemies, all pressures halved, weather off. Ore abundance x6 (ore nearly everywhere). A switchback staircase descends from the surface to a safe hellstone landing in the hell biome."
       },
       "custom": {
         "description": "Configure everything manually.",
