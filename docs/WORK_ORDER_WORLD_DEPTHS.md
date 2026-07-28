@@ -1,6 +1,27 @@
 # World Depths — Deeper World, Caves & Hell (Work Order)
 
-**Status: IN PROGRESS — Slice WD-1 DONE (2026-07-27).**
+**Status: IN PROGRESS — Slices WD-1 and WD-2 DONE (2026-07-27).**
+
+**WD-2 (cave systems) shipped 2026-07-27.** A deterministic carve pass in
+`WorldGen` (v2 only, after fill so ore is only ever placed in solid) removes
+cells to air: **large open caverns** (above-threshold region of a low-frequency
+channel) unioned with **winding tunnels** (near-zero band of a second channel).
+Safety rules never violated: a solid `surface_crust` band below each column, a
+solid spawn sanctuary (never carve the hall column near the surface, and caves
+start at `min_depth` 18 so the near-surface ore band stays accessible), and the
+bedrock floor is never carved. `caves` params live in `world_settings.json`
+(validated). **Baseline-test note:** because `create_world` stamps v2, the
+default smoke world became v2; the smoke now pins its baseline gameplay world to
+v1 (the stable pre-arc terrain the ~400 mechanics checks were written for) while
+v2 generation is covered by the `wd_` checks — mining/crafting/combat/settlement
+are terrain-agnostic. 3 new `wd_` checks (caves carve ~16.5% air in the deep
+band; surface crust + hall + bedrock preserved; ore only in solid). **Source
+smoke 414/414, 0 skipped; validator PASS; asset audit clean; capsule healthy;
+`diff --check` clean.** Real generator output reviewed via a full-world cell-map
+render (large caverns + winding tunnels + strata + bedrock floor confirmed).
+
+---
+
 
 **WD-1 (deeper world + strata) shipped 2026-07-27.** New `vast` size preset
 (480x320, surface_base 48); data-driven `strata` table (`stone` -> `deepstone`
@@ -180,7 +201,7 @@ the in-RAM grid):
 | Slice | Scope | Exit gate |
 |---|---|---|
 | **WD-1 — Deeper world + strata** ✅ DONE | New `vast` 480×320 preset; data-driven `strata`; `deepstone`/`bedrock` blocks; unmineable bedrock floor; extended `ore_table`; `gen_version` legacy guard; gen ~1.1s. | **Met: source 411/411; vast generates deterministically in 1.1s; legacy worlds regenerate unchanged (no new-block leak); bedrock floor unmineable; strata by depth; save size-independent.** |
-| **WD-2 — Cave systems** | Carve pass (mixed caverns + tunnels) with surface-crust / hall / bedrock safety; depth-gated; ore only in remaining solid; cave ambience verified. | Caves appear at depth as air pockets; surface crust, hall footprint, and bedrock are never carved; world stays deterministic; player can descend into caves; smoke green. |
+| **WD-2 — Cave systems** ✅ DONE | Carve pass (large caverns + winding tunnels) with surface-crust / spawn-sanctuary / bedrock safety; depth-gated (min_depth 18); ore only in remaining solid. | **Met: source 414/414; caves carve ~16.5% deep air, deterministic; crust/hall/bedrock preserved; ore in solid; cell-map render reviewed.** |
 | **WD-3 — Lava / hell biome + hazard** | Hell stratum (`hellstone`/`obsidian`), `lava` pools (non-solid, glowing), data-driven `contact_damage` mechanic via `player.take_damage`, hell ambient tint, optional deep-resource payoff. | Hell generates at the deepest band; lava emits light and damages the player on contact (deterministic check); ambient reads as hell; obsidian/deep ore mineable; smoke green. |
 
 ## 10. Validation additions (`validate_repo.py`)

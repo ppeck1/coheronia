@@ -386,6 +386,21 @@ for band in strata:
     if lo <= _prev_max:
         fail(f"strata bands must be ordered and non-overlapping (base='{base}')")
     _prev_max = hi
+# WD-2: the caves table drives the deterministic carve pass.
+caves = world_settings.get("caves")
+if not isinstance(caves, dict) or not caves:
+    fail("world_settings.json missing non-empty caves table")
+if caves.get("surface_crust", 0) < 1:
+    fail("caves.surface_crust must be >= 1 (keeps a solid surface band)")
+for freq_key in ["cavern_frequency", "tunnel_frequency"]:
+    if not (0.0 < caves.get(freq_key, 0.0)):
+        fail(f"caves.{freq_key} must be positive")
+if not (0.0 < caves.get("cavern_threshold", -1) < 1.0):
+    fail("caves.cavern_threshold must be in (0, 1)")
+if not (0.0 < caves.get("tunnel_width", -1) < 1.0):
+    fail("caves.tunnel_width must be in (0, 1)")
+if caves.get("cavern_seed_offset") == caves.get("tunnel_seed_offset"):
+    fail("caves cavern/tunnel seed_offsets must differ (independent channels)")
 print("PASS world depths strata + blocks")
 
 # FQ-10: the ore_table drives depth-banded ore-family generation. Every entry

@@ -1028,7 +1028,7 @@ lava/hell biome + a new environmental contact-damage mechanic.
 | Slice | Row | State |
 |---|---|---|
 | WD-1 | Deeper world + data-driven strata + `gen_version` guard + perf/save checks | DONE 2026-07-27 (source 411/411; vast 480x320 gens in ~1.1s; legacy worlds unchanged) |
-| WD-2 | Cave carve pass (mixed caverns + tunnels) with surface-crust/hall/bedrock safety | Design approved; not started |
+| WD-2 | Cave carve pass (mixed caverns + tunnels) with surface-crust/hall/bedrock safety | DONE 2026-07-27 (source 414/414; ~16.5% deep air; caverns+tunnels; cell-map reviewed) |
 | WD-3 | Hell biome + `lava` hazard (via `player.take_damage`) + ember ambient | Design approved; not started |
 
 ## Release Foundations + Contracts Arc (Complete Through R-09)

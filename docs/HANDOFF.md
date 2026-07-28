@@ -86,10 +86,23 @@ blocks; unmineable bedrock floor; extended `ore_table`; save-compat via
 regenerate unchanged — the v1 gen path is untouched). Vast world (130k cells)
 generates in ~1.1s deterministically. 5 `wd_` checks; **source smoke 411/411,
 validator PASS, asset audit clean, capsule healthy, `diff --check` clean.**
-Committed, NOT pushed (export rides R-04 CI). **Next = Slice WD-2 (cave carve
-pass: mixed caverns + tunnels, with surface-crust/hall/bedrock safety), awaiting
-operator go-ahead.** R-10/HUD polish remains art lane. Push control is separate
-from commit control — never push unless told.
+Committed, NOT pushed (export rides R-04 CI).
+
+**Slice WD-2 (cave systems) DONE 2026-07-27.** Deterministic carve pass in
+`WorldGen` (v2 only, after fill): large caverns (low-freq channel above
+threshold) unioned with winding tunnels (near-zero band of a second channel).
+Safety: solid `surface_crust`, spawn sanctuary (caves start at `min_depth` 18,
+hall column near surface never carved), bedrock floor never carved. `caves`
+params data-driven + validated. Because `create_world` stamps v2, the default
+smoke world became v2, so the smoke now **pins its baseline gameplay world to
+v1** (stable pre-arc terrain for the ~400 mechanics checks; v2 generation is
+covered by `wd_` checks — mechanics are terrain-agnostic). 3 new `wd_` checks
+(~16.5% deep air; crust/hall/bedrock preserved; ore in solid). **Source smoke
+414/414, validator PASS, asset audit clean, capsule healthy, `diff --check`
+clean.** Cell-map render reviewed (large caverns + winding tunnels confirmed).
+Committed, NOT pushed. **Next = Slice WD-3 (hell biome + `lava` hazard + ember
+ambient), awaiting operator go-ahead.** R-10/HUD polish remains art lane. Push
+control is separate from commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is

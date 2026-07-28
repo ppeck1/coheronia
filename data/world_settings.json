@@ -11,6 +11,17 @@
     { "base": "stone", "min_depth": 0, "max_depth": 70 },
     { "base": "deepstone", "min_depth": 71, "max_depth": 100000 }
   ],
+  "_caves_note": "WD-2: post-fill carve pass (gen_version >= 2). Caverns = low-freq noise above a threshold (open chambers); tunnels = the near-zero band of a second noise channel (winding connectors); union of the two. surface_crust keeps a solid band below the surface; the hall spawn column and the bedrock floor are never carved.",
+  "caves": {
+    "surface_crust": 8,
+    "min_depth": 18,
+    "cavern_frequency": 0.026,
+    "cavern_threshold": 0.40,
+    "cavern_seed_offset": 811,
+    "tunnel_frequency": 0.05,
+    "tunnel_width": 0.038,
+    "tunnel_seed_offset": 913
+  },
   "defaults": {
     "name": "New World",
     "size": "medium",

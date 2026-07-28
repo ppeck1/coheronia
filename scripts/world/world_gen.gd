@@ -77,6 +77,14 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 				else:
 					cells[pos] = _ore_family_at(ore_families, x, y, depth)
 
+	# World Depths (v2, WD-2): carve cave systems out of the filled underground.
+	# Runs after the fill so ore is only ever placed in solid rock; carved cells
+	# become air (absent), which also shrinks the in-RAM grid.
+	if gen_version >= 2:
+		var caves_cfg: Dictionary = WorldConfig.settings().get("caves", {})
+		if not caves_cfg.is_empty():
+			_carve_caves(cells, surface, width, height, world_seed, caves_cfg, dirt_depth)
+
 	# Trees, on their own seed channel. FQ-09R: one unified tree rule — every
 	# tree site grows a tree_trunk column topped by a tree_leaves canopy. Both
 	# blocks are non-solid (walk in front of/past) and mineable (trunks drop
@@ -165,6 +173,44 @@ static func _stratum_base(strata: Array, depth: int) -> String:
 				and depth <= int((s as Dictionary).get("max_depth", 99999999)):
 			return str((s as Dictionary).get("base", "stone"))
 	return "stone"
+
+
+## World Depths (v2, WD-2): carve mixed caverns + tunnels out of the filled
+## underground. Deterministic from seed. Safety rules (never violated):
+##   - keep a solid crust of `surface_crust` cells below each column's surface,
+##   - never carve the Town Hall spawn column near the surface,
+##   - never carve the bedrock floor.
+## Caverns are the above-threshold region of a low-frequency channel (open
+## chambers); tunnels are the near-zero band of a second channel (its zero level
+## set is a winding curve). A cell is carved if it is in either.
+static func _carve_caves(cells: Dictionary, surface: Dictionary, width: int,
+		height: int, world_seed: int, caves_cfg: Dictionary, dirt_depth: int) -> void:
+	var crust: int = int(caves_cfg.get("surface_crust", 8))
+	# Never carve within the topsoil/crust; keep the whole spawn-adjacent surface intact.
+	var min_depth: int = maxi(int(caves_cfg.get("min_depth", 0)), maxi(crust, dirt_depth + 1))
+	var cav := FastNoiseLite.new()
+	cav.seed = world_seed + int(caves_cfg.get("cavern_seed_offset", 0))
+	cav.frequency = float(caves_cfg.get("cavern_frequency", 0.05))
+	var cav_thr := float(caves_cfg.get("cavern_threshold", 0.42))
+	var tun := FastNoiseLite.new()
+	tun.seed = world_seed + int(caves_cfg.get("tunnel_seed_offset", 0))
+	tun.frequency = float(caves_cfg.get("tunnel_frequency", 0.08))
+	var tun_w := float(caves_cfg.get("tunnel_width", 0.05))
+	var hall_x := width / 2   # stamp_town_hall places the hall at width / 2
+	var bedrock_top := height - BEDROCK_THICKNESS
+	for x in range(width):
+		var surf_y: int = int(surface.get(x, 0))
+		for y in range(surf_y + min_depth, bedrock_top):
+			var pos := Vector2i(x, y)
+			if not cells.has(pos):
+				continue
+			# Keep the spawn column solid near the surface so the hall footprint
+			# and the descent directly under spawn never open into a void.
+			if absi(x - hall_x) <= 7 and (y - surf_y) <= 16:
+				continue
+			if cav.get_noise_2d(float(x), float(y)) > cav_thr \
+					or absf(tun.get_noise_2d(float(x), float(y))) < tun_w:
+				cells.erase(pos)
 
 
 ## Stamps one tree: a tree_trunk column topped by a small tree_leaves canopy.

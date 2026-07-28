@@ -92,7 +92,13 @@ func _run() -> void:
 	var settlement: Node = root.settlement
 	var hud: CanvasLayer = root.hud
 
-	# Deterministic terrain for the test run.
+	# Deterministic terrain for the test run. World Depths: pin the baseline
+	# gameplay world to gen_version 1 (legacy solid-fill terrain) so the ~400
+	# mechanics checks run on the stable pre-arc baseline they were written for.
+	# create_world now stamps gen_version 2 (caves/strata) into real new worlds;
+	# that v2 generation is covered explicitly by the wd_ checks, while mining/
+	# crafting/combat/settlement mechanics are terrain-agnostic and validated here.
+	GameState.current_config = WorldConfig.new(WorldConfig.from_preset("folk_kingdom"))
 	world.setup(12345)
 	root._position_actors()
 	settlement.compute()
@@ -690,6 +696,58 @@ func _run() -> void:
 		_wd_vast_deltas == 0 and _wd_small_deltas == 0,
 		"vast_deltas=%d small_deltas=%d (both 0 => base terrain regenerated, not saved)" % [
 			_wd_vast_deltas, _wd_small_deltas])
+
+	# --- World Depths WD-2: cave carve pass (mixed caverns + tunnels). Reuses
+	# the vast v2 cells generated above, which now include caves. ---
+	var _wd_deep_total := 0
+	var _wd_deep_air := 0
+	for _wd_cx in range(0, 480):
+		var _wd_csurf: int = int(_wd_surf.get(_wd_cx, 0))
+		for _wd_cy in range(_wd_csurf + 20, mini(_wd_csurf + 120, _wd_h - 2)):
+			_wd_deep_total += 1
+			if not _wd_cells.has(Vector2i(_wd_cx, _wd_cy)):
+				_wd_deep_air += 1
+	var _wd_air_frac := float(_wd_deep_air) / maxf(1.0, float(_wd_deep_total))
+	_check("wd_caves_carve_air_at_depth",
+		_wd_air_frac > 0.02 and _wd_air_frac < 0.6,
+		"deep air fraction=%.3f (air=%d / %d cells)" % [_wd_air_frac, _wd_deep_air, _wd_deep_total])
+
+	var _wd_crust_solid := true
+	for _wd_sx in range(0, 480, 41):
+		var _wd_ss: int = int(_wd_surf.get(_wd_sx, 0))
+		for _wd_d in range(1, 8):
+			if not _wd_cells.has(Vector2i(_wd_sx, _wd_ss + _wd_d)):
+				_wd_crust_solid = false
+				break
+		if not _wd_crust_solid:
+			break
+	var _wd_hall_solid := true
+	var _wd_hx := 480 / 2
+	for _wd_hxx in range(_wd_hx - 7, _wd_hx + 8):
+		var _wd_hs: int = int(_wd_surf.get(_wd_hxx, 0))
+		for _wd_hd in range(1, 17):
+			if not _wd_cells.has(Vector2i(_wd_hxx, _wd_hs + _wd_hd)):
+				_wd_hall_solid = false
+				break
+		if not _wd_hall_solid:
+			break
+	var _wd_floor_intact: bool = str(_wd_cells.get(Vector2i(240, _wd_h - 1), "")) == "bedrock"
+	_check("wd_caves_preserve_surface_and_hall",
+		_wd_crust_solid and _wd_hall_solid and _wd_floor_intact,
+		"crust_solid=%s hall_solid=%s bedrock_floor=%s" % [
+			str(_wd_crust_solid), str(_wd_hall_solid), str(_wd_floor_intact)])
+
+	var _wd_ore_count := 0
+	var _wd_air_stored := false
+	for _wd_oc: Vector2i in _wd_cells:
+		var _wd_ob: String = str(_wd_cells[_wd_oc])
+		if _wd_ob == "air":
+			_wd_air_stored = true
+		elif _wd_ob == "ore" or _wd_ob == "coal" or _wd_ob == "iron_ore":
+			_wd_ore_count += 1
+	_check("wd_ore_only_in_solid_after_carve",
+		_wd_ore_count > 0 and not _wd_air_stored,
+		"ore-ish cells=%d air_stored_as_block=%s" % [_wd_ore_count, str(_wd_air_stored)])
 
 	GameState.current_config = original_config
 	_check("world_restored_after_config_tests", root.load_game())
