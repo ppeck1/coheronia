@@ -100,9 +100,26 @@ covered by `wd_` checks — mechanics are terrain-agnostic). 3 new `wd_` checks
 (~16.5% deep air; crust/hall/bedrock preserved; ore in solid). **Source smoke
 414/414, validator PASS, asset audit clean, capsule healthy, `diff --check`
 clean.** Cell-map render reviewed (large caverns + winding tunnels confirmed).
-Committed, NOT pushed. **Next = Slice WD-3 (hell biome + `lava` hazard + ember
-ambient), awaiting operator go-ahead.** R-10/HUD polish remains art lane. Push
-control is separate from commit control — never push unless told.
+Committed, NOT pushed.
+
+**Slice WD-3 (lava / hell biome + hazard) DONE 2026-07-27 — arc complete.** The
+deepest stratum is hell (`hellstone` base + `obsidian` veins via the ore-family
+channel); `lava` pools line hell cavity floors (post-carve, lava-noise gated).
+`lava` is a new non-solid, light-emitting block with a data-driven
+`contact_damage` (14 HP); a generalized `player._apply_environmental_hazard`
+samples the player's cells each frame and routes damage through
+`player.take_damage` (ticks with flash + spark). The deepest band drives an ember
+ambient tint (`game_root` `EMBER_TINT` / `_hell_factor`). 3 new `wd_` checks
+(hell/obsidian/lava generate; lava walkable+glowing+hazard; lava deals 14 HP
+100->86). **Source smoke 417/417, validator PASS, asset audit clean, capsule
+healthy, `diff --check` clean.** Cell-map render reviewed (red hell + glowing
+lava pools). Committed, NOT pushed.
+
+**The World Depths arc is COMPLETE (WD-1/2/3).** Bigger/deeper world (480x320),
+data-driven strata, mixed caverns + tunnels, lava/hell biome + hazard mechanic;
+deterministic, save-compatible (gen_version), ~1s gen. **Next code arc:
+unselected.** R-10/HUD polish remains art lane. Push control is separate from
+commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;
 the native HUD-kit stabilization is merged. The active planning authority is

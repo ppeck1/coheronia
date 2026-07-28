@@ -84,6 +84,10 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 		var caves_cfg: Dictionary = WorldConfig.settings().get("caves", {})
 		if not caves_cfg.is_empty():
 			_carve_caves(cells, surface, width, height, world_seed, caves_cfg, dirt_depth)
+		# WD-3: pool lava on the floors of hell cavities (after carving).
+		var hell_cfg: Dictionary = WorldConfig.settings().get("hell", {})
+		if not hell_cfg.is_empty():
+			_place_hell_lava(cells, surface, width, height, world_seed, hell_cfg)
 
 	# Trees, on their own seed channel. FQ-09R: one unified tree rule — every
 	# tree site grows a tree_trunk column topped by a tree_leaves canopy. Both
@@ -211,6 +215,31 @@ static func _carve_caves(cells: Dictionary, surface: Dictionary, width: int,
 			if cav.get_noise_2d(float(x), float(y)) > cav_thr \
 					or absf(tun.get_noise_2d(float(x), float(y))) < tun_w:
 				cells.erase(pos)
+
+
+## World Depths (v2, WD-3): pool lava on the floors of hell cavities. A carved
+## (air) cell in the hell band that sits directly on solid rock becomes lava
+## where a lava-noise channel clears its threshold. Lava is stored (non-solid,
+## light-emitting, contact-damage). Deterministic from seed.
+static func _place_hell_lava(cells: Dictionary, surface: Dictionary, width: int,
+		height: int, world_seed: int, hell_cfg: Dictionary) -> void:
+	var hell_min: int = int(hell_cfg.get("min_depth", 210))
+	var lava := FastNoiseLite.new()
+	lava.seed = world_seed + int(hell_cfg.get("lava_seed_offset", 0))
+	lava.frequency = float(hell_cfg.get("lava_frequency", 0.07))
+	var lava_thr := float(hell_cfg.get("lava_threshold", 0.0))
+	var bedrock_top := height - BEDROCK_THICKNESS
+	for x in range(width):
+		var surf_y: int = int(surface.get(x, 0))
+		for y in range(surf_y + hell_min, bedrock_top):
+			var pos := Vector2i(x, y)
+			if cells.has(pos):
+				continue   # solid rock, not a cavity
+			# A cavity floor: air resting directly on a solid cell below.
+			if not cells.has(Vector2i(x, y + 1)):
+				continue
+			if lava.get_noise_2d(float(x), float(y)) > lava_thr:
+				cells[pos] = "lava"
 
 
 ## Stamps one tree: a tree_trunk column topped by a small tree_leaves canopy.

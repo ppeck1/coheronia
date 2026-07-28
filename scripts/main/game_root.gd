@@ -35,6 +35,11 @@ const STORM_TINT := Color(0.55, 0.58, 0.66)
 # torches/lanterns/the pulse stay the readable local lights.
 const CAVE_TINT := Color(0.10, 0.11, 0.16)
 const CAVE_FADE_CELLS := 6.0   # smooth band below the local sky line
+# WD-3: the deepest stratum glows an ember red. The ambient tint multiplies the
+# scene, so a red-dominant dark tint reads as red-lit gloom; lava adds its own
+# emitted light on top.
+const EMBER_TINT := Color(0.34, 0.13, 0.11)
+const HELL_FADE_CELLS := 20.0   # smooth band as the player descends into hell
 
 const POPULATION_MAX := 8        # absolute ceiling; base_level gates effective cap
 const BASE_LEVEL_MAX_MVP := 3   # progression capped at village for MVP
@@ -678,7 +683,23 @@ func ambient_darkness_factor() -> float:
 ## toward CAVE_TINT by how buried the player currently is.
 func ambient_target_color() -> Color:
 	var base := NIGHT_TINT if is_night else (STORM_TINT if storm_active else DAY_TINT)
-	return base.lerp(CAVE_TINT, ambient_darkness_factor())
+	var tint := base.lerp(CAVE_TINT, ambient_darkness_factor())
+	var hf := _hell_factor()
+	if hf > 0.0:
+		tint = tint.lerp(EMBER_TINT, hf)
+	return tint
+
+
+## WD-3: how deep into the hell stratum the player currently is (0 above hell,
+## ramping to 1 over HELL_FADE_CELLS below the hell min_depth). Drives the ember
+## ambient tint.
+func _hell_factor() -> float:
+	if world == null or player == null:
+		return 0.0
+	var cell: Vector2i = world.cell_of(player.global_position)
+	var depth: int = cell.y - int(world.surface.get(cell.x, 0))
+	var hell_min: int = int(WorldConfig.settings().get("hell", {}).get("min_depth", 210))
+	return clampf(float(depth - hell_min) / HELL_FADE_CELLS, 0.0, 1.0)
 
 
 func _advance_storm(delta: float) -> void:

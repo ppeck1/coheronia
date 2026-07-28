@@ -299,6 +299,7 @@ func _physics_process(delta: float) -> void:
 	_handle_hotbar()
 	_handle_mining(delta)
 	collect_ground_drops()   # R-08 slice 3: walk over loose items to pick them up
+	_apply_environmental_hazard()   # WD-3: lava (and any contact_damage block)
 	if Input.is_action_just_pressed("place"):
 		try_place(world.cell_of(get_global_mouse_position()), selected_item())
 	if Input.is_action_just_pressed("farm_action"):
@@ -732,6 +733,21 @@ func craft(recipe_id: String) -> bool:
 	inventory_changed.emit()
 	crafted.emit(recipe_id)
 	return true
+
+
+## WD-3: environmental contact hazard. Samples the cells the player's body
+## occupies (feet/origin + torso) and, if either is a contact_damage block
+## (lava), applies it through the normal damage path. take_damage's hurt
+## cooldown paces this into burn ticks with the usual flash + spark feedback.
+func _apply_environmental_hazard() -> void:
+	if world == null:
+		return
+	var base_cell: Vector2i = world.cell_of(global_position)
+	for probe in [base_cell, base_cell + Vector2i(0, -1)]:
+		var dmg := BlockRegistry.contact_damage(world.block_at(probe))
+		if dmg > 0.0:
+			take_damage(dmg)
+			return
 
 
 func take_damage(amount: float) -> void:

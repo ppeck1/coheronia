@@ -1,6 +1,32 @@
 # World Depths — Deeper World, Caves & Hell (Work Order)
 
-**Status: IN PROGRESS — Slices WD-1 and WD-2 DONE (2026-07-27).**
+**Status: COMPLETE — Slices WD-1, WD-2, WD-3 DONE (2026-07-27).**
+
+**WD-3 (lava / hell biome + hazard) shipped 2026-07-27.** The deepest stratum is
+now hell: a `hellstone` base (depth >= 210) with `obsidian` veins (placed via the
+existing ore-family channel), and **`lava` pools** lining hell cavity floors
+(placed after carving, gated by a lava-noise channel). `lava` is a new
+**non-solid, light-emitting** block with a data-driven **`contact_damage`** field
+(14 HP). A generalized environmental-hazard mechanic
+(`player._apply_environmental_hazard`) samples the cells the player's body
+occupies each physics frame and routes lava damage through `player.take_damage`,
+so lava burns in ticks with the usual flash + spark feedback. The deepest band
+drives an **ember ambient tint** (`game_root` `EMBER_TINT` blended by
+`_hell_factor`). New blocks got `BlockRegistry.contact_damage`, block colors, and
+validator checks (lava non-solid + light-emitting + positive contact_damage; hell
+config; hellstone stratum present). 3 new `wd_` checks (hell stratum + obsidian +
+lava generate; lava is a walkable glowing hazard; lava on the player's cell
+deals damage 100 -> 86). **Source smoke 417/417, 0 skipped; validator PASS; asset
+audit clean; capsule healthy; `diff --check` clean.** Full-world cell-map render
+reviewed (hell layer + glowing lava pools confirmed).
+
+**The World Depths arc is complete:** a much bigger/deeper world (480x320), a
+data-driven strata model, mixed cavern + tunnel cave systems, and a lava/hell
+biome with a new environmental-hazard mechanic — all deterministic, save-compatible
+(gen_version), and generating in ~1s.
+
+---
+
 
 **WD-2 (cave systems) shipped 2026-07-27.** A deterministic carve pass in
 `WorldGen` (v2 only, after fill so ore is only ever placed in solid) removes
@@ -202,7 +228,7 @@ the in-RAM grid):
 |---|---|---|
 | **WD-1 — Deeper world + strata** ✅ DONE | New `vast` 480×320 preset; data-driven `strata`; `deepstone`/`bedrock` blocks; unmineable bedrock floor; extended `ore_table`; `gen_version` legacy guard; gen ~1.1s. | **Met: source 411/411; vast generates deterministically in 1.1s; legacy worlds regenerate unchanged (no new-block leak); bedrock floor unmineable; strata by depth; save size-independent.** |
 | **WD-2 — Cave systems** ✅ DONE | Carve pass (large caverns + winding tunnels) with surface-crust / spawn-sanctuary / bedrock safety; depth-gated (min_depth 18); ore only in remaining solid. | **Met: source 414/414; caves carve ~16.5% deep air, deterministic; crust/hall/bedrock preserved; ore in solid; cell-map render reviewed.** |
-| **WD-3 — Lava / hell biome + hazard** | Hell stratum (`hellstone`/`obsidian`), `lava` pools (non-solid, glowing), data-driven `contact_damage` mechanic via `player.take_damage`, hell ambient tint, optional deep-resource payoff. | Hell generates at the deepest band; lava emits light and damages the player on contact (deterministic check); ambient reads as hell; obsidian/deep ore mineable; smoke green. |
+| **WD-3 — Lava / hell biome + hazard** ✅ DONE | Hell stratum (`hellstone`/`obsidian`), `lava` pools (non-solid, glowing), data-driven `contact_damage` via `player.take_damage`, ember ambient tint. | **Met: source 417/417; hell + obsidian + lava generate; lava non-solid/glowing/hazard; lava deals 14 HP on contact (100->86); ember tint; cell-map reviewed.** |
 
 ## 10. Validation additions (`validate_repo.py`)
 

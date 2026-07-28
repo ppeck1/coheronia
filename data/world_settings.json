@@ -9,8 +9,16 @@
   "_strata_note": "WD-1: depth-band base blocks below the topsoil (dirt_depth). Ordered, non-overlapping, first match wins; ore families overlay on top. gen_version >= 2 only. hell stratum added in WD-3.",
   "strata": [
     { "base": "stone", "min_depth": 0, "max_depth": 70 },
-    { "base": "deepstone", "min_depth": 71, "max_depth": 100000 }
+    { "base": "deepstone", "min_depth": 71, "max_depth": 209 },
+    { "base": "hellstone", "min_depth": 210, "max_depth": 100000 }
   ],
+  "_hell_note": "WD-3: the deepest stratum is hell (hellstone base + obsidian veins via ore_table). After carving, lava pools line hell cavity floors where a lava-noise channel clears its threshold. Lava is a non-solid, light-emitting contact-damage hazard.",
+  "hell": {
+    "min_depth": 210,
+    "lava_frequency": 0.07,
+    "lava_threshold": 0.0,
+    "lava_seed_offset": 1021
+  },
   "_caves_note": "WD-2: post-fill carve pass (gen_version >= 2). Caverns = low-freq noise above a threshold (open chambers); tunnels = the near-zero band of a second noise channel (winding connectors); union of the two. surface_crust keeps a solid band below the surface; the hall spawn column and the bedrock floor are never carved.",
   "caves": {
     "surface_crust": 8,
@@ -112,7 +120,8 @@
     { "id": "tin_ore",    "min_depth": 10, "max_depth": 100, "frequency": 0.090, "threshold": 0.62, "seed_offset": 307 },
     { "id": "iron_ore",   "min_depth": 16, "max_depth": 200, "frequency": 0.080, "threshold": 0.64, "seed_offset": 419 },
     { "id": "silver_ore", "min_depth": 26, "max_depth": 260, "frequency": 0.075, "threshold": 0.68, "seed_offset": 523 },
-    { "id": "crystal",    "min_depth": 34, "max_depth": 320, "frequency": 0.070, "threshold": 0.72, "seed_offset": 631 }
+    { "id": "crystal",    "min_depth": 34,  "max_depth": 320, "frequency": 0.070, "threshold": 0.72, "seed_offset": 631 },
+    { "id": "obsidian",   "min_depth": 210, "max_depth": 320, "frequency": 0.060, "threshold": 0.62, "seed_offset": 743 }
   ],
   "ui_help": {
     "axis_help": {

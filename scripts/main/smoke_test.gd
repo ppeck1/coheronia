@@ -749,6 +749,48 @@ func _run() -> void:
 		_wd_ore_count > 0 and not _wd_air_stored,
 		"ore-ish cells=%d air_stored_as_block=%s" % [_wd_ore_count, str(_wd_air_stored)])
 
+	# --- World Depths WD-3: hell biome + lava hazard. Hell/obsidian/lava scanned
+	# from the vast v2 cells above; the contact-damage mechanic is exercised live. ---
+	var _wd_hellstone := false
+	var _wd_obsidian := false
+	var _wd_lava_cells := 0
+	for _wd_hc: Vector2i in _wd_cells:
+		var _wd_hb: String = str(_wd_cells[_wd_hc])
+		if _wd_hb == "hellstone":
+			if _wd_hc.y - int(_wd_surf.get(_wd_hc.x, 0)) >= 210:
+				_wd_hellstone = true
+		elif _wd_hb == "obsidian":
+			_wd_obsidian = true
+		elif _wd_hb == "lava":
+			_wd_lava_cells += 1
+	_check("wd_hell_stratum_generates",
+		_wd_hellstone and _wd_obsidian and _wd_lava_cells > 0,
+		"hellstone_deep=%s obsidian=%s lava_cells=%d" % [
+			str(_wd_hellstone), str(_wd_obsidian), _wd_lava_cells])
+
+	var _wd_lava_def: Dictionary = BlockRegistry.get_block("lava")
+	var _wd_lava_props: bool = not BlockRegistry.is_solid("lava") \
+		and bool(_wd_lava_def.get("emits_light", false)) \
+		and BlockRegistry.contact_damage("lava") > 0.0
+	_check("wd_lava_is_walkable_glowing_hazard", _wd_lava_props,
+		"non_solid=%s emits_light=%s contact_damage=%.1f" % [
+			str(not BlockRegistry.is_solid("lava")),
+			str(bool(_wd_lava_def.get("emits_light", false))),
+			BlockRegistry.contact_damage("lava")])
+
+	# Inject lava where the player stands and run the hazard tick directly.
+	var _wd_hp_before: float = player.health
+	var _wd_pcell: Vector2i = world.cell_of(player.global_position)
+	world.cells[_wd_pcell] = "lava"
+	player._hurt_cooldown = 0.0
+	player._apply_environmental_hazard()
+	var _wd_hp_after: float = player.health
+	var _wd_lava_hurt: bool = _wd_hp_after < _wd_hp_before
+	world.cells.erase(_wd_pcell)
+	player.health = _wd_hp_before
+	_check("wd_lava_contact_damages_player", _wd_lava_hurt,
+		"hp %.1f -> %.1f on lava cell" % [_wd_hp_before, _wd_hp_after])
+
 	GameState.current_config = original_config
 	_check("world_restored_after_config_tests", root.load_game())
 

@@ -155,6 +155,12 @@ func is_solid(block_id: String) -> bool:
 	return bool(get_block(block_id).get("is_solid", false))
 
 
+## World Depths (WD-3): environmental contact damage (HP per hurt-tick) for a
+## block the player's body occupies. 0 for ordinary blocks; lava declares it.
+func contact_damage(block_id: String) -> float:
+	return float(get_block(block_id).get("contact_damage", 0.0))
+
+
 func blocks_light(block_id: String) -> bool:
 	return bool(get_block(block_id).get("blocks_light", false))
 

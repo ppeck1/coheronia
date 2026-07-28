@@ -401,6 +401,26 @@ if not (0.0 < caves.get("tunnel_width", -1) < 1.0):
     fail("caves.tunnel_width must be in (0, 1)")
 if caves.get("cavern_seed_offset") == caves.get("tunnel_seed_offset"):
     fail("caves cavern/tunnel seed_offsets must differ (independent channels)")
+# WD-3: hell biome blocks + the lava hazard + the hell/lava config.
+for hell_block in ["hellstone", "obsidian", "lava"]:
+    if hell_block not in blocks:
+        fail(f"blocks.json missing World Depths hell block: {hell_block}")
+lava_def = blocks.get("lava", {})
+if lava_def.get("is_solid", True):
+    fail("blocks.json: lava must be non-solid (walkable hazard)")
+if not lava_def.get("emits_light", False):
+    fail("blocks.json: lava must emit light")
+if lava_def.get("contact_damage", 0.0) <= 0.0:
+    fail("blocks.json: lava must declare a positive contact_damage")
+hell = world_settings.get("hell")
+if not isinstance(hell, dict) or not hell:
+    fail("world_settings.json missing non-empty hell table")
+if hell.get("min_depth", 0) < 1:
+    fail("hell.min_depth must be >= 1")
+if not (0.0 < hell.get("lava_frequency", 0.0)):
+    fail("hell.lava_frequency must be positive")
+if not any(b.get("base") == "hellstone" for b in strata):
+    fail("strata must include a hellstone band (the hell stratum)")
 print("PASS world depths strata + blocks")
 
 # FQ-10: the ore_table drives depth-banded ore-family generation. Every entry

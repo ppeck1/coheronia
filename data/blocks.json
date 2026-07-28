@@ -381,6 +381,54 @@
       "settlement_tags": [
         "protected"
       ]
+    },
+    "hellstone": {
+      "display_name": "Hellstone",
+      "hardness": 2.4,
+      "required_tool_tier": 2,
+      "drops": {
+        "stone": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "pick",
+      "settlement_tags": [
+        "structure"
+      ]
+    },
+    "obsidian": {
+      "display_name": "Obsidian",
+      "hardness": 3.6,
+      "required_tool_tier": 2,
+      "drops": {
+        "stone": 1
+      },
+      "is_placeable": false,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "pick",
+      "settlement_tags": [
+        "structure",
+        "defense"
+      ]
+    },
+    "lava": {
+      "display_name": "Lava",
+      "hardness": 0.0,
+      "required_tool_tier": 999,
+      "drops": {},
+      "is_placeable": false,
+      "is_solid": false,
+      "blocks_light": false,
+      "emits_light": true,
+      "light_radius": 4,
+      "contact_damage": 14.0,
+      "settlement_tags": []
     }
   }
 }
