@@ -33,6 +33,7 @@ var crop_growth: Dictionary = {}    # FQ-12: Vector2i -> float seconds until a s
 # alongside deltas; driven by the fluid sim.
 var liquid_level: Dictionary = {}
 var fluid_paused := false           # LQ-1: pauses the live tick (pinned-baseline smoke)
+var _lava_glow_phase := 0.0         # LQ-2b: shared flicker phase for molten light
 
 var _tilemap: TileMapLayer
 var _fluid: RefCounted              # LQ-1: FluidSim, owns the active/sleep set + step logic
@@ -113,6 +114,19 @@ func _process(delta: float) -> void:
 	# LQ-1: advance the liquid sim (self-idles while no liquid is awake).
 	if not fluid_paused and _fluid != null:
 		_fluid.tick(delta)
+	_tick_lava_glow(delta)   # LQ-2b: slow flicker on molten lights
+
+
+## LQ-2b: advances the shared lava flicker phase and refreshes each liquid
+## light's energy so a lake glows with a slow living pulse (and tracks fill
+## level). Cheap: only touches the existing liquid lights.
+func _tick_lava_glow(delta: float) -> void:
+	if _lights.is_empty():
+		return
+	_lava_glow_phase = fmod(_lava_glow_phase + delta * 2.2, TAU)
+	for cell in _lights:
+		if BlockRegistry.is_liquid(block_at(cell)):
+			_lights[cell].energy = _lava_light_energy(liquid_level.get(cell, 1.0))
 
 
 ## FQ-12: ripens planted seedlings after their timer. A seedling only ripens on
@@ -585,21 +599,43 @@ func _set_tile(cell: Vector2i, block_id: String) -> void:
 
 func _update_light(cell: Vector2i, block_id: String) -> void:
 	var wants_light := block_id != "air" and BlockRegistry.emits_light(block_id)
-	if wants_light and not _lights.has(cell):
-		var light := PointLight2D.new()
+	if not wants_light:
+		if _lights.has(cell):
+			_lights[cell].queue_free()
+			_lights.erase(cell)
+		return
+	var light: PointLight2D = _lights.get(cell)
+	if light == null:
+		light = PointLight2D.new()
 		light.texture = _light_texture
-		var radius := float(BlockRegistry.light_radius(block_id))
+		light.position = cell_center(cell)
+		add_child(light)
+		_lights[cell] = light
+	var radius := float(BlockRegistry.light_radius(block_id))
+	if BlockRegistry.is_liquid(block_id):
+		# LQ-2b: molten glow. A shadowed, tile-sized per-cell disc is what made a
+		# lava lake read as a grid of circles — so a liquid light is broad, soft,
+		# and shadowless (neighbouring cells blend into one continuous wash) and its
+		# energy scales with the cell's fill level (a thin film glows faintly, a
+		# brim-full pool glows fully). _tick_lava_glow adds a slow flicker.
+		light.texture_scale = (radius * float(tile_size()) * 1.6) / float(_light_texture.width)
+		light.color = Color(1.0, 0.5, 0.2)
+		light.shadow_enabled = false
+		light.energy = _lava_light_energy(liquid_level.get(cell, 1.0))
+	else:
 		light.texture_scale = (radius * 2.0) / float(_light_texture.width)
 		light.energy = 1.3
 		light.color = Color(1.0, 0.85, 0.6)
 		light.shadow_enabled = true
 		light.shadow_filter = PointLight2D.SHADOW_FILTER_PCF5
-		light.position = cell_center(cell)
-		add_child(light)
-		_lights[cell] = light
-	elif not wants_light and _lights.has(cell):
-		_lights[cell].queue_free()
-		_lights.erase(cell)
+
+
+## LQ-2b: a lava cell's light energy for a given fill level, modulated by the
+## shared flicker phase. Level-scaled (a faint film .. a full glow) with a soft
+## floor so even a sliver still reads as molten.
+func _lava_light_energy(level: float) -> float:
+	var by_level := 0.5 * clampf(level, 0.25, 1.0)
+	return by_level * (0.9 + 0.1 * sin(_lava_glow_phase))
 
 
 func _build_tileset() -> TileSet:
@@ -784,6 +820,24 @@ func _make_block_texture(block_id: String, t: int) -> ImageTexture:
 			for hy in range(3, 8):
 				img.set_pixel(sx - 1, hy, color)
 				img.set_pixel(sx + 1, hy, color)
+	elif block_id == "lava":
+		# LQ-2b: molten liquid — a red-orange body with brighter mottled flecks and
+		# a hotter top skin, so it reads as glowing liquid rather than a flat block.
+		# The pattern is deterministic (position hash), so there is no per-frame cost
+		# and the fill-tile crops (_liquid_fill_textures) inherit the same look.
+		var hot := Color(1.0, 0.72, 0.26)
+		var deep := color.darkened(0.30)
+		for y in range(t):
+			for x in range(t):
+				var n := (x * 5 + y * 9 + x * y) % 13
+				var c := color
+				if n < 2:
+					c = hot
+				elif n > 10:
+					c = deep
+				img.set_pixel(x, y, c)
+		for x in range(t):   # hotter surface skin along the top of the cell
+			img.set_pixel(x, 0, hot)
 	else:
 		img.fill(color)
 		# Slight edge shading for tile readability.

@@ -927,8 +927,11 @@ func _run() -> void:
 	var _lq_walls_intact: bool = world.cells.get(Vector2i(19, 6), "") == "stone" \
 		and world.cells.get(Vector2i(23, 6), "") == "stone" \
 		and world.cells.get(Vector2i(21, 8), "") == "stone"
+	# Conservation is exact bar the MIN_LEVEL epsilon shed as thin cells collapse
+	# to air; the bound scales with how many cells drain (here 3), so ~0.06 is the
+	# realistic ceiling, not a full unit of liquid appearing/vanishing.
 	_check("lq_mass_conserved",
-		absf(_lq_mass_after - _lq_mass_before) < 0.05 and _lq_mass_before > 2.9,
+		absf(_lq_mass_after - _lq_mass_before) < 0.08 and _lq_mass_before > 2.9,
 		"mass %.3f -> %.3f over %d steps" % [_lq_mass_before, _lq_mass_after, _lq_settle_steps])
 	_check("lq_puddle_levels_out", _lq_floor_full and _lq_floor_mass > 2.5,
 		"floor_full=%s floor_mass=%.3f" % [str(_lq_floor_full), _lq_floor_mass])

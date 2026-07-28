@@ -24,9 +24,11 @@ extends RefCounted
 ## physics are all live now.
 
 const STEP_SECONDS := 1.0 / 15.0   # fixed simulation timestep
-const MIN_LEVEL := 0.02            # a cell below this collapses back to air
-const FLOW_FRACTION := 0.5         # fraction of a level gap moved sideways per step
-const FLOW_EPS := 0.01             # transfers below this are skipped, so a level
+const MIN_LEVEL := 0.012           # a cell below this collapses back to air (the
+                                   # only place mass is lost — kept small so a
+                                   # settle sheds only a tiny epsilon)
+const FLOW_FRACTION := 0.6         # fraction of a level gap moved sideways per step
+const FLOW_EPS := 0.006            # transfers below this are skipped, so a level
                                    # surface settles and SLEEPS (no asymptotic churn)
 const MAX_LEVEL := 1.0
 const MAX_CATCHUP_STEPS := 4       # cap steps per frame so a long frame can't spin
