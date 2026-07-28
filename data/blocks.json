@@ -428,6 +428,10 @@
       "emits_light": true,
       "light_radius": 4,
       "contact_damage": 14.0,
+      "is_liquid": true,
+      "liquid_flow_dir": 1,
+      "liquid_density": 2.5,
+      "liquid_viscosity": 3,
       "settlement_tags": []
     }
   }

@@ -33,6 +33,7 @@ func collect_state() -> Dictionary:
 		"item_drops": game_root.serialize_item_drops(),
 		"bush_regrow": world.serialize_bush_regrow(),
 		"crop_growth": world.serialize_crop_growth(),
+		"liquid_level": world.serialize_liquid_level(),   # LQ-1: disturbed liquid fills
 		"map_revealed": game_root.map_revealed_serialized(),
 		"progression": game_root.progression_state(),
 		"contracts": game_root.serialize_contracts(),
@@ -92,7 +93,8 @@ func apply_state(state: Dictionary) -> bool:
 	world.setup(int(state.get("world_seed", 0)),
 		world.parse_deltas(state.get("terrain_deltas", {})),
 		world.parse_bush_regrow(state.get("bush_regrow", {})),
-		world.parse_crop_growth(state.get("crop_growth", {})))
+		world.parse_crop_growth(state.get("crop_growth", {})),
+		world.parse_liquid_level(state.get("liquid_level", {})))   # LQ-1
 
 	# FQ-15: restore the discovered map bands (compact, presentation/nav only).
 	game_root.apply_map_revealed(state.get("map_revealed", []))

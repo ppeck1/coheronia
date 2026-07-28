@@ -416,6 +416,24 @@ if not lava_def.get("emits_light", False):
     fail("blocks.json: lava must emit light")
 if lava_def.get("contact_damage", 0.0) <= 0.0:
     fail("blocks.json: lava must declare a positive contact_damage")
+
+# LQ-1: liquid physics schema. Lava is the first liquid; every is_liquid block
+# must carry a sane flow direction / density / viscosity, and no solid block may
+# also be a liquid (a cell is one or the other).
+if not lava_def.get("is_liquid", False):
+    fail("blocks.json: lava must be is_liquid: true (LQ-1 fluid sim)")
+for block_id, block_def in blocks.items():
+    if not block_def.get("is_liquid", False):
+        continue
+    if block_def.get("is_solid", False):
+        fail(f"blocks.json: {block_id} cannot be both is_liquid and is_solid")
+    if int(block_def.get("liquid_flow_dir", 1)) not in (1, -1):
+        fail(f"blocks.json: {block_id} liquid_flow_dir must be +1 (down) or -1 (up)")
+    if float(block_def.get("liquid_density", 1.0)) <= 0.0:
+        fail(f"blocks.json: {block_id} liquid_density must be positive")
+    if int(block_def.get("liquid_viscosity", 1)) < 1:
+        fail(f"blocks.json: {block_id} liquid_viscosity must be >= 1")
+print("PASS liquid physics schema")
 hell = world_settings.get("hell")
 if not isinstance(hell, dict) or not hell:
     fail("world_settings.json missing non-empty hell table")

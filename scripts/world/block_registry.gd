@@ -161,6 +161,32 @@ func contact_damage(block_id: String) -> float:
 	return float(get_block(block_id).get("contact_damage", 0.0))
 
 
+## Liquid Physics (LQ-1): true when a block participates in the fluid sim.
+## Liquids stay ordinary `cells[cell] = <id>` entries (so is_solid/emits_light/
+## contact_damage keep working); this flag opts them into the leveled automaton.
+func is_liquid(block_id: String) -> bool:
+	return bool(get_block(block_id).get("is_liquid", false))
+
+
+## LQ-1: gravity direction for a liquid — +1 flows down (liquids), -1 up
+## (gas, reserved for a later arc). Defaults to +1.
+func liquid_flow_dir(block_id: String) -> int:
+	return int(get_block(block_id).get("liquid_flow_dir", 1))
+
+
+## LQ-1: relative density, for future liquid-vs-liquid settling/interaction
+## (e.g. water sinking through / reacting with lava). Unused by the single-liquid
+## LQ-1 math but declared now so the schema is water/gas-ready. Defaults to 1.0.
+func liquid_density(block_id: String) -> float:
+	return float(get_block(block_id).get("liquid_density", 1.0))
+
+
+## LQ-1: viscosity as a step divisor — a cell of this liquid only moves every Nth
+## simulation step (thicker liquids crawl). Clamped to >= 1. Defaults to 1.
+func liquid_viscosity(block_id: String) -> int:
+	return maxi(1, int(get_block(block_id).get("liquid_viscosity", 1)))
+
+
 func blocks_light(block_id: String) -> bool:
 	return bool(get_block(block_id).get("blocks_light", false))
 

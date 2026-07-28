@@ -245,6 +245,39 @@ func _run() -> void:
 	root.canvas_modulate.color = Color(0.66, 0.38, 0.32)
 	await _shot("19_hell_biome")
 
+	# LQ-2 verification shots: leveled liquid physics + partial-fill rendering. A
+	# stone basin with a metered lava pour that settles to a PARTIAL level, so the
+	# bottom-anchored fill tiles read. The live tick is paused so the mid-pour frame
+	# is a deterministic number of steps, not whatever the frame clock happened to
+	# advance. Captured mid-cascade (thinning fill tiles) and once settled (a flat
+	# partial pool). Cosmetic staging only — the tour never saves this state.
+	world.fluid_paused = true
+	var _fx: int = hall_cell.x - 30
+	var _fy: int = int(world.surface.get(_fx, 30)) + 7
+	for _cy in range(_fy - 8, _fy + 2):        # clear a chamber
+		for _cx in range(_fx - 7, _fx + 8):
+			if world.block_at(Vector2i(_cx, _cy)) != "air":
+				world.break_block(Vector2i(_cx, _cy))
+	for _cx in range(_fx - 4, _fx + 5):        # basin floor
+		world.cells[Vector2i(_cx, _fy)] = "stone"; world._set_tile(Vector2i(_cx, _fy), "stone")
+	for _cy in range(_fy - 5, _fy + 1):        # basin walls
+		world.cells[Vector2i(_fx - 4, _cy)] = "stone"; world._set_tile(Vector2i(_fx - 4, _cy), "stone")
+		world.cells[Vector2i(_fx + 4, _cy)] = "stone"; world._set_tile(Vector2i(_fx + 4, _cy), "stone")
+	for _cy in range(_fy - 5, _fy - 1):        # a lava column high on the left, metered
+		world.cells[Vector2i(_fx - 3, _cy)] = "lava"; world._set_tile(Vector2i(_fx - 3, _cy), "lava")
+		world._fluid.wake(Vector2i(_fx - 3, _cy))
+	player.global_position = world.cell_center(Vector2i(_fx, _fy - 3))
+	player.velocity = Vector2.ZERO
+	player.get_node("Camera2D").reset_smoothing()
+	root.time_of_day = 0.5
+	root.is_night = false
+	root.canvas_modulate.color = Color(0.72, 0.52, 0.42)
+	for _s in range(9):                        # mid-cascade: a fixed, small number of steps
+		world.fluid_step()
+	await _shot("20_lava_flow_midpour")
+	world.fluid_settle(800)                     # settled: a flat partial pool
+	await _shot("21_lava_flow_settled")
+
 	print("SHOTS complete -> user://shots")
 	get_tree().quit(0)
 

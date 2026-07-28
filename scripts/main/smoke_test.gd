@@ -863,6 +863,128 @@ func _run() -> void:
 	GameState.current_config = original_config
 	_check("world_restored_after_config_tests", root.load_game())
 
+	# ===== LQ-1: liquid physics (leveled fluid cellular automaton) =====
+	# The pinned v1 baseline world carries no lava, so world.liquid_mass() reflects
+	# only the cells these fixtures inject. Fixtures sit in open sky (x~20, above the
+	# surface, away from the hall) and clean up after themselves so later checks see
+	# a clean world. Stepping is deterministic (fixed timestep + fixed cell order),
+	# driven directly via world.fluid_settle rather than the frame clock.
+
+	# (0) An undisturbed world persists zero liquid deltas — generated pools carry
+	# no liquid_level entry (they read as full), so the save is size-independent.
+	_check("lq_undisturbed_world_save_identical", world.serialize_liquid_level().is_empty(),
+		"liquid_level entries in an undisturbed world: %d" % world.serialize_liquid_level().size())
+
+	# (1) Mining the shelf under a resting pool wakes it; the lava pours down into
+	# the freshly opened cell ("flow on disturbance").
+	var _lq_origin := Vector2i(20, 5)
+	var _lq_catch := Vector2i(20, 6)         # the shelf now, the catch pocket once mined
+	# Box the catch cell (walls + floor) so the poured lava has somewhere to rest
+	# rather than dribbling off the sides into open sky.
+	world.cells[Vector2i(19, 6)] = "stone"   # left wall
+	world.cells[Vector2i(21, 6)] = "stone"   # right wall
+	world.cells[Vector2i(20, 7)] = "stone"   # floor
+	world.cells[_lq_catch] = "stone"         # shelf the pool rests on while asleep
+	world.cells[_lq_origin] = "lava"         # full (no level entry = 1.0), asleep
+	world.break_block(_lq_catch)             # mine the shelf -> wakes the pool, it falls
+	var _lq_pour_steps: int = world.fluid_settle(64)
+	var _lq_poured: bool = world.cells.get(_lq_catch, "air") == "lava" \
+		and world.cells.get(_lq_origin, "air") == "air"
+	_check("lq_lava_pours_through_breached_wall", _lq_poured,
+		"after %d steps: catch=%s origin=%s" % [_lq_pour_steps,
+			world.cells.get(_lq_catch, "air"), world.cells.get(_lq_origin, "air")])
+	for _cc in [_lq_origin, _lq_catch, Vector2i(19, 6), Vector2i(21, 6), Vector2i(20, 7)]:
+		world.cells.erase(_cc); world.liquid_level.erase(_cc)
+		world.deltas.erase(_cc); world._set_tile(_cc, "air")
+	world._fluid.active.clear()
+
+	# (2) A sealed 3-wide stone basin with lava stacked in one column: it must fall
+	# AND spread across the floor (down-flow + sideways leveling + mass conservation
+	# + solids as barriers), then go back to sleep once level.
+	var _lq_region: Array = []
+	for _wy in range(5, 9):                  # side walls
+		world.cells[Vector2i(19, _wy)] = "stone"; _lq_region.append(Vector2i(19, _wy))
+		world.cells[Vector2i(23, _wy)] = "stone"; _lq_region.append(Vector2i(23, _wy))
+	for _fx in range(20, 23):                # floor
+		world.cells[Vector2i(_fx, 8)] = "stone"; _lq_region.append(Vector2i(_fx, 8))
+	for _iy in range(5, 8):                  # interior (track for cleanup)
+		for _ix in range(20, 23):
+			_lq_region.append(Vector2i(_ix, _iy))
+	for _ly in range(5, 8):                  # stack 3 full lava cells in one column
+		world.cells[Vector2i(20, _ly)] = "lava"
+	var _lq_mass_before: float = world.liquid_mass()
+	world._fluid.active.clear()
+	for _ly2 in range(5, 8):
+		world._fluid.wake(Vector2i(20, _ly2))
+	var _lq_settle_steps: int = world.fluid_settle(800)
+	var _lq_mass_after: float = world.liquid_mass()
+	var _lq_floor_full: bool = world.cells.get(Vector2i(20, 7), "") == "lava" \
+		and world.cells.get(Vector2i(21, 7), "") == "lava" \
+		and world.cells.get(Vector2i(22, 7), "") == "lava"
+	var _lq_floor_mass: float = float(world.liquid_level.get(Vector2i(20, 7), 0.0)) \
+		+ float(world.liquid_level.get(Vector2i(21, 7), 0.0)) \
+		+ float(world.liquid_level.get(Vector2i(22, 7), 0.0))
+	var _lq_walls_intact: bool = world.cells.get(Vector2i(19, 6), "") == "stone" \
+		and world.cells.get(Vector2i(23, 6), "") == "stone" \
+		and world.cells.get(Vector2i(21, 8), "") == "stone"
+	_check("lq_mass_conserved",
+		absf(_lq_mass_after - _lq_mass_before) < 0.05 and _lq_mass_before > 2.9,
+		"mass %.3f -> %.3f over %d steps" % [_lq_mass_before, _lq_mass_after, _lq_settle_steps])
+	_check("lq_puddle_levels_out", _lq_floor_full and _lq_floor_mass > 2.5,
+		"floor_full=%s floor_mass=%.3f" % [str(_lq_floor_full), _lq_floor_mass])
+	_check("lq_liquid_stops_at_solid", _lq_walls_intact,
+		"basin walls/floor still stone: %s" % str(_lq_walls_intact))
+	_check("lq_settled_world_is_asleep", world.fluid_active_count() == 0,
+		"active cells after settle: %d" % world.fluid_active_count())
+	for _cc in _lq_region:
+		world.cells.erase(_cc); world.liquid_level.erase(_cc)
+		world.deltas.erase(_cc); world._set_tile(_cc, "air")
+	world._fluid.active.clear()
+
+	# (3) Contact damage is level-independent: even a half-full lava cell burns,
+	# because a liquid cell stays a normal "lava" block for the hazard sampler.
+	var _lq_hp_before: float = player.health
+	var _lq_pcell: Vector2i = world.cell_of(player.global_position)
+	var _lq_prev: String = world.cells.get(_lq_pcell, "air")
+	world.cells[_lq_pcell] = "lava"; world.liquid_level[_lq_pcell] = 0.5
+	player._hurt_cooldown = 0.0
+	player._apply_environmental_hazard()
+	var _lq_hp_after: float = player.health
+	if _lq_prev == "air":
+		world.cells.erase(_lq_pcell)
+	else:
+		world.cells[_lq_pcell] = _lq_prev
+	world.liquid_level.erase(_lq_pcell)
+	world._set_tile(_lq_pcell, _lq_prev if _lq_prev != "air" else "air")
+	player.health = _lq_hp_before
+	_check("lq_contact_damage_still_applies", _lq_hp_after < _lq_hp_before,
+		"half-full lava burns: hp %.1f -> %.1f" % [_lq_hp_before, _lq_hp_after])
+
+	# LQ-2: a liquid cell's rendered tile is chosen by its fill level — a half-full
+	# cell selects a lower bottom-anchored bucket than a full cell, and a full cell
+	# selects the top (full) bucket. Proves the partial-fill rendering path.
+	var _l2_cell := Vector2i(30, 4)
+	var _l2_prev: String = world.cells.get(_l2_cell, "air")
+	var _l2_buckets: int = (world._liquid_source_ids.get("lava", []) as Array).size()
+	world.cells[_l2_cell] = "lava"
+	world.liquid_level[_l2_cell] = 0.5
+	world._set_tile(_l2_cell, "lava")
+	var _l2_half_src: int = world._tilemap.get_cell_source_id(_l2_cell)
+	world.liquid_level[_l2_cell] = 1.0
+	world._set_tile(_l2_cell, "lava")
+	var _l2_full_src: int = world._tilemap.get_cell_source_id(_l2_cell)
+	var _l2_full_expected: int = (world._liquid_source_ids["lava"] as Array)[_l2_buckets - 1]
+	if _l2_prev == "air":
+		world.cells.erase(_l2_cell)
+	else:
+		world.cells[_l2_cell] = _l2_prev
+	world.liquid_level.erase(_l2_cell)
+	world._set_tile(_l2_cell, _l2_prev if _l2_prev != "air" else "air")
+	_check("lq_partial_fill_tile_by_level",
+		_l2_buckets >= 4 and _l2_half_src != _l2_full_src and _l2_full_src == _l2_full_expected,
+		"buckets=%d half_src=%d full_src=%d (expected full %d)" % [
+			_l2_buckets, _l2_half_src, _l2_full_src, _l2_full_expected])
+
 	# --- Character traits/roles affect the player ---
 	var default_speed: float = player.effective_mine_speed()
 	player.apply_character({"appearance": "umber", "traits": ["hardy", "miner"], "role": "warden"})

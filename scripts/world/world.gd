@@ -11,6 +11,9 @@ const BUSH_RETRY_SECONDS := 10.0
 const CROP_GROW_SECONDS := 60.0
 const CROP_RETRY_SECONDS := 5.0
 const CROP_IDS := ["crop_seedling", "crop_ripe"]
+# LQ-2: number of discrete fill heights a liquid tile quantizes into (16px tile
+# => 2px per bucket). A cell's level maps to a bottom-anchored tile of this many.
+const LIQUID_FILL_LEVELS := 8
 # FQ-13: ore-family blocks (FQ-10) the ore tick keys off when choosing a spawn.
 const ORE_IDS := ["ore", "coal", "copper_ore", "tin_ore", "iron_ore",
 	"silver_ore", "crystal"]
@@ -25,9 +28,18 @@ var surface: Dictionary = {}        # int x -> int y of surface
 var hall_info: Dictionary = {}
 var bush_regrow: Dictionary = {}    # Vector2i -> float seconds until regrowth
 var crop_growth: Dictionary = {}    # FQ-12: Vector2i -> float seconds until a seedling ripens
+# LQ-1: parallel per-cell liquid fill level (Vector2i -> float in (0,1]). A
+# liquid cell absent here reads as 1.0 (a generated-at-rest pool). Saved
+# alongside deltas; driven by the fluid sim.
+var liquid_level: Dictionary = {}
+var fluid_paused := false           # LQ-1: pauses the live tick (pinned-baseline smoke)
 
 var _tilemap: TileMapLayer
+var _fluid: RefCounted              # LQ-1: FluidSim, owns the active/sleep set + step logic
 var _source_ids: Dictionary = {}    # block_id -> Array of tileset source ids (FQ-09V: one per variant)
+# LQ-2: liquid block_id -> Array of LIQUID_FILL_LEVELS bottom-anchored fill-tile
+# source ids (bucket 1 = thinnest .. last = full). _set_tile picks by fill level.
+var _liquid_source_ids: Dictionary = {}
 var _lights: Dictionary = {}        # Vector2i -> PointLight2D
 var _light_texture: GradientTexture2D
 var _opaque_masks: Dictionary = {}  # block_id -> BitMap of the tile's opaque pixels
@@ -44,6 +56,7 @@ var _sky_line: Dictionary = {}
 
 const BackdropScript := preload("res://scripts/world/world_backdrop.gd")
 const ItemDropScript := preload("res://scripts/entities/item_drop.gd")   # R-08 slice 3
+const FluidSimScript := preload("res://scripts/world/fluid_sim.gd")      # LQ-1 liquid physics
 const WALL_MATERIALS := {"dirt_wall": "dirt", "stone_wall": "stone"}
 
 const BLOCK_COLORS := {
@@ -91,11 +104,15 @@ func _ready() -> void:
 	_tilemap.name = "Blocks"
 	_tilemap.tile_set = _build_tileset()
 	add_child(_tilemap)
+	_fluid = FluidSimScript.new(self)
 
 
 func _process(delta: float) -> void:
 	_tick_bush_regrowth(delta)
 	_tick_crop_growth(delta)
+	# LQ-1: advance the liquid sim (self-idles while no liquid is awake).
+	if not fluid_paused and _fluid != null:
+		_fluid.tick(delta)
 
 
 ## FQ-12: ripens planted seedlings after their timer. A seedling only ripens on
@@ -146,11 +163,15 @@ func _tick_bush_regrowth(delta: float) -> void:
 
 
 func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionary = {},
-		saved_crop: Dictionary = {}) -> void:
+		saved_crop: Dictionary = {}, saved_liquid: Dictionary = {}) -> void:
 	world_seed = new_seed
 	deltas = saved_deltas.duplicate()
 	bush_regrow = saved_regrow.duplicate()
 	crop_growth = saved_crop.duplicate()
+	# LQ-1: restore saved liquid fill levels (disturbed cells only; generated
+	# pools carry no entry and read as full). The wake below re-settles anything
+	# saved mid-flow; a fresh/undisturbed world stays asleep (empty active set).
+	liquid_level = saved_liquid.duplicate()
 	for cell in _lights.keys():
 		_lights[cell].queue_free()
 	_lights.clear()
@@ -186,6 +207,12 @@ func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionar
 			if sbid == "berry_bush" and not bush_regrow.has(sweep_cell):
 				bush_regrow[sweep_cell] = BUSH_REGROW_SECONDS
 	_redraw_all()
+	# LQ-1: generated pools boot asleep; only cells saved mid-flow (a
+	# liquid_level entry that is still a live liquid cell) wake to re-settle.
+	if _fluid != null:
+		_fluid.active.clear()
+		for lc in liquid_level.keys():
+			_fluid.wake(lc)
 
 
 func tile_size() -> int:
@@ -252,11 +279,15 @@ func break_block(cell: Vector2i) -> Dictionary:
 	var block_drops := BlockRegistry.drops(block_id)
 	cells.erase(cell)
 	deltas[cell] = "air"
+	liquid_level.erase(cell)   # LQ-1: mining a liquid cell clears its fill level
 	_set_tile(cell, "air")
 	if block_id == "berry_bush":
 		bush_regrow[cell] = BUSH_REGROW_SECONDS
 	crop_growth.erase(cell)   # FQ-12: harvesting/removing a crop clears its timer
 	block_changed.emit(cell, "air")
+	# LQ-1: breaching a wall wakes any adjacent liquid so a pool starts pouring.
+	if _fluid != null:
+		_fluid.wake_neighbours(cell)
 	# Wave E: check the cell directly above; if it requires support it's now floating.
 	var above := Vector2i(cell.x, cell.y - 1)
 	var above_id := block_at(above)
@@ -284,6 +315,9 @@ func place_block(cell: Vector2i, block_id: String) -> bool:
 	deltas[cell] = block_id
 	_set_tile(cell, block_id)
 	block_changed.emit(cell, block_id)
+	# LQ-1: placing (e.g. damming a channel) wakes adjacent liquid to re-settle.
+	if _fluid != null:
+		_fluid.wake_neighbours(cell)
 	return true
 
 
@@ -529,6 +563,14 @@ func _set_tile(cell: Vector2i, block_id: String) -> void:
 	# is_empty guard makes that invariant explicit rather than an index crash.
 	if block_id == "air" or (_source_ids.get(block_id, []) as Array).is_empty():
 		_tilemap.erase_cell(cell)
+	elif BlockRegistry.is_liquid(block_id) and _liquid_source_ids.has(block_id):
+		# LQ-2: pick a bottom-anchored fill tile from the cell's fill level. ceil so
+		# any liquid above MIN_LEVEL shows at least the thinnest sliver; a full cell
+		# (level 1.0, or a generated pool with no entry) picks the top bucket.
+		var lsids: Array = _liquid_source_ids[block_id]
+		var lvl: float = liquid_level.get(cell, 1.0)
+		var bucket := clampi(int(ceil(lvl * lsids.size())), 1, lsids.size())
+		_tilemap.set_cell(cell, lsids[bucket - 1], Vector2i.ZERO)
 	else:
 		# FQ-09V: blocks with a variant pool pick one deterministically from
 		# world seed + cell position — the same world always renders the same
@@ -575,6 +617,20 @@ func _build_tileset() -> TileSet:
 	for block_id in BlockRegistry.blocks:
 		if block_id == "air":
 			continue
+		# LQ-2: a liquid gets LIQUID_FILL_LEVELS bottom-anchored fill tiles (chosen
+		# by level in _set_tile) instead of the variant pool. Liquids are non-solid
+		# and don't block light (validated), so no collision/occluder is attached.
+		if BlockRegistry.is_liquid(block_id):
+			var lsids: Array = []
+			for tex: ImageTexture in _liquid_fill_textures(block_id, t):
+				var lsrc := TileSetAtlasSource.new()
+				lsrc.texture = tex
+				lsrc.texture_region_size = Vector2i(t, t)
+				lsrc.create_tile(Vector2i.ZERO)
+				lsids.append(ts.add_source(lsrc))
+			_liquid_source_ids[block_id] = lsids
+			_source_ids[block_id] = [lsids[-1]]   # full tile for generic lookups/masks
+			continue
 		# FQ-09V: one atlas source per variant texture (usually just one —
 		# the single-image/fallback path). Every variant of a block carries
 		# identical physics and occlusion, so variety can never change
@@ -614,12 +670,40 @@ func _block_textures(block_id: String, t: int) -> Array:
 	return out
 
 
+## LQ-2: the ordered bottom-anchored partial-fill textures for a liquid block —
+## bucket 1 (thinnest) .. LIQUID_FILL_LEVELS (full). Each is the full liquid look
+## (art or the generated color from _make_block_texture) cropped to the bottom
+## bucket/N of the tile, with a brighter surface line on partial fills so a pour
+## or a settling puddle reads at 16px. The full bucket is the uncropped tile, so a
+## brim-full pool looks exactly as it did in LQ-1.
+func _liquid_fill_textures(block_id: String, t: int) -> Array:
+	var base: Image = _make_block_texture(block_id, t).get_image()
+	var out: Array = []
+	for bucket in range(1, LIQUID_FILL_LEVELS + 1):
+		if bucket == LIQUID_FILL_LEVELS:
+			out.append(ImageTexture.create_from_image(base))
+			continue
+		var fill_h := clampi(roundi(float(bucket) / float(LIQUID_FILL_LEVELS) * float(t)), 1, t)
+		var top := t - fill_h
+		var img := Image.create(t, t, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0, 0, 0, 0))
+		for y in range(top, t):
+			for x in range(t):
+				img.set_pixel(x, y, base.get_pixel(x, y))
+		# Brighter surface line at the top of the fill so the liquid level is legible.
+		for x in range(t):
+			img.set_pixel(x, top, base.get_pixel(x, top).lightened(0.35))
+		out.append(ImageTexture.create_from_image(img))
+	return out
+
+
 ## FQ-09V: rebuilds all tile sources from the art currently on disk (variant
 ## pools included) and redraws. A smoke/dev hook — gameplay builds the
 ## tileset once at _ready, matching the FQ-07 "art loads at world entry"
 ## rule. Also drops the crack-overlay opacity masks so they re-derive.
 func rebuild_tileset() -> void:
 	_source_ids.clear()
+	_liquid_source_ids.clear()   # LQ-2: rebuilt with fresh fill-tile sources below
 	_opaque_masks.clear()
 	_tilemap.tile_set = _build_tileset()
 	_redraw_all()
@@ -772,6 +856,52 @@ static func parse_crop_growth(raw: Dictionary) -> Dictionary:
 		if parts.size() == 2:
 			out[Vector2i(int(parts[0]), int(parts[1]))] = float(raw[key])
 	return out
+
+
+## LQ-1: liquid fill levels persist exactly like the other sparse per-cell dicts.
+## Only disturbed cells appear here (generated pools carry no entry = full), so an
+## undisturbed world serializes an empty map and reloads byte-identically.
+func serialize_liquid_level() -> Dictionary:
+	var out := {}
+	for cell in liquid_level:
+		out["%d,%d" % [cell.x, cell.y]] = liquid_level[cell]
+	return out
+
+
+static func parse_liquid_level(raw: Dictionary) -> Dictionary:
+	var out := {}
+	for key in raw:
+		var parts: PackedStringArray = str(key).split(",")
+		if parts.size() == 2:
+			out[Vector2i(int(parts[0]), int(parts[1]))] = float(raw[key])
+	return out
+
+
+# ---------- LQ-1: fluid sim access (smoke/deterministic stepping) ----------
+
+## Runs one deterministic fluid step; returns the number of cells that moved.
+func fluid_step() -> int:
+	return _fluid.step() if _fluid != null else 0
+
+
+## Pumps the fluid sim to rest (or `max_steps`); returns the steps run.
+func fluid_settle(max_steps: int = 256) -> int:
+	return _fluid.settle(max_steps) if _fluid != null else 0
+
+
+## Cells currently awake in the fluid sim (0 => settled/asleep).
+func fluid_active_count() -> int:
+	return _fluid.active_count() if _fluid != null else 0
+
+
+## Total liquid mass in the world (sum of fill levels; a liquid cell with no
+## explicit entry counts as 1.0). Used by smoke to assert conservation.
+func liquid_mass() -> float:
+	var total := 0.0
+	for cell in cells:
+		if BlockRegistry.is_liquid(cells[cell]):
+			total += float(liquid_level.get(cell, 1.0))
+	return total
 
 
 static func parse_deltas(raw: Dictionary) -> Dictionary:
