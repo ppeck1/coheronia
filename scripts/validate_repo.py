@@ -375,17 +375,21 @@ if "protected" not in blocks.get("bedrock", {}).get("settlement_tags", []):
 strata = world_settings.get("strata")
 if not isinstance(strata, list) or not strata:
     fail("world_settings.json missing non-empty strata table")
-_prev_max = -1
+# WD-4: strata bands are fractions of column depth, ordered by max_frac ascending;
+# the last band must cover the bottom (max_frac >= 1) so every cell has a stratum.
+_prev_frac = 0.0
 for band in strata:
     base = band.get("base", "")
     if base not in blocks:
         fail(f"strata base '{base}' is not a defined block")
-    lo, hi = band.get("min_depth", -1), band.get("max_depth", -1)
-    if not (0 <= lo <= hi):
-        fail(f"strata band base='{base}' has an invalid depth range [{lo}, {hi}]")
-    if lo <= _prev_max:
-        fail(f"strata bands must be ordered and non-overlapping (base='{base}')")
-    _prev_max = hi
+    mf = band.get("max_frac", -1)
+    if not (0.0 < mf):
+        fail(f"strata band base='{base}' has an invalid max_frac {mf}")
+    if mf <= _prev_frac:
+        fail(f"strata bands must be ordered by ascending max_frac (base='{base}')")
+    _prev_frac = mf
+if _prev_frac < 1.0:
+    fail("strata: the deepest band's max_frac must be >= 1.0 (cover the world floor)")
 # WD-2: the caves table drives the deterministic carve pass.
 caves = world_settings.get("caves")
 if not isinstance(caves, dict) or not caves:
@@ -415,10 +419,13 @@ if lava_def.get("contact_damage", 0.0) <= 0.0:
 hell = world_settings.get("hell")
 if not isinstance(hell, dict) or not hell:
     fail("world_settings.json missing non-empty hell table")
-if hell.get("min_depth", 0) < 1:
-    fail("hell.min_depth must be >= 1")
-if not (0.0 < hell.get("lava_frequency", 0.0)):
-    fail("hell.lava_frequency must be positive")
+if not (0.0 < hell.get("start_frac", -1) < 1.0):
+    fail("hell.start_frac must be in (0, 1) (WD-4 fraction of column depth)")
+for hf in ["lava_frequency", "obsidian_frequency"]:
+    if not (0.0 < hell.get(hf, 0.0)):
+        fail(f"hell.{hf} must be positive")
+if not (0.0 < hell.get("obsidian_threshold", -1) < 1.0):
+    fail("hell.obsidian_threshold must be in (0, 1)")
 if not any(b.get("base") == "hellstone" for b in strata):
     fail("strata must include a hellstone band (the hell stratum)")
 print("PASS world depths strata + blocks")

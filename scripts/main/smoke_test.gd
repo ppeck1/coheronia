@@ -453,7 +453,7 @@ func _run() -> void:
 	var original_config: WorldConfig = GameState.current_config
 	GameState.current_config = WorldConfig.new({"size": "small"})
 	world.setup(777)
-	_check("world_size_setting", world.width == 160 and world.height == 64,
+	_check("world_size_setting", world.width == 200 and world.height == 170,
 		"%dx%d" % [world.width, world.height])
 	GameState.current_config = WorldConfig.new({"generation": {"ore_abundance": 2.0}})
 	world.setup(777)
@@ -634,40 +634,50 @@ func _run() -> void:
 	# generation cost from tilemap render); the save-independence check uses the
 	# live world. All restored by the config reset below. ---
 	var _wd_cfg := WorldConfig.new({"size": "vast", "gen_version": 2})
+	var _wd_bt: int = WorldGen.BEDROCK_THICKNESS
 	var _wd_t0 := Time.get_ticks_msec()
 	var _wd_gen := WorldGen.generate(2024, _wd_cfg)
 	var _wd_gen_ms := Time.get_ticks_msec() - _wd_t0
 	var _wd_cells: Dictionary = _wd_gen["cells"]
 	var _wd_surf: Dictionary = _wd_gen["surface"]
 	var _wd_h := int(_wd_gen["height"])
-	var _wd_dims_ok: bool = int(_wd_gen["width"]) == 480 and _wd_h == 320
+	var _wd_w := int(_wd_gen["width"])
+	var _wd_dims_ok: bool = _wd_w == 500 and _wd_h == 400
 	var _wd_gen2 := WorldGen.generate(2024, _wd_cfg)
 	var _wd_deterministic: bool = (_wd_gen2["cells"] as Dictionary).size() == _wd_cells.size()
 	_check("wd_big_size_generates_within_budget",
 		_wd_dims_ok and _wd_deterministic and _wd_gen_ms < 12000,
-		"%dx%d gen=%dms cells=%d deterministic=%s" % [int(_wd_gen["width"]), _wd_h,
+		"%dx%d gen=%dms cells=%d deterministic=%s" % [_wd_w, _wd_h,
 			_wd_gen_ms, _wd_cells.size(), str(_wd_deterministic)])
 
-	var _wd_deepstone_deep := false
-	var _wd_deepstone_shallow := false
+	# WD-4: strata are fractions of each column's usable depth. Verify stone in
+	# the shallow band, deepstone in the mid band, hellstone only in the deep band.
 	var _wd_stone_shallow := false
+	var _wd_deepstone_mid := false
+	var _wd_hell_deep := false
+	var _wd_hell_shallow := false
 	for _wd_c: Vector2i in _wd_cells:
 		var _wd_bid: String = str(_wd_cells[_wd_c])
-		var _wd_depth: int = _wd_c.y - int(_wd_surf.get(_wd_c.x, 0))
-		if _wd_bid == "deepstone":
-			if _wd_depth > 70:
-				_wd_deepstone_deep = true
-			else:
-				_wd_deepstone_shallow = true
-		elif _wd_bid == "stone" and _wd_depth > 4 and _wd_depth <= 70:
+		var _wd_cs: int = int(_wd_surf.get(_wd_c.x, 0))
+		var _wd_cd: int = maxi(1, (_wd_h - _wd_bt) - _wd_cs)
+		var _wd_f: float = float(_wd_c.y - _wd_cs) / float(_wd_cd)
+		if _wd_bid == "stone" and _wd_f < 0.34:
 			_wd_stone_shallow = true
-	_check("wd_strata_place_by_depth",
-		_wd_stone_shallow and _wd_deepstone_deep and not _wd_deepstone_shallow,
-		"stone_shallow=%s deepstone_deep=%s deepstone_shallow=%s" % [
-			str(_wd_stone_shallow), str(_wd_deepstone_deep), str(_wd_deepstone_shallow)])
+		elif _wd_bid == "deepstone" and _wd_f >= 0.34 and _wd_f < 0.68:
+			_wd_deepstone_mid = true
+		elif _wd_bid == "hellstone":
+			if _wd_f >= 0.68:
+				_wd_hell_deep = true
+			else:
+				_wd_hell_shallow = true
+	_check("wd_strata_place_by_fraction",
+		_wd_stone_shallow and _wd_deepstone_mid and _wd_hell_deep and not _wd_hell_shallow,
+		"stone_shallow=%s deepstone_mid=%s hell_deep=%s hell_shallow=%s" % [
+			str(_wd_stone_shallow), str(_wd_deepstone_mid), str(_wd_hell_deep),
+			str(_wd_hell_shallow)])
 
 	var _wd_bedrock_floor := true
-	for _wd_x in range(0, 480, 37):
+	for _wd_x in range(0, _wd_w, 37):
 		if str(_wd_cells.get(Vector2i(_wd_x, _wd_h - 1), "")) != "bedrock":
 			_wd_bedrock_floor = false
 			break
@@ -682,11 +692,11 @@ func _run() -> void:
 	var _wd_v1_leaks_new := false
 	for _wd_c2: Vector2i in _wd_v1_cells:
 		var _wd_b2: String = str(_wd_v1_cells[_wd_c2])
-		if _wd_b2 == "deepstone" or _wd_b2 == "bedrock":
+		if _wd_b2 == "deepstone" or _wd_b2 == "bedrock" or _wd_b2 == "hellstone" or _wd_b2 == "lava":
 			_wd_v1_leaks_new = true
 			break
 	_check("wd_gen_version_preserves_legacy_world", not _wd_v1_leaks_new,
-		"legacy(v1) large leaks deepstone/bedrock=%s (must be false)" % str(_wd_v1_leaks_new))
+		"legacy(v1) large leaks new blocks=%s (must be false)" % str(_wd_v1_leaks_new))
 
 	GameState.current_config = WorldConfig.new({"size": "vast", "gen_version": 2})
 	world.setup(2024)
@@ -703,7 +713,7 @@ func _run() -> void:
 	# the vast v2 cells generated above, which now include caves. ---
 	var _wd_deep_total := 0
 	var _wd_deep_air := 0
-	for _wd_cx in range(0, 480):
+	for _wd_cx in range(0, _wd_w):
 		var _wd_csurf: int = int(_wd_surf.get(_wd_cx, 0))
 		for _wd_cy in range(_wd_csurf + 20, mini(_wd_csurf + 120, _wd_h - 2)):
 			_wd_deep_total += 1
@@ -715,7 +725,7 @@ func _run() -> void:
 		"deep air fraction=%.3f (air=%d / %d cells)" % [_wd_air_frac, _wd_deep_air, _wd_deep_total])
 
 	var _wd_crust_solid := true
-	for _wd_sx in range(0, 480, 41):
+	for _wd_sx in range(0, _wd_w, 41):
 		var _wd_ss: int = int(_wd_surf.get(_wd_sx, 0))
 		for _wd_d in range(1, 8):
 			if not _wd_cells.has(Vector2i(_wd_sx, _wd_ss + _wd_d)):
@@ -724,7 +734,7 @@ func _run() -> void:
 		if not _wd_crust_solid:
 			break
 	var _wd_hall_solid := true
-	var _wd_hx := 480 / 2
+	var _wd_hx := _wd_w / 2
 	for _wd_hxx in range(_wd_hx - 7, _wd_hx + 8):
 		var _wd_hs: int = int(_wd_surf.get(_wd_hxx, 0))
 		for _wd_hd in range(1, 17):
@@ -733,7 +743,7 @@ func _run() -> void:
 				break
 		if not _wd_hall_solid:
 			break
-	var _wd_floor_intact: bool = str(_wd_cells.get(Vector2i(240, _wd_h - 1), "")) == "bedrock"
+	var _wd_floor_intact: bool = str(_wd_cells.get(Vector2i(_wd_hx, _wd_h - 1), "")) == "bedrock"
 	_check("wd_caves_preserve_surface_and_hall",
 		_wd_crust_solid and _wd_hall_solid and _wd_floor_intact,
 		"crust_solid=%s hall_solid=%s bedrock_floor=%s" % [
@@ -759,16 +769,36 @@ func _run() -> void:
 	for _wd_hc: Vector2i in _wd_cells:
 		var _wd_hb: String = str(_wd_cells[_wd_hc])
 		if _wd_hb == "hellstone":
-			if _wd_hc.y - int(_wd_surf.get(_wd_hc.x, 0)) >= 210:
-				_wd_hellstone = true
+			_wd_hellstone = true
 		elif _wd_hb == "obsidian":
 			_wd_obsidian = true
 		elif _wd_hb == "lava":
 			_wd_lava_cells += 1
 	_check("wd_hell_stratum_generates",
 		_wd_hellstone and _wd_obsidian and _wd_lava_cells > 0,
-		"hellstone_deep=%s obsidian=%s lava_cells=%d" % [
+		"hellstone=%s obsidian=%s lava_cells=%d" % [
 			str(_wd_hellstone), str(_wd_obsidian), _wd_lava_cells])
+
+	# WD-4: hell must appear in EVERY world size (fractional strata), not just vast.
+	var _wd_all_sizes_ok := true
+	var _wd_sizes_detail := ""
+	for _wd_sz in ["small", "large"]:
+		var _wd_szgen := WorldGen.generate(2024, WorldConfig.new({"size": _wd_sz, "gen_version": 2}))
+		var _wd_szcells: Dictionary = _wd_szgen["cells"]
+		var _wd_sz_hell := false
+		var _wd_sz_lava := false
+		for _wd_szc: Vector2i in _wd_szcells:
+			var _wd_szb: String = str(_wd_szcells[_wd_szc])
+			if _wd_szb == "hellstone":
+				_wd_sz_hell = true
+			elif _wd_szb == "lava":
+				_wd_sz_lava = true
+			if _wd_sz_hell and _wd_sz_lava:
+				break
+		if not (_wd_sz_hell and _wd_sz_lava):
+			_wd_all_sizes_ok = false
+		_wd_sizes_detail += "%s(hell=%s,lava=%s) " % [_wd_sz, str(_wd_sz_hell), str(_wd_sz_lava)]
+	_check("wd_hell_in_all_sizes", _wd_all_sizes_ok, _wd_sizes_detail)
 
 	var _wd_lava_def: Dictionary = BlockRegistry.get_block("lava")
 	var _wd_lava_props: bool = not BlockRegistry.is_solid("lava") \

@@ -1,6 +1,21 @@
 # World Depths — Deeper World, Caves & Hell (Work Order)
 
-**Status: COMPLETE — Slices WD-1, WD-2, WD-3 DONE (2026-07-27).**
+**Status: COMPLETE — Slices WD-1, WD-2, WD-3, WD-4 DONE.**
+
+**WD-4 (hell in ALL sizes) shipped 2026-07-28.** The strata + hell were converted
+from absolute depths to **fractions of each column's usable depth** (surface ->
+bedrock), so every world size gets the full stone -> deepstone -> hell -> bedrock
+progression — hell is no longer gated to `vast`. Strata bands use `max_frac`
+(stone < 0.34, deepstone < 0.68, hellstone below); `hell.start_frac` (0.68)
+drives lava placement and the ember tint; obsidian moved from the absolute
+`ore_table` to its own noise channel inside the hell stratum. All size heights
+were increased substantially (small 200x170, medium 300x250, large 400x310, vast
+500x400) so even the smallest world is a real descent. `_hell_factor` and
+`_place_hell_lava` are fraction-based. Smoke updated to fraction logic + dynamic
+dimensions, plus a new `wd_hell_in_all_sizes` check (small + large both contain
+hellstone + lava). **Source smoke 418/418, 0 skipped; validator PASS; asset audit
+clean; capsule healthy; `diff --check` clean.** Side-by-side small|large|vast
+cell-map render reviewed — all three end in a hell layer with lava.
 
 **WD-3 (lava / hell biome + hazard) shipped 2026-07-27.** The deepest stratum is
 now hell: a `hellstone` base (depth >= 210) with `obsidian` veins (placed via the

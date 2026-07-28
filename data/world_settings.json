@@ -1,23 +1,26 @@
 {
   "schema_version": "0.4",
   "sizes": {
-    "small": { "display_name": "Small", "width": 160, "height": 64, "surface_base": 26 },
-    "medium": { "display_name": "Medium", "width": 240, "height": 80, "surface_base": 30 },
-    "large": { "display_name": "Large", "width": 360, "height": 100, "surface_base": 36 },
-    "vast": { "display_name": "Vast", "width": 480, "height": 320, "surface_base": 48 }
+    "small": { "display_name": "Small", "width": 200, "height": 170, "surface_base": 28 },
+    "medium": { "display_name": "Medium", "width": 300, "height": 250, "surface_base": 40 },
+    "large": { "display_name": "Large", "width": 400, "height": 310, "surface_base": 52 },
+    "vast": { "display_name": "Vast", "width": 500, "height": 400, "surface_base": 64 }
   },
-  "_strata_note": "WD-1: depth-band base blocks below the topsoil (dirt_depth). Ordered, non-overlapping, first match wins; ore families overlay on top. gen_version >= 2 only. hell stratum added in WD-3.",
+  "_strata_note": "WD-4: strata are FRACTIONS of each column's usable depth (surface..bedrock), so every world size gets the full stone -> deepstone -> hell progression. Ordered by max_frac ascending; first band whose max_frac > f wins (topsoil dirt is still absolute via dirt_depth). gen_version >= 2 only.",
   "strata": [
-    { "base": "stone", "min_depth": 0, "max_depth": 70 },
-    { "base": "deepstone", "min_depth": 71, "max_depth": 209 },
-    { "base": "hellstone", "min_depth": 210, "max_depth": 100000 }
+    { "base": "stone", "max_frac": 0.34 },
+    { "base": "deepstone", "max_frac": 0.68 },
+    { "base": "hellstone", "max_frac": 2.0 }
   ],
-  "_hell_note": "WD-3: the deepest stratum is hell (hellstone base + obsidian veins via ore_table). After carving, lava pools line hell cavity floors where a lava-noise channel clears its threshold. Lava is a non-solid, light-emitting contact-damage hazard.",
+  "_hell_note": "WD-4: hell is the deepest fraction of every world (start_frac). hellstone base with scattered obsidian (its own noise channel); after carving, lava pools line hell cavity floors where a lava-noise channel clears its threshold. Lava is a non-solid, light-emitting contact-damage hazard.",
   "hell": {
-    "min_depth": 210,
+    "start_frac": 0.68,
     "lava_frequency": 0.07,
     "lava_threshold": 0.0,
-    "lava_seed_offset": 1021
+    "lava_seed_offset": 1021,
+    "obsidian_frequency": 0.06,
+    "obsidian_threshold": 0.5,
+    "obsidian_seed_offset": 743
   },
   "_caves_note": "WD-2: post-fill carve pass (gen_version >= 2). Caverns = low-freq noise above a threshold (open chambers); tunnels = the near-zero band of a second noise channel (winding connectors); union of the two. surface_crust keeps a solid band below the surface; the hall spawn column and the bedrock floor are never carved.",
   "caves": {
@@ -120,8 +123,7 @@
     { "id": "tin_ore",    "min_depth": 10, "max_depth": 100, "frequency": 0.090, "threshold": 0.62, "seed_offset": 307 },
     { "id": "iron_ore",   "min_depth": 16, "max_depth": 200, "frequency": 0.080, "threshold": 0.64, "seed_offset": 419 },
     { "id": "silver_ore", "min_depth": 26, "max_depth": 260, "frequency": 0.075, "threshold": 0.68, "seed_offset": 523 },
-    { "id": "crystal",    "min_depth": 34,  "max_depth": 320, "frequency": 0.070, "threshold": 0.72, "seed_offset": 631 },
-    { "id": "obsidian",   "min_depth": 210, "max_depth": 320, "frequency": 0.060, "threshold": 0.62, "seed_offset": 743 }
+    { "id": "crystal",    "min_depth": 34,  "max_depth": 400, "frequency": 0.070, "threshold": 0.72, "seed_offset": 631 }
   ],
   "ui_help": {
     "axis_help": {

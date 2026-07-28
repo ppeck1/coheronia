@@ -38,6 +38,12 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 	# caps the world with an unmineable bedrock floor. v1 is untouched.
 	var gen_version := config.gen_version()
 	var strata: Array = WorldConfig.settings().get("strata", []) if gen_version >= 2 else []
+	# WD-4: obsidian is scattered through the hell stratum on its own channel.
+	var hell_cfg: Dictionary = WorldConfig.settings().get("hell", {}) if gen_version >= 2 else {}
+	var obsidian_noise := FastNoiseLite.new()
+	obsidian_noise.seed = world_seed + int(hell_cfg.get("obsidian_seed_offset", 743))
+	obsidian_noise.frequency = float(hell_cfg.get("obsidian_frequency", 0.06))
+	var obsidian_thr := float(hell_cfg.get("obsidian_threshold", 0.5))
 
 	var noise := FastNoiseLite.new()
 	noise.seed = world_seed
@@ -56,10 +62,14 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 	var cells: Dictionary = {}
 	var surface: Dictionary = {}
 
+	var bedrock_top := height - BEDROCK_THICKNESS
 	for x in range(width):
 		var surf_y := surface_base + int(round(noise.get_noise_1d(float(x)) * amplitude))
 		surf_y = clampi(surf_y, 6, height - 10)
 		surface[x] = surf_y
+		# WD-4: usable depth of this column (surface -> last cell above bedrock),
+		# used to place strata/hell as fractions so every world size has hell.
+		var col_depth := maxi(1, bedrock_top - surf_y)
 		for y in range(surf_y, height):
 			var pos := Vector2i(x, y)
 			if y == surf_y:
@@ -69,7 +79,9 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 			else:
 				var depth := y - surf_y
 				if gen_version >= 2:
-					cells[pos] = _v2_deep_block(x, y, depth, height, strata,
+					cells[pos] = _v2_deep_block(x, y, depth, height,
+						float(depth) / float(col_depth), strata,
+						obsidian_noise, obsidian_thr,
 						ore_families, ore_noise, ore_abundance, ore_threshold)
 				elif ore_abundance > 0.0 and depth > 8 \
 						and ore_noise.get_noise_2d(float(x), float(y)) > ore_threshold:
@@ -84,8 +96,8 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 		var caves_cfg: Dictionary = WorldConfig.settings().get("caves", {})
 		if not caves_cfg.is_empty():
 			_carve_caves(cells, surface, width, height, world_seed, caves_cfg, dirt_depth)
-		# WD-3: pool lava on the floors of hell cavities (after carving).
-		var hell_cfg: Dictionary = WorldConfig.settings().get("hell", {})
+		# WD-3: pool lava on the floors of hell cavities (after carving). Reuses
+		# hell_cfg from the strata setup above.
 		if not hell_cfg.is_empty():
 			_place_hell_lava(cells, surface, width, height, world_seed, hell_cfg)
 
@@ -156,9 +168,12 @@ static func _ore_family_at(families: Array, x: int, y: int, depth: int,
 
 
 ## World Depths (v2): the base block for a below-topsoil cell. Bedrock floors the
-## bottom rows (unmineable); the generic ore vein and ore families overlay on the
-## strata base (stone -> deepstone by depth). Deterministic from seed+cell.
-static func _v2_deep_block(x: int, y: int, depth: int, height: int, strata: Array,
+## bottom rows (unmineable); the strata base is chosen by the column depth
+## FRACTION `f` (WD-4, so every world size has stone -> deepstone -> hell); in
+## the hell stratum an obsidian-noise channel scatters obsidian. The generic ore
+## vein and ore families overlay. Deterministic from seed+cell.
+static func _v2_deep_block(x: int, y: int, depth: int, height: int, f: float,
+		strata: Array, obsidian_noise: FastNoiseLite, obsidian_thr: float,
 		families: Array, ore_noise: FastNoiseLite, ore_abundance: float,
 		ore_threshold: float) -> String:
 	if y >= height - BEDROCK_THICKNESS:
@@ -166,15 +181,19 @@ static func _v2_deep_block(x: int, y: int, depth: int, height: int, strata: Arra
 	if ore_abundance > 0.0 and depth > 8 \
 			and ore_noise.get_noise_2d(float(x), float(y)) > ore_threshold:
 		return "ore"
-	return _ore_family_at(families, x, y, depth, _stratum_base(strata, depth))
+	var base := _stratum_base_frac(strata, f)
+	if base == "hellstone" and obsidian_noise.get_noise_2d(float(x), float(y)) > obsidian_thr:
+		base = "obsidian"
+	return _ore_family_at(families, x, y, depth, base)
 
 
-## World Depths (v2): the first strata band (in table order) whose depth range
-## contains this depth; "stone" when the table is empty or no band matches.
-static func _stratum_base(strata: Array, depth: int) -> String:
+## World Depths (v2, WD-4): the strata base for a column depth FRACTION f (0 at
+## the surface, ~1 at bedrock). Bands are ordered by max_frac ascending; the
+## first whose max_frac > f wins. "stone" when the table is empty. Fraction-based
+## so every world size gets the full stone -> deepstone -> hell progression.
+static func _stratum_base_frac(strata: Array, f: float) -> String:
 	for s in strata:
-		if depth >= int((s as Dictionary).get("min_depth", 0)) \
-				and depth <= int((s as Dictionary).get("max_depth", 99999999)):
+		if f < float((s as Dictionary).get("max_frac", 2.0)):
 			return str((s as Dictionary).get("base", "stone"))
 	return "stone"
 
@@ -223,7 +242,7 @@ static func _carve_caves(cells: Dictionary, surface: Dictionary, width: int,
 ## light-emitting, contact-damage). Deterministic from seed.
 static func _place_hell_lava(cells: Dictionary, surface: Dictionary, width: int,
 		height: int, world_seed: int, hell_cfg: Dictionary) -> void:
-	var hell_min: int = int(hell_cfg.get("min_depth", 210))
+	var start_frac := float(hell_cfg.get("start_frac", 0.68))
 	var lava := FastNoiseLite.new()
 	lava.seed = world_seed + int(hell_cfg.get("lava_seed_offset", 0))
 	lava.frequency = float(hell_cfg.get("lava_frequency", 0.07))
@@ -231,7 +250,10 @@ static func _place_hell_lava(cells: Dictionary, surface: Dictionary, width: int,
 	var bedrock_top := height - BEDROCK_THICKNESS
 	for x in range(width):
 		var surf_y: int = int(surface.get(x, 0))
-		for y in range(surf_y + hell_min, bedrock_top):
+		# WD-4: hell begins at start_frac of this column's usable depth.
+		var col_depth := maxi(1, bedrock_top - surf_y)
+		var hell_start_y := surf_y + int(start_frac * float(col_depth))
+		for y in range(hell_start_y, bedrock_top):
 			var pos := Vector2i(x, y)
 			if cells.has(pos):
 				continue   # solid rock, not a cavity

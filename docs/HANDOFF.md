@@ -115,10 +115,13 @@ ambient tint (`game_root` `EMBER_TINT` / `_hell_factor`). 3 new `wd_` checks
 healthy, `diff --check` clean.** Cell-map render reviewed (red hell + glowing
 lava pools). Committed, NOT pushed.
 
-**The World Depths arc is COMPLETE (WD-1/2/3).** Bigger/deeper world (480x320),
+**The World Depths arc is COMPLETE (WD-1/2/3/4).** Bigger/deeper world,
 data-driven strata, mixed caverns + tunnels, lava/hell biome + hazard mechanic;
-deterministic, save-compatible (gen_version), ~1s gen. **Next code arc:
-unselected.** R-10/HUD polish remains art lane. Push control is separate from
+deterministic, save-compatible (gen_version), ~1s gen. **WD-4 (2026-07-28) made
+hell appear in ALL sizes** by converting strata/hell to fractions of each
+column's depth and deepening every size (small 200x170 -> vast 500x400);
+`wd_hell_in_all_sizes` proves small + large both contain hellstone + lava. Source
+smoke 418/418. **Next code arc: unselected.** R-10/HUD polish remains art lane. Push control is separate from
 commit control — never push unless told.
 
 **The presentation recovery arc is open.** FQ-00 through FQ-21 are complete;

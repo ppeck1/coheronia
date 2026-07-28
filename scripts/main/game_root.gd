@@ -39,7 +39,6 @@ const CAVE_FADE_CELLS := 6.0   # smooth band below the local sky line
 # scene, so a red-dominant dark tint reads as red-lit gloom; lava adds its own
 # emitted light on top.
 const EMBER_TINT := Color(0.34, 0.13, 0.11)
-const HELL_FADE_CELLS := 20.0   # smooth band as the player descends into hell
 
 const POPULATION_MAX := 8        # absolute ceiling; base_level gates effective cap
 const BASE_LEVEL_MAX_MVP := 3   # progression capped at village for MVP
@@ -697,9 +696,13 @@ func _hell_factor() -> float:
 	if world == null or player == null:
 		return 0.0
 	var cell: Vector2i = world.cell_of(player.global_position)
-	var depth: int = cell.y - int(world.surface.get(cell.x, 0))
-	var hell_min: int = int(WorldConfig.settings().get("hell", {}).get("min_depth", 210))
-	return clampf(float(depth - hell_min) / HELL_FADE_CELLS, 0.0, 1.0)
+	var surf_y: int = int(world.surface.get(cell.x, 0))
+	var col_depth: int = maxi(1, world.height - surf_y)
+	# WD-4: hell is a fraction of the column's depth, so the ember tint keys off
+	# how far past the hell start_frac the player has descended (all world sizes).
+	var f: float = float(cell.y - surf_y) / float(col_depth)
+	var start_frac: float = float(WorldConfig.settings().get("hell", {}).get("start_frac", 0.68))
+	return clampf((f - start_frac) / maxf(0.05, (1.0 - start_frac) * 0.5), 0.0, 1.0)
 
 
 func _advance_storm(delta: float) -> void:
