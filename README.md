@@ -6,7 +6,7 @@ Dig, build, and light a side-view frontier settlement — then keep it alive as 
 
 ![Daytime settlement with the Town Hall, torch line, and live HUD](docs/screenshots/01_settlement_day.png)
 
-`Godot 4.6 · GDScript · data-driven design · 403-check in-engine smoke suite · adaptive music · layered image-first UI pipeline`
+`Godot 4.6 · GDScript · data-driven design · 418-check in-engine smoke suite · procedural world depths · adaptive music · layered image-first UI pipeline`
 
 ## What it is
 
@@ -22,12 +22,19 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 | **Visible subject simulation** | A farmhand actor harvests ripe crops into the stockpile against the same world/stockpile authorities as the aggregate sim; the abstract population stays the single food-accounting authority, so a settler is never charged food twice. | [`scripts/entities/subject.gd`](scripts/entities/subject.gd) · [`scripts/world/world.gd`](scripts/world/world.gd) |
 | **Persistent state ownership** | Characters own inventory, loadout, and progression; worlds own terrain deltas and settlement simulation. | [`scripts/shell/`](scripts/shell) · [`scripts/inventory/`](scripts/inventory) |
 | **Data-first design** | Blocks, recipes, enemies, equipment, ancestries, and world presets are JSON authorities. | [`data/`](data) · [`scripts/validate_repo.py`](scripts/validate_repo.py) |
+| **Procedural world depths** | Deterministic terrain from a seed: fraction-based strata (stone → deepstone → hell), a mixed cavern/tunnel carve pass, and lava/hell as data-driven blocks. Saves store `world_seed` + player edits only, and a `gen_version` stamp keeps existing worlds byte-identical as the generator evolves. | [`scripts/world/world_gen.gd`](scripts/world/world_gen.gd) · [`data/world_settings.json`](data/world_settings.json) |
 | **Runtime UI composition** | HUD chrome is separate from live values; inventory mutations are validated at the UI boundary. | [`scripts/ui/hud.gd`](scripts/ui/hud.gd) · [`scripts/ui/inventory_slot_cell.gd`](scripts/ui/inventory_slot_cell.gd) |
 | **Verification as a feature** | Validators and an in-engine smoke harness exercise saves, physics, UI, and system contracts. | [`docs/HANDOFF.md`](docs/HANDOFF.md) · [`scripts/main/smoke_test.gd`](scripts/main/smoke_test.gd) |
 
 ## Screenshots
 
-*Captured 2026-07-24 from the live build.*
+*Captured from the live build (gameplay shots 2026-07-24; World Depths shots 2026-07-28).*
+
+![Deep underground in the hell biome — the player on a hellstone ledge beside a glowing lava lake, torch-lit under an ember tint](docs/screenshots/19_hell_biome.png)
+*New in the **World Depths** arc: every world is now a deep vertical descent. Dig down through stone into **deepstone**, then into a **hell biome** of hellstone and obsidian pooled with **lava** — a non-solid, light-emitting block that burns anything standing in it (routed through the same `take_damage` authority as combat). Mixed **caverns and winding tunnels** riddle the depths, and an unmineable **bedrock floor** bounds the world. The deepest band drives an ember ambient tint; lava casts its own glow.*
+
+![A generated cross-section of three world sizes, each descending through stone, deepstone, caves, and a hell layer streaked with lava](docs/screenshots/20_world_depths_biome.png)
+*The same progression scales to **every** world size (Small · Large · Vast shown, rendered straight from the generator). Strata are placed as **fractions of each world's depth**, so hell is the floor of every world rather than a feature of the largest one — asserted by the `wd_hell_in_all_sizes` smoke check. Terrain is regenerated deterministically from `world_seed`; only player edits are saved, so a huge world costs nothing extra on disk, and a `gen_version` stamp keeps existing worlds byte-identical.*
 
 ![A visible farmhand settler beside a tilled row of ripe crops by the Town Hall, with the harvest reported in the event log](docs/screenshots/16_farmhand.png)
 *New in R-08: a **visible farmhand settler** works the land beside the Town Hall — it walks to a ripe crop, harvests it into the stockpile (see the event log), and idles hungry if the settlement runs out of food. It is a concrete actor layered over the unchanged abstract population, which stays the single food-accounting authority.*
@@ -64,7 +71,7 @@ Direct link: [prologue](docs/screenshots/clips/coheronia.prologue.07162026.1125.
 
 Watch the latest gameplay demonstration: [https://youtu.be/KoWppfdjSX8](https://youtu.be/KoWppfdjSX8)
 
-> The screenshots on this page (captured 2026-07-24) are the definitive reference for the current interface — the native HUD and inventory board, the unified crafting panel, the repair-only Town Hall, the Contracts panel, the rebuilt Character panel, the viewport-relative skill tree, the contour backdrop, and the R-08 visible settlers with ground-drop loot.
+> The screenshots on this page are the definitive reference for the current interface — the World Depths hell biome and multi-size cross-section (2026-07-28), and the native HUD and inventory board, the unified crafting panel, the repair-only Town Hall, the Contracts panel, the rebuilt Character panel, the viewport-relative skill tree, the contour backdrop, and the R-08 visible settlers with ground-drop loot (2026-07-24).
 
 ---
 
@@ -136,7 +143,7 @@ terrain history, settlement, and progression. Persistence lives in
 
 This repo doubles as an experiment in disciplined AI-driven development:
 
-- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 403 checks across mining, save/load round-trips, legacy migrations, UI panel contents, Map/Events coexistence, HUD-kit layering, physics traversal, armor math, adaptive-music transitions, the character-rendering contract, body-specific gear resolution and alignment, directional action animation, the shared-path creation/character-select preview, the runtime-children Character panel, the backdrop contour skirt, the viewport-relative skill panel, the visible-subject labor loop, directed-goal contracts, the contracts panel, the deterministic contract balance report, and event stingers. The full suite is at **403/403** in source on 2026-07-24; the exported Windows artifact launches and runs at **397/397** with six `res://` fixture checks skipped only under read-only export. Two runtime notes: the real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun; the `fq19_map_events_coexist` geometry check is sensitive to a contaminated persisted `shell.json` and passes from a clean profile.
+- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts 403 checks across mining, save/load round-trips, legacy migrations, UI panel contents, Map/Events coexistence, HUD-kit layering, physics traversal, armor math, adaptive-music transitions, the character-rendering contract, body-specific gear resolution and alignment, directional action animation, the shared-path creation/character-select preview, the runtime-children Character panel, the backdrop contour skirt, the viewport-relative skill panel, the visible-subject labor loop, directed-goal contracts, the contracts panel, the deterministic contract balance report, the procedural world depths (fractional strata, caves, and the hell/lava biome in every world size), and event stingers. The full suite is at **418/418** in source (2026-07-28); the exported Windows artifact launches and runs green with six `res://` fixture checks skipped only under read-only export (verified by CI on every push). Two runtime notes: the real-time `fq09u1_live_clip_switch` adaptive-music check occasionally cold-flakes and passes on rerun; the `fq19_map_events_coexist` geometry check is sensitive to a contaminated persisted `shell.json` and passes from a clean profile.
 - **Evidence over claims.** Increment scope, decisions, review findings, and validation state are summarized in [`docs/HANDOFF.md`](docs/HANDOFF.md). Historical raw protocol artifacts are still tracked; their fit with the current public-repository profile is explicitly flagged for owner review rather than silently presented as settled policy.
 - **Independent review loop.** Each change was reviewed by a separate agent pass before commit; findings (from save-corruption edge cases to invisible-tint rendering bugs) are documented and fixed in the ledgers.
 - **Task queue discipline.** Work follows [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) one bounded increment at a time — FQ-00 through FQ-09 plus the FQ-09R/S/V/C/W/A/M and U0–U3 refinements (skill-tree star map, variant art pools, the opening cinematic, backdrops and cave darkness, the asset roadmap, action effects, and the full adaptive-music arc) on top of the v0.1–v0.6 foundation, each documented in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md).
@@ -167,7 +174,7 @@ Or open the folder in the Godot editor and press Play.
 
 Esc opens a real pause menu (it closes an open panel first); saving and world-restore are exposed there, and rebinds live under its Settings screen. F5/F9 remain quick save/load.
 
-**Verify the build** (validators + the 403-check in-engine suite):
+**Verify the build** (validators + the 418-check in-engine suite):
 
 ```powershell
 python scripts/validate_repo.py
@@ -226,6 +233,8 @@ Persistence: `user://shell.json` (profile + characters) and `user://worlds/<id>.
 ## Current build
 
 Dated shipped milestones, newest first (full detail in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md)):
+
+- **2026-07-28 — World Depths: bigger, deeper worlds with caves and a hell biome.** Terrain is now a real vertical descent through data-driven strata (stone → deepstone → hell) placed as **fractions of each world's depth**, so every size ends in a hell biome — hellstone and obsidian pooled with **lava**, a non-solid, light-emitting block whose contact damage routes through the same `take_damage` authority as combat. A deterministic carve pass cuts **mixed caverns and winding tunnels**; an unmineable **bedrock floor** bounds the world; the deepest band drives an ember ambient tint. Generation stays seed-deterministic and save-cheap (seed + player edits only), with a `gen_version` stamp so existing worlds regenerate byte-identical. Source smoke **418/418** (adds `wd_*` checks incl. `wd_hell_in_all_sizes`); exported Windows artifact green (CI).
 
 - **2026-07-24 — R-09 slice 3: deterministic balance report.** The contract arc now includes a fixed-seed named scenario (`r09_fixed_seed_steward_policy`) that simulates a scripted 4-day policy, records inflow/outflow, completion latency, pressure, reward value, bottlenecks, and proposed tuning, and emits JSON + markdown evidence without mutating balance data. Baselines are tracked in [`docs/reports/r09_balance_report.md`](docs/reports/r09_balance_report.md) and [`docs/reports/r09_balance_report.json`](docs/reports/r09_balance_report.json). Source smoke **403/403**; exported Windows smoke **397/397** + 6 skipped.
 - **2026-07-24 — R-09 slice 2: contract vocabulary + panel.** Contracts now cover stockpile thresholds, built stations, day survival, defeated enemies, and crafted recipes; event-only objectives persist a small accumulator keyed by stable objective id and count only after activation. Rewards route through the existing player inventory or player XP authorities. A new Town Hall **Contracts** panel lists every contract, shows progress/status/reward, and exposes Accept/Claim actions. Source smoke **401/401**; exported Windows smoke **395/395** + 6 skipped.

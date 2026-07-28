@@ -205,6 +205,46 @@ func _run() -> void:
 	player.get_node("Camera2D").reset_smoothing()
 	await _shot("09_underground_midday_torch")
 
+	# World Depths (WD-1..4): the deep world ends in a HELL biome. Stage a
+	# readable pocket near the bottom of the descent -- hellstone walls, obsidian
+	# accents, and a glowing lava pool (lava emits its own light) under the ember
+	# ambient tint the deepest band drives. Hell now scales to every world size.
+	var _hx: int = hall_cell.x
+	var _hsurf: int = int(world.surface.get(_hx, 40))
+	var _hcol: int = maxi(1, (world.height - 2) - _hsurf)
+	var _hy: int = _hsurf + int(0.82 * float(_hcol))
+	for _cy in range(_hy - 5, _hy + 5):
+		for _cx in range(_hx - 9, _hx + 10):
+			if world.block_at(Vector2i(_cx, _cy)) != "air":
+				world.break_block(Vector2i(_cx, _cy))
+	for _cx in range(_hx - 9, _hx + 10):
+		for _fy in [_hy + 3, _hy + 4]:
+			world.cells[Vector2i(_cx, _fy)] = "hellstone"
+			world._set_tile(Vector2i(_cx, _fy), "hellstone")
+	# A broad lava lake to the right; a raised hellstone ledge on the left.
+	for _cx in range(_hx - 4, _hx + 10):
+		world.cells[Vector2i(_cx, _hy + 2)] = "lava"
+		world._set_tile(Vector2i(_cx, _hy + 2), "lava")
+	for _cx in range(_hx - 9, _hx - 3):
+		world.cells[Vector2i(_cx, _hy + 1)] = "hellstone"
+		world._set_tile(Vector2i(_cx, _hy + 1), "hellstone")
+	for _oc in [Vector2i(_hx - 9, _hy), Vector2i(_hx + 9, _hy - 1), Vector2i(_hx + 2, _hy + 3), Vector2i(_hx - 2, _hy + 3)]:
+		world.cells[_oc] = "obsidian"
+		world._set_tile(_oc, "obsidian")
+	# Torches flank the player for readable light; the lava lake glows on its own.
+	for _tx in [_hx - 7, _hx - 3, _hx + 8]:
+		world.cells[Vector2i(_tx, _hy)] = "torch"
+		world._set_tile(Vector2i(_tx, _hy), "torch")
+	world.cells[Vector2i(_hx + 8, _hy - 3)] = "torch"
+	world._set_tile(Vector2i(_hx + 8, _hy - 3), "torch")
+	player.global_position = world.cell_center(Vector2i(_hx - 5, _hy))
+	player.velocity = Vector2.ZERO
+	player.get_node("Camera2D").reset_smoothing()
+	# Cosmetic staging: a readable warm firelight tint (brighter than the true
+	# full-ember gloom) so the hellstone, obsidian, and lava all read in the shot.
+	root.canvas_modulate.color = Color(0.66, 0.38, 0.32)
+	await _shot("19_hell_biome")
+
 	print("SHOTS complete -> user://shots")
 	get_tree().quit(0)
 
