@@ -98,7 +98,9 @@ func _run() -> void:
 	# create_world now stamps gen_version 2 (caves/strata) into real new worlds;
 	# that v2 generation is covered explicitly by the wd_ checks, while mining/
 	# crafting/combat/settlement mechanics are terrain-agnostic and validated here.
-	GameState.current_config = WorldConfig.new(WorldConfig.from_preset("folk_kingdom"))
+	var _base_cfg: Dictionary = WorldConfig.from_preset("folk_kingdom")
+	_base_cfg["size"] = "medium"   # keep the baseline suite fast + v1 (default is now vast)
+	GameState.current_config = WorldConfig.new(_base_cfg)
 	world.setup(12345)
 	root._position_actors()
 	settlement.compute()
@@ -461,10 +463,10 @@ func _run() -> void:
 	var ore_none: int = _count_blocks(world, "ore")
 	_check("ore_abundance_setting", ore_rich > 0 and ore_none == 0,
 		"rich=%d none=%d" % [ore_rich, ore_none])
-	GameState.current_config = WorldConfig.new({"generation": {"ore_seed_offset": 9999}})
+	GameState.current_config = WorldConfig.new({"size": "medium", "generation": {"ore_seed_offset": 9999}})
 	world.setup(777)
 	var ore_cells_alt: Array = _block_cells(world, "ore")
-	GameState.current_config = WorldConfig.new({})
+	GameState.current_config = WorldConfig.new({"size": "medium"})
 	world.setup(777)
 	var ore_cells_default: Array = _block_cells(world, "ore")
 	_check("per_block_seed_variation", ore_cells_alt.size() > 0
@@ -542,7 +544,7 @@ func _run() -> void:
 		and _count_blocks(world, "tree_leaves") == 0,
 		"trunks=%d leaves=%d" % [
 			_count_blocks(world, "tree_trunk"), _count_blocks(world, "tree_leaves")])
-	GameState.current_config = WorldConfig.new({})
+	GameState.current_config = WorldConfig.new({"size": "medium"})
 	world.setup(777)
 	var _fq09r_trunks: int = _count_blocks(world, "tree_trunk")
 	var _fq09r_leaves: int = _count_blocks(world, "tree_leaves")

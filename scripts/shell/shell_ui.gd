@@ -20,7 +20,7 @@ const PlayerVisualScript := preload("res://scripts/player/player_visual.gd")
 
 const PRESET_ORDER := ["peaceful_builder", "folk_kingdom", "tyrants_burden",
 	"dark_frontier", "mythic_survival", "custom"]
-const SIZE_ORDER := ["small", "medium", "large"]
+const SIZE_ORDER := ["small", "medium", "large", "vast"]
 const DIFFICULTY_AXES := [
 	["enemy", "Enemy Difficulty"],
 	["ruler", "Ruler Difficulty"],
