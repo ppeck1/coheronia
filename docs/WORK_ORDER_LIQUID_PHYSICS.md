@@ -1,7 +1,32 @@
 # Liquid Physics — Flowing, Settling Fluids (Work Order)
 
-**Status: LQ-1 + LQ-2 DONE (source-verified). Arc substantially complete —
-water/gas are future data-only adds on this engine.**
+**Status: LQ-1 + LQ-2 (+ visual/feel polish) DONE (source-verified). Arc
+substantially complete — water/gas are future data-only adds on this engine.**
+
+**Polish pass (2026-07-28, operator-driven):** the flat-square-with-a-glowing-
+circle look and a weak-feeling flow were reworked. Lava now renders as a molten
+mottled red-orange body with a hotter top skin (`_make_block_texture` lava
+branch; fill-tile crops inherit it). Liquid lights are now broad, soft, and
+**shadowless** — the shadowed per-cell disc was what made a lake read as a grid of
+circles — with **energy scaled by fill level** (light-by-level, previously
+deferred) plus a slow `_tick_lava_glow` flicker; torch lights unchanged. Flow is
+livelier: lava viscosity 3→2, `FLOW_FRACTION` 0.5→0.6, with `MIN_LEVEL`/`FLOW_EPS`
+tightened to 0.012/0.006 so a settle sheds only ~0.02 mass. Source smoke 427/427;
+captures reviewed (continuous molten liquid, blended glow, no circles).
+
+**Follow-up (2026-07-28):** (1) **Falling render fix** — a submerged cell (same
+liquid directly above in the flow direction) now renders FULL, so a falling
+column reads as a continuous stream instead of a choppy ladder of bottom-anchored
+slivers; only surface cells show their partial level. The sim re-tiles the
+vertical neighbours (`_refresh_column_tiles`) when a cell fills/drains so
+surface/submerged status stays current. (2) **Enemies burn in lava** —
+`simple_threat.apply_environmental_hazard(delta)` samples the body cell (and the
+cell above) each physics frame and accumulates `contact_damage` into whole
+`take_hit` ticks, so a weak enemy dies fast in lava and a tough one lasts a few
+ticks (mirrors the player's paced burn). New smoke `lq_lava_damages_enemy`.
+README refreshed with the new molten lava + two Liquid Physics shots. **Source
+smoke 428/428, 0 skipped; validator PASS; asset audit clean; capsule healthy;
+`diff --check` clean.**
 
 **LQ-2 (partial-fill rendering) shipped to source-green 2026-07-28.** A liquid
 block now builds `LIQUID_FILL_LEVELS` (8) bottom-anchored fill tiles — the full

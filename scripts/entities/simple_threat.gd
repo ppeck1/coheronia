@@ -44,6 +44,11 @@ var drop_chance_override: float = -1.0
 var contact_damage := PLAYER_DAMAGE
 var move_speed := SPEED
 
+## Liquid Physics: accumulates fractional lava-burn damage so a per-frame hazard
+## applies as whole integer hits against the int hp (weak enemies die fast, tough
+## ones last a few ticks) — mirroring the player's paced burn.
+var _hazard_accum := 0.0
+
 ## FQ-13: the thornrat's distinct pressure. When true, the threat hunts the
 ## nearest crop within CROP_SEEK_CELLS and eats it (removing it, no drop) before
 ## falling back to the hall — so it pressures early agriculture, not just the
@@ -116,9 +121,32 @@ func _physics_process(delta: float) -> void:
 	if is_on_wall() and is_on_floor() and not at_hall:
 		velocity.y = JUMP_VELOCITY
 	move_and_slide()
+	apply_environmental_hazard(delta)   # Liquid Physics: lava burns enemies too
+	if not is_inside_tree():
+		return                          # died in lava this frame; skip the rest
 	if player != null and global_position.distance_to(player.global_position) < 18.0:
 		player.take_damage(contact_damage)
 	queue_redraw()
+
+
+## Liquid Physics: environmental contact hazard. A threat standing in a
+## contact-damage block (lava) burns like the player — sampled at the body cell
+## and the cell above — with damage accumulated into whole hits via take_hit, so
+## a weak enemy dies quickly in lava and a tough one lasts a few ticks.
+func apply_environmental_hazard(delta: float) -> void:
+	if world == null:
+		return
+	var base_cell: Vector2i = world.cell_of(global_position)
+	var dmg := 0.0
+	for probe in [base_cell, base_cell + Vector2i(0, -1)]:
+		dmg = maxf(dmg, BlockRegistry.contact_damage(world.block_at(probe)))
+	if dmg <= 0.0:
+		return
+	_hazard_accum += dmg * delta
+	if _hazard_accum >= 1.0:
+		var whole := floori(_hazard_accum)
+		_hazard_accum -= float(whole)
+		take_hit(whole)
 
 
 ## FQ-13: if this threat eats crops and one is in range, steer toward it and eat

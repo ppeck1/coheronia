@@ -988,6 +988,26 @@ func _run() -> void:
 		"buckets=%d half_src=%d full_src=%d (expected full %d)" % [
 			_l2_buckets, _l2_half_src, _l2_full_src, _l2_full_expected])
 
+	# Enemies are affected by lava too: a threat standing in a lava cell burns via
+	# the same contact_damage path. A small delta applies one sub-lethal tick so
+	# the check proves the hazard without a death (which would spill loot).
+	var _lq_threat: Node = root.spawn_enemy_for_test("surface_slime")
+	var _lq_enemy_hurt := false
+	if _lq_threat != null:
+		var _lq_ecell := Vector2i(40, 6)
+		world.cells[_lq_ecell] = "lava"
+		_lq_threat.global_position = world.cell_center(_lq_ecell)
+		var _lq_ehp0: int = _lq_threat.hp
+		_lq_threat.apply_environmental_hazard(0.1)   # 14 dmg * 0.1 -> one 1-hp tick
+		_lq_enemy_hurt = _lq_threat.hp < _lq_ehp0
+		world.cells.erase(_lq_ecell)
+		world.liquid_level.erase(_lq_ecell)
+		world._set_tile(_lq_ecell, "air")
+		if is_instance_valid(_lq_threat):
+			_lq_threat.queue_free()
+	_check("lq_lava_damages_enemy", _lq_enemy_hurt,
+		"threat hp dropped from a lava tick")
+
 	# --- Character traits/roles affect the player ---
 	var default_speed: float = player.effective_mine_speed()
 	player.apply_character({"appearance": "umber", "traits": ["hardy", "miner"], "role": "warden"})

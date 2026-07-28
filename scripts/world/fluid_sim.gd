@@ -218,6 +218,7 @@ func _set_level(cell: Vector2i, kind: String, lvl: float) -> void:
 			_world.deltas[cell] = "air"
 			_world._set_tile(cell, "air")
 			_world.block_changed.emit(cell, "air")
+			_refresh_column_tiles(cell, kind)   # the cell above is now a surface
 		return
 	if was == "air":      # fill empty space with liquid
 		_world.cells[cell] = kind
@@ -225,6 +226,18 @@ func _set_level(cell: Vector2i, kind: String, lvl: float) -> void:
 		_world.liquid_level[cell] = lvl
 		_world._set_tile(cell, kind)
 		_world.block_changed.emit(cell, kind)
+		_refresh_column_tiles(cell, kind)       # the cell below is now submerged
 	elif was == kind:     # same liquid, level-only change -> retile by level (LQ-2)
 		_world.liquid_level[cell] = lvl
 		_world._set_tile(cell, kind)
+
+
+## LQ-2: re-tiles the cells directly above and below `cell` along the flow axis.
+## A cell renders full when submerged (same liquid above) and partial at the
+## surface, so when `cell` gains or loses liquid its vertical neighbours' surface/
+## submerged status changes and must be re-rendered — otherwise a falling column
+## flickers between full and laddered slivers.
+func _refresh_column_tiles(cell: Vector2i, kind: String) -> void:
+	var d := Vector2i(0, BlockRegistry.liquid_flow_dir(kind))
+	for nb: Vector2i in [cell + d, cell - d]:
+		_world._set_tile(nb, _world.cells.get(nb, "air"))

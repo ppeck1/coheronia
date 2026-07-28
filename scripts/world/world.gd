@@ -578,11 +578,14 @@ func _set_tile(cell: Vector2i, block_id: String) -> void:
 	if block_id == "air" or (_source_ids.get(block_id, []) as Array).is_empty():
 		_tilemap.erase_cell(cell)
 	elif BlockRegistry.is_liquid(block_id) and _liquid_source_ids.has(block_id):
-		# LQ-2: pick a bottom-anchored fill tile from the cell's fill level. ceil so
-		# any liquid above MIN_LEVEL shows at least the thinnest sliver; a full cell
-		# (level 1.0, or a generated pool with no entry) picks the top bucket.
+		# LQ-2: a bottom-anchored fill tile chosen by level. A SUBMERGED cell (the
+		# same liquid directly above, in the flow direction) renders FULL so a
+		# column / falling stream reads as one continuous body; only a surface cell
+		# shows its partial level. Without this a falling column looks like a choppy
+		# ladder of bottom-anchored slivers. ceil => any liquid shows >= 1 sliver.
 		var lsids: Array = _liquid_source_ids[block_id]
-		var lvl: float = liquid_level.get(cell, 1.0)
+		var above := cell - Vector2i(0, BlockRegistry.liquid_flow_dir(block_id))
+		var lvl: float = 1.0 if block_at(above) == block_id else float(liquid_level.get(cell, 1.0))
 		var bucket := clampi(int(ceil(lvl * lsids.size())), 1, lsids.size())
 		_tilemap.set_cell(cell, lsids[bucket - 1], Vector2i.ZERO)
 	else:
