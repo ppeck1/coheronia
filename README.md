@@ -83,7 +83,7 @@ Direct link: [prologue](docs/screenshots/clips/coheronia.prologue.07162026.1125.
 
 [![Coheronia Gameplay](https://img.youtube.com/vi/Rn2ZDKkFOBc/maxresdefault.jpg)](https://youtu.be/Rn2ZDKkFOBc)
 
-Watch the latest gameplay demonstration — a ~14-minute unedited playthrough: [https://youtu.be/Rn2ZDKkFOBc](https://youtu.be/Rn2ZDKkFOBc)
+Watch the latest gameplay demonstration: [https://youtu.be/Rn2ZDKkFOBc](https://youtu.be/Rn2ZDKkFOBc)
 
 > The screenshots on this page are the definitive reference for the current interface — the World Depths hell biome with its reworked depth-block art and the leveled lava with rising bubbles (2026-07-29), the multi-size cross-section (2026-07-28), and the native HUD and inventory board, the unified crafting panel, the repair-only Town Hall, the Contracts panel, the rebuilt Character panel, the viewport-relative skill tree, the contour backdrop, and the R-08 visible settlers with ground-drop loot (2026-07-24).
 
