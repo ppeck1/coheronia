@@ -1,5 +1,38 @@
 # Coheronia - Handoff
 
+## Current State (2026-07-29: World Depths & Fluids art — authored 3-tile variant pools)
+
+**NEXT INSTANCE — start here.** The World Depths & Fluids **pass-2 art
+integration** is COMPLETE and committed (`334e690`, NOT pushed). The six World
+Depths blocks — deepstone, bedrock, hellstone, obsidian, water, lava — now ship
+authored pixel art instead of the generated-color fallback: each carries a
+genuine **three-tile in-world pool** (`<id>_01/_02/_03.png`, hashed per cell)
+plus a representative `<id>.png` icon, matching the dirt/stone convention. (The
+earlier promotion wrote `base+_01+_02`, which the `_01.._0N` auto-scan reads as
+only two in-world tiles; this pass corrected it to true 3-tile parity and ran
+the Godot import pass so the new `_03` sidecars ship in exported builds.) The
+bucket item icon was promoted too. `world.gd` now renders liquids from the
+authored variant pool at **every fill level**: `_liquid_fill_textures` crops
+each authored variant to the bottom bucket/N (no synthetic bright surface line),
+`_set_tile` picks a variant per fill level by deterministic (cell+seed) hash,
+and `_liquid_source_ids[liquid]`/`_source_ids[liquid]` became pools. Two smoke
+checks cover it: `lq_partial_fill_tile_by_level` (full source ∈ top-bucket pool)
+and the new `lq_liquid_carries_authored_variant_pool` (lava/water pool = 3).
+
+Verification (all green, 2026-07-29): waited-GUI Godot 4.6.1 smoke **436/436, 0
+failed** (from `9f757cb`); `validate_repo.py` PASS; `capsule_doctor --profile
+public_repo` healthy; `check_links.py` PASS; `git diff --check` clean. Godot
+`--headless --import` regenerated the `.import` sidecars for all six new `_03`
+tiles (export-correctness). Evidence:
+`.project/runs/20260729_coheronia_wdf2_fluid_variant_art.md`.
+
+Smoke lineage: 419/419 (World Depths arc) → 435/435 (Liquid Physics LQ-1..3,
+merged `9f757cb`) → **436/436** (this fluid-art pass, +1 check). Exported Windows
+smoke NOT re-run this pass. **Push control is separate — not pushed; awaiting an
+explicit "push".** Next code arc: unselected.
+
+---
+
 ## Current State (2026-07-24: R-00..R-05 + R-07 + R-08 done; R-09 complete)
 
 **NEXT INSTANCE — start here.** R-09 (Contracts + balance) is COMPLETE per

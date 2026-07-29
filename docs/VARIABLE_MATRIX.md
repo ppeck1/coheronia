@@ -12,12 +12,19 @@ Contracts + balance (R-09 slices 1-3, 2026-07-24): a data-driven directed-goal
 observation, event-only accumulators keyed by objective id, XP/item reward
 routes, a player-facing Contracts panel, and a deterministic evidence-only
 balance report — see the *Contracts (directed goals)* row.
+World Depths & Fluids art (2026-07-29): the six depth/fluid blocks (deepstone,
+bedrock, hellstone, obsidian, water, lava) gained authored `_01/_02/_03` variant
+pools; `world.gd`'s liquid rendering now keeps a per-variant source-id pool at
+each fill level (`_liquid_source_ids[liquid]` is `Array[fill-level] → Array[variant
+source id]`; `_source_ids[liquid]` is the full-tile variant pool) — see the
+*World Depths fluid/variant art* row.
 
 ## Authority Surfaces
 
 | Surface | Authority | Consumed by |
 |---|---|---|
 | Blocks | `data/blocks.json` | `BlockRegistry`, `world`, `player`, `settlement_model`, `hud` |
+| World Depths fluid/variant art (2026-07-29) | authored tiles under `art/generated/blocks/` per the dirt/stone convention: `<id>_01/_02/_03.png` = in-world pool (auto-scanned by `BlockRegistry.visual_variant_textures`, hashed per cell), `<id>.png` = representative icon (single-image `visual_texture`), for deepstone/bedrock/hellstone/obsidian/water/lava (+ `items/bucket.png`). Authoring source + review package in `art/source_templates/world_depths_fluids_pass2/` via `scripts/art/build_world_depths_fluids_pass2.py`. | `world._block_textures` builds the solid pool; `world._liquid_fill_textures` crops each authored variant to the bottom bucket/N so `_liquid_source_ids[liquid]` holds `Array[fill level] → Array[variant source id]`; `world._set_tile` picks a fill-level variant by deterministic `hash(cell.x, cell.y, world_seed)`; `_source_ids[liquid]` = the full-tile variant pool. Smoke: `lq_partial_fill_tile_by_level` (rendered full source ∈ top-bucket pool) + `lq_liquid_carries_authored_variant_pool` (pool size == authored variant count, ≥2). Presentation only; no save/gameplay change. |
 | Recipes | `data/recipes.json` | `player`, `town_hall` |
 | Craft stations (FQ-11) | `data/recipes.json` `stations` (workbench/furnace/anvil: prereq + build_cost) + station recipes (`station`, `output_to`, `equip_slots`) | `BlockRegistry.station_defs/station_def/recipes_for_station`; `town_hall.build_station` (spends stockpile, prereq-gated, `stations_built` saved in to_dict) and `town_hall.craft_station` (inputs from stockpile; smelted ingots `output_to` stockpile, anvil gear equips with empty-slot+fit guard before consuming); since R-07 the unified crafting panel (`scripts/ui/craft_panel.gd`, opened with **C**) lists build/craft across every station and the Town Hall panel keeps only deposit/status/Repair; metal gear is gated ore -> furnace ingot -> anvil (validator-enforced: no anvil recipe consumes raw ore) |
 | Farming (FQ-12) | `farm_soil`/`crop_seedling`/`crop_ripe` blocks in `data/blocks.json` (crops `requires_support`, non-solid, non-placeable; `crop_ripe` drops food + a seed) + `craft_seeds` recipe (`data/recipes.json`, food -> seeds) | `player.try_farm` (one key `farm_action`/G: tills dirt/grass via `world.till_soil`, plants a seed on `farm_soil` via `world.plant_crop`, consuming one `crop_seeds`); `world._tick_crop_growth` ripens seedling -> ripe after `CROP_GROW_SECONDS` on tilled soil, removes unsupported crops (never floats, never regrows into invalid cells), timers in `crop_growth` persist via `serialize_crop_growth`/`parse_crop_growth` in `save_manager`; `world.farm_tile_count()` -> `game_root.summary()` food-yard score |
