@@ -27,6 +27,7 @@ const RISE_SPEED := 11.0
 const BUBBLES_PER_CELL_PER_SEC := 0.22
 const MAX_BUBBLES := 48
 const POP_TIME := 0.30                  # burst animation length (seconds)
+const SPARK_GRAVITY := 120.0            # px/sec^2 pull on splash droplets
 const MAX_RISE_CELLS := 12              # deepest a bubble can spawn below the surface
 
 const CORE := Color(1.0, 0.74, 0.30)    # hot bubble centre
@@ -126,6 +127,7 @@ func _advance(delta: float) -> void:
 	for b in _bubbles:
 		if b["pop"] >= 0.0:
 			b["pop"] += delta
+			_advance_sparks(b, delta)
 			if b["pop"] < POP_TIME:
 				kept.append(b)
 			continue
@@ -134,24 +136,54 @@ func _advance(delta: float) -> void:
 		b["x"] += sin(b["wob_phase"]) * b["wob_amp"] * delta
 		# Lava drained out from under it, or it broke the surface -> burst.
 		if _world.block_at(_world.cell_of(Vector2(b["x"], b["y"]))) != "lava":
-			b["pop"] = 0.0
+			_burst(b)
 		elif b["y"] <= b["surf_y"]:
 			b["y"] = b["surf_y"]
-			b["pop"] = 0.0
+			_burst(b)
 		kept.append(b)
 	_bubbles = kept
+
+
+## Start the burst and throw off a little splash of molten droplets (sparks) that
+## arc up-and-out and fall back under gravity while the ring expands.
+func _burst(b: Dictionary) -> void:
+	b["pop"] = 0.0
+	var sparks: Array = []
+	for _i in range(_rng.randi_range(3, 6)):
+		var ang := -PI / 2.0 + _rng.randf_range(-1.05, 1.05)   # mostly upward
+		var spd := _rng.randf_range(16.0, 40.0)
+		sparks.append({
+			"x": b["x"], "y": b["y"],
+			"vx": cos(ang) * spd, "vy": sin(ang) * spd,
+			"r": _rng.randf_range(0.5, 1.1),
+		})
+	b["sparks"] = sparks
+
+
+func _advance_sparks(b: Dictionary, delta: float) -> void:
+	if not b.has("sparks"):
+		return
+	for s in b["sparks"]:
+		s["vy"] += SPARK_GRAVITY * delta
+		s["x"] += s["vx"] * delta
+		s["y"] += s["vy"] * delta
 
 
 func _draw() -> void:
 	for b in _bubbles:
 		var pos := Vector2(b["x"], b["y"])
 		if b["pop"] >= 0.0:
-			# Burst: a quick expanding, fading ring plus a soft flash.
+			# Burst: a quick expanding, fading ring, a soft flash, and a splash of
+			# molten droplets arcing off the surface.
 			var f: float = b["pop"] / POP_TIME
 			var rr: float = b["r"] * (1.0 + f * 2.4)
 			var a: float = 1.0 - f
 			draw_circle(pos, rr, Color(EDGE.r, EDGE.g, EDGE.b, a * 0.45))
 			draw_arc(pos, rr, 0.0, TAU, 14, Color(CORE.r, CORE.g, CORE.b, a), 0.7, true)
+			if b.has("sparks"):
+				for s in b["sparks"]:
+					draw_circle(Vector2(s["x"], s["y"]), s["r"] * (1.0 - f * 0.4),
+						Color(HILITE.r, HILITE.g, HILITE.b, a))
 		else:
 			var rr: float = b["r"]
 			draw_circle(pos, rr + 0.6, Color(EDGE.r, EDGE.g, EDGE.b, 0.85))

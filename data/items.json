@@ -7,6 +7,8 @@
     "grass": { "color": "4d9e40", "description": "Surface turf. Drops dirt." },
     "wood": { "color": "9e7338", "description": "Building material and fuel." },
     "stone": { "color": "73757f", "description": "Sturdy building material." },
+    "hellstone": { "display_name": "Hellstone", "color": "b5471c", "description": "Ember-veined rock from the deep hell layer. Needs a tier-2 pick." },
+    "obsidian": { "display_name": "Obsidian", "color": "3a3352", "description": "Glassy volcanic stone, forged where lava meets water. Needs a tier-2 pick." },
     "ore": { "color": "b89e59", "description": "Raw ore. Needs a tier-2 pick." },
     "coal": { "display_name": "Coal", "color": "2e2e33", "description": "Fuel for future smelting." },
     "copper_ore": { "display_name": "Copper Ore", "color": "c76f47", "description": "A common metal ore." },

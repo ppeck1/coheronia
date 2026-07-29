@@ -211,6 +211,14 @@ func _run() -> void:
 	_check("hardness_orders_mining_time", dirt_frames < wood_frames and wood_frames < stone_frames,
 		"frames dirt=%d trunk=%d stone=%d" % [dirt_frames, wood_frames, stone_frames])
 
+	# The deep special blocks drop THEMSELVES (their own item), not generic stone.
+	var _hs_drop: Dictionary = BlockRegistry.drops("hellstone")
+	var _ob_drop: Dictionary = BlockRegistry.drops("obsidian")
+	_check("wdf_hellstone_obsidian_drop_self",
+		int(_hs_drop.get("hellstone", 0)) == 1 and not _hs_drop.has("stone")
+			and int(_ob_drop.get("obsidian", 0)) == 1 and not _ob_drop.has("stone"),
+		"hellstone=%s obsidian=%s" % [str(_hs_drop), str(_ob_drop)])
+
 	# --- Tool tier progression (forge at Town Hall) ---
 	var ore_cell: Variant = _find_block(world, hall_cell, "ore", 2)
 	_check("ore_exists_in_world", ore_cell != null)

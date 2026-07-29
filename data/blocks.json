@@ -387,7 +387,7 @@
       "hardness": 2.4,
       "required_tool_tier": 2,
       "drops": {
-        "stone": 1
+        "hellstone": 1
       },
       "is_placeable": false,
       "is_solid": true,
@@ -404,7 +404,7 @@
       "hardness": 3.6,
       "required_tool_tier": 2,
       "drops": {
-        "stone": 1
+        "obsidian": 1
       },
       "is_placeable": false,
       "is_solid": true,

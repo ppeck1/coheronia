@@ -12,8 +12,8 @@ Review the numbered sheets in `review_sheets/` individually. They are intentiona
 | --- | --- | --- |
 | Deepstone | pressure layers / metamorphic / mineral dense pool | `deepstone_01.png`, `deepstone_02.png`, `deepstone_03.png` (+ `deepstone.png` icon) |
 | Bedrock | fused plates / sealed masses / ancient anchor pool | `bedrock_01.png`, `bedrock_02.png`, `bedrock_03.png` (+ `bedrock.png` icon) |
-| Hellstone | ember fissures / iron layers / heat pockets pool | `hellstone_01.png`, `hellstone_02.png`, `hellstone_03.png` (+ `hellstone.png` icon) |
-| Obsidian | conchoidal / blue facets / violet shards pool | `obsidian_01.png`, `obsidian_02.png`, `obsidian_03.png` (+ `obsidian.png` icon) |
+| Hellstone | SUPERSEDED — reauthored as mottled ember-veined rock by `scripts/art/gen_depth_rock_blocks.py` | `hellstone_01/_02/_03.png` (+ `hellstone.png` icon) |
+| Obsidian | SUPERSEDED — reauthored as mottled glassy-facet rock by `scripts/art/gen_depth_rock_blocks.py` | `obsidian_01/_02/_03.png` (+ `obsidian.png` icon) |
 | Water | clear depth / bank reflection / cold pool | `water_01.png`, `water_02.png`, `water_03.png` (+ `water.png` icon) |
 | Lava | sparse dark-slurry pool | `lava_01.png`, `lava_02.png`, `lava_03.png` (+ `lava.png` icon) |
 | Bucket | `bucket_empty_B` | `art/generated/items/bucket.png` |
