@@ -39,7 +39,8 @@ var _tilemap: TileMapLayer
 var _fluid: RefCounted              # LQ-1: FluidSim, owns the active/sleep set + step logic
 var _source_ids: Dictionary = {}    # block_id -> Array of tileset source ids (FQ-09V: one per variant)
 # LQ-2: liquid block_id -> Array of LIQUID_FILL_LEVELS bottom-anchored fill-tile
-# source ids (bucket 1 = thinnest .. last = full). _set_tile picks by fill level.
+# source-id pools (bucket 1 = thinnest .. last = full). Each fill level retains
+# all authored variants so _set_tile can pick by fill level and deterministic cell hash.
 var _liquid_source_ids: Dictionary = {}
 var _lights: Dictionary = {}        # Vector2i -> PointLight2D
 var _light_texture: GradientTexture2D
@@ -588,7 +589,11 @@ func _set_tile(cell: Vector2i, block_id: String) -> void:
 		var above := cell - Vector2i(0, BlockRegistry.liquid_flow_dir(block_id))
 		var lvl: float = 1.0 if block_at(above) == block_id else float(liquid_level.get(cell, 1.0))
 		var bucket := clampi(int(ceil(lvl * lsids.size())), 1, lsids.size())
-		_tilemap.set_cell(cell, lsids[bucket - 1], Vector2i.ZERO)
+		var fill_sids: Array = lsids[bucket - 1]
+		var idx := 0
+		if fill_sids.size() > 1:
+			idx = posmod(hash(Vector3i(cell.x, cell.y, world_seed)), fill_sids.size())
+		_tilemap.set_cell(cell, fill_sids[idx], Vector2i.ZERO)
 	else:
 		# FQ-09V: blocks with a variant pool pick one deterministically from
 		# world seed + cell position — the same world always renders the same
@@ -657,19 +662,21 @@ func _build_tileset() -> TileSet:
 	for block_id in BlockRegistry.blocks:
 		if block_id == "air":
 			continue
-		# LQ-2: a liquid gets LIQUID_FILL_LEVELS bottom-anchored fill tiles (chosen
-		# by level in _set_tile) instead of the variant pool. Liquids are non-solid
-		# and don't block light (validated), so no collision/occluder is attached.
+		# LQ-2: every liquid fill level retains the authored variant pool. Liquids
+		# are non-solid and don't block light, so no collision/occluder is attached.
 		if BlockRegistry.is_liquid(block_id):
 			var lsids: Array = []
-			for tex: ImageTexture in _liquid_fill_textures(block_id, t):
-				var lsrc := TileSetAtlasSource.new()
-				lsrc.texture = tex
-				lsrc.texture_region_size = Vector2i(t, t)
-				lsrc.create_tile(Vector2i.ZERO)
-				lsids.append(ts.add_source(lsrc))
+			for fill_textures: Array in _liquid_fill_textures(block_id, t):
+				var fill_sids: Array = []
+				for tex: ImageTexture in fill_textures:
+					var lsrc := TileSetAtlasSource.new()
+					lsrc.texture = tex
+					lsrc.texture_region_size = Vector2i(t, t)
+					lsrc.create_tile(Vector2i.ZERO)
+					fill_sids.append(ts.add_source(lsrc))
+				lsids.append(fill_sids)
 			_liquid_source_ids[block_id] = lsids
-			_source_ids[block_id] = [lsids[-1]]   # full tile for generic lookups/masks
+			_source_ids[block_id] = lsids[-1]   # full-tile pool for generic lookups/masks
 			continue
 		# FQ-09V: one atlas source per variant texture (usually just one —
 		# the single-image/fallback path). Every variant of a block carries
@@ -711,29 +718,31 @@ func _block_textures(block_id: String, t: int) -> Array:
 
 
 ## LQ-2: the ordered bottom-anchored partial-fill textures for a liquid block —
-## bucket 1 (thinnest) .. LIQUID_FILL_LEVELS (full). Each is the full liquid look
-## (art or the generated color from _make_block_texture) cropped to the bottom
-## bucket/N of the tile, with a brighter surface line on partial fills so a pour
-## or a settling puddle reads at 16px. The full bucket is the uncropped tile, so a
-## brim-full pool looks exactly as it did in LQ-1.
+## bucket 1 (thinnest) .. LIQUID_FILL_LEVELS (full). Every authored full-tile
+## variant is cropped directly to the bottom bucket/N of the tile. A partial fill
+## gets no synthetic brighter top line, preserving the material's own values.
 func _liquid_fill_textures(block_id: String, t: int) -> Array:
-	var base: Image = _make_block_texture(block_id, t).get_image()
+	var bases: Array = []
+	for variant: Texture2D in BlockRegistry.visual_variant_textures("blocks", block_id):
+		bases.append(_normalize_art(variant as ImageTexture, t).get_image())
+	if bases.is_empty():
+		bases.append(_make_block_texture(block_id, t).get_image())
 	var out: Array = []
 	for bucket in range(1, LIQUID_FILL_LEVELS + 1):
-		if bucket == LIQUID_FILL_LEVELS:
-			out.append(ImageTexture.create_from_image(base))
-			continue
-		var fill_h := clampi(roundi(float(bucket) / float(LIQUID_FILL_LEVELS) * float(t)), 1, t)
-		var top := t - fill_h
-		var img := Image.create(t, t, false, Image.FORMAT_RGBA8)
-		img.fill(Color(0, 0, 0, 0))
-		for y in range(top, t):
-			for x in range(t):
-				img.set_pixel(x, y, base.get_pixel(x, y))
-		# Brighter surface line at the top of the fill so the liquid level is legible.
-		for x in range(t):
-			img.set_pixel(x, top, base.get_pixel(x, top).lightened(0.35))
-		out.append(ImageTexture.create_from_image(img))
+		var fill_textures: Array = []
+		for base: Image in bases:
+			if bucket == LIQUID_FILL_LEVELS:
+				fill_textures.append(ImageTexture.create_from_image(base))
+				continue
+			var fill_h := clampi(roundi(float(bucket) / float(LIQUID_FILL_LEVELS) * float(t)), 1, t)
+			var top := t - fill_h
+			var img := Image.create(t, t, false, Image.FORMAT_RGBA8)
+			img.fill(Color(0, 0, 0, 0))
+			for y in range(top, t):
+				for x in range(t):
+					img.set_pixel(x, y, base.get_pixel(x, y))
+			fill_textures.append(ImageTexture.create_from_image(img))
+		out.append(fill_textures)
 	return out
 
 

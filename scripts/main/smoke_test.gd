@@ -976,7 +976,10 @@ func _run() -> void:
 	world.liquid_level[_l2_cell] = 1.0
 	world._set_tile(_l2_cell, "lava")
 	var _l2_full_src: int = world._tilemap.get_cell_source_id(_l2_cell)
-	var _l2_full_expected: int = (world._liquid_source_ids["lava"] as Array)[_l2_buckets - 1]
+	# Each fill level now carries a per-variant source-id pool (deterministic
+	# per-cell pick), so the rendered full-cell source is a MEMBER of the top
+	# bucket's pool rather than a single fixed id.
+	var _l2_full_pool: Array = (world._liquid_source_ids["lava"] as Array)[_l2_buckets - 1]
 	if _l2_prev == "air":
 		world.cells.erase(_l2_cell)
 	else:
@@ -984,9 +987,23 @@ func _run() -> void:
 	world.liquid_level.erase(_l2_cell)
 	world._set_tile(_l2_cell, _l2_prev if _l2_prev != "air" else "air")
 	_check("lq_partial_fill_tile_by_level",
-		_l2_buckets >= 4 and _l2_half_src != _l2_full_src and _l2_full_src == _l2_full_expected,
-		"buckets=%d half_src=%d full_src=%d (expected full %d)" % [
-			_l2_buckets, _l2_half_src, _l2_full_src, _l2_full_expected])
+		_l2_buckets >= 4 and _l2_half_src != _l2_full_src and _l2_full_src in _l2_full_pool,
+		"buckets=%d half_src=%d full_src=%d (full pool %s)" % [
+			_l2_buckets, _l2_half_src, _l2_full_src, str(_l2_full_pool)])
+
+	# World-Depths fluid art: every liquid fill level now carries the block's
+	# authored variant pool (deterministic per-cell pick), so the top bucket's
+	# source-id pool matches the authored block-variant count and holds >1 tile.
+	var _lv_lava_variants: int = BlockRegistry.visual_variant_textures("blocks", "lava").size()
+	var _lv_water_variants: int = BlockRegistry.visual_variant_textures("blocks", "water").size()
+	var _lv_water_pool: Array = (world._liquid_source_ids.get("water", []) as Array)
+	var _lv_water_full: Array = _lv_water_pool[_lv_water_pool.size() - 1] if not _lv_water_pool.is_empty() else []
+	_check("lq_liquid_carries_authored_variant_pool",
+		_lv_lava_variants >= 2 and _l2_full_pool.size() == _lv_lava_variants
+			and _lv_water_full.size() == _lv_water_variants and _lv_water_variants >= 2,
+		"lava variants=%d full_pool=%d / water variants=%d full_pool=%d" % [
+			_lv_lava_variants, _l2_full_pool.size(),
+			_lv_water_variants, _lv_water_full.size()])
 
 	# Enemies are affected by lava too: a threat standing in a lava cell burns via
 	# the same contact_damage path. A small delta applies one sub-lethal tick so
