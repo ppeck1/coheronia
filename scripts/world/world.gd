@@ -37,6 +37,7 @@ var _lava_glow_phase := 0.0         # LQ-2b: shared flicker phase for molten lig
 
 var _tilemap: TileMapLayer
 var _fluid: RefCounted              # LQ-1: FluidSim, owns the active/sleep set + step logic
+var _lava_bubbles: Node2D          # LQ-2c: presentation-only rising-bubble overlay
 var _source_ids: Dictionary = {}    # block_id -> Array of tileset source ids (FQ-09V: one per variant)
 # LQ-2: liquid block_id -> Array of LIQUID_FILL_LEVELS bottom-anchored fill-tile
 # source-id pools (bucket 1 = thinnest .. last = full). Each fill level retains
@@ -59,6 +60,7 @@ var _sky_line: Dictionary = {}
 const BackdropScript := preload("res://scripts/world/world_backdrop.gd")
 const ItemDropScript := preload("res://scripts/entities/item_drop.gd")   # R-08 slice 3
 const FluidSimScript := preload("res://scripts/world/fluid_sim.gd")      # LQ-1 liquid physics
+const LavaBubblesScript := preload("res://scripts/world/lava_bubbles.gd") # LQ-2c rising-bubble overlay
 const WALL_MATERIALS := {"dirt_wall": "dirt", "stone_wall": "stone"}
 
 const BLOCK_COLORS := {
@@ -107,6 +109,12 @@ func _ready() -> void:
 	_tilemap.name = "Blocks"
 	_tilemap.tile_set = _build_tileset()
 	add_child(_tilemap)
+	# LQ-2c: bubble overlay is added AFTER the Blocks layer so it draws over the
+	# lava tiles at the same z; it only decorates and never mutates world state.
+	_lava_bubbles = LavaBubblesScript.new()
+	_lava_bubbles.name = "LavaBubbles"
+	add_child(_lava_bubbles)
+	_lava_bubbles.setup(self)
 	_fluid = FluidSimScript.new(self)
 
 
@@ -117,6 +125,8 @@ func _process(delta: float) -> void:
 	if not fluid_paused and _fluid != null:
 		_fluid.tick(delta)
 	_tick_lava_glow(delta)   # LQ-2b: slow flicker on molten lights
+	if _lava_bubbles != null:
+		_lava_bubbles.tick(delta)   # LQ-2c: rising/bursting lava bubbles
 
 
 ## LQ-2b: advances the shared lava flicker phase and refreshes each liquid
@@ -191,6 +201,8 @@ func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionar
 	for cell in _lights.keys():
 		_lights[cell].queue_free()
 	_lights.clear()
+	if _lava_bubbles != null:
+		_lava_bubbles.clear()   # LQ-2c: drop stale bubbles before regen
 	var config: WorldConfig = GameState.current_config
 	if config == null:
 		config = WorldConfig.new()

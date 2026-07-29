@@ -278,6 +278,33 @@ func _run() -> void:
 	world.fluid_settle(800)                     # settled: a flat partial pool
 	await _shot("21_lava_flow_settled")
 
+	# LQ-2c: rising-bubble overlay. A wide OPEN lava pool (top exposed) so bubbles
+	# nucleate along the floor, drift slowly upward, and burst at the surface. The
+	# fluid stays paused (a still, brim-full pool); we pump a stretch of idle
+	# frames so the overlay populates a spread of bubbles at different heights for
+	# the still. Cosmetic staging only — the tour never saves this state.
+	var _bx: int = _fx
+	var _by: int = _fy
+	for _cy in range(_by - 8, _by + 1):        # carve a wider, taller chamber
+		for _cx in range(_bx - 7, _bx + 8):
+			if world.block_at(Vector2i(_cx, _cy)) != "air":
+				world.break_block(Vector2i(_cx, _cy))
+	for _cx in range(_bx - 7, _bx + 8):        # basin floor
+		world.cells[Vector2i(_cx, _by)] = "stone"; world._set_tile(Vector2i(_cx, _by), "stone")
+	for _cy in range(_by - 8, _by + 1):        # basin walls
+		world.cells[Vector2i(_bx - 7, _cy)] = "stone"; world._set_tile(Vector2i(_bx - 7, _cy), "stone")
+		world.cells[Vector2i(_bx + 7, _cy)] = "stone"; world._set_tile(Vector2i(_bx + 7, _cy), "stone")
+	for _cy in range(_by - 5, _by):            # a deep OPEN lava pool (top exposed)
+		for _cx in range(_bx - 6, _bx + 7):
+			world.cells[Vector2i(_cx, _cy)] = "lava"; world._set_tile(Vector2i(_cx, _cy), "lava")
+	player.global_position = world.cell_center(Vector2i(_bx, _by - 3))
+	player.velocity = Vector2.ZERO
+	player.get_node("Camera2D").reset_smoothing()
+	for _f in range(120):                      # let the overlay populate rising bubbles
+		await get_tree().process_frame
+	await _shot("22_lava_bubbles")
+	world.fluid_paused = false
+
 	# LQ-3 water: regenerate a v3 world and frame a REAL generated surface pond.
 	GameState.current_config = WorldConfig.new({"size": "medium", "seed": 2024, "gen_version": 3})
 	world.setup(2024)
