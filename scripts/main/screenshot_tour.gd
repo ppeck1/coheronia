@@ -349,6 +349,36 @@ func _run() -> void:
 		world.fluid_step()
 	await _shot("24_lava_water_obsidian")
 
+	# Swim + breath: submerge the player deep inside a large water body so the
+	# frame reads as underwater and the breath gauge is mid-drain (the HUD bar
+	# only shows below full). Cosmetic staging — breath is set directly.
+	world.fluid_paused = true
+	var _wx0 := hall_cell.x + 30
+	var _wtop := int(world.surface.get(_wx0, 30)) + 2   # waterline a touch below grade
+	var _wbot := _wtop + 18
+	var _whalf := 16
+	for _cy in range(_wtop - 2, _wbot + 2):             # carve the basin (+ air above line)
+		for _cx in range(_wx0 - _whalf - 1, _wx0 + _whalf + 2):
+			if world.block_at(Vector2i(_cx, _cy)) != "air":
+				world.break_block(Vector2i(_cx, _cy))
+	for _cy in range(_wtop, _wbot + 1):                 # stone shell, water fill
+		for _cx in range(_wx0 - _whalf, _wx0 + _whalf + 1):
+			var _edge := _cx <= _wx0 - _whalf or _cx >= _wx0 + _whalf or _cy >= _wbot
+			var _id := "stone" if _edge else "water"
+			world.cells[Vector2i(_cx, _cy)] = _id
+			world._set_tile(Vector2i(_cx, _cy), _id)
+	root.time_of_day = 0.35
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	player.global_position = world.cell_center(Vector2i(_wx0, _wtop + 6))
+	player.velocity = Vector2.ZERO
+	player.breath = player.max_breath() * 0.4
+	hud.update_breath(player.breath, player.max_breath())
+	if hud._goal_panel != null:                 # let the breath gauge read cleanly
+		hud._goal_panel.visible = false
+	player.get_node("Camera2D").reset_smoothing()
+	await _shot("26_swim_breath")
+
 	print("SHOTS complete -> user://shots")
 	get_tree().quit(0)
 
