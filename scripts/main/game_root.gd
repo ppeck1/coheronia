@@ -136,6 +136,7 @@ func _ready() -> void:
 	hud.update_inventory()
 	hud.update_health(player.health, player.max_health)
 	hud.update_attunement(player.attunement, player.max_attunement())
+	hud.update_breath(player.breath, player.max_breath())
 	_refresh_hud_progression()
 	log_event("Welcome to Coheronia. Shelter and light the Town Hall.")
 	hud.set_save_hint(save_manager.has_save())
@@ -469,6 +470,7 @@ func _wire_signals() -> void:
 	player.items_picked_up.connect(hud.notify_pickup)   # R-08 slice 3: pickup toast
 	player.health_changed.connect(hud.update_health)
 	player.attunement_changed.connect(hud.update_attunement)
+	player.breath_changed.connect(hud.update_breath)
 	player.mined.connect(_on_player_mined)
 	player.crafted.connect(_on_player_crafted)
 	player.placed.connect(_on_player_placed)

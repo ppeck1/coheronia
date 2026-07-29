@@ -202,6 +202,37 @@ func liquid_surface_sheen(block_id: String) -> float:
 	return clampf(float(get_block(block_id).get("liquid_surface_sheen", 0.0)), 0.0, 1.0)
 
 
+## Submerged-movement/breath tuning (per liquid, so each liquid can feel
+## different — thick lava crawls, water lets you swim). All read from block data
+## with sensible fallbacks, so a liquid that declares none behaves like water.
+
+## Horizontal move-speed multiplier applied while the player's body centre is
+## below this liquid's surface (0..1; lower = thicker).
+func liquid_move_mult(block_id: String) -> float:
+	return clampf(float(get_block(block_id).get("liquid_move_mult", 0.5)), 0.05, 1.0)
+
+## Fraction of gravity that still applies while submerged (buoyancy). <1 lets the
+## player float/rise so they can break the surface again.
+func liquid_gravity_mult(block_id: String) -> float:
+	return clampf(float(get_block(block_id).get("liquid_gravity_mult", 0.4)), 0.0, 1.0)
+
+## Terminal sink speed (px/s, downward) while submerged — liquids cap the fall.
+func liquid_sink_speed(block_id: String) -> float:
+	return maxf(0.0, float(get_block(block_id).get("liquid_sink_speed", 90.0)))
+
+## Upward swim speed (px/s) when the jump/up input is held while submerged.
+func liquid_swim_up_speed(block_id: String) -> float:
+	return maxf(0.0, float(get_block(block_id).get("liquid_swim_up_speed", 110.0)))
+
+## Breath drained per second while the player's head is under this liquid.
+func liquid_breath_drain(block_id: String) -> float:
+	return maxf(0.0, float(get_block(block_id).get("liquid_breath_drain", 10.0)))
+
+## Health lost per second once breath is empty and the head is still submerged.
+func liquid_drown_damage(block_id: String) -> float:
+	return maxf(0.0, float(get_block(block_id).get("liquid_drown_damage", 6.0)))
+
+
 func blocks_light(block_id: String) -> bool:
 	return bool(get_block(block_id).get("blocks_light", false))
 

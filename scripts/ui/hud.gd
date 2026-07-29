@@ -21,6 +21,10 @@ var _health_label: Label
 var _health_bar: ProgressBar
 var _attunement_label: Label
 var _attunement_bar: ProgressBar
+## Breath gauge — a lightweight standalone overlay built lazily on first update,
+## shown only while the air pool is below full (submerged / recovering).
+var _breath_root: Control
+var _breath_bar: ProgressBar
 var _low_health_active := false
 var _bars: Dictionary = {}       # "coherence"/"load"/"resilience" -> ProgressBar
 var _status_label: Label
@@ -3676,6 +3680,65 @@ func update_attunement(attunement: float, max_attunement: float) -> void:
 		var full: bool = max_attunement > 0.0 and attunement >= max_attunement - 0.001
 		_attunement_core.self_modulate = Color(1.0, 1.0, 1.0, 1.0) if full \
 			else Color(0.4, 0.65, 0.85, 0.5)
+
+
+## Breath gauge: a small air-supply bar that only appears while breath is below
+## full (i.e. while submerged or still recovering). Kept intentionally simple —
+## a first-pass overlay independent of the authored vessel chrome. Turns from
+## cyan to warning-red as the air runs low.
+func update_breath(breath: float, max_breath: float) -> void:
+	if _breath_bar == null:
+		_build_breath_gauge()
+	var cap := maxf(1.0, max_breath)
+	_breath_bar.max_value = cap
+	_breath_bar.value = breath
+	_breath_root.visible = breath < cap - 0.01
+	var frac: float = clampf(breath / cap, 0.0, 1.0)
+	_breath_bar.modulate = Color(0.45, 0.75, 1.0) if frac > 0.25 else Color(1.0, 0.4, 0.35)
+
+
+func _build_breath_gauge() -> void:
+	# Anchored top-centre but dropped below the goal panel's band so the two
+	# never overlap; a dark rounded plate carries the label + bar so the gauge
+	# reads clearly over bright water. Widths are fixed (no layout container).
+	const PLATE_W := 196.0
+	const PLATE_H := 30.0
+	const PLATE_TOP := 84.0
+	_breath_root = Control.new()
+	_breath_root.name = "BreathGauge"
+	_breath_root.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_breath_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_breath_root.visible = false
+	_breath_root.z_index = 40
+	add_child(_breath_root)
+	var plate := Panel.new()
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.position = Vector2(-PLATE_W * 0.5, PLATE_TOP)
+	plate.custom_minimum_size = Vector2(PLATE_W, PLATE_H)
+	plate.size = Vector2(PLATE_W, PLATE_H)
+	var plate_style := StyleBoxFlat.new()
+	plate_style.bg_color = Color(0.03, 0.06, 0.10, 0.82)
+	plate_style.border_color = Color(0.35, 0.6, 0.85, 0.9)
+	plate_style.set_border_width_all(1)
+	plate_style.set_corner_radius_all(3)
+	plate_style.set_content_margin_all(0)
+	plate.add_theme_stylebox_override("panel", plate_style)
+	_breath_root.add_child(plate)
+	var label := Label.new()
+	label.text = "Breath"
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", Color(0.82, 0.93, 1.0))
+	label.position = Vector2(-PLATE_W * 0.5 + 8.0, PLATE_TOP + 6.0)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_breath_root.add_child(label)
+	_breath_bar = ProgressBar.new()
+	_breath_bar.name = "BreathBar"
+	_breath_bar.show_percentage = false
+	_breath_bar.custom_minimum_size = Vector2(120.0, 14.0)
+	_breath_bar.size = Vector2(120.0, 14.0)
+	_breath_bar.position = Vector2(-PLATE_W * 0.5 + 66.0, PLATE_TOP + 8.0)
+	_breath_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_breath_root.add_child(_breath_bar)
 
 
 ## FQ-19: one-shot vessel overlay effect — set the tint synchronously (so

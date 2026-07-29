@@ -5,6 +5,7 @@ extends CharacterBody2D
 signal inventory_changed
 signal health_changed(health: float, max_health: float)
 signal attunement_changed(attunement: float, max_attunement: float)
+signal breath_changed(breath: float, max_breath: float)   # underwater air supply
 signal attunement_pulsed   # FQ-09U3: fires only when a pulse actually casts
 signal mined(block_id: String, drops: Dictionary)
 signal items_picked_up(items: Dictionary)   # R-08 slice 3: {item_id: count} swept off the ground
@@ -34,6 +35,14 @@ const DEFAULT_PASSIVE_REGEN_PER_SEC := 1.0
 const DEFAULT_SAFE_RADIUS_PX := 160.0
 const DEFAULT_COLLAPSE_LOSS_FRACTION := 0.25
 const DEFAULT_LOW_HEALTH_FRACTION := 0.25
+
+## Breath (underwater air): a pool that drains while the head is submerged and
+## refills quickly in air. Empty breath drowns (per-liquid damage). Base max is
+## data-driven via player_defaults; ancestry scales it (see max_breath).
+const DEFAULT_BASE_MAX_BREATH := 100.0
+const BREATH_RECOVERY_PER_SEC := 40.0   # air refills much faster than it drains
+## Probe offset from the body centre to the head (body is 28px tall, half 14).
+const HEAD_PROBE_OFFSET := 11.0
 
 ## FQ-05 attunement defaults; overridden by player_defaults like the above.
 const DEFAULT_BASE_MAX_ATTUNEMENT := 50.0
@@ -90,10 +99,23 @@ var learning_speed_mult := 1.0
 # exactly as before; future magic-user lanes set these via player_effects.
 var ancestry_attunement_bonus := 0.0
 var attunement_regen_mult := 1.0
+## Aquatic ancestry hooks: swim_speed_mult eases the underwater move penalty
+## (>1 = less slowdown); water_breathing true = breath never drains. Both default
+## to the land-dweller values so non-aquatic ancestries are unaffected.
+var ancestry_swim_speed_mult := 1.0
+var ancestry_water_breathing := false
+## breath_capacity_mult scales the max breath pool (data-driven, default 1.0).
+var ancestry_breath_capacity_mult := 1.0
 
 ## FQ-05: the magic resource. Current value is world-saved next to health;
 ## the maximum is computed live (base + ancestry + gear) via max_attunement().
 var attunement := DEFAULT_BASE_MAX_ATTUNEMENT
+
+## Underwater air. Current value tracked live; max computed via max_breath().
+## Starts full so a fresh character isn't gasping on spawn.
+var breath := DEFAULT_BASE_MAX_BREATH
+## Fractional health carried between drowning ticks so sub-1 damage still adds up.
+var _drown_accum := 0.0
 
 # FQ-06 perk effects (world-owned progression; recomputed from purchased
 # perks by game_root._apply_purchased_perk_effects — never set directly).
@@ -127,6 +149,7 @@ var _passive_regen_per_sec := DEFAULT_PASSIVE_REGEN_PER_SEC
 var _safe_radius_px := DEFAULT_SAFE_RADIUS_PX
 var _collapse_loss_fraction := DEFAULT_COLLAPSE_LOSS_FRACTION
 var _low_health_fraction := DEFAULT_LOW_HEALTH_FRACTION
+var _base_max_breath := DEFAULT_BASE_MAX_BREATH
 var _base_max_attunement := DEFAULT_BASE_MAX_ATTUNEMENT
 var _attunement_regen_per_sec := DEFAULT_ATTUNEMENT_REGEN_PER_SEC
 var _attunement_pulse_cost := DEFAULT_ATTUNEMENT_PULSE_COST
@@ -163,6 +186,8 @@ func _load_player_defaults() -> void:
 	_safe_radius_px = float(defaults.get("safe_radius_px", DEFAULT_SAFE_RADIUS_PX))
 	_collapse_loss_fraction = float(defaults.get("collapse_loss_fraction", DEFAULT_COLLAPSE_LOSS_FRACTION))
 	_low_health_fraction = float(defaults.get("low_health_fraction", DEFAULT_LOW_HEALTH_FRACTION))
+	_base_max_breath = float(defaults.get("base_max_breath", DEFAULT_BASE_MAX_BREATH))
+	breath = max_breath()
 	# FQ-05: attunement tuning.
 	_base_max_attunement = float(defaults.get("base_max_attunement", DEFAULT_BASE_MAX_ATTUNEMENT))
 	_attunement_regen_per_sec = float(defaults.get("attunement_regen_per_sec", DEFAULT_ATTUNEMENT_REGEN_PER_SEC))
@@ -214,6 +239,9 @@ func apply_character(character: Dictionary) -> void:
 	learning_speed_mult = 1.0
 	ancestry_attunement_bonus = 0.0
 	attunement_regen_mult = 1.0
+	ancestry_swim_speed_mult = 1.0
+	ancestry_water_breathing = false
+	ancestry_breath_capacity_mult = 1.0
 	species_id = str(character.get("species", "human"))
 	body_variant = GameState.normalize_body_variant(
 		str(character.get("body_variant", "masculine")))
@@ -267,6 +295,13 @@ func apply_ancestry_effects(effects: Dictionary) -> void:
 	# FQ-05: attunement hooks — additive max bonus and regen multiplier.
 	ancestry_attunement_bonus = float(effects.get("attunement_bonus", 0.0))
 	attunement_regen_mult = float(effects.get("attunement_regen_mult", 1.0))
+	# Aquatic hooks (data uses swim_speed_mult / water_breathing, e.g. lizardfolk).
+	# breath_capacity_mult is an optional finer knob on the air-pool size.
+	ancestry_swim_speed_mult = float(effects.get("swim_speed_mult", 1.0))
+	ancestry_water_breathing = bool(effects.get("water_breathing", false))
+	ancestry_breath_capacity_mult = float(effects.get("breath_capacity_mult", 1.0))
+	breath = minf(breath, max_breath())
+	breath_changed.emit(breath, max_breath())
 	_clamp_attunement()
 
 
@@ -274,12 +309,29 @@ func _physics_process(delta: float) -> void:
 	if GameState.hud_edit_mode or GameState.craft_panel_open:
 		velocity = Vector2.ZERO
 		return
+	# Liquid physics: while the body centre is below a liquid's TRUE surface (its
+	# fill level, not merely the cell), movement slows and the player turns
+	# buoyant — they must swim up and break the surface to move freely again.
+	var submerged := ""
+	if world != null:
+		submerged = world.liquid_covering(global_position)
+	var in_liquid := submerged != ""
+	var move_mult := ancestry_move_mult
+	var gravity_scale := 1.0
+	if in_liquid:
+		move_mult *= minf(1.0, BlockRegistry.liquid_move_mult(submerged) * ancestry_swim_speed_mult)
+		gravity_scale = BlockRegistry.liquid_gravity_mult(submerged)
 	if not is_on_floor():
-		velocity.y += GRAVITY * delta
+		velocity.y += GRAVITY * gravity_scale * delta
+		if in_liquid:   # cap the sink rate so heavy liquids slow the descent too
+			velocity.y = minf(velocity.y, BlockRegistry.liquid_sink_speed(submerged))
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = JUMP_VELOCITY * ancestry_jump_mult
+	elif in_liquid and Input.is_action_pressed("jump"):
+		# Hold jump to swim upward toward the surface.
+		velocity.y = -BlockRegistry.liquid_swim_up_speed(submerged) * ancestry_swim_speed_mult
 	var direction := Input.get_axis("move_left", "move_right")
-	velocity.x = direction * SPEED * ancestry_move_mult
+	velocity.x = direction * SPEED * move_mult
 	move_and_slide()
 	_hurt_cooldown = maxf(0.0, _hurt_cooldown - delta)
 	_eat_cooldown = maxf(0.0, _eat_cooldown - delta)
@@ -297,6 +349,7 @@ func _physics_process(delta: float) -> void:
 		swap_weapon()
 	_update_passive_regen(delta)
 	_update_attunement_regen(delta)
+	_update_breath(delta)
 	_tick_pulse(delta)
 
 	if world == null:
@@ -518,14 +571,21 @@ func try_farm(cell: Vector2i) -> bool:
 			player_event.emit("Tilled the soil. Plant seeds (G) on it.")
 			return true
 		return false
-	if target == "air" and world.block_at(cell + Vector2i(0, 1)) == "farm_soil":
+	# Plant onto tilled soil. Aiming at the soil itself plants in the open cell
+	# directly above it (the natural gesture); aiming at that open cell still
+	# works too. Neither tilling nor planting cares about the backing-wall layer,
+	# so an underground / against-a-wall bed farms exactly like the open surface.
+	var crop_cell := cell
+	if target == "farm_soil":
+		crop_cell = cell + Vector2i(0, -1)
+	if world.block_at(crop_cell) == "air" and world.block_at(crop_cell + Vector2i(0, 1)) == "farm_soil":
 		if inventory.count("crop_seeds") <= 0:
 			player_event.emit("No seeds to plant — craft some from food.")
 			return false
-		if world.plant_crop(cell):
+		if world.plant_crop(crop_cell):
 			inventory.remove("crop_seeds")
 			inventory_changed.emit()
-			ActionFx.spawn(world, "place_pulse", world.cell_center(cell))
+			ActionFx.spawn(world, "place_pulse", world.cell_center(crop_cell))
 			player_event.emit("Planted a crop. Give it time to ripen, then harvest it.")
 			return true
 		return false
@@ -617,6 +677,56 @@ func swap_weapon() -> bool:
 func max_attunement() -> float:
 	return maxf(1.0, _base_max_attunement + ancestry_attunement_bonus \
 		+ attunement_bonus_from_gear() + perk_attunement_bonus)
+
+
+## Live maximum breath — base pool scaled by the ancestry capacity multiplier.
+func max_breath() -> float:
+	return maxf(1.0, _base_max_breath * ancestry_breath_capacity_mult)
+
+
+## Breath ticks each frame: drains while the head is under a liquid surface (at a
+## per-liquid rate), refills fast in air. Empty breath drowns — health drains at
+## the liquid's drown rate until the head clears the surface. Water-breathing
+## ancestries never drain. The head is probed above the body centre, so wading in
+## shallow (partly filled) liquid keeps the player breathing.
+func _update_breath(delta: float) -> void:
+	if world == null:
+		return
+	var cap := max_breath()
+	var head_liquid: String = world.liquid_covering(global_position + Vector2(0.0, -HEAD_PROBE_OFFSET))
+	var head_under: bool = head_liquid != "" and not ancestry_water_breathing
+	if head_under:
+		var before := breath
+		breath = maxf(0.0, breath - BlockRegistry.liquid_breath_drain(head_liquid) * delta)
+		if breath <= 0.0:
+			_drown_accum += BlockRegistry.liquid_drown_damage(head_liquid) * delta
+			if _drown_accum >= 1.0:
+				var chunk := floorf(_drown_accum)
+				_drown_accum -= chunk
+				_apply_drown_damage(chunk)
+		if not is_equal_approx(before, breath):
+			breath_changed.emit(breath, cap)
+	elif breath < cap:
+		breath = minf(cap, breath + BREATH_RECOVERY_PER_SEC * delta)
+		_drown_accum = 0.0
+		breath_changed.emit(breath, cap)
+	else:
+		_drown_accum = 0.0
+
+
+## Drowning damage bypasses the hurt cooldown and armor (you can't shrug off the
+## lack of air) but still routes death through the shared collapse/respawn path.
+func _apply_drown_damage(amount: float) -> void:
+	if amount <= 0.0 or health <= 0.0:
+		return
+	health = maxf(0.0, health - amount)
+	_hurt_flash_timer = 0.2
+	modulate = Color(0.4, 0.55, 1.0)   # cold blue drowning tint
+	health_changed.emit(health, max_health)
+	_check_low_health()
+	if health <= 0.0:
+		var _lost := _apply_collapse_loss()
+		respawn(_lost)
 
 
 ## Sum of the "attunement_bonus" effect over all equipped items (data-driven,
@@ -834,6 +944,10 @@ func _apply_collapse_loss() -> bool:
 func respawn(supplies_lost: bool = false) -> void:
 	health = max_health
 	health_changed.emit(health, max_health)
+	# Fresh lungs on respawn — the player wakes at the hall, not still drowning.
+	breath = max_breath()
+	_drown_accum = 0.0
+	breath_changed.emit(breath, max_breath())
 	_check_low_health()
 	if world != null and not world.hall_info.is_empty():
 		# FQ-09M: dust where the player fell and where they come to.

@@ -433,6 +433,12 @@
       "liquid_density": 2.5,
       "liquid_viscosity": 2,
       "liquid_reaction": { "with": "water", "into": "obsidian" },
+      "liquid_move_mult": 0.35,
+      "liquid_gravity_mult": 0.5,
+      "liquid_sink_speed": 70.0,
+      "liquid_swim_up_speed": 90.0,
+      "liquid_breath_drain": 40.0,
+      "liquid_drown_damage": 0.0,
       "settlement_tags": []
     },
     "water": {
@@ -450,6 +456,12 @@
       "liquid_density": 1.0,
       "liquid_viscosity": 1,
       "liquid_surface_sheen": 0.4,
+      "liquid_move_mult": 0.55,
+      "liquid_gravity_mult": 0.4,
+      "liquid_sink_speed": 90.0,
+      "liquid_swim_up_speed": 120.0,
+      "liquid_breath_drain": 10.0,
+      "liquid_drown_damage": 6.0,
       "settlement_tags": []
     }
   }

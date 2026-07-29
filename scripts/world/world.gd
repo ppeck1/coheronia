@@ -268,6 +268,24 @@ func is_solid_at(cell: Vector2i) -> bool:
 	return BlockRegistry.is_solid(block_at(cell))
 
 
+## The id of the liquid actually covering `world_pos`, or "" when the point is
+## in air/solid or ABOVE the liquid's settled surface. Uses liquid_level so a
+## partially filled cell's true waterline is respected — a point in the empty
+## top of a half-full cell reads as uncovered, matching what the player sees.
+## This is the "actual level, not the block" query the swim/breath code needs.
+func liquid_covering(world_pos: Vector2) -> String:
+	var cell := cell_of(world_pos)
+	var id := block_at(cell)
+	if not BlockRegistry.is_liquid(id):
+		return ""
+	var t := float(tile_size())
+	var level: float = clampf(float(liquid_level.get(cell, 1.0)), 0.0, 1.0)
+	# Liquid settles to the bottom of the cell; its surface sits `level` up from
+	# the floor, i.e. (1 - level) down from the cell top (cell.y * t).
+	var surface_y := float(cell.y) * t + (1.0 - level) * t
+	return id if world_pos.y >= surface_y else ""
+
+
 ## Opaque-pixel mask of a block's tile texture (art or generated fallback),
 ## so damage overlays can stay inside the visible sprite — cracks on a thin
 ## tree trunk or a torch must not float in the transparent part of the cell.
