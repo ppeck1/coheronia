@@ -34,6 +34,7 @@ Copper Ingot is a live item with both acquisition and active use in the current 
 |---|---|---|---|
 | Recipe input | Alloy Bronze | 1x at [Furnace](../stations/furnace.md) | Live crafting dependency. |
 | Recipe input | Bucket | 3x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
+| Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
 ## Related Pages
 

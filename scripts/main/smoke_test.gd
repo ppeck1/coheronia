@@ -228,8 +228,12 @@ func _run() -> void:
 	player.inventory.add("stone", 5)
 	hall.deposit_all(player.inventory)
 	var forged: bool = hall.forge_pick(player)
-	_check("forge_pick_upgrade", forged and player.tool_tier == 2,
-		"stock after forge=%s" % str(hall.stockpile))
+	# Item-wiring (2.1): the forge upgrades the live pick tier and mints NO
+	# tool_tier_2_pick backpack token (the recipe output is empty).
+	_check("forge_pick_upgrade",
+		forged and player.tool_tier == 2 and player.inventory.count("tool_tier_2_pick") == 0,
+		"stock after forge=%s token=%d" % [str(hall.stockpile),
+			player.inventory.count("tool_tier_2_pick")])
 	var dirt_cell2: Variant = _find_block(world, hall_cell, "dirt")
 	var dirt_frames_t2 := await _mine_cell(world, player, dirt_cell2)
 	_check("tier2_mines_faster", dirt_frames_t2 < dirt_frames,
@@ -576,7 +580,8 @@ func _run() -> void:
 		"default=%d dense=%d" % [_fq09r_trunks, _fq09r_trunks_dense])
 
 	# Harvest: mining a trunk yields wood via the normal drop path; clearing
-	# leaves yields nothing (no new resource economy).
+	# leaves yields no economy resource — its ONLY possible drop is a renewable
+	# tree_seed (Item-wiring Phase 3), at a low chance, and nothing else.
 	player.set_physics_process(false)
 	var _fq09r_hall: Vector2i = world.hall_info["center_cell"]
 	var _fq09r_trunk_cell: Variant = _find_block(world, _fq09r_hall, "tree_trunk", 0)
@@ -591,10 +596,24 @@ func _run() -> void:
 	var _fq09r_inv_before: Dictionary = player.inventory.counts.duplicate()
 	if _fq09r_leaf_cell != null:
 		await _mine_cell(world, player, _fq09r_leaf_cell as Vector2i)
+	# The only permitted change is 0 or 1 tree_seed; every other stack is untouched.
+	var _fq09r_econ_ok := true
+	for _fq09r_k in player.inventory.counts:
+		if str(_fq09r_k) == "tree_seed":
+			continue
+		if int(player.inventory.counts[_fq09r_k]) != int(_fq09r_inv_before.get(_fq09r_k, 0)):
+			_fq09r_econ_ok = false
+	for _fq09r_k in _fq09r_inv_before:
+		if str(_fq09r_k) == "tree_seed":
+			continue
+		if int(_fq09r_inv_before[_fq09r_k]) != int(player.inventory.count(str(_fq09r_k))):
+			_fq09r_econ_ok = false
+	var _fq09r_seed_delta: int = player.inventory.count("tree_seed") \
+		- int(_fq09r_inv_before.get("tree_seed", 0))
 	_check("fq09r_leaves_clear_without_drops", _fq09r_leaf_cell != null
-		and player.inventory.counts == _fq09r_inv_before
+		and _fq09r_econ_ok and _fq09r_seed_delta >= 0 and _fq09r_seed_delta <= 1
 		and world.block_at(_fq09r_leaf_cell as Vector2i) == "air",
-		"inv unchanged=%s" % str(player.inventory.counts == _fq09r_inv_before))
+		"seed_delta=%d econ_ok=%s" % [_fq09r_seed_delta, str(_fq09r_econ_ok)])
 	player.set_physics_process(true)
 
 	# Walk-through: on flat terrain the player walks past a tree trunk without
@@ -7065,6 +7084,157 @@ func _run() -> void:
 	if _fq01_slime != null and is_instance_valid(_fq01_slime):
 		_fq01_slime.queue_free()
 	await get_tree().process_frame
+
+	# --- Item-wiring pass: deposit unification, legacy pick migration, UI-only
+	# guards, and the renewable tree loop. -------------------------------------
+	_r08_clear_ground_drops()
+
+	# (iw1) one stockpile-eligibility authority: materials + loot are IN; gear,
+	# UI-only surrogates, legacy tokens, world-state blocks, and carried tools are OUT.
+	# Live loot marked future_use (slime_gel, wet_fiber, bronze_ingot) stays IN —
+	# future_use is documentary metadata, not a stockpile exclusion.
+	var _iw_in := ["dirt", "stone", "wood", "ore", "coal", "food", "iron_ingot",
+		"ore_flecks", "scrap_weapons", "meat", "coins", "hellstone", "obsidian",
+		"tiny_core", "slime_gel", "wet_fiber", "bronze_ingot"]
+	var _iw_out := ["torch", "lantern", "bucket", "crop_seeds", "tree_seed", "grass",
+		"farm_soil", "crop_ripe", "tree_sapling", "town_hall_core", "pick", "axe",
+		"sword", "armor", "pick_forged", "tool_tier_2_pick"]
+	var _iw_pred_ok := true
+	for _m in _iw_in:
+		if not BlockRegistry.is_stockpile_material(str(_m)):
+			_iw_pred_ok = false
+	for _m in _iw_out:
+		if BlockRegistry.is_stockpile_material(str(_m)):
+			_iw_pred_ok = false
+	_check("iw_stockpile_material_authority", _iw_pred_ok)
+
+	# (iw2) manual deposit routes through that same authority: a mixed backpack
+	# deposits only the materials/loot and leaves tools/seeds behind.
+	player.inventory.from_dict({"dirt": 2, "coins": 3, "torch": 1, "tree_seed": 1})
+	var _iw_moved: Dictionary = hall.deposit_all(player.inventory)
+	_check("iw_manual_deposit_unified",
+		_iw_moved.has("dirt") and _iw_moved.has("coins")
+		and not _iw_moved.has("torch") and not _iw_moved.has("tree_seed")
+		and player.inventory.count("torch") == 1 and player.inventory.count("tree_seed") == 1
+		and int(hall.stockpile.get("coins", 0)) >= 3,
+		"moved=%s left=%s" % [str(_iw_moved), str(player.inventory.counts)])
+
+	# (iw3) legacy Forged Pick token migrates on load: stripped from the backpack,
+	# and the live pick tier is guaranteed >= 2 (the upgrade it represented).
+	player.inventory.from_dict({"tool_tier_2_pick": 1, "dirt": 4})
+	player.tool_tier = 1
+	root._migrate_legacy_pick_token()
+	_check("iw_legacy_pick_token_migrates",
+		player.inventory.count("tool_tier_2_pick") == 0 and player.tool_tier == 2
+		and player.inventory.count("dirt") == 4)
+
+	# (iw4) UI-only surrogates cannot spawn as loot or enter the stockpile.
+	var _iw_ui_drop = world.spawn_item_drop(world.cell_center(hall_cell), "pick", 1)
+	_check("iw_ui_only_guards",
+		_iw_ui_drop == null and BlockRegistry.is_ui_only("pick")
+		and not BlockRegistry.is_stockpile_material("armor"))
+
+	# (iw5) renewable tree loop: plant on ground, mature into a real tree, break an
+	# immature sapling back into a seed, and fail safely when obstructed. Uses a
+	# cleared column above the surface so terrain variance cannot interfere.
+	var _tr_x: int = hall_cell.x + 14
+	var _tr_surf: int = int(world.surface.get(_tr_x, hall_cell.y))
+	var _tr_sapling := Vector2i(_tr_x, _tr_surf - 3)
+	var _tr_ground := _tr_sapling + Vector2i(0, 1)
+	for _cy in range(_tr_sapling.y - 6, _tr_ground.y + 1):
+		for _cx in range(_tr_x - 1, _tr_x + 2):
+			world.break_block(Vector2i(_cx, _cy))   # clear trunk column + canopy space
+	world.place_block(_tr_ground, "dirt")
+	var _tr_planted: bool = world.plant_sapling(_tr_sapling)
+	_check("iw_tree_plants_on_ground",
+		_tr_planted and world.block_at(_tr_sapling) == "tree_sapling"
+		and world.tree_growth.has(_tr_sapling))
+
+	# break the immature sapling -> one seed back (the seed is not lost if cleared).
+	var _tr_seed_drop: Dictionary = world.break_block(_tr_sapling)
+	_check("iw_immature_sapling_returns_seed",
+		int(_tr_seed_drop.get("tree_seed", 0)) == 1 and not world.tree_growth.has(_tr_sapling))
+
+	# replant and mature it: the timer fires and a tree_trunk stands on the cell.
+	world.plant_sapling(_tr_sapling)
+	world._tick_tree_growth(1000.0)   # force the timer past maturity
+	_check("iw_sapling_matures_into_tree",
+		world.block_at(_tr_sapling) == "tree_trunk"
+		and not world.tree_growth.has(_tr_sapling),
+		"grown=%s" % world.block_at(_tr_sapling))
+
+	# obstructed growth fails safely: a blocked trunk column keeps the sapling and
+	# reschedules a retry rather than growing into the obstruction. A fresh column
+	# (distinct x) keeps this independent of the matured tree above.
+	var _tr2_x: int = _tr_x + 6
+	var _tr2 := Vector2i(_tr2_x, _tr_surf - 3)
+	for _cy in range(_tr2.y - 6, _tr2.y + 2):
+		for _cx in range(_tr2_x - 1, _tr2_x + 2):
+			world.break_block(Vector2i(_cx, _cy))
+	world.place_block(_tr2 + Vector2i(0, 1), "dirt")
+	world.plant_sapling(_tr2)
+	world.place_block(_tr2 + Vector2i(0, -2), "stone")   # block the trunk column
+	world._tick_tree_growth(1000.0)   # force the timer past maturity
+	_check("iw_obstructed_sapling_waits",
+		world.block_at(_tr2) == "tree_sapling" and world.tree_growth.has(_tr2),
+		"blocked=%s" % world.block_at(_tr2))
+
+	# save/load preserves in-progress sapling growth timers, and world-gen + live
+	# maturation share the one tree-geometry rule (WorldGen.tree_layout).
+	var _tr_ser: Dictionary = world.serialize_tree_growth()
+	var _tr_layout: Array = WorldGen.tree_layout(3, 0, 5)
+	_check("iw_tree_growth_persists",
+		not _tr_ser.is_empty() and not _tr_layout.is_empty()
+		and world.parse_tree_growth(_tr_ser).size() == _tr_ser.size(),
+		"timers=%d" % _tr_ser.size())
+
+	# (iw6) new loot-sink recipes actually consume their loot and produce the
+	# existing output, routed through the ordinary craft_station path.
+	hall.stations_built["workbench"] = true
+	hall.stations_built["furnace"] = true
+	hall.stations_built["anvil"] = true
+	hall.stockpile = {"ore_flecks": 4, "scrap_weapons": 3, "meat": 2, "coal": 3,
+		"torch_heads": 2, "oil_rags": 1, "wood": 1,
+		"silver_ingot": 1, "crystal": 1, "tiny_core": 1}
+	player.inventory.from_dict({})
+	var _iw_reclaim_ore: bool = hall.craft_station("furnace_reclaim_ore", player)
+	var _iw_reclaim_iron: bool = hall.craft_station("furnace_reclaim_iron", player)
+	var _iw_cook: bool = hall.craft_station("cook_meat", player)
+	var _iw_raid_torch: bool = hall.craft_station("workbench_raid_torches", player)
+	_check("iw_loot_reclaim_recipes",
+		_iw_reclaim_ore and int(hall.stockpile.get("ore", 0)) >= 1
+		and _iw_reclaim_iron and int(hall.stockpile.get("iron_ingot", 0)) >= 1
+		and _iw_cook and int(hall.stockpile.get("food", 0)) >= 2
+		and _iw_raid_torch and player.inventory.count("torch") >= 6,
+		"stock=%s torch=%d" % [str(hall.stockpile), player.inventory.count("torch")])
+
+	# equipment sink: Focus Amulet (silver+crystal+tiny_core) equips the existing
+	# amulet_focus gear (+10 attunement) that previously had no acquisition path.
+	# Hosted at the WORKBENCH — the anvil's smelted-ingot invariant is untouched.
+	player.equip_item("amulet", "")
+	var _iw_amulet: bool = hall.craft_station("craft_focus_amulet", player)
+	_check("iw_focus_amulet_sink",
+		_iw_amulet and str(player.equipped_dict().get("amulet", "")) == "amulet_focus",
+		"amulet=%s" % str(player.equipped_dict().get("amulet", "")))
+	player.equip_item("amulet", "")
+
+	# (iw7) conditional placeability: hellstone/obsidian are full solid blocks whose
+	# only missing connection was is_placeable. Prove the place -> persist-as-delta
+	# -> mine round-trip returns the item (tier-2 mining already exists).
+	var _hp_x: int = hall_cell.x + 20
+	var _hp_surf: int = int(world.surface.get(_hp_x, hall_cell.y))
+	var _hp_cell := Vector2i(_hp_x, _hp_surf - 4)
+	world.break_block(_hp_cell)
+	var _hp_placed: bool = world.place_block(_hp_cell, "hellstone")
+	var _hp_is_block: bool = world.block_at(_hp_cell) == "hellstone" \
+		and world.is_solid_at(_hp_cell) and str(world.deltas.get(_hp_cell, "")) == "hellstone"
+	player.tool_tier = 2
+	var _hp_drop: Dictionary = world.break_block(_hp_cell)
+	_check("iw_hellstone_obsidian_placeable_roundtrip",
+		_hp_placed and _hp_is_block and int(_hp_drop.get("hellstone", 0)) == 1
+		and BlockRegistry.is_placeable("hellstone") and BlockRegistry.is_placeable("obsidian"),
+		"placed=%s block=%s drop=%s" % [str(_hp_placed), str(_hp_is_block), str(_hp_drop)])
+	_r08_clear_ground_drops()
 
 	# Restore global state so later sections (screenshot) see a sane player.
 	player.player_event.disconnect(_fq01_msg_conn)

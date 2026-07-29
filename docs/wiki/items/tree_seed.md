@@ -1,44 +1,39 @@
-# Hellstone
+# Tree Seed
 
 Generated: 2026-07-29
 
 > `Item` page. Current status: `source-only`.
 
-![Hellstone](../../../art/generated/items/hellstone.png)
-
 | Field | Value |
 |---|---|
-| ID | `hellstone` |
+| ID | `tree_seed` |
 | Page type | Item |
 | Current status | source-only |
-| Storage | inventory; stockpile input |
+| Storage | inventory |
 | Player-facing? | Yes |
-| Description | Ember-veined rock from the deep hell layer. Needs a tier-2 pick. |
+| Description | Plant on dirt or grass (Place) to grow a new tree. Dropped now and then when clearing leaves. |
 | Status explanation | A live source exists, but the current game still lacks a meaningful downstream sink. |
-| Image path | `art/generated/items/hellstone.png` |
+| Image path | `art/generated/items/tree_seed.png` |
 | Fallback / placeholder | Generated 16x16 swatch via `BlockRegistry.item_icon()` if the canonical item icon is absent. |
 
 ## Summary
 
-Hellstone is live and obtainable, but it still ends in a source-only branch.
+Tree Seed is live and obtainable, but it still ends in a source-only branch.
 
 ## Acquisition
 
 | Source type | Source | Quantity / chance | Notes |
 |---|---|---|---|
-| Block drop | [Hellstone](../blocks/hellstone.md) | 1x | Current block harvest result. |
+| Block drop | [Tree Sapling](../blocks/tree_sapling.md) | 1x | Current block harvest result. |
 
 ## Current Uses
 
-| Use type | Use | Quantity | Notes |
-|---|---|---|---|
-| Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
+No meaningful live downstream use is currently defined.
 
 ## Related Pages
 
 - [Items](../items.md)
 - [Wiki Overview](../wiki.md)
-- [Hellstone](../blocks/hellstone.md)
 
 ## Notes
 

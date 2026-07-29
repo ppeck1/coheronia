@@ -27,6 +27,7 @@ Iron Ingot is a live item with both acquisition and active use in the current bu
 | Source type | Source | Quantity / chance | Notes |
 |---|---|---|---|
 | Recipe output | Smelt Iron | 1x at [Furnace](../stations/furnace.md) | Output route: stockpile. |
+| Recipe output | Reclaim Iron | 1x at [Furnace](../stations/furnace.md) | Output route: stockpile. |
 
 ## Current Uses
 
@@ -34,6 +35,7 @@ Iron Ingot is a live item with both acquisition and active use in the current bu
 |---|---|---|---|
 | Recipe input | Iron Sword | 3x at [Anvil](../stations/anvil.md) | Live crafting dependency. |
 | Recipe input | Iron Armor Set | 5x at [Anvil](../stations/anvil.md) | Live crafting dependency. |
+| Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
 ## Related Pages
 

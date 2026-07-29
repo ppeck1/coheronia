@@ -21,9 +21,7 @@ This token exists to bridge the Town Hall pick upgrade route. The real gameplay 
 
 ## Acquisition
 
-| Source type | Source | Quantity / chance | Notes |
-|---|---|---|---|
-| Recipe output | Basic Pick Upgrade | 1x at [Town Hall](../stations/town_hall.md) | Output route: inventory. |
+No live acquisition route is currently defined.
 
 ## Current Uses
 

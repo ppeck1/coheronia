@@ -12,7 +12,7 @@ Generated: 2026-07-29
 | Hardness | 2.4 |
 | Required tool tier | 2 |
 | Preferred tool | pick |
-| Placeable | False |
+| Placeable | True |
 | Solid | True |
 | Blocks light | True |
 | Emits light | False |

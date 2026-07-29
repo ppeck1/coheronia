@@ -1,6 +1,142 @@
 # Coheronia Item And Recipe Matrix
 
-Generated: 2026-07-15
+Generated: 2026-07-15 · Item-Wiring Closure pass: 2026-07-29
+
+---
+
+# Item-Wiring Closure Pass (2026-07-29)
+
+This section is the authoritative record of the item-wiring closure pass. The
+tables further below are the prior full audit baseline; where they disagree with
+this section, this section wins for the affected ids.
+
+## What changed and why
+
+### Correctness fixes
+
+| Area | Before | After |
+|---|---|---|
+| Forged Pick token (2.1) | `basic_pick_upgrade` output `tool_tier_2_pick:1` into the backpack while `forge_pick()` also set the live pick tier — a vestigial junk token. | Recipe output is now empty (`{}`); `forge_pick()` remains the sole authority (sets pick tier 2 → equipped `pick_forged`). Old saves migrate on load (`game_root._migrate_legacy_pick_token`): any `tool_tier_*_pick` token is stripped and the live pick tier is guaranteed ≥ 2. |
+| Deposit eligibility (2.2) | Manual `TownHall.deposit_all` filtered by a hardcoded `DEPOSITABLE` whitelist; the hauler `subject._deposit_drop` deposited **any** ground drop unfiltered. | Both paths now consult the single authority `BlockRegistry.is_stockpile_material(id)`. The hauler's target search (`world.nearest_item_drop`) also skips ineligible drops so it never gets stuck on e.g. a mined torch. |
+| UI-only surrogates (2.3) | `pick/axe/sword/armor` were unguarded icon tokens. | Flagged `ui_only:true` in items.json; `spawn_item_drop` refuses them; `is_stockpile_material`/`is_ui_only` exclude them from loot, pickup, and deposit paths. They remain valid recipe/gear icons. |
+| Identity recipes (2.4) | `craft_wood_block` (wood→wood) and `craft_stone_block` (stone→stone) were no-ops (wood/stone are already placeable). | Removed. No code/test/tutorial depended on the craft event (only generated docs referenced them). |
+| Hellstone/Obsidian (2.5) | Mined to items but `is_placeable:false` → dead-end items despite `structure`/`defense` tags. | Made placeable — the natural existing-system sink (rejects the brief's disruptive Obsidian→Iron-Sword suggestion). Item-icon alpha: see art notes. |
+
+### Renewable tree loop (Phase 3)
+
+`tree_seed` (item) → `tree_sapling` (world state) → mature tree (`tree_trunk` +
+`tree_leaves` + `wood`). Clearing `tree_leaves` drops a `tree_seed` at
+`LEAF_SEED_DROP_CHANCE`; a seed is planted (Place action) on dirt/grass, consuming
+one seed and creating a sapling; the sapling matures after `SAPLING_GROW_SECONDS`
+using the **shared** `WorldGen.tree_layout` geometry (same shape world-gen makes),
+validating clearance and failing safely (retry) if obstructed; breaking an immature
+sapling returns one seed; growth timers persist exactly like crops
+(`world.tree_growth`, `serialize/parse_tree_growth`, `save_manager`).
+
+### Live loot / material sinks (Phase 4/5) — all via existing systems
+
+| Item(s) | Sink | Mechanism |
+|---|---|---|
+| `ore_flecks` | `furnace_reclaim_ore` → `ore` | existing furnace + `craft_station` |
+| `scrap_weapons` | `furnace_reclaim_iron` → `iron_ingot` | existing furnace |
+| `meat` | `cook_meat` → `food` (stockpile) | existing furnace |
+| `oil_rags` + `torch_heads` | `workbench_raid_torches` → `torch` | existing workbench |
+| `tiny_core` + `silver_ingot` + `crystal` | `craft_focus_amulet` → equip `amulet_focus` (+10 attunement) | existing **workbench** + equip routing |
+| `coins` | `raider_bounty` contract (`stockpile_at_least` 12 → `food` reward) | existing contracts |
+| `hellstone`, `obsidian` | placeable structural/defense blocks | existing placement (see conditional note below) |
+
+The Focus Amulet is hosted at the **workbench**, whose existing rules already
+accept Silver Ingot + Crystal + Tiny Core. The anvil's smelted-ingot invariant
+(no raw ore inputs) is left fully intact — no validator carve-out was added.
+
+**Hellstone/Obsidian placeability was verified conditional-first:** both are
+already complete solid blocks — authored textures (+ variant pools), solid
+collision, `blocks_light`, drop-self, tier-2 pick gate, and delta persistence via
+`place_block`. `is_placeable:false` was the *only* missing connection, so enabling
+it is the minimal closure (smoke covers the place→persist→mine round-trip). Had
+any of that behavior been missing, they would have been marked `future_use` instead.
+
+## Live items intentionally marked `future_use`
+
+These are live-obtainable but have **no natural existing-system sink**; forcing one
+would require a disruptive re-gate or an out-of-scope subsystem (armor re-gating,
+textile, alchemy). Marked `future_use:true` in items.json, kept obtainable and
+referentially valid:
+
+`slime_gel`, `hide_scrap`, `chitin`, `shell`, `silk`, `eyes`, `wet_fiber`,
+`thorn_quill`, **`bronze_ingot`**.
+
+`bronze_ingot` (and the `ring_band` / Plain Band gear it would have fed) are
+**explicitly deferred**: `ring_band` currently has *no effect*, so a bronze→band
+recipe would create bookkeeping closure with no player value. Bronze's natural
+sink is a bronze tool/gear tier, which is out of scope this pass. Deferred over a
+functionally pointless recipe.
+
+**Important:** `future_use` is *documentary metadata only*. A `future_use` item is
+still ordinary live loot — it remains **stockpile-eligible** (materials/loot with
+no other existing storage path still deposit normally). `future_use` never feeds
+`is_stockpile_material`; only UI-only, legacy, world-state, equipment, and
+inactive/planned ids are excluded from the stockpile. (Smoke asserts `slime_gel`,
+`wet_fiber`, and `bronze_ingot` all remain depositable.)
+
+## Planned content confirmed inactive
+
+The ~37 planned enemy/boss/mini-boss loot ids (Ash Wasp … The World-Worm) remain
+inactive with **zero code change**: `enemy_registry.gd` serves only `status:"live"`
+enemies (6), so planned enemies never spawn and their loot never drops. Their PNGs
+exist but carry no items.json metadata and no live producer. Boss/story objects
+(maps, ledgers, crown fragments, cores, charts, banners, seals, sigils) were **not**
+converted into generic recipe ingredients.
+
+## Provisional balance values (centralized; NOT tuned this pass)
+
+| Value | Where | Provisional default |
+|---|---|---|
+| Leaf → seed drop chance | `world.gd LEAF_SEED_DROP_CHANCE` | 0.35 |
+| Sapling growth time | `world.gd SAPLING_GROW_SECONDS` | 90.0 s |
+| Sapling obstruction retry | `world.gd SAPLING_RETRY_SECONDS` | 5.0 s |
+| Reclaim Ore | `recipes.json furnace_reclaim_ore` | ore_flecks 4 + coal 1 → ore 1 |
+| Reclaim Iron | `recipes.json furnace_reclaim_iron` | scrap_weapons 3 + coal 1 → iron_ingot 1 |
+| Cook Meat | `recipes.json cook_meat` | meat 2 + coal 1 → food 2 |
+| Raid Torches | `recipes.json workbench_raid_torches` | torch_heads 2 + oil_rags 1 + wood 1 → torch 6 |
+| Focus Amulet (workbench) | `recipes.json craft_focus_amulet` | silver_ingot 1 + crystal 1 + tiny_core 1 |
+| Raider Bounty | `contracts.json raider_bounty` | coins 12 → food 6 |
+
+## Later-art requirements (no art produced this pass)
+
+| Id | State | Current fallback |
+|---|---|---|
+| `tree_seed` | new item, no PNG | items.json color swatch (`7a5a2e`) |
+| `tree_sapling` | new block, no PNG | procedural sprout in `world._make_block_texture` + `BLOCK_COLORS` |
+| `hellstone` / `obsidian` item icons | existing PNGs | verify strict alpha/cutout if the asset audit flags them (design preserved) |
+
+## Rejected suggestions (documented, not forced)
+
+- **Obsidian → Iron Sword** input: rejected (re-gates a core weapon behind a rare
+  block); used placeability instead.
+- **Bronze → Bucket/Lantern**: rejected (re-gates the liquid-physics bucket / light
+  behind alloying).
+- **Bronze → Plain Band (ring_band)**: rejected (operator revision). `ring_band`
+  has no effect, so the recipe is bookkeeping-only with no player value. Bronze and
+  Plain Band are deferred `future_use` instead of connected pointlessly.
+- **Anvil raw-crystal validator carve-out for the Focus Amulet**: rejected
+  (operator revision). The anvil invariant is preserved; the amulet is hosted at
+  the workbench, whose existing rules already accept its inputs.
+- **Armor/textile/alchemy loot** (`hide_scrap/chitin/shell/silk/eyes/slime_gel`):
+  rejected forced sinks; marked `future_use` (still stockpile-eligible).
+- **Wet Fiber → Crop Seeds / Thorn Quill → traps/arrows**: rejected per brief;
+  `future_use`.
+
+## Identity-recipe removal — dependency search
+
+Before removing `craft_wood_block` / `craft_stone_block` I searched contracts,
+goals, crafting counters/event ids, tests, progression unlocks, `.tscn`/`.cfg`, and
+docs. Only `craft_torch` is referenced by any `craft_items` contract; no goal,
+event id, base-level unlock, test, or config names the two identity recipes. The
+only references were generated wiki pages (not generator-managed; now orphaned and
+harmless — the authoritative station pages regenerate correctly). Removal is safe.
+
+---
 
 ## Scope
 
@@ -95,11 +231,9 @@ Generated: 2026-07-15
 | Recipe id | Display name | Where crafted | Inputs | Gameplay result | Output route | Double-check note | Notes |
 |---|---|---|---|---|---|---|---|
 | craft_torch | Torch | Hand crafting / player inventory | wood x1, stone x1 | torch x3 | Added to player inventory | Standard craft route |  |
-| craft_wood_block | Wood Block | Hand crafting / player inventory | wood x1 | wood x1 | Added to player inventory | Standard craft route |  |
-| craft_stone_block | Stone Block | Hand crafting / player inventory | stone x1 | stone x1 | Added to player inventory | Standard craft route |  |
 | craft_seeds | Crop Seeds | Hand crafting / player inventory | food x1 | crop_seeds x2 | Added to player inventory | Standard craft route |  |
 | craft_lantern | Lantern | Town Hall stockpile panel | ore x2, wood x1 | lantern x1 | Added to player inventory | Standard craft route |  |
-| basic_pick_upgrade | Basic Pick Upgrade | Town Hall stockpile panel | wood x3, stone x5 | Upgrade live pick tier to 2; equipped view becomes `pick_forged` | Special forge path on Town Hall; code also passes through recipe outputs | JSON declares `tool_tier_2_pick x1`, but the player-facing result is the upgraded pick tier/equipped `pick_forged` state |  |
+| basic_pick_upgrade | Basic Pick Upgrade | Town Hall stockpile panel | wood x3, stone x5 | Upgrade live pick tier to 2; equipped view becomes `pick_forged` | Special forge path on Town Hall (`forge_pick`) | Item-wiring: recipe output is now empty; the legacy `tool_tier_2_pick` token is no longer minted and old saves migrate it away on load |  |
 | craft_axe | Axe | Town Hall stockpile panel | wood x4, stone x2 | Unlock/equip `axe_crude` by setting axe tier to 1 | Special forge path on Town Hall | Recipe outputs are empty in JSON; `town_hall.forge_axe()` supplies the gameplay result |  |
 | craft_sword | Crude Sword | Town Hall stockpile panel | wood x2, stone x3 | Equip `sword_crude` to weapon slot | Special forge path on Town Hall | Recipe outputs are empty in JSON; `town_hall.forge_sword()` equips the item directly |  |
 | craft_armor_set | Crude Armor Set | Town Hall stockpile panel | wood x6, stone x4 | Equip `helmet_crude`, `torso_crude`, and `feet_crude` | Special forge path on Town Hall | Recipe outputs are empty in JSON; `town_hall.forge_armor()` equips the set directly |  |
@@ -111,6 +245,12 @@ Generated: 2026-07-15
 | alloy_bronze | Alloy Bronze | Furnace station (stockpile) | copper_ingot x1, tin_ingot x1, coal x1 | bronze_ingot x2 | Added to Town Hall stockpile | Used for smelting/alloying; stockpile keeps the ingots/bronze |  |
 | anvil_iron_sword | Iron Sword | Anvil station (stockpile) | iron_ingot x3 | weapon -> sword_iron | Equips directly to player slots | Slot occupancy and slot/type fit are checked before stockpile inputs are consumed |  |
 | anvil_iron_armor | Iron Armor Set | Anvil station (stockpile) | iron_ingot x5 | helmet -> helmet_iron, torso -> torso_iron, feet -> feet_iron | Equips directly to player slots | Slot occupancy and slot/type fit are checked before stockpile inputs are consumed |  |
+| craft_bucket | Bucket | Workbench station (stockpile) | copper_ingot x3 | bucket x1 | Added to player inventory | Liquid-physics tool |  |
+| workbench_raid_torches | Raid Torches | Workbench station (stockpile) | torch_heads x2, oil_rags x1, wood x1 | torch x6 | Added to player inventory | Item-wiring sink for raider-torchbearer loot (provisional qty) |  |
+| furnace_reclaim_ore | Reclaim Ore | Furnace station (stockpile) | ore_flecks x4, coal x1 | ore x1 | Added to Town Hall stockpile | Item-wiring sink for ore-tick flecks (provisional qty) |  |
+| furnace_reclaim_iron | Reclaim Iron | Furnace station (stockpile) | scrap_weapons x3, coal x1 | iron_ingot x1 | Added to Town Hall stockpile | Item-wiring sink for raider weapon scrap (provisional qty) |  |
+| cook_meat | Cook Meat | Furnace station (stockpile) | meat x2, coal x1 | food x2 | Added to Town Hall stockpile | Item-wiring sink for thornrat meat (provisional qty) |  |
+| craft_focus_amulet | Focus Amulet | Workbench station (stockpile) | silver_ingot x1, crystal x1, tiny_core x1 | amulet -> amulet_focus | Equips directly to player slots | Item-wiring sink for tiny_core/silver/crystal; closes amulet_focus acquisition; hosted at workbench to keep the anvil invariant (provisional qty) |  |
 
 ## Double-Check Findings
 

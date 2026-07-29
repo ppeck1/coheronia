@@ -68,6 +68,18 @@
         "count": 2
       },
       "reward": { "type": "grant_xp", "event_id": "contract_reward_craft" }
+    },
+    {
+      "id": "raider_bounty",
+      "title": "Raider Bounty",
+      "description": "Stockpile 12 Raider Coins in the Town Hall.",
+      "objective": {
+        "oid": "raider_bounty.stock",
+        "type": "stockpile_at_least",
+        "item": "coins",
+        "count": 12
+      },
+      "reward": { "type": "grant_items", "items": { "food": 6 } }
     }
   ]
 }

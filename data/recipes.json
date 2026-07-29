@@ -19,28 +19,6 @@
       "station": "hand"
     },
     {
-      "recipe_id": "craft_wood_block",
-      "display_name": "Wood Block",
-      "inputs": {
-        "wood": 1
-      },
-      "outputs": {
-        "wood": 1
-      },
-      "station": "hand"
-    },
-    {
-      "recipe_id": "craft_stone_block",
-      "display_name": "Stone Block",
-      "inputs": {
-        "stone": 1
-      },
-      "outputs": {
-        "stone": 1
-      },
-      "station": "hand"
-    },
-    {
       "recipe_id": "craft_seeds",
       "display_name": "Crop Seeds",
       "inputs": {
@@ -70,9 +48,9 @@
         "wood": 3,
         "stone": 5
       },
-      "outputs": {
-        "tool_tier_2_pick": 1
-      },
+      "outputs": {},
+      "icon": "pick",
+      "note": "Item-wiring: the player-facing result is town_hall.forge_pick() setting the live pick tier to 2 (equipped view -> pick_forged). Outputs are intentionally empty; the recipe no longer mints the legacy tool_tier_2_pick backpack token. The empty-output row resolves its craft icon via the `pick` surrogate (like craft_axe/sword/armor_set), not a swatch.",
       "station": "town_hall"
     },
     {
@@ -179,6 +157,52 @@
       "display_name": "Bucket",
       "inputs": { "copper_ingot": 3 },
       "outputs": { "bucket": 1 },
+      "station": "workbench"
+    },
+    {
+      "recipe_id": "workbench_raid_torches",
+      "display_name": "Raid Torches",
+      "note": "Item-wiring sink: raider-torchbearer loot (torch_heads + oil_rags) bundled with wood into ordinary torches. Provisional quantities.",
+      "inputs": { "torch_heads": 2, "oil_rags": 1, "wood": 1 },
+      "outputs": { "torch": 6 },
+      "station": "workbench",
+      "output_to": "inventory"
+    },
+    {
+      "recipe_id": "furnace_reclaim_ore",
+      "display_name": "Reclaim Ore",
+      "note": "Item-wiring sink: ore-tick ore_flecks smelted back into raw ore. Not a smelt_* recipe (its input is loot residue, not a mined ore family). Provisional quantities.",
+      "inputs": { "ore_flecks": 4, "coal": 1 },
+      "outputs": { "ore": 1 },
+      "station": "furnace",
+      "output_to": "stockpile"
+    },
+    {
+      "recipe_id": "furnace_reclaim_iron",
+      "display_name": "Reclaim Iron",
+      "note": "Item-wiring sink: raider weapon scrap salvaged into an iron ingot at the furnace. Provisional quantities.",
+      "inputs": { "scrap_weapons": 3, "coal": 1 },
+      "outputs": { "iron_ingot": 1 },
+      "station": "furnace",
+      "output_to": "stockpile"
+    },
+    {
+      "recipe_id": "cook_meat",
+      "display_name": "Cook Meat",
+      "note": "Item-wiring sink: thornrat raw meat cooked over the furnace into settlement food. Provisional quantities.",
+      "inputs": { "meat": 2, "coal": 1 },
+      "outputs": { "food": 2 },
+      "station": "furnace",
+      "output_to": "stockpile"
+    },
+    {
+      "recipe_id": "craft_focus_amulet",
+      "display_name": "Focus Amulet",
+      "note": "Item-wiring sink: sets a Tiny Core in a silver-and-crystal amulet (existing amulet_focus gear, +10 attunement). Hosted at the workbench, whose rules already accept Silver Ingot + Crystal + Tiny Core, so the anvil's smelted-ingot invariant is left intact. Provisional quantities.",
+      "inputs": { "silver_ingot": 1, "crystal": 1, "tiny_core": 1 },
+      "outputs": {},
+      "equip_slots": { "amulet": "amulet_focus" },
+      "icon": "crystal",
       "station": "workbench"
     }
   ]

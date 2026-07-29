@@ -30,6 +30,7 @@ Torch is a live item with both acquisition and active use in the current build.
 | Starting role | [Prospector](../characters/roles/prospector.md) | 3x | Granted during character setup. |
 | Recipe output | Torch | 3x at [Hand](../stations/hand.md) | Output route: inventory. |
 | Recipe output | Torch Bundle | 6x at [Workbench](../stations/workbench.md) | Output route: inventory. |
+| Recipe output | Raid Torches | 6x at [Workbench](../stations/workbench.md) | Output route: inventory. |
 
 ## Current Uses
 

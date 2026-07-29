@@ -1028,6 +1028,66 @@ if float(enemy_by_id["raider_torchbearer"].get("hall_dps_mult", 1.0)) <= 1.0:
     fail("enemies.json raider_torchbearer must burn faster (hall_dps_mult > 1)")
 print("PASS FQ-13 enemy variety")
 
+# Item-wiring: referential integrity of the live item graph. Every recipe input,
+# recipe output, block drop, and live-enemy drop must resolve to real block/item
+# metadata, every equip target must be a real gear item that fits its slot, and
+# the UI-only surrogates (pick/axe/sword/armor) must never appear in a gameplay
+# path (recipe io, drops). Planned enemies may name not-yet-defined loot (kept
+# inactive), so only LIVE enemy drops are held to full resolution.
+material_ids = set(blocks.keys()) | set(_item_ids)   # blocks + items.json ids
+equipment_item_ids = set(items.keys())
+ui_only_ids = {k for k, v in items_meta["items"].items()
+               if isinstance(v, dict) and v.get("ui_only")}
+if ui_only_ids != {"pick", "axe", "sword", "armor"}:
+    fail(f"items.json ui_only set changed unexpectedly: {sorted(ui_only_ids)}")
+for r in all_recipes:
+    rid = r.get("recipe_id", "?")
+    for io_kind in ("inputs", "outputs"):
+        for mid in r.get(io_kind, {}):
+            if mid not in material_ids:
+                fail(f"recipes.json {rid}: {io_kind} id {mid!r} resolves to no block/item metadata")
+            if mid in ui_only_ids:
+                fail(f"recipes.json {rid}: {io_kind} id {mid!r} is a UI-only surrogate, not a real item")
+    for slot, gear in r.get("equip_slots", {}).items():
+        if gear not in equipment_item_ids:
+            fail(f"recipes.json {rid}: equip target {gear!r} is not an equipment item")
+        if slot not in slot_accept_by_id:
+            fail(f"recipes.json {rid}: equip slot {slot!r} is not an equipment slot")
+        elif items[gear].get("slot_type") != slot_accept_by_id[slot]:
+            fail(f"recipes.json {rid}: {gear} does not fit slot {slot}")
+for bid, bdef in blocks.items():
+    for did in bdef.get("drops", {}):
+        if did not in material_ids:
+            fail(f"blocks.json {bid}: drop {did!r} resolves to no block/item metadata")
+        if did in ui_only_ids:
+            fail(f"blocks.json {bid}: drop {did!r} is a UI-only surrogate")
+for e in enemies_data["enemies"]:
+    if e.get("status") != "live":
+        continue
+    for drop in e.get("drops", []):
+        did = drop.get("item_id")
+        if did not in material_ids:
+            fail(f"enemies.json live enemy {e['id']}: drop {did!r} resolves to no block/item metadata")
+        if did in ui_only_ids:
+            fail(f"enemies.json live enemy {e['id']}: drop {did!r} is a UI-only surrogate")
+print("PASS item graph referential integrity")
+
+# Item-wiring (Phase 3): the renewable tree loop must be wired coherently — the
+# seed item, the growing sapling state, and the mature tree blocks all present,
+# the sapling drops its seed back when broken, and it cannot float.
+if "tree_seed" not in _item_ids:
+    fail("items.json missing tree_seed (renewable tree loop)")
+for tree_block in ["tree_sapling", "tree_trunk", "tree_leaves"]:
+    if tree_block not in blocks:
+        fail(f"blocks.json missing tree block: {tree_block}")
+if int(blocks["tree_sapling"].get("drops", {}).get("tree_seed", 0)) < 1:
+    fail("blocks.json tree_sapling must drop tree_seed when broken")
+if not blocks["tree_sapling"].get("requires_support", False):
+    fail("blocks.json tree_sapling must require_support (saplings cannot float)")
+if blocks["tree_sapling"].get("is_placeable", True):
+    fail("blocks.json tree_sapling must not be hotbar-placeable (planted via a seed)")
+print("PASS renewable tree loop wiring")
+
 ancestries_data = json.loads((ROOT / "data/ancestries.json").read_text(encoding="utf-8"))
 ancestry_ids = {a["id"] for a in ancestries_data["ancestries"]}
 expected_ancestries = {"human", "dwarf", "deep_dwarf", "elf", "deep_elf", "orc", "goblin", "deep_goblin", "gnome", "deep_gnome", "lizardfolk", "dragonkin"}

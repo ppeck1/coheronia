@@ -30,7 +30,9 @@ Bronze Ingot is live and obtainable, but it still ends in a source-only branch.
 
 ## Current Uses
 
-No meaningful live downstream use is currently defined.
+| Use type | Use | Quantity | Notes |
+|---|---|---|---|
+| Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
 ## Related Pages
 

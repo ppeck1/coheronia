@@ -19,8 +19,6 @@ Generated: 2026-07-29
 | Recipe | Inputs | Result | Result route |
 |---|---|---|---|
 | Torch | wood x1, stone x1 | torch x3 | inventory |
-| Wood Block | wood x1 | wood x1 | inventory |
-| Stone Block | stone x1 | stone x1 | inventory |
 | Crop Seeds | food x1 | crop_seeds x2 | inventory |
 
 ## Related Pages

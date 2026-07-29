@@ -300,6 +300,7 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 		# is treated as brand new and still receives its starter grant normally.
 		if migrated_from_world:
 			GameState.mark_items_granted(char_id)
+	_migrate_legacy_pick_token()
 	player.inventory_changed.emit()
 
 
@@ -324,7 +325,27 @@ func _apply_character_carried_state() -> void:
 	else:
 		player.tool_tier = int(char.get("carried_tool_tier", 1))
 		player.axe_tier = 0  # legacy migration: the axe must still be crafted
+	_migrate_legacy_pick_token()
 	player.inventory_changed.emit()
+
+
+## Item-wiring (2.1): the Forged Pick upgrade no longer mints a tool_tier_2_pick
+## backpack token (the recipe output is empty; forge_pick sets the live pick tier).
+## A save written before that fix may still carry the legacy token in its
+## inventory. Strip every tool_tier_*_pick token here and, since owning one meant
+## the pick had been forged, guarantee the live pick tier is at least 2 — so the
+## upgrade the token represented is preserved as the canonical Forged Pick state
+## rather than left dangling in the backpack. Idempotent; a no-op on clean saves.
+func _migrate_legacy_pick_token() -> void:
+	var legacy_ids: Array = []
+	for item_id in player.inventory.counts.keys():
+		if BlockRegistry.legacy_item_icon_fallback_id(str(item_id)) != "":
+			legacy_ids.append(str(item_id))
+	if legacy_ids.is_empty():
+		return
+	for item_id in legacy_ids:
+		player.inventory.remove(str(item_id), player.inventory.count(str(item_id)))
+	player.tool_tier = maxi(player.tool_tier, 2)
 
 
 func summary() -> Dictionary:

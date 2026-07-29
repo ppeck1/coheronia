@@ -47,18 +47,20 @@ WORLD_ONLY_ITEM_IDS = {"grass", "farm_soil", "crop_seedling", "crop_ripe", "berr
 UI_SURROGATE_ITEM_IDS = {"pick", "axe", "sword", "armor"}
 INTERNAL_ITEM_IDS = {"tool_tier_2_pick"}
 STOCKPILE_ONLY_ITEM_IDS = {"copper_ingot", "tin_ingot", "iron_ingot", "silver_ingot", "bronze_ingot"}
+# Item-wiring: the stockpile now accepts all raw materials AND loot (the runtime
+# authority is BlockRegistry.is_stockpile_material — materials/loot in; gear,
+# UI-only surrogates, legacy tokens, world-state blocks, and carried tools out).
+# This mirror keeps the item wiki pages accurate; it is illustrative, not the gate.
 DEPOSITABLE_ITEM_IDS = {
-    "dirt",
-    "stone",
-    "wood",
-    "ore",
-    "food",
-    "coal",
-    "copper_ore",
-    "tin_ore",
-    "iron_ore",
-    "silver_ore",
-    "crystal",
+    # raw materials
+    "dirt", "stone", "wood", "ore", "food", "coal",
+    "copper_ore", "tin_ore", "iron_ore", "silver_ore", "crystal",
+    "hellstone", "obsidian",
+    "copper_ingot", "tin_ingot", "iron_ingot", "silver_ingot", "bronze_ingot",
+    # enemy / raider loot (materials with or without a live sink)
+    "slime_gel", "wet_fiber", "tiny_core", "meat", "thorn_quill", "hide_scrap",
+    "chitin", "silk", "eyes", "ore_flecks", "shell", "coins", "scrap_weapons",
+    "oil_rags", "torch_heads",
 }
 PLACEABLE_ITEM_IDS = {"dirt", "wood", "stone", "torch", "lantern"}
 EDIBLE_ITEM_IDS = {"food"}
@@ -87,7 +89,7 @@ SPECIAL_EQUIP_ROUTES = {
     "basic_pick_upgrade": {
         "route": "Town Hall upgrade route",
         "results": [("pickaxe", "pick_forged")],
-        "details": "Consumes the stockpile recipe, emits internal token `tool_tier_2_pick`, then upgrades the equipped pick state to `pick_forged`.",
+        "details": "Consumes the stockpile recipe and upgrades the live pick tier to 2 (equipped view -> `pick_forged`). The recipe output is empty; it no longer mints the retired `tool_tier_2_pick` backpack token. Old saves that still carry the token migrate it away on load (see game_root._migrate_legacy_pick_token).",
     },
     "craft_axe": {
         "route": "Town Hall forge route",

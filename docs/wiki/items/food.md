@@ -28,6 +28,7 @@ Food is a live item with both acquisition and active use in the current build.
 |---|---|---|---|
 | Block drop | [Ripe Crop](../blocks/crop_ripe.md) | 3x | Current block harvest result. |
 | Block drop | [Berry Bush](../blocks/berry_bush.md) | 2x | Current block harvest result. |
+| Recipe output | Cook Meat | 2x at [Furnace](../stations/furnace.md) | Output route: stockpile. |
 
 ## Current Uses
 

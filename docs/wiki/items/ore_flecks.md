@@ -2,7 +2,7 @@
 
 Generated: 2026-07-29
 
-> `Item` page. Current status: `source-only`.
+> `Item` page. Current status: `complete`.
 
 ![Ore Flecks](../../../art/generated/items/ore_flecks.png)
 
@@ -10,17 +10,17 @@ Generated: 2026-07-29
 |---|---|
 | ID | `ore_flecks` |
 | Page type | Item |
-| Current status | source-only |
-| Storage | inventory |
+| Current status | complete |
+| Storage | inventory; stockpile input |
 | Player-facing? | Yes |
-| Description | Metal residue scraped from an ore tick. |
-| Status explanation | A live source exists, but the current game still lacks a meaningful downstream sink. |
+| Description | Metal residue scraped from an ore tick. Reclaim it into ore at the furnace. |
+| Status explanation | A live source and a live downstream use both exist. |
 | Image path | `art/generated/items/ore_flecks.png` |
 | Fallback / placeholder | Generated 16x16 swatch via `BlockRegistry.item_icon()` if the canonical item icon is absent. |
 
 ## Summary
 
-Ore Flecks is live and obtainable, but it still ends in a source-only branch.
+Ore Flecks is a live item with both acquisition and active use in the current build.
 
 ## Acquisition
 
@@ -30,7 +30,10 @@ Ore Flecks is live and obtainable, but it still ends in a source-only branch.
 
 ## Current Uses
 
-No meaningful live downstream use is currently defined.
+| Use type | Use | Quantity | Notes |
+|---|---|---|---|
+| Recipe input | Reclaim Ore | 4x at [Furnace](../stations/furnace.md) | Live crafting dependency. |
+| Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
 ## Related Pages
 

@@ -27,6 +27,7 @@ Ore is a live item with both acquisition and active use in the current build.
 | Source type | Source | Quantity / chance | Notes |
 |---|---|---|---|
 | Block drop | [Ore](../blocks/ore.md) | 1x | Current block harvest result. |
+| Recipe output | Reclaim Ore | 1x at [Furnace](../stations/furnace.md) | Output route: stockpile. |
 
 ## Current Uses
 

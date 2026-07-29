@@ -6,10 +6,10 @@ This page groups the current station surfaces that host recipes or route craftin
 
 | Station | Prerequisite | Build cost | Hosted recipes |
 |---|---|---|---|
-| [Workbench](stations/workbench.md) | none | wood x12, stone x6 | 2 |
-| [Furnace](stations/furnace.md) | workbench | stone x16, coal x4 | 5 |
+| [Workbench](stations/workbench.md) | none | wood x12, stone x6 | 4 |
+| [Furnace](stations/furnace.md) | workbench | stone x16, coal x4 | 8 |
 | [Anvil](stations/anvil.md) | furnace | stone x10, iron_ingot x3 | 2 |
-| [By Hand](stations/hand.md) | none | none | 4 |
+| [By Hand](stations/hand.md) | none | none | 2 |
 | [Town Hall](stations/town_hall.md) | none | none | 5 |
 
 ## Related Pages

@@ -11,6 +11,13 @@ const BUSH_RETRY_SECONDS := 10.0
 const CROP_GROW_SECONDS := 60.0
 const CROP_RETRY_SECONDS := 5.0
 const CROP_IDS := ["crop_seedling", "crop_ripe"]
+# Item-wiring (Phase 3): the renewable tree loop. A planted tree_sapling matures
+# into a full tree after this many seconds (obstructed saplings wait the retry
+# interval, exactly like crops); clearing tree_leaves drops one tree_seed with
+# this chance. All three are PROVISIONAL balance values — named here, not tuned.
+const SAPLING_GROW_SECONDS := 90.0
+const SAPLING_RETRY_SECONDS := 5.0
+const LEAF_SEED_DROP_CHANCE := 0.35
 # LQ-2: number of discrete fill heights a liquid tile quantizes into (16px tile
 # => 2px per bucket). A cell's level maps to a bottom-anchored tile of this many.
 const LIQUID_FILL_LEVELS := 8
@@ -35,6 +42,7 @@ var surface: Dictionary = {}        # int x -> int y of surface
 var hall_info: Dictionary = {}
 var bush_regrow: Dictionary = {}    # Vector2i -> float seconds until regrowth
 var crop_growth: Dictionary = {}    # FQ-12: Vector2i -> float seconds until a seedling ripens
+var tree_growth: Dictionary = {}    # Item-wiring: Vector2i -> float seconds until a sapling matures
 # LQ-1: parallel per-cell liquid fill level (Vector2i -> float in (0,1]). A
 # liquid cell absent here reads as 1.0 (a generated-at-rest pool). Saved
 # alongside deltas; driven by the fluid sim.
@@ -99,6 +107,7 @@ const BLOCK_COLORS := {
 	"farm_soil": Color(0.35, 0.24, 0.14),
 	"crop_seedling": Color(0.48, 0.65, 0.30),
 	"crop_ripe": Color(0.85, 0.72, 0.25),
+	"tree_sapling": Color(0.36, 0.56, 0.24),
 	"tree_trunk": Color(0.48, 0.35, 0.20),
 	"tree_leaves": Color(0.22, 0.44, 0.19),
 	"town_hall_core": Color(0.42, 0.30, 0.55),
@@ -133,6 +142,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_tick_bush_regrowth(delta)
 	_tick_crop_growth(delta)
+	_tick_tree_growth(delta)
 	# LQ-1: advance the liquid sim (self-idles while no liquid is awake).
 	if not fluid_paused and _fluid != null:
 		_fluid.tick(delta)
@@ -180,6 +190,60 @@ func _tick_crop_growth(delta: float) -> void:
 			crop_growth[cell] = CROP_RETRY_SECONDS
 
 
+## Item-wiring (Phase 3): matures planted saplings after their timer, mirroring
+## crop growth. A sapling only matures while it is still a tree_sapling standing on
+## solid ground with its tree footprint clear; if the cell was mined/replaced the
+## timer is dropped, if its support is gone it falls (returning nothing — the seed
+## was already spent), and if the canopy space is blocked it simply waits and
+## retries (fails safely without swallowing terrain).
+func _tick_tree_growth(delta: float) -> void:
+	for cell in tree_growth.keys():
+		tree_growth[cell] -= delta
+		if tree_growth[cell] > 0.0:
+			continue
+		if block_at(cell) != "tree_sapling":
+			tree_growth.erase(cell)
+		elif not _is_supported(cell):
+			cells.erase(cell)
+			deltas[cell] = "air"
+			_set_tile(cell, "air")
+			block_changed.emit(cell, "air")
+			tree_growth.erase(cell)
+		elif _mature_sapling(cell):
+			tree_growth.erase(cell)
+		else:
+			tree_growth[cell] = SAPLING_RETRY_SECONDS
+
+
+## Item-wiring (Phase 3): grows a mature tree from a sapling cell using the ONE
+## canonical tree rule (WorldGen.tree_layout), so a planted tree is the same shape
+## world-gen produces and yields the existing tree_trunk/tree_leaves/wood behavior.
+## The trunk column must be clear (air, or the sapling cell itself) or the growth
+## fails safely and retries; canopy cells that are occupied are skipped, exactly as
+## world-gen never overwrites terrain. Returns true when the tree was stamped.
+func _mature_sapling(cell: Vector2i) -> bool:
+	var trunk_h: int = WorldGen.TREE_MIN_H + (absi(hash(cell)) \
+		% (WorldGen.TREE_MAX_H - WorldGen.TREE_MIN_H + 1))
+	var layout: Array = WorldGen.tree_layout(trunk_h, cell.x, cell.y + 1)
+	# Validate the trunk column is clear before placing anything (fail safely).
+	for entry in layout:
+		var pos: Vector2i = entry[0]
+		if str(entry[1]) == "tree_trunk" and pos != cell and block_at(pos) != "air":
+			return false
+	for entry in layout:
+		var pos: Vector2i = entry[0]
+		var id: String = str(entry[1])
+		# Skip an occupied canopy cell (never swallow terrain); the trunk column is
+		# already verified clear above, and the sapling cell is overwritten by trunk.
+		if pos != cell and block_at(pos) != "air":
+			continue
+		cells[pos] = id
+		deltas[pos] = id
+		_set_tile(pos, id)
+		block_changed.emit(pos, id)
+	return true
+
+
 func _tick_bush_regrowth(delta: float) -> void:
 	for cell in bush_regrow.keys():
 		bush_regrow[cell] -= delta
@@ -201,11 +265,13 @@ func _tick_bush_regrowth(delta: float) -> void:
 
 
 func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionary = {},
-		saved_crop: Dictionary = {}, saved_liquid: Dictionary = {}) -> void:
+		saved_crop: Dictionary = {}, saved_liquid: Dictionary = {},
+		saved_tree: Dictionary = {}) -> void:
 	world_seed = new_seed
 	deltas = saved_deltas.duplicate()
 	bush_regrow = saved_regrow.duplicate()
 	crop_growth = saved_crop.duplicate()
+	tree_growth = saved_tree.duplicate()   # Item-wiring: restore sapling growth timers
 	# LQ-1: restore saved liquid fill levels (disturbed cells only; generated
 	# pools carry no entry and read as full). The wake below re-settles anything
 	# saved mid-flow; a fresh/undisturbed world stays asleep (empty active set).
@@ -244,6 +310,7 @@ func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionar
 			cells.erase(sweep_cell)
 			deltas[sweep_cell] = "air"
 			crop_growth.erase(sweep_cell)
+			tree_growth.erase(sweep_cell)   # Item-wiring: unsupported sapling drops its timer
 			if sbid == "berry_bush" and not bush_regrow.has(sweep_cell):
 				bush_regrow[sweep_cell] = BUSH_REGROW_SECONDS
 	_redraw_all()
@@ -342,6 +409,12 @@ func break_block(cell: Vector2i) -> Dictionary:
 	if block_id == "berry_bush":
 		bush_regrow[cell] = BUSH_REGROW_SECONDS
 	crop_growth.erase(cell)   # FQ-12: harvesting/removing a crop clears its timer
+	tree_growth.erase(cell)   # Item-wiring: removing a sapling clears its growth timer
+	# Item-wiring (Phase 3): clearing leaves has a chance to drop one tree_seed,
+	# closing the finite-tree loop. block_drops is a fresh copy from the registry.
+	if block_id == "tree_leaves" and randf() < LEAF_SEED_DROP_CHANCE:
+		block_drops = block_drops.duplicate()
+		block_drops["tree_seed"] = int(block_drops.get("tree_seed", 0)) + 1
 	block_changed.emit(cell, "air")
 	# LQ-1: breaching a wall wakes any adjacent liquid so a pool starts pouring.
 	if _fluid != null:
@@ -355,6 +428,7 @@ func break_block(cell: Vector2i) -> Dictionary:
 		deltas[above] = "air"
 		_set_tile(above, "air")
 		crop_growth.erase(above)
+		tree_growth.erase(above)   # Item-wiring: a sapling that lost its support falls too
 		# Only berry bushes reschedule; FQ-12 crops just fall (no auto-regrow).
 		if above_id == "berry_bush":
 			bush_regrow[above] = BUSH_REGROW_SECONDS
@@ -404,6 +478,23 @@ func plant_crop(cell: Vector2i) -> bool:
 	_set_tile(cell, "crop_seedling")
 	crop_growth[cell] = CROP_GROW_SECONDS
 	block_changed.emit(cell, "crop_seedling")
+	return true
+
+
+## Item-wiring (Phase 3): plants a tree sapling in an air cell sitting directly on
+## dirt or grass, and schedules its growth. Returns false if the target is occupied
+## or not on natural ground (so saplings can never float or root in stone/structures).
+## The caller consumes one tree_seed on success. Growth reuses the crop-style timer.
+func plant_sapling(cell: Vector2i) -> bool:
+	if block_at(cell) != "air":
+		return false
+	if block_at(cell + Vector2i(0, 1)) not in ["dirt", "grass"]:
+		return false
+	cells[cell] = "tree_sapling"
+	deltas[cell] = "tree_sapling"
+	_set_tile(cell, "tree_sapling")
+	tree_growth[cell] = SAPLING_GROW_SECONDS
+	block_changed.emit(cell, "tree_sapling")
 	return true
 
 
@@ -483,8 +574,12 @@ func harvest_crop(cell: Vector2i) -> Dictionary:
 ## route their drops through here so a hauler settler can carry them to the
 ## stockpile; the player auto-collects any within reach (Player.collect_ground_drops).
 ## Refuses an empty id or a non-positive count -- neither is a real ground item.
+## Item-wiring: also refuses a UI-only surrogate id (pick/axe/sword/armor) so a
+## data slip can never spawn one as loot.
 func spawn_item_drop(pos: Vector2, item_id: String, count: int = 1) -> Node:
 	if item_id == "" or count <= 0:
+		return null
+	if BlockRegistry.is_ui_only(item_id):
 		return null
 	var drop := ItemDropScript.new()
 	add_child(drop)
@@ -494,12 +589,17 @@ func spawn_item_drop(pos: Vector2, item_id: String, count: int = 1) -> Node:
 
 ## R-08 slice 3: the nearest live ground item drop within `radius` cells
 ## (Chebyshev) of `from`, or null. Skips drops already queued for deletion so a
-## just-collected drop is never chased. Used by the hauler to pick a target.
+## just-collected drop is never chased. Used by the hauler to pick a target, so it
+## also skips stockpile-ineligible drops (e.g. a mined torch) — a hauler only
+## carries material/loot the stockpile actually accepts, and so never walks to a
+## drop it would then refuse to deposit.
 func nearest_item_drop(from: Vector2i, radius: int) -> Node:
 	var best: Node = null
 	var best_d: int = radius + 1
 	for d in get_tree().get_nodes_in_group("item_drops"):
 		if not is_instance_valid(d) or d.is_queued_for_deletion():
+			continue
+		if not BlockRegistry.is_stockpile_material(str(d.item_id)):
 			continue
 		var c: Vector2i = cell_of(d.global_position)
 		var dist: int = maxi(absi(c.x - from.x), absi(c.y - from.y))
@@ -895,6 +995,19 @@ func _make_block_texture(block_id: String, t: int) -> ImageTexture:
 		for leaf in [Vector2i(t / 2 - 3, t / 2 + 1), Vector2i(t / 2 + 2, t / 2 + 1),
 				Vector2i(t / 2 - 2, t / 2 + 3), Vector2i(t / 2 + 1, t / 2 + 3)]:
 			img.set_pixel(leaf.x, leaf.y, color)
+	elif block_id == "tree_sapling":
+		# Item-wiring (Phase 3): a young stem with a couple of small leaves in the
+		# lower-middle of the tile — reads as a planted tree not yet grown.
+		# Placeholder shape; a dedicated sapling PNG is a later-art requirement.
+		img.fill(Color(0, 0, 0, 0))
+		var stem_c := Color(0.42, 0.30, 0.18)
+		for y in range(t / 2, t):
+			img.set_pixel(t / 2, y, stem_c)
+			img.set_pixel(t / 2 - 1, y, stem_c)
+		for leaf in [Vector2i(t / 2 - 2, t / 2), Vector2i(t / 2 + 1, t / 2 - 1),
+				Vector2i(t / 2 - 3, t / 2 + 2), Vector2i(t / 2 + 2, t / 2 + 1)]:
+			img.set_pixel(leaf.x, leaf.y, color)
+			img.set_pixel(leaf.x, leaf.y - 1, color.lightened(0.15))
 	elif block_id == "crop_ripe":
 		# FQ-12: taller golden stalks with grain heads — visibly ready to harvest.
 		img.fill(Color(0, 0, 0, 0))
@@ -1001,6 +1114,23 @@ func serialize_crop_growth() -> Dictionary:
 
 
 static func parse_crop_growth(raw: Dictionary) -> Dictionary:
+	var out := {}
+	for key in raw:
+		var parts: PackedStringArray = str(key).split(",")
+		if parts.size() == 2:
+			out[Vector2i(int(parts[0]), int(parts[1]))] = float(raw[key])
+	return out
+
+
+## Item-wiring (Phase 3): sapling growth timers persist exactly like crops/bushes.
+func serialize_tree_growth() -> Dictionary:
+	var out := {}
+	for cell in tree_growth:
+		out["%d,%d" % [cell.x, cell.y]] = tree_growth[cell]
+	return out
+
+
+static func parse_tree_growth(raw: Dictionary) -> Dictionary:
 	var out := {}
 	for key in raw:
 		var parts: PackedStringArray = str(key).split(",")

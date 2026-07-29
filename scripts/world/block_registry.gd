@@ -462,6 +462,50 @@ func legacy_item_description(item_id: String) -> String:
 	return ""
 
 
+## Item-wiring: the SINGLE authority for "may this id enter the Town Hall material
+## stockpile?" Both the manual deposit (town_hall.deposit_all) and the hauler
+## settler (subject._deposit_drop) consult this so the two paths can never diverge.
+## The stockpile is the settlement's shared raw-material/loot store: gear, UI-only
+## surrogates, legacy tokens, world-state blocks, and carried tools/utilities are
+## excluded; everything else that resolves to a real material or loot id is in.
+const NON_STOCKPILE_IDS := {
+	# World-state / structural blocks that are never carried as ordinary items
+	# (they drop something else, or are protected/liquid world states).
+	"air": true, "grass": true, "farm_soil": true,
+	"crop_seedling": true, "crop_ripe": true, "berry_bush": true,
+	"tree_sapling": true, "tree_trunk": true, "tree_leaves": true,
+	"town_hall_core": true, "bedrock": true, "deepstone": true,
+	"lava": true, "water": true,
+	# Carried tools / utilities: placed or used by the player, not settlement stock.
+	"torch": true, "lantern": true, "bucket": true,
+	"bucket_water": true, "bucket_lava": true,
+	"crop_seeds": true, "tree_seed": true,
+}
+
+
+## Item-wiring: true for a UI/recipe/gear icon surrogate id (pick/axe/sword/armor)
+## — a metadata/icon-only id that is NOT a real player item. Guards the loot,
+## pickup, and deposit paths so a surrogate can never leak into normal play.
+func is_ui_only(item_id: String) -> bool:
+	return bool(items_data.get(item_id, {}).get("ui_only", false))
+
+
+func is_stockpile_material(item_id: String) -> bool:
+	if item_id == "":
+		return false
+	if not equipment_item(item_id).is_empty():
+		return false                       # equipment equips; it never stockpiles
+	if legacy_item_icon_fallback_id(item_id) != "":
+		return false                       # legacy tokens (tool_tier_*_pick)
+	if bool(items_data.get(item_id, {}).get("ui_only", false)):
+		return false                       # recipe/gear icon surrogates
+	if NON_STOCKPILE_IDS.has(item_id):
+		return false                       # world-state blocks + carried tools
+	# Otherwise it must resolve to a real material: a defined block drop/placeable
+	# or an items.json-defined resource/loot id. Unknown ids are never deposited.
+	return blocks.has(item_id) or items_data.has(item_id)
+
+
 func is_dock_assignable_item(item_id: String) -> bool:
 	if item_id == "":
 		return true

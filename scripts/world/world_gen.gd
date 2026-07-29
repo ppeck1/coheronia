@@ -437,21 +437,36 @@ static func _carve_dev_staircase(cells: Dictionary, surface: Dictionary,
 		cells[Vector2i(lx, target_y + 1)] = "hellstone"
 
 
+## The one canonical tree rule, shared by world-gen and the live renewable-tree
+## maturation (world._mature_sapling) so both grow the SAME shape. Given a trunk
+## height and the ground cell y (the cell the trunk sits on), returns the ordered
+## [[Vector2i, block_id], ...] a tree occupies: a tree_trunk column topped by a
+## small 3-wide tree_leaves canopy. Pure geometry — the caller decides how to
+## place it (skip occupied cells at gen time; validate clearance when maturing).
+static func tree_layout(trunk_h: int, x: int, ground_y: int) -> Array:
+	var out: Array = []
+	for i in range(trunk_h):
+		var pos := Vector2i(x, ground_y - 1 - i)
+		if pos.y >= 0:
+			out.append([pos, "tree_trunk"])
+	var top_y := ground_y - 1 - trunk_h
+	for dx in range(-1, 2):
+		for dy in range(-1, 1):
+			var pos := Vector2i(x + dx, top_y + dy)
+			if pos.y >= 0:
+				out.append([pos, "tree_leaves"])
+	return out
+
+
 ## Stamps one tree: a tree_trunk column topped by a small tree_leaves canopy.
 ## Trees never overwrite existing cells, so they cannot swallow terrain.
 static func _grow_tree(cells: Dictionary, rng: RandomNumberGenerator,
 		x: int, surf_y: int) -> void:
 	var trunk_h := rng.randi_range(TREE_MIN_H, TREE_MAX_H)
-	for i in range(trunk_h):
-		var pos := Vector2i(x, surf_y - 1 - i)
-		if pos.y >= 0 and not cells.has(pos):
-			cells[pos] = "tree_trunk"
-	var top_y := surf_y - 1 - trunk_h
-	for dx in range(-1, 2):
-		for dy in range(-1, 1):
-			var pos := Vector2i(x + dx, top_y + dy)
-			if pos.y >= 0 and not cells.has(pos):
-				cells[pos] = "tree_leaves"
+	for entry in tree_layout(trunk_h, x, surf_y):
+		var pos: Vector2i = entry[0]
+		if not cells.has(pos):
+			cells[pos] = str(entry[1])
 
 
 ## Flattens ground and clears air around the Town Hall site, then stamps

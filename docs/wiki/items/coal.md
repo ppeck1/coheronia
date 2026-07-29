@@ -38,6 +38,9 @@ Coal is a live item with both acquisition and active use in the current build.
 | Recipe input | Smelt Iron | 1x at [Furnace](../stations/furnace.md) | Live crafting dependency. |
 | Recipe input | Smelt Silver | 1x at [Furnace](../stations/furnace.md) | Live crafting dependency. |
 | Recipe input | Alloy Bronze | 1x at [Furnace](../stations/furnace.md) | Live crafting dependency. |
+| Recipe input | Reclaim Ore | 1x at [Furnace](../stations/furnace.md) | Live crafting dependency. |
+| Recipe input | Reclaim Iron | 1x at [Furnace](../stations/furnace.md) | Live crafting dependency. |
+| Recipe input | Cook Meat | 1x at [Furnace](../stations/furnace.md) | Live crafting dependency. |
 | Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
 ## Related Pages

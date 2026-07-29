@@ -364,7 +364,7 @@ func _physics_process(delta: float) -> void:
 	_apply_environmental_hazard()   # WD-3: lava (and any contact_damage block)
 	if Input.is_action_just_pressed("place"):
 		var _place_cell: Vector2i = world.cell_of(get_global_mouse_position())
-		if not _try_use_bucket(_place_cell):
+		if not _try_use_bucket(_place_cell) and not _try_plant_sapling(_place_cell):
 			try_place(_place_cell, selected_item())
 	if Input.is_action_just_pressed("farm_action"):
 		try_farm(world.cell_of(get_global_mouse_position()))
@@ -628,6 +628,38 @@ func try_farm(cell: Vector2i) -> bool:
 		return false
 	player_event.emit("Till dirt or grass first, then plant seeds on the tilled soil.")
 	return false
+
+
+## Item-wiring (Phase 3): the place-action gesture for a held Tree Seed. Returns
+## true when the selected item is tree_seed (so it consumes the place action and
+## normal block placement is skipped), whether or not a sapling was actually
+## planted. Aiming at dirt/grass plants in the open cell directly above it (the
+## natural gesture); aiming at that open cell works too. Planting consumes one
+## seed and creates a tree_sapling world state (world.plant_sapling schedules its
+## growth). Mirrors try_farm's crop-planting shape so the two feel consistent.
+func _try_plant_sapling(cell: Vector2i) -> bool:
+	if selected_item() != "tree_seed":
+		return false
+	if not _in_reach(cell):
+		player_event.emit("That is out of reach.")
+		return true
+	var target: String = world.block_at(cell)
+	var sapling_cell := cell
+	if target == "dirt" or target == "grass":
+		sapling_cell = cell + Vector2i(0, -1)
+	if world.block_at(sapling_cell) == "air" \
+			and world.block_at(sapling_cell + Vector2i(0, 1)) in ["dirt", "grass"]:
+		if inventory.count("tree_seed") <= 0:
+			return true
+		if world.plant_sapling(sapling_cell):
+			inventory.remove("tree_seed")
+			inventory_changed.emit()
+			ActionFx.spawn(world, "place_pulse", world.cell_center(sapling_cell))
+			player_event.emit("Planted a tree seed. Give it time to grow.")
+			return true
+		return true
+	player_event.emit("Plant tree seeds on dirt or grass with clear space above.")
+	return true
 
 
 ## FQ-03: stores a normalized character equipment dict (every slot present,

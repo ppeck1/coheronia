@@ -25,7 +25,7 @@ Forged Pick is a live equipment entry with an active source route and slot effec
 
 | Source type | Source | Station | Notes |
 |---|---|---|---|
-| Consumes the stockpile recipe, emits internal token `tool_tier_2_pick`, then upgrades the equipped pick state to `pick_forged` | Basic Pick Upgrade | [Town Hall](../stations/town_hall.md) | Routes into `pickaxe`. |
+| Consumes the stockpile recipe and upgrades the live pick tier to 2 (equipped view -> `pick_forged`) | Basic Pick Upgrade | [Town Hall](../stations/town_hall.md) | Routes into `pickaxe`. |
 
 ## Current Use
 

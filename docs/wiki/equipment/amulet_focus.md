@@ -2,14 +2,14 @@
 
 Generated: 2026-07-29
 
-> `Equipment` page. Current status: `dead`.
+> `Equipment` page. Current status: `complete`.
 
 | Field | Value |
 |---|---|
 | ID | `amulet_focus` |
 | Page type | Equipment |
 | Slot type | amulet |
-| Current status | dead |
+| Current status | complete |
 | Description | A crystal pendant that deepens attunement. |
 | Stat effects | attunement_bonus=10 |
 | Visual surface | No dedicated backpack-style equipment icon family is currently in use. |
@@ -19,11 +19,13 @@ Generated: 2026-07-29
 
 ## Summary
 
-Focus Amulet is defined in equipment data but has no live acquisition route in the current build.
+Focus Amulet is a live equipment entry with an active source route and slot effect.
 
 ## Acquisition
 
-No live acquisition route is currently defined.
+| Source type | Source | Station | Notes |
+|---|---|---|---|
+| Recipe equip route | Focus Amulet | [Workbench](../stations/workbench.md) | Equips into `amulet`. |
 
 ## Current Use
 
@@ -38,4 +40,4 @@ No live acquisition route is currently defined.
 
 ## Notes
 
-- Defined in `data/equipment.json`, but there is no live acquisition route.
+- This page documents the current live route only. It does not change mechanics.

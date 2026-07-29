@@ -29,20 +29,19 @@ Wood is a live item with both acquisition and active use in the current build.
 | Block drop | [Wood](../blocks/wood.md) | 1x | Current block harvest result. |
 | Block drop | [Tree Trunk](../blocks/tree_trunk.md) | 1x | Current block harvest result. |
 | Starting role | [Homesteader](../characters/roles/homesteader.md) | 5x | Granted during character setup. |
-| Recipe output | Wood Block | 1x at [Hand](../stations/hand.md) | Output route: inventory. |
 
 ## Current Uses
 
 | Use type | Use | Quantity | Notes |
 |---|---|---|---|
 | Recipe input | Torch | 1x at [Hand](../stations/hand.md) | Live crafting dependency. |
-| Recipe input | Wood Block | 1x at [Hand](../stations/hand.md) | Live crafting dependency. |
 | Recipe input | Lantern | 1x at [Town Hall](../stations/town_hall.md) | Live crafting dependency. |
 | Recipe input | Basic Pick Upgrade | 3x at [Town Hall](../stations/town_hall.md) | Live crafting dependency. |
 | Recipe input | Axe | 4x at [Town Hall](../stations/town_hall.md) | Live crafting dependency. |
 | Recipe input | Crude Sword | 2x at [Town Hall](../stations/town_hall.md) | Live crafting dependency. |
 | Recipe input | Crude Armor Set | 6x at [Town Hall](../stations/town_hall.md) | Live crafting dependency. |
 | Recipe input | Torch Bundle | 2x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
+| Recipe input | Raid Torches | 1x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
 | Placement | World block placement | - | Placeable into the world as a block. |
 | Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 

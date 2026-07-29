@@ -29,14 +29,12 @@ Stone is a live item with both acquisition and active use in the current build.
 | Block drop | [Stone](../blocks/stone.md) | 1x | Current block harvest result. |
 | Block drop | [Deepstone](../blocks/deepstone.md) | 1x | Current block harvest result. |
 | Starting role | [Prospector](../characters/roles/prospector.md) | 2x | Granted during character setup. |
-| Recipe output | Stone Block | 1x at [Hand](../stations/hand.md) | Output route: inventory. |
 
 ## Current Uses
 
 | Use type | Use | Quantity | Notes |
 |---|---|---|---|
 | Recipe input | Torch | 1x at [Hand](../stations/hand.md) | Live crafting dependency. |
-| Recipe input | Stone Block | 1x at [Hand](../stations/hand.md) | Live crafting dependency. |
 | Recipe input | Basic Pick Upgrade | 5x at [Town Hall](../stations/town_hall.md) | Live crafting dependency. |
 | Recipe input | Axe | 2x at [Town Hall](../stations/town_hall.md) | Live crafting dependency. |
 | Recipe input | Crude Sword | 3x at [Town Hall](../stations/town_hall.md) | Live crafting dependency. |

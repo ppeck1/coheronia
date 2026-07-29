@@ -19,7 +19,7 @@ This page is the item landing page for the current Coheronia wiki tree. It is me
 | [Tin Ore](items/tin_ore.md) | complete | inventory; stockpile input | Block: Tin Ore | recipe input |
 | [Iron Ore](items/iron_ore.md) | complete | inventory; stockpile input | Block: Iron Ore | recipe input |
 | [Silver Ore](items/silver_ore.md) | complete | inventory; stockpile input | Block: Silver Ore | recipe input |
-| [Raw Crystal](items/crystal.md) | source-only | inventory; stockpile input | Block: Raw Crystal | No live sink |
+| [Raw Crystal](items/crystal.md) | complete | inventory; stockpile input | Block: Raw Crystal | recipe input |
 
 ### Processed Materials
 
@@ -28,7 +28,7 @@ This page is the item landing page for the current Coheronia wiki tree. It is me
 | [Copper Ingot](items/copper_ingot.md) | complete | stockpile | Recipe: smelt_copper | recipe input |
 | [Tin Ingot](items/tin_ingot.md) | complete | stockpile | Recipe: smelt_tin | recipe input |
 | [Iron Ingot](items/iron_ingot.md) | complete | stockpile | Recipe: smelt_iron | recipe input |
-| [Silver Ingot](items/silver_ingot.md) | source-only | stockpile | Recipe: smelt_silver | No live sink |
+| [Silver Ingot](items/silver_ingot.md) | complete | stockpile | Recipe: smelt_silver | recipe input |
 | [Bronze Ingot](items/bronze_ingot.md) | source-only | stockpile | Recipe: alloy_bronze | No live sink |
 
 ### Farming, Food, And Light
@@ -44,21 +44,21 @@ This page is the item landing page for the current Coheronia wiki tree. It is me
 
 | Item | Status | Storage | Current source | Current use |
 |---|---|---|---|---|
-| [Slime Gel](items/slime_gel.md) | source-only | inventory | Enemy: Surface Slime | No live sink |
-| [Wet Fiber](items/wet_fiber.md) | source-only | inventory | Enemy: Surface Slime | No live sink |
-| [Tiny Core](items/tiny_core.md) | source-only | inventory | Enemy: Surface Slime | No live sink |
-| [Raw Meat](items/meat.md) | source-only | inventory | Enemy: Thornrat | No live sink |
-| [Thorn Quill](items/thorn_quill.md) | source-only | inventory | Enemy: Thornrat | No live sink |
-| [Hide Scrap](items/hide_scrap.md) | source-only | inventory | Enemy: Thornrat | No live sink |
-| [Crawler Chitin](items/chitin.md) | source-only | inventory | Enemy: Cave Crawler | No live sink |
-| [Cave Silk](items/silk.md) | source-only | inventory | Enemy: Cave Crawler | No live sink |
-| [Crawler Eyes](items/eyes.md) | source-only | inventory | Enemy: Cave Crawler | No live sink |
-| [Ore Flecks](items/ore_flecks.md) | source-only | inventory | Enemy: Ore Tick | No live sink |
-| [Tick Shell](items/shell.md) | source-only | inventory | Enemy: Ore Tick | No live sink |
-| [Raider Coins](items/coins.md) | source-only | inventory | Enemy: Raider Basic | No live sink |
-| [Weapon Scrap](items/scrap_weapons.md) | source-only | inventory | Enemy: Raider Basic | No live sink |
-| [Oil Rags](items/oil_rags.md) | source-only | inventory | Enemy: Raider Torchbearer | No live sink |
-| [Torch Heads](items/torch_heads.md) | source-only | inventory | Enemy: Raider Torchbearer | No live sink |
+| [Slime Gel](items/slime_gel.md) | source-only | inventory; stockpile input | Enemy: Surface Slime | No live sink |
+| [Wet Fiber](items/wet_fiber.md) | source-only | inventory; stockpile input | Enemy: Surface Slime | No live sink |
+| [Tiny Core](items/tiny_core.md) | complete | inventory; stockpile input | Enemy: Surface Slime | recipe input |
+| [Raw Meat](items/meat.md) | complete | inventory; stockpile input | Enemy: Thornrat | recipe input |
+| [Thorn Quill](items/thorn_quill.md) | source-only | inventory; stockpile input | Enemy: Thornrat | No live sink |
+| [Hide Scrap](items/hide_scrap.md) | source-only | inventory; stockpile input | Enemy: Thornrat | No live sink |
+| [Crawler Chitin](items/chitin.md) | source-only | inventory; stockpile input | Enemy: Cave Crawler | No live sink |
+| [Cave Silk](items/silk.md) | source-only | inventory; stockpile input | Enemy: Cave Crawler | No live sink |
+| [Crawler Eyes](items/eyes.md) | source-only | inventory; stockpile input | Enemy: Cave Crawler | No live sink |
+| [Ore Flecks](items/ore_flecks.md) | complete | inventory; stockpile input | Enemy: Ore Tick | recipe input |
+| [Tick Shell](items/shell.md) | source-only | inventory; stockpile input | Enemy: Ore Tick | No live sink |
+| [Raider Coins](items/coins.md) | source-only | inventory; stockpile input | Enemy: Raider Basic | No live sink |
+| [Weapon Scrap](items/scrap_weapons.md) | complete | inventory; stockpile input | Enemy: Raider Basic | recipe input |
+| [Oil Rags](items/oil_rags.md) | complete | inventory; stockpile input | Enemy: Raider Torchbearer | recipe input |
+| [Torch Heads](items/torch_heads.md) | complete | inventory; stockpile input | Enemy: Raider Torchbearer | recipe input |
 
 ### World-Only, UI, And Internal Tokens
 
@@ -73,7 +73,7 @@ This page is the item landing page for the current Coheronia wiki tree. It is me
 | [Axe](items/axe.md) | source-only | UI surrogate icon | No live source | No live sink |
 | [Sword](items/sword.md) | source-only | UI surrogate icon | No live source | No live sink |
 | [Armor](items/armor.md) | source-only | UI surrogate icon | No live source | No live sink |
-| [Tool Tier 2 Pick](items/tool_tier_2_pick.md) | internal | internal token | Recipe: basic_pick_upgrade | No live sink |
+| [Tool Tier 2 Pick](items/tool_tier_2_pick.md) | internal | internal token | No live source | No live sink |
 
 ## Planned-Only Item Hooks
 

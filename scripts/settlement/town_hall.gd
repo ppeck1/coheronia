@@ -6,8 +6,6 @@ extends Node2D
 signal stockpile_changed
 signal damaged(amount: float)
 
-const DEPOSITABLE := ["dirt", "stone", "wood", "ore", "food",
-	"coal", "copper_ore", "tin_ore", "iron_ore", "silver_ore", "crystal"]
 const REPAIR_COST := {"stone": 2}
 const REPAIR_AMOUNT := 25.0
 const FORGE_RECIPE_ID := "basic_pick_upgrade"
@@ -47,11 +45,15 @@ func total_stock() -> int:
 	return sum
 
 
-## Moves all depositable resources from an inventory into the stockpile.
-## Returns what was moved.
+## Moves all stockpile-eligible resources from an inventory into the stockpile.
+## Eligibility is decided by the single BlockRegistry.is_stockpile_material
+## authority — the SAME predicate the hauler settler uses (subject._deposit_drop)
+## so manual and automatic deposits can never diverge. Returns what was moved.
 func deposit_all(inventory: InventoryData) -> Dictionary:
 	var moved := {}
-	for item_id in DEPOSITABLE:
+	for item_id in inventory.counts.keys():
+		if not BlockRegistry.is_stockpile_material(str(item_id)):
+			continue
 		var n := inventory.count(item_id)
 		if n > 0:
 			inventory.remove(item_id, n)

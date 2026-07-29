@@ -11,7 +11,7 @@ Generated: 2026-07-29
 | ID | `thorn_quill` |
 | Page type | Item |
 | Current status | source-only |
-| Storage | inventory |
+| Storage | inventory; stockpile input |
 | Player-facing? | Yes |
 | Description | A barbed quill from a thornrat. |
 | Status explanation | A live source exists, but the current game still lacks a meaningful downstream sink. |
@@ -30,7 +30,9 @@ Thorn Quill is live and obtainable, but it still ends in a source-only branch.
 
 ## Current Uses
 
-No meaningful live downstream use is currently defined.
+| Use type | Use | Quantity | Notes |
+|---|---|---|---|
+| Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
 ## Related Pages
 

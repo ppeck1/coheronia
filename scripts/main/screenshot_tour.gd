@@ -16,6 +16,14 @@ func _run() -> void:
 	var hall: Node2D = root.town_hall
 	var hud: CanvasLayer = root.hud
 	DirAccess.make_dir_recursive_absolute("user://shots")
+	# Focused run: capture only the item-wiring shots and quit (fast, and avoids
+	# the full tour's window-focus stall in an unattended run). Launch with
+	# COHERONIA_SHOTS=1 (game_root's tour hook) + COHERONIA_SHOTS_FOCUS=iw.
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "iw":
+		await _shoot_item_wiring(root, world, player, hud)
+		print("SHOTS complete (item-wiring) -> user://shots")
+		get_tree().quit(0)
+		return
 	world.setup(4242)
 	root._position_actors()
 	player.get_node("Camera2D").reset_smoothing()
@@ -379,8 +387,75 @@ func _run() -> void:
 	player.get_node("Camera2D").reset_smoothing()
 	await _shot("26_swim_breath")
 
+	await _shoot_item_wiring(root, world, player, hud)
+
 	print("SHOTS complete -> user://shots")
 	get_tree().quit(0)
+
+
+## Item-wiring shots (renewable tree loop + placeable deep blocks). Split out so a
+## focused run (COHERONIA_SHOTS=iw) can capture just these two without the full
+## 26-shot tour — the long tour can stall on window-focus in an unattended run.
+func _shoot_item_wiring(root: Node2D, world: Node2D, player: CharacterBody2D, hud: CanvasLayer) -> void:
+	# Fresh, undisturbed surface so the new content stages cleanly on hall grade.
+	world.setup(4242)
+	root._position_actors()
+	root.time_of_day = 0.3
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	if hud._goal_panel != null:
+		hud._goal_panel.visible = true
+	# Zoom in so the new content reads large in the frame (the camera rides the
+	# player, so positioning the player on the subject centres it).
+	var _iw_cam: Camera2D = player.get_node("Camera2D")
+	_iw_cam.zoom = Vector2(2.4, 2.4)
+	var _iw_hall: Vector2i = world.hall_info["center_cell"]
+	var _iw_gy: int = world.hall_info["ground_y"]
+
+	# Renewable trees: a full tree grown from a planted sapling, a second sapling
+	# still growing beside it, and tree seeds in the pack (dropped from clearing
+	# leaves). Left of the hall, on the flattened grass grade.
+	var _tw0: int = _iw_hall.x - 6
+	var _tw_row: int = _iw_gy - 1
+	for _cx in range(_tw0 - 2, _tw0 + 7):
+		for _cy in range(_tw_row - 9, _tw_row + 1):
+			if world.block_at(Vector2i(_cx, _cy)) != "air":
+				world.break_block(Vector2i(_cx, _cy))
+	world.plant_sapling(Vector2i(_tw0, _tw_row))
+	world._tick_tree_growth(1000.0)                # mature the first into a real tree
+	world.plant_sapling(Vector2i(_tw0 + 4, _tw_row))   # the second stays a sapling
+	player.tool_tier = 2
+	player.axe_tier = 1
+	player.inventory.from_dict({"tree_seed": 5, "wood": 9, "food": 4})
+	player.inventory_changed.emit()
+	root.log_event("Clearing leaves drops tree seeds — plant them to regrow the forest.")
+	player.global_position = world.cell_center(Vector2i(_tw0 + 2, _tw_row - 2))
+	player.velocity = Vector2.ZERO
+	_iw_cam.reset_smoothing()
+	await _shot("27_renewable_tree")
+
+	# Placeable deep blocks: hellstone + obsidian now build as structural blocks
+	# (their only missing connection was is_placeable). A short checker wall on the
+	# right of the hall, with the blocks in the pack.
+	var _db0: int = _iw_hall.x + 3
+	var _db_w: int = 6
+	var _db_h: int = 4
+	for _i in range(_db_w):
+		var _bx: int = _db0 + _i
+		for _cy in range(_iw_gy - _db_h - 1, _iw_gy):
+			if world.block_at(Vector2i(_bx, _cy)) != "air":
+				world.break_block(Vector2i(_bx, _cy))
+		for _r in range(_db_h):
+			var _checker: bool = (_i + _r) % 2 == 0
+			world.place_block(Vector2i(_bx, _iw_gy - 1 - _r),
+				"hellstone" if _checker else "obsidian")
+	player.inventory.from_dict({"hellstone": 8, "obsidian": 8, "tree_seed": 3})
+	player.inventory_changed.emit()
+	root.log_event("Hellstone and obsidian now place as structural, defensive blocks.")
+	player.global_position = world.cell_center(Vector2i(_db0 + 2, _iw_gy - 3))
+	player.velocity = Vector2.ZERO
+	_iw_cam.reset_smoothing()
+	await _shot("28_deep_block_build")
 
 
 func _shot(shot_name: String) -> void:

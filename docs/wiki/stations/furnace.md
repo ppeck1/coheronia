@@ -22,6 +22,9 @@ Generated: 2026-07-29
 | Smelt Iron | iron_ore x2, coal x1 | iron_ingot x1 | stockpile |
 | Smelt Silver | silver_ore x2, coal x1 | silver_ingot x1 | stockpile |
 | Alloy Bronze | copper_ingot x1, tin_ingot x1, coal x1 | bronze_ingot x2 | stockpile |
+| Reclaim Ore | ore_flecks x4, coal x1 | ore x1 | stockpile |
+| Reclaim Iron | scrap_weapons x3, coal x1 | iron_ingot x1 | stockpile |
+| Cook Meat | meat x2, coal x1 | food x2 | stockpile |
 
 ## Related Pages
 

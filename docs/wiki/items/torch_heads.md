@@ -2,7 +2,7 @@
 
 Generated: 2026-07-29
 
-> `Item` page. Current status: `source-only`.
+> `Item` page. Current status: `complete`.
 
 ![Torch Heads](../../../art/generated/items/torch_heads.png)
 
@@ -10,17 +10,17 @@ Generated: 2026-07-29
 |---|---|
 | ID | `torch_heads` |
 | Page type | Item |
-| Current status | source-only |
-| Storage | inventory |
+| Current status | complete |
+| Storage | inventory; stockpile input |
 | Player-facing? | Yes |
-| Description | Pitch-soaked torch heads. |
-| Status explanation | A live source exists, but the current game still lacks a meaningful downstream sink. |
+| Description | Pitch-soaked torch heads. Bundle with oil rags and wood into torches. |
+| Status explanation | A live source and a live downstream use both exist. |
 | Image path | `art/generated/items/torch_heads.png` |
 | Fallback / placeholder | Generated 16x16 swatch via `BlockRegistry.item_icon()` if the canonical item icon is absent. |
 
 ## Summary
 
-Torch Heads is live and obtainable, but it still ends in a source-only branch.
+Torch Heads is a live item with both acquisition and active use in the current build.
 
 ## Acquisition
 
@@ -30,7 +30,10 @@ Torch Heads is live and obtainable, but it still ends in a source-only branch.
 
 ## Current Uses
 
-No meaningful live downstream use is currently defined.
+| Use type | Use | Quantity | Notes |
+|---|---|---|---|
+| Recipe input | Raid Torches | 2x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
+| Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
 ## Related Pages
 

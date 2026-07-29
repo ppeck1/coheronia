@@ -145,9 +145,15 @@ func _run_hauler(_delta: float) -> bool:
 
 
 ## Deposit a ground drop's whole stack into the stockpile and remove it. Guards a
-## drop already reaped this frame so the stack is never double-counted.
+## drop already reaped this frame so the stack is never double-counted. Eligibility
+## uses the SAME BlockRegistry.is_stockpile_material authority as the manual
+## deposit (town_hall.deposit_all), so a hauler can never sneak a tool, gear, or
+## world-state id into the material stockpile that a manual deposit would refuse.
+## An ineligible drop is left on the ground (the hauler simply ignores it).
 func _deposit_drop(drop) -> void:
 	if drop == null or not is_instance_valid(drop) or drop.is_queued_for_deletion():
+		return
+	if not BlockRegistry.is_stockpile_material(str(drop.item_id)):
 		return
 	town_hall.stockpile[drop.item_id] = int(town_hall.stockpile.get(drop.item_id, 0)) + int(drop.count)
 	drop.queue_free()

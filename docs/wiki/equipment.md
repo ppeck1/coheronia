@@ -35,7 +35,7 @@ This page groups the current equipment definitions into browseable families, wit
 | Equipment | Slot | Status | Effects |
 |---|---|---|---|
 | [Plain Band](equipment/ring_band.md) | ring | dead | No active stat effect. |
-| [Focus Amulet](equipment/amulet_focus.md) | amulet | dead | attunement_bonus=10 |
+| [Focus Amulet](equipment/amulet_focus.md) | amulet | complete | attunement_bonus=10 |
 | [Authority Sigil](equipment/authority_sigil.md) | accessory | dead | armor=1, attunement_bonus=5 |
 
 ## Related Pages

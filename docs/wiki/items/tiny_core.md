@@ -2,7 +2,7 @@
 
 Generated: 2026-07-29
 
-> `Item` page. Current status: `source-only`.
+> `Item` page. Current status: `complete`.
 
 ![Tiny Core](../../../art/generated/items/tiny_core.png)
 
@@ -10,17 +10,17 @@ Generated: 2026-07-29
 |---|---|
 | ID | `tiny_core` |
 | Page type | Item |
-| Current status | source-only |
-| Storage | inventory |
+| Current status | complete |
+| Storage | inventory; stockpile input |
 | Player-facing? | Yes |
-| Description | A faintly humming mote. |
-| Status explanation | A live source exists, but the current game still lacks a meaningful downstream sink. |
+| Description | A faintly humming mote. Set into a Focus Amulet at the workbench. |
+| Status explanation | A live source and a live downstream use both exist. |
 | Image path | `art/generated/items/tiny_core.png` |
 | Fallback / placeholder | Generated 16x16 swatch via `BlockRegistry.item_icon()` if the canonical item icon is absent. |
 
 ## Summary
 
-Tiny Core is live and obtainable, but it still ends in a source-only branch.
+Tiny Core is a live item with both acquisition and active use in the current build.
 
 ## Acquisition
 
@@ -30,7 +30,10 @@ Tiny Core is live and obtainable, but it still ends in a source-only branch.
 
 ## Current Uses
 
-No meaningful live downstream use is currently defined.
+| Use type | Use | Quantity | Notes |
+|---|---|---|---|
+| Recipe input | Focus Amulet | 1x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
+| Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
 ## Related Pages
 
