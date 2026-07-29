@@ -194,6 +194,14 @@ func liquid_reaction(block_id: String) -> Dictionary:
 	return get_block(block_id).get("liquid_reaction", {})
 
 
+## How strongly to lighten a pool's true surface row toward white (0..1), so the
+## waterline reads without baking a bright top into every (repeating) tile. Only
+## the exposed top of a pool gets it; submerged cells stay uniform. 0 = no sheen
+## (lava keeps its molten crust + bubble overlay). Water declares a soft value.
+func liquid_surface_sheen(block_id: String) -> float:
+	return clampf(float(get_block(block_id).get("liquid_surface_sheen", 0.0)), 0.0, 1.0)
+
+
 func blocks_light(block_id: String) -> bool:
 	return bool(get_block(block_id).get("blocks_light", false))
 
