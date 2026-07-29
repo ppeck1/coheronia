@@ -14,6 +14,13 @@ const CROP_IDS := ["crop_seedling", "crop_ripe"]
 # LQ-2: number of discrete fill heights a liquid tile quantizes into (16px tile
 # => 2px per bucket). A cell's level maps to a bottom-anchored tile of this many.
 const LIQUID_FILL_LEVELS := 8
+# LQ-3 (bucket): a scoop draws up to one bucketful (a full cell's worth) from the
+# connected pool, needs at least this much liquid reachable to succeed (so a
+# near-dry sliver still can't fill a bucket), and never scans more than this many
+# cells while gathering (bounds the flood fill on huge sheets).
+const SCOOP_BUCKET_UNIT := 1.0
+const SCOOP_MIN_MASS := 0.5
+const SCOOP_MAX_SCAN := 256
 # FQ-13: ore-family blocks (FQ-10) the ore tick keys off when choosing a spawn.
 const ORE_IDS := ["ore", "coal", "copper_ore", "tin_ore", "iron_ore",
 	"silver_ore", "crystal"]
@@ -1038,22 +1045,60 @@ func fluid_active_count() -> int:
 	return _fluid.active_count() if _fluid != null else 0
 
 
-## LQ-3 (bucket): scoop a full-ish liquid cell to air and return its liquid id,
-## or "" if the cell isn't a liquid at/near full. Refuses thin films so a bucket
-## can't dredge a puddle dry a sliver at a time.
+## LQ-3 (bucket): scoop up to a bucketful of liquid, drawn from the connected
+## pool starting at `cell`, and return its liquid id (or "" if the target isn't a
+## liquid or too little is reachable). A single cell need NOT be near-full: water
+## spreads into thin films, so the scoop floods outward through same-liquid cells
+## (aimed cell + downward first) draining each until a bucket's worth is gathered.
+## It still refuses a near-dry sliver (needs SCOOP_MIN_MASS reachable) and removes
+## a whole bucketful at once, so it can't dredge a puddle a hair at a time.
 func scoop_liquid(cell: Vector2i) -> String:
 	var id := block_at(cell)
 	if not BlockRegistry.is_liquid(id):
 		return ""
-	if float(liquid_level.get(cell, 1.0)) < 0.5:
+	# Phase 1: plan a bucketful without mutating, so we can bail cleanly when the
+	# reachable pool is too small (no half-scooped puddle left behind).
+	var need := SCOOP_BUCKET_UNIT
+	var plan: Array = []                  # [cell, amount_to_take]
+	var frontier: Array = [cell]
+	var visited := {cell: true}
+	var scanned := 0
+	while need > 0.0001 and not frontier.is_empty() and scanned < SCOOP_MAX_SCAN:
+		var c: Vector2i = frontier.pop_front()
+		scanned += 1
+		if block_at(c) != id:
+			continue
+		var lvl := float(liquid_level.get(c, 1.0))
+		var take := minf(lvl, need)
+		if take > 0.0:
+			plan.append([c, take])
+			need -= take
+		# Spread through the pool: downhill first (that is where liquid pools),
+		# then sideways, then up.
+		for n in [c + Vector2i(0, 1), c + Vector2i(-1, 0),
+				c + Vector2i(1, 0), c + Vector2i(0, -1)]:
+			if not visited.has(n) and block_at(n) == id:
+				visited[n] = true
+				frontier.append(n)
+	if (SCOOP_BUCKET_UNIT - need) < SCOOP_MIN_MASS:
 		return ""
-	cells.erase(cell)
-	liquid_level.erase(cell)
-	deltas[cell] = "air"
-	_set_tile(cell, "air")
-	block_changed.emit(cell, "air")
-	if _fluid != null:
-		_fluid.wake_neighbours(cell)
+	# Phase 2: apply the drain.
+	for entry in plan:
+		var c: Vector2i = entry[0]
+		var remain := float(liquid_level.get(c, 1.0)) - float(entry[1])
+		if remain <= 0.0001:
+			cells.erase(c)
+			liquid_level.erase(c)
+			deltas[c] = "air"
+			_set_tile(c, "air")
+			block_changed.emit(c, "air")
+		else:
+			liquid_level[c] = remain
+			deltas[c] = id
+			_set_tile(c, id)               # re-tile to the lower fill level
+			block_changed.emit(c, id)
+		if _fluid != null:
+			_fluid.wake_neighbours(c)
 	return id
 
 

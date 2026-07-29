@@ -83,10 +83,14 @@ var growth_threshold_delta := 0.0
 var hotbar: Array[String] = DEFAULT_DOCK_ASSIGNMENTS.duplicate()
 var selected_slot := 0
 
-# LQ-3: the bucket is a persistent tool; its fill state lives on the player
-# ("" = empty, else a liquid id like "water"/"lava"). Saved with world state.
+# LQ-3: buckets. An empty bucket is the item `bucket`; a bucket holding a liquid
+# is a DISTINCT item `bucket_<liquid>` (e.g. bucket_water, bucket_lava), so full
+# and empty buckets are separate inventory stacks with their own icons and the
+# fill state can never be conflated across a stack of buckets. Scooping converts
+# one empty bucket into the matching filled item and vice-versa; the fill rides
+# with the carried inventory (shell.json), so no per-player fill field is needed.
 const BUCKET_ITEM := "bucket"
-var bucket_contents := ""
+const FILLED_BUCKET_PREFIX := "bucket_"
 
 # Ancestry effects (Phase B; reset in apply_character, set by apply_ancestry_effects).
 var ancestry_move_mult := 1.0
@@ -507,33 +511,66 @@ func place_reason(cell: Vector2i, block_id: String) -> String:
 	return ""
 
 
-## LQ-3: the bucket tool on the Place action. With the bucket selected, an empty
-## bucket scoops a full-ish liquid at the target (bucket_contents := that liquid);
-## a full bucket pours its liquid into an empty/floodable cell and empties. Not
-## consumed. Returns true when the bucket handled the press (so ordinary block
-## placement is skipped); false when the bucket isn't the selected item.
+## LQ-3: the liquid a filled-bucket item holds ("bucket_water" -> "water"), or ""
+## if the id is the empty bucket or not a bucket at all.
+func bucket_liquid(item_id: String) -> String:
+	if item_id.begins_with(FILLED_BUCKET_PREFIX):
+		return item_id.substr(FILLED_BUCKET_PREFIX.length())
+	return ""
+
+
+## True for the empty bucket or any filled-bucket item.
+func is_bucket_item(item_id: String) -> bool:
+	return item_id == BUCKET_ITEM or item_id.begins_with(FILLED_BUCKET_PREFIX)
+
+
+## Point the currently selected dock slot at `item_id` (the bucket the player is
+## now holding after scooping/pouring), so the HUD immediately shows the fill
+## state and the next Place acts on that bucket.
+func _hold_bucket_item(item_id: String) -> void:
+	if selected_slot >= 0 and selected_slot < hotbar.size():
+		hotbar[selected_slot] = item_id
+
+
+## LQ-3: the bucket tool on the Place action. An empty `bucket` scoops a full-ish
+## liquid at the target, converting one empty bucket into the matching filled
+## item (`bucket_<liquid>`); a filled bucket pours its liquid into an
+## empty/floodable cell and converts back to an empty bucket. The bucket count is
+## conserved — only the fill state (which item) changes. Returns true when a
+## bucket handled the press (so ordinary block placement is skipped); false when
+## the selected item isn't a bucket.
 func _try_use_bucket(cell: Vector2i) -> bool:
-	if selected_item() != BUCKET_ITEM:
+	var held := selected_item()
+	if not is_bucket_item(held):
 		return false
 	if not _in_reach(cell):
 		player_event.emit("That is out of reach.")
 		return true
-	if bucket_contents == "":
+	var liquid := bucket_liquid(held)
+	if liquid == "":
+		# Empty bucket -> scoop a liquid into a filled-bucket item.
 		var scooped: String = world.scoop_liquid(cell)
 		if scooped == "":
 			player_event.emit("Aim the empty bucket at lava or water to scoop it.")
 			return true
-		bucket_contents = scooped
+		var filled_id := FILLED_BUCKET_PREFIX + scooped
+		inventory.remove(BUCKET_ITEM)
+		inventory.add(filled_id)
+		_hold_bucket_item(filled_id)
 		inventory_changed.emit()
 		ActionFx.spawn(world, "dust_puff", world.cell_center(cell))
 		player_event.emit("Filled the bucket with %s." % BlockRegistry.display_name(scooped).to_lower())
 	else:
-		if not world.place_liquid(cell, bucket_contents):
+		# Filled bucket -> pour its liquid and convert back to an empty bucket.
+		if not world.place_liquid(cell, liquid):
 			player_event.emit("You can't pour there.")
 			return true
+		inventory.remove(held)
+		inventory.add(BUCKET_ITEM)
+		# Keep pouring if more of the same filled bucket remain, else hold empty.
+		_hold_bucket_item(held if inventory.count(held) > 0 else BUCKET_ITEM)
 		ActionFx.spawn(world, "place_pulse", world.cell_center(cell))
-		player_event.emit("Poured %s." % BlockRegistry.display_name(bucket_contents).to_lower())
-		bucket_contents = ""
+		player_event.emit("Poured %s." % BlockRegistry.display_name(liquid).to_lower())
 		inventory_changed.emit()
 	return true
 

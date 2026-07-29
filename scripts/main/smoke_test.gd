@@ -1130,7 +1130,10 @@ func _run() -> void:
 	_check("lq_liquid_floods_trees", _tr_flooded,
 		"tree cell after flow -> %s (expected lava)" % _tr_result)
 
-	# LQ-3 bucket: an empty bucket scoops a liquid, a full bucket pours it elsewhere.
+	# LQ-3 bucket: empty and filled buckets are DISTINCT items, so a filled one
+	# shows as its own stack (HUD/inventory) and can never conflate a stack of
+	# empty buckets. Scoop converts one empty `bucket` -> `bucket_<liquid>` and
+	# holds it; pour converts it back. Bucket COUNT is conserved throughout.
 	var _bk_water := Vector2i(46, 6)
 	var _bk_pour := Vector2i(48, 6)
 	world.cells[Vector2i(46, 7)] = "stone"     # floor so the scooped water is full
@@ -1138,28 +1141,76 @@ func _run() -> void:
 	var _bk_prev_pos: Vector2 = player.global_position
 	var _bk_prev_slot: int = player.selected_slot
 	var _bk_prev_hotbar: Array = player.hotbar.duplicate()
+	var _bk_e0: int = player.inventory.count("bucket")
+	var _bk_f0: int = player.inventory.count("bucket_water")
+	player.inventory.add("bucket", 2)          # two empty buckets on hand
 	player.hotbar.clear()
 	player.hotbar.append("bucket")
 	player.selected_slot = 0
-	player.bucket_contents = ""
 	player.global_position = world.cell_center(_bk_water)
-	var _bk_scooped: bool = player._try_use_bucket(_bk_water) \
-		and player.bucket_contents == "water" and world.block_at(_bk_water) == "air"
+	var _bk_scoop_ok: bool = player._try_use_bucket(_bk_water)
+	# one empty consumed, one filled created + now held, the OTHER empty untouched.
+	var _bk_after_scoop: bool = _bk_scoop_ok \
+		and world.block_at(_bk_water) == "air" \
+		and player.inventory.count("bucket_water") == _bk_f0 + 1 \
+		and player.inventory.count("bucket") == _bk_e0 + 1 \
+		and player.selected_item() == "bucket_water" \
+		and player.bucket_liquid("bucket_water") == "water" and player.is_bucket_item("bucket")
 	player.global_position = world.cell_center(_bk_pour)
-	var _bk_poured: bool = player._try_use_bucket(_bk_pour) \
-		and player.bucket_contents == "" and world.block_at(_bk_pour) == "water"
+	var _bk_pour_ok: bool = player._try_use_bucket(_bk_pour)
+	var _bk_after_pour: bool = _bk_pour_ok \
+		and world.block_at(_bk_pour) == "water" \
+		and player.inventory.count("bucket_water") == _bk_f0 \
+		and player.inventory.count("bucket") == _bk_e0 + 2 \
+		and player.selected_item() == "bucket"
+	# filled-bucket art is wired (proves the "shows as filled" fix) + names resolve.
+	var _bk_icon_ok: bool = BlockRegistry.visual_texture("items", "bucket_water") != null \
+		and BlockRegistry.visual_texture("items", "bucket_lava") != null \
+		and BlockRegistry.display_name("bucket_water") == "Bucket of Water"
+	player.inventory.remove("bucket", 2)       # restore starting counts
 	player.hotbar.clear()
 	for _hid in _bk_prev_hotbar:
 		player.hotbar.append(_hid)
 	player.selected_slot = _bk_prev_slot
 	player.global_position = _bk_prev_pos
-	player.bucket_contents = ""
 	for _cc in [_bk_water, _bk_pour, Vector2i(46, 7)]:
 		world.cells.erase(_cc); world.liquid_level.erase(_cc)
 		world.deltas.erase(_cc); world._set_tile(_cc, "air")
 	world._fluid.active.clear()
-	_check("lq_bucket_scoop_and_pour", _bk_scooped and _bk_poured,
-		"scooped=%s poured=%s" % [str(_bk_scooped), str(_bk_poured)])
+	_check("lq_bucket_scoop_and_pour",
+		_bk_after_scoop and _bk_after_pour and _bk_icon_ok,
+		"scoop=%s pour=%s icon=%s" % [str(_bk_after_scoop), str(_bk_after_pour), str(_bk_icon_ok)])
+
+	# LQ-3 fix: scoop from a SHALLOW/partial pool, not just a near-full cell.
+	# Water spreads into thin films — four cells at level 0.3 (1.2 total) each sit
+	# below the old 0.5 single-cell gate, yet a scoop now draws a bucketful (~1.0)
+	# from the connected pool. (This was the "can't pick up water" bug.)
+	world.fluid_paused = true
+	var _sc_cells := [Vector2i(52, 5), Vector2i(53, 5), Vector2i(54, 5), Vector2i(55, 5)]
+	for _sx in range(52, 56):
+		world.cells[Vector2i(_sx, 6)] = "stone"
+	for _sc in _sc_cells:
+		world.cells[_sc] = "water"; world.liquid_level[_sc] = 0.3; world._set_tile(_sc, "water")
+	var _sc_mass0 := 0.0
+	for _sc in _sc_cells:
+		_sc_mass0 += float(world.liquid_level.get(_sc, 1.0))
+	var _sc_id: String = world.scoop_liquid(_sc_cells[0])
+	var _sc_mass1 := 0.0
+	for _sc in _sc_cells:
+		if world.block_at(_sc) == "water":
+			_sc_mass1 += float(world.liquid_level.get(_sc, 1.0))
+	var _sc_drained := _sc_mass0 - _sc_mass1
+	_check("lq_bucket_scoops_partial_pool",
+		_sc_id == "water" and _sc_drained > 0.9 and _sc_drained <= 1.01,
+		"id=%s drained=%.2f of %.2f" % [_sc_id, _sc_drained, _sc_mass0])
+	for _sc in _sc_cells:
+		world.cells.erase(_sc); world.liquid_level.erase(_sc)
+		world.deltas.erase(_sc); world._set_tile(_sc, "air")
+	for _sx in range(52, 56):
+		var _sf := Vector2i(_sx, 6)
+		world.cells.erase(_sf); world.deltas.erase(_sf); world._set_tile(_sf, "air")
+	world._fluid.active.clear()
+	world.fluid_paused = false
 
 	# --- Liquid physics: level-aware submersion, per-liquid tuning, breath ---
 	# (a) liquid_covering keys off the TRUE fill level, not just the block: the

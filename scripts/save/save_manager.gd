@@ -25,7 +25,6 @@ func collect_state() -> Dictionary:
 			"y": player.global_position.y,
 			"health": player.health,
 			"attunement": player.attunement,
-			"bucket_contents": player.bucket_contents,
 		},
 		"town_hall": town_hall.to_dict(),
 		"time": game_root.time_state(),
@@ -118,7 +117,10 @@ func apply_state(state: Dictionary) -> bool:
 	# when the carried-state loader applies equipment (_clamp_attunement).
 	player.attunement = maxf(0.0, float(p.get("attunement", player.max_attunement())))
 	player.attunement_changed.emit(player.attunement, player.max_attunement())
-	player.bucket_contents = str(p.get("bucket_contents", ""))   # LQ-3 bucket state
+	# LQ-3: a filled bucket is now an ordinary carried item (`bucket_<liquid>`) in
+	# shell.json, not a per-player field — the legacy world-save "bucket_contents"
+	# key (if present) is simply ignored; an in-flight fill reverts to an empty
+	# bucket, which the player can re-scoop.
 	# FQ-08: partial mining damage is transient visual state — never saved,
 	# and never carried across a load either.
 	player._reset_mining()

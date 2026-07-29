@@ -538,7 +538,7 @@ Review the numbered sheets in `review_sheets/` individually. They are intentiona
 | Lava | sparse dark-slurry pool | `lava_01.png`, `lava_02.png`, `lava_03.png` (+ `lava.png` icon) |
 | Bucket | `bucket_empty_B` | `art/generated/items/bucket.png` |
 
-Every World Depths block now has a genuine three-tile in-world pool (`_01/_02/_03`, hashed per cell) plus a representative `<id>.png` icon, exactly matching the established dirt/stone convention. Liquid partial fills crop their selected source tile directly, without an injected bright surface line. The water- and lava-filled bucket state candidates remain preview-only: current inventory data has no state-specific icon hook.
+Every World Depths block now has a genuine three-tile in-world pool (`_01/_02/_03`, hashed per cell) plus a representative `<id>.png` icon, exactly matching the established dirt/stone convention. Liquid partial fills crop their selected source tile directly, without an injected bright surface line. The water- and lava-filled bucket states (`bucket_water_B` / `bucket_lava_B`) are now WIRED: a filled bucket is the distinct item `bucket_water` / `bucket_lava`, and `scripts/art/gen_filled_bucket_icons.py` emits their runtime icons (`art/generated/items/bucket_water.png`, `bucket_lava.png`) from this same silhouette.
 
 ## Validation
 
