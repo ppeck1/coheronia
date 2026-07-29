@@ -10,7 +10,7 @@ Review the numbered sheets in `review_sheets/` individually. They are intentiona
 
 | Target | Promoted source | Live path |
 | --- | --- | --- |
-| Deepstone | pressure layers / metamorphic / mineral dense pool | `deepstone_01.png`, `deepstone_02.png`, `deepstone_03.png` (+ `deepstone.png` icon) |
+| Deepstone | SUPERSEDED — reauthored as mottled dark blue-grey rock by `scripts/art/gen_depth_rock_blocks.py` | `deepstone_01..._06.png` (+ `deepstone.png` icon) |
 | Bedrock | fused plates / sealed masses / ancient anchor pool | `bedrock_01.png`, `bedrock_02.png`, `bedrock_03.png` (+ `bedrock.png` icon) |
 | Hellstone | SUPERSEDED — reauthored as mottled ember-veined rock by `scripts/art/gen_depth_rock_blocks.py` | `hellstone_01/_02/_03.png` (+ `hellstone.png` icon) |
 | Obsidian | SUPERSEDED — reauthored as mottled glassy-facet rock by `scripts/art/gen_depth_rock_blocks.py` | `obsidian_01/_02/_03.png` (+ `obsidian.png` icon) |
