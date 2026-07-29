@@ -1,6 +1,6 @@
 # Stoneback Beetle
 
-Generated: 2026-07-21
+Generated: 2026-07-29
 
 > `Enemy` page. Current status: `planned`.
 

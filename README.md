@@ -6,7 +6,7 @@ Dig, build, and light a side-view frontier settlement — then keep it alive as 
 
 ![Daytime settlement with the Town Hall, torch line, and live HUD](docs/screenshots/01_settlement_day.png)
 
-`Godot 4.6 · GDScript · data-driven design · 418-check in-engine smoke suite · procedural world depths · adaptive music · layered image-first UI pipeline`
+`Godot 4.6 · GDScript · data-driven design · 437-check in-engine smoke suite · procedural world depths · adaptive music · layered image-first UI pipeline`
 
 ## What it is
 
@@ -23,21 +23,24 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 | **Persistent state ownership** | Characters own inventory, loadout, and progression; worlds own terrain deltas and settlement simulation. | [`scripts/shell/`](scripts/shell) · [`scripts/inventory/`](scripts/inventory) |
 | **Data-first design** | Blocks, recipes, enemies, equipment, ancestries, and world presets are JSON authorities. | [`data/`](data) · [`scripts/validate_repo.py`](scripts/validate_repo.py) |
 | **Procedural world depths** | Deterministic terrain from a seed: fraction-based strata (stone → deepstone → hell), a mixed cavern/tunnel carve pass, and lava/hell as data-driven blocks. Saves store `world_seed` + player edits only, and a `gen_version` stamp keeps existing worlds byte-identical as the generator evolves. | [`scripts/world/world_gen.gd`](scripts/world/world_gen.gd) · [`data/world_settings.json`](data/world_settings.json) |
-| **Leveled liquid physics** | Lava and water flow as a deterministic, mass-conserving cellular automaton: per-cell fill level, pour-down/equalize-sideways, sleep-when-settled, partial-fill rendering, level-scaled glow, a lava+water→obsidian reaction, and a scoop/pour bucket. Generated liquid is sealed in rock (mine to release); worlds grow surface + underground lakes. Persisted with the terrain deltas. | [`scripts/world/fluid_sim.gd`](scripts/world/fluid_sim.gd) · [`data/blocks.json`](data/blocks.json) |
+| **Leveled liquid physics** | Lava and water flow as a deterministic, mass-conserving cellular automaton: per-cell fill level, pour-down/equalize-sideways, sleep-when-settled, partial-fill rendering, level-scaled glow, a lava+water→obsidian reaction, and a scoop/pour bucket. Generated liquid is sealed in rock (mine to release); worlds grow surface + underground lakes. A presentation-only overlay adds rising, bursting surface bubbles without touching the sim. Persisted with the terrain deltas. | [`scripts/world/fluid_sim.gd`](scripts/world/fluid_sim.gd) · [`scripts/world/lava_bubbles.gd`](scripts/world/lava_bubbles.gd) · [`data/blocks.json`](data/blocks.json) |
 | **Runtime UI composition** | HUD chrome is separate from live values; inventory mutations are validated at the UI boundary. | [`scripts/ui/hud.gd`](scripts/ui/hud.gd) · [`scripts/ui/inventory_slot_cell.gd`](scripts/ui/inventory_slot_cell.gd) |
 | **Verification as a feature** | Validators and an in-engine smoke harness exercise saves, physics, UI, and system contracts. | [`docs/HANDOFF.md`](docs/HANDOFF.md) · [`scripts/main/smoke_test.gd`](scripts/main/smoke_test.gd) |
 
 ## Screenshots
 
-*Captured from the live build (gameplay shots 2026-07-24; World Depths shots 2026-07-28; Liquid Physics shots 2026-07-28).*
+*Captured from the live build (gameplay shots 2026-07-24; World Depths shots 2026-07-28; Liquid Physics + depth-block art shots 2026-07-29).*
 
 ![Deep underground in the hell biome — the player on a hellstone ledge beside a glowing lava lake, torch-lit under an ember tint](docs/screenshots/19_hell_biome.png)
-*New in the **World Depths** arc: every world is now a deep vertical descent. Dig down through stone into **deepstone**, then into a **hell biome** of hellstone and obsidian pooled with **lava** — a non-solid, light-emitting block that burns anything standing in it (routed through the same `take_damage` authority as combat). Mixed **caverns and winding tunnels** riddle the depths, and an unmineable **bedrock floor** bounds the world. The deepest band drives an ember ambient tint; lava now reads as a continuous molten body with a soft, level-scaled glow.*
+*New in the **World Depths** arc: every world is now a deep vertical descent. Dig down through stone into **deepstone**, then into a **hell biome** of hellstone and obsidian pooled with **lava** — a non-solid, light-emitting block that burns anything standing in it (routed through the same `take_damage` authority as combat). Mixed **caverns and winding tunnels** riddle the depths, and an unmineable **bedrock floor** bounds the world. The deepest band drives an ember ambient tint; lava now reads as a continuous molten body with a soft, level-scaled glow. **The depth blocks — deepstone, hellstone, and obsidian — are authored pixel art** (a finely mottled rock base with scattered mineral cracks/flecks, six per-cell variants each so the walls never tile into a repeating grid), and **hellstone and obsidian now drop their own item** when mined rather than generic stone.*
 
 | ![Lava mid-pour: a full source column feeding a thinning, glowing cascade across the floor](docs/screenshots/21_lava_flow_pour.png)<br>*Lava pouring* | ![Lava settled into a flat, partial-depth pool across a stone basin](docs/screenshots/22_lava_flow_settled.png)<br>*Lava settled* |
 | --- | --- |
 
 *New in the **Liquid Physics** arc: lava is now a real **leveled fluid**. A deterministic, mass-conserving cellular automaton makes it flow, fall, and settle — each cell carries a fill level, pours down and equalizes sideways, and **sleeps** once level so a still world costs nothing. Generated liquid is **sealed inside solid rock**, so it sits inert until you **mine into it** — mining is what releases it. It renders at **partial fill** (submerged cells read full so a falling column is a continuous stream, not a ladder), glows **brighter the fuller it is**, floods through non-solid props like trees, and burns both the player **and enemies** through the shared `contact_damage` hazard.*
+
+![A molten lava pool with bright bubbles rising through it and bursting at the surface](docs/screenshots/25_lava_bubbles.png)
+*The lava surface is alive: a presentation-only overlay spawns **sporadic bubbles that nucleate inside the lava, drift slowly upward, and burst at the surface** in a little splash of molten droplets. It scans only the lava cells in view and never touches the fluid state or the save, so it stays free of the deterministic sim.*
 
 | ![A generated above-ground pond — translucent water in a carved basin with grass banks and trees](docs/screenshots/23_water_surface_lake.png)<br>*Generated water lakes — above ground and below* | ![Water poured onto lava has turned the whole lava layer into a band of obsidian](docs/screenshots/24_lava_water_obsidian.png)<br>*Water + lava → obsidian* |
 | --- | --- |
@@ -82,7 +85,7 @@ Direct link: [prologue](docs/screenshots/clips/coheronia.prologue.07162026.1125.
 
 Watch the latest gameplay demonstration: [https://youtu.be/KoWppfdjSX8](https://youtu.be/KoWppfdjSX8)
 
-> The screenshots on this page are the definitive reference for the current interface — the World Depths hell biome and multi-size cross-section (2026-07-28), and the native HUD and inventory board, the unified crafting panel, the repair-only Town Hall, the Contracts panel, the rebuilt Character panel, the viewport-relative skill tree, the contour backdrop, and the R-08 visible settlers with ground-drop loot (2026-07-24).
+> The screenshots on this page are the definitive reference for the current interface — the World Depths hell biome with its reworked depth-block art and the leveled lava with rising bubbles (2026-07-29), the multi-size cross-section (2026-07-28), and the native HUD and inventory board, the unified crafting panel, the repair-only Town Hall, the Contracts panel, the rebuilt Character panel, the viewport-relative skill tree, the contour backdrop, and the R-08 visible settlers with ground-drop loot (2026-07-24).
 
 ---
 
@@ -185,7 +188,7 @@ Or open the folder in the Godot editor and press Play.
 
 Esc opens a real pause menu (it closes an open panel first); saving and world-restore are exposed there, and rebinds live under its Settings screen. F5/F9 remain quick save/load.
 
-**Verify the build** (validators + the 418-check in-engine suite):
+**Verify the build** (validators + the 437-check in-engine suite):
 
 ```powershell
 python scripts/validate_repo.py
@@ -199,7 +202,7 @@ Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-r
 # results: user://smoke_results.json
 ```
 
-**Regenerate the README screenshots** (staged capture tour — 18 shots across the shell and gameplay tours, including the Contracts panel, visible farmhand at work, loose ground-drop loot, and the character-create screen at 1280×720 and 640×360; run windowed, not `--headless`, so the frame capture resolves):
+**Regenerate the README screenshots** (staged capture tour — 21 shots across the shell and gameplay tours, including the Contracts panel, visible farmhand at work, loose ground-drop loot, the World Depths hell biome and liquid-physics shots (lava pour/settle, rising bubbles, water lakes, obsidian), and the character-create screen at 1280×720 and 640×360; run windowed, not `--headless`, so the frame capture resolves):
 
 ```powershell
 $env:COHERONIA_SHOTS = "1"
@@ -245,6 +248,7 @@ Persistence: `user://shell.json` (profile + characters) and `user://worlds/<id>.
 
 Dated shipped milestones, newest first (full detail in [`docs/HANDOFF.md`](docs/HANDOFF.md) and [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md)):
 
+- **2026-07-29 — Depth-block art + lava bubbles.** Authored the deep-world blocks as real pixel art in the ore/stone style: **deepstone** (mottled dark blue-grey rock), **hellstone** (charred basalt with molten ember cracks), and **obsidian** (blue-violet glass with facet highlights), each with a **six-tile per-cell variant pool** placed by a deterministic generator so the walls no longer tile into a repeating grid (`scripts/art/gen_depth_rock_blocks.py`). The six liquid/depth blocks + bucket also gained authored `_01/_02/_03` variant pools, and mining **hellstone/obsidian now drops its own item** (registered in `data/items.json`) instead of stone. Lava gained a presentation-only **rising-bubble overlay** — sporadic bubbles nucleate, drift up, and burst in a splash of droplets (`scripts/world/lava_bubbles.gd`) — over a reworked molten crust. Source smoke **437/437** (adds `lq_liquid_carries_authored_variant_pool`, `wdf_hellstone_obsidian_drop_self`).
 - **2026-07-28 — Liquid Physics: water, obsidian, lakes & buckets.** Added **water** as a second liquid on the same engine (translucent, non-hazard), a **water + lava → obsidian** reaction, and **water lakes** in generation — carved surface ponds plus underground pools. Generated liquid is now **sealed inside solid rock** (mine to release it), liquid **floods through non-solid props** (trees) instead of being dammed, and a craftable **bucket** scoops and pours liquid. Terrain generation is versioned (`gen_version` 2 → 3) so existing worlds stay byte-identical. Source smoke **435/435** (adds water/obsidian/lake/encapsulation/bucket `lq_*` checks).
 - **2026-07-28 — Liquid Physics: lava flows.** Lava became a real **leveled fluid** — a deterministic, mass-conserving cellular automaton (`scripts/world/fluid_sim.gd`) where each cell carries a fill level, pours down and equalizes sideways, and **sleeps** once settled so a still world is free. Generated pools rest until **disturbed** (mine a wall and it pours), persist with the terrain deltas (undisturbed worlds reload byte-identical), and render at **partial fill** with submerged cells reading full so a falling column is a continuous stream. Lava now looks molten with a **level-scaled glow** and burns both the player **and enemies** through the shared `contact_damage` hazard. Density/flow-direction fields make water and gas future data-only additions. Source smoke **428/428** (adds `lq_*` checks).
 - **2026-07-28 — World Depths: bigger, deeper worlds with caves and a hell biome.** Terrain is now a real vertical descent through data-driven strata (stone → deepstone → hell) placed as **fractions of each world's depth**, so every size ends in a hell biome — hellstone and obsidian pooled with **lava**, a non-solid, light-emitting block whose contact damage routes through the same `take_damage` authority as combat. A deterministic carve pass cuts **mixed caverns and winding tunnels**; an unmineable **bedrock floor** bounds the world; the deepest band drives an ember ambient tint. Generation stays seed-deterministic and save-cheap (seed + player edits only), with a `gen_version` stamp so existing worlds regenerate byte-identical. Source smoke **418/418** (adds `wd_*` checks incl. `wd_hell_in_all_sizes`); exported Windows artifact green (CI).

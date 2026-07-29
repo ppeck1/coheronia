@@ -1,6 +1,6 @@
 # Deep Elf
 
-Generated: 2026-07-21
+Generated: 2026-07-29
 
 > `Ancestry` page. Current status: `planned`.
 

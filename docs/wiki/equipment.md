@@ -1,6 +1,6 @@
 # Equipment
 
-Generated: 2026-07-21
+Generated: 2026-07-29
 
 This page groups the current equipment definitions into browseable families, with links to each concrete equipment page.
 

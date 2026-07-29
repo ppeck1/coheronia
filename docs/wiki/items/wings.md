@@ -1,6 +1,6 @@
 # Wings
 
-Generated: 2026-07-21
+Generated: 2026-07-29
 
 > `Item` page. Current status: `planned`.
 

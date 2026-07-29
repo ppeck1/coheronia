@@ -1,9 +1,35 @@
 # Coheronia - Handoff
 
-## Current State (2026-07-29: World Depths & Fluids art — authored 3-tile variant pools)
+## Current State (2026-07-29: depth-block art, lava bubbles, drops — docs/wiki refreshed, PUSHED)
 
-**NEXT INSTANCE — start here.** The World Depths & Fluids **pass-2 art
-integration** is COMPLETE and committed (`334e690`, NOT pushed). The six World
+**NEXT INSTANCE — start here.** A run of art/polish work on top of the pushed
+variant-art pass is complete and **being pushed** with fully refreshed docs
+(README, VARIABLE_MATRIX, regenerated wiki, new screenshots). Stack on `main`:
+`334e690` variant-art impl + `960cd5e` docs (already pushed as `origin/main`),
+then `d1bf4a8` (lava **rising-bubble** overlay `scripts/world/lava_bubbles.gd` +
+molten crust), `df08e5d` (bubble-burst **splash** + reauthored **hellstone/
+obsidian** blocks + **drop fix**: hellstone→hellstone, obsidian→obsidian, both
+registered in `data/items.json` with icons), `51f12f1` (reworked **deepstone** +
+de-repeated hellstone/obsidian tiling — 6-tile pools with whole-tile randomized
+cracks via `scripts/art/gen_depth_rock_blocks.py`, now authoritative for those
+three live tiles), and this docs commit.
+
+Verification (all green, 2026-07-29): waited-GUI Godot 4.6.1 smoke **437/437, 0
+failed** (adds `lq_liquid_carries_authored_variant_pool`,
+`wdf_hellstone_obsidian_drop_self`); `validate_repo.py` PASS; `capsule_doctor
+--profile public_repo` healthy; `check_links.py` PASS; `git diff --check` clean.
+New/updated screenshots under `docs/screenshots/` (19 hell biome, 21/22 lava
+pour/settle, 24 obsidian, **new 25 lava bubbles**); wiki regenerated (block pages
+show 6-variant pools; new hellstone/obsidian item pages). Exported Windows smoke
+NOT re-run this pass. Smoke lineage: 419 (World Depths) → 435 (Liquid Physics) →
+436 (variant art) → **437** (drop check). Next code arc: unselected.
+
+---
+
+## Prior State (2026-07-29: World Depths & Fluids art — authored 3-tile variant pools)
+
+The World Depths & Fluids **pass-2 art
+integration** is COMPLETE and committed (`334e690`, pushed via `960cd5e`). The six World
 Depths blocks — deepstone, bedrock, hellstone, obsidian, water, lava — now ship
 authored pixel art instead of the generated-color fallback: each carries a
 genuine **three-tile in-world pool** (`<id>_01/_02/_03.png`, hashed per cell)

@@ -1,6 +1,6 @@
 # Workbench
 
-Generated: 2026-07-21
+Generated: 2026-07-29
 
 > `Crafting station` page.
 
@@ -18,6 +18,7 @@ Generated: 2026-07-21
 | Recipe | Inputs | Result | Result route |
 |---|---|---|---|
 | Torch Bundle | wood x2, coal x1 | torch x6 | inventory |
+| Bucket | copper_ingot x3 | bucket x1 | inventory |
 
 ## Related Pages
 

@@ -1,6 +1,6 @@
 # Weapons
 
-Generated: 2026-07-21
+Generated: 2026-07-29
 
 This page groups the current weapon equipment entries, similar to a weapon-family browse page.
 

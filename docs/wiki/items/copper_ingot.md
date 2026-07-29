@@ -1,6 +1,6 @@
 # Copper Ingot
 
-Generated: 2026-07-21
+Generated: 2026-07-29
 
 > `Item` page. Current status: `complete`.
 
@@ -33,6 +33,7 @@ Copper Ingot is a live item with both acquisition and active use in the current 
 | Use type | Use | Quantity | Notes |
 |---|---|---|---|
 | Recipe input | Alloy Bronze | 1x at [Furnace](../stations/furnace.md) | Live crafting dependency. |
+| Recipe input | Bucket | 3x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
 
 ## Related Pages
 
