@@ -87,6 +87,25 @@ func withdraw(item_id: String, amount: int, player: CharacterBody2D) -> int:
 	return take
 
 
+## Deposit up to `amount` of ONE eligible item from the player's inventory into the
+## stockpile — the per-item inverse of withdraw, used by the drag-and-drop grid.
+## Eligibility stays the single is_stockpile_material authority. Returns what moved.
+func deposit(item_id: String, amount: int, player: CharacterBody2D) -> int:
+	if amount <= 0 or player == null or player.inventory == null:
+		return 0
+	if not BlockRegistry.is_stockpile_material(item_id):
+		return 0
+	var have: int = player.inventory.count(item_id)
+	var give: int = mini(amount, have)
+	if give <= 0:
+		return 0
+	player.inventory.remove(item_id, give)
+	stockpile[item_id] = int(stockpile.get(item_id, 0)) + give
+	player.inventory_changed.emit()
+	stockpile_changed.emit()
+	return give
+
+
 ## M2: withdraw the ENTIRE stockpile back into the player's inventory (the inverse
 ## of deposit_all). Returns the { item_id: count } actually moved.
 func withdraw_all(player: CharacterBody2D) -> Dictionary:

@@ -150,7 +150,6 @@ var _dock_assignment_row: HBoxContainer
 var _selected_item_detail: Label
 var _stock_grid: GridContainer
 var _stock_grid_counts: Dictionary = {}  # item_id -> displayed count
-var _withdraw_amount: SpinBox            # M2: how many to pull per stockpile-tile click
 # FQ-19: contextual right-band stack — entries appear only when relevant
 # (blueprint: selected item, save toast, interaction prompt), auto-hide, and
 # stack in fixed priority order so they can never overlap each other.
@@ -2633,23 +2632,17 @@ func _build_town_panel() -> void:
 	var title := _label(box, "TOWN HALL")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_town_info = _label(box, "")
-	# FQ-09: visual stockpile grid between the status text and the stations.
-	# M2: click a stockpile tile to withdraw `_withdraw_amount` of it back into the
-	# backpack (the stockpile stays the authority); "Withdraw all" empties it.
-	_label(box, "Stockpile (click a tile to withdraw):")
-	_stock_empty_label = _label(box, "  (empty)")
+	# FQ-09 / drag grid: the stockpile is a drag-and-drop grid like the player
+	# inventory — drag a tile into your pack to withdraw, drag a backpack item onto
+	# it to deposit. Clicking a tile withdraws by quantity: L=all, R=half,
+	# Shift+L=choose. The Town Hall stockpile stays the single authority throughout.
+	_label(box, "Stockpile — drag to/from your pack · click: L=all · R=half · Shift+L=amount")
+	_stock_empty_label = _label(box, "  (empty — drag an item here to deposit)")
 	_stock_grid = GridContainer.new()
 	_stock_grid.columns = 6
 	box.add_child(_stock_grid)
 	var withdraw_row := HBoxContainer.new()
 	box.add_child(withdraw_row)
-	_label(withdraw_row, "Amount:")
-	_withdraw_amount = SpinBox.new()
-	_withdraw_amount.min_value = 1
-	_withdraw_amount.max_value = 999
-	_withdraw_amount.value = 1
-	_withdraw_amount.rounded = true
-	withdraw_row.add_child(_withdraw_amount)
 	var withdraw_all := Button.new()
 	withdraw_all.text = "Withdraw all"
 	withdraw_all.pressed.connect(func() -> void: withdraw_all_requested.emit())
@@ -3417,17 +3410,23 @@ func can_drop_inventory_slot(target_kind: String, target_index: int, data: Varia
 	elif source_kind == "dock":
 		source_has_item = _valid_dock_index(int(payload.get("index", -1))) \
 			and str(player.hotbar[int(payload.get("index", -1))]) == item_id
+	elif source_kind == "stockpile":
+		source_has_item = town_hall != null and int(town_hall.stockpile.get(item_id, 0)) > 0
 	if not source_has_item:
 		return false
 	match target_kind:
 		"backpack":
 			return _valid_backpack_index(target_index) \
 				and (source_kind == "backpack" or source_kind == "equipment" \
-					or source_kind == "dock")
+					or source_kind == "dock" or source_kind == "stockpile")
 		"dock":
 			return _valid_dock_index(target_index) \
 				and (source_kind == "dock" or (source_kind == "backpack" \
 					and _can_assign_dock_item(item_id)))
+		"stockpile":
+			# deposit a backpack item into the stockpile (any tile is a drop target).
+			return source_kind == "backpack" \
+				and BlockRegistry.is_stockpile_material(item_id)
 		"equipment":
 			if target_slot_id == "":
 				return false
@@ -3461,6 +3460,29 @@ func drop_inventory_slot(target_kind: String, target_index: int, data: Variant,
 		_equip_from_backpack(target_slot_id, item_id, source_index)
 	elif target_kind == "equipment" and source_kind == "equipment":
 		_swap_equipment_slots(str(payload.get("slot_id", "")), target_slot_id, item_id)
+	elif target_kind == "backpack" and source_kind == "stockpile":
+		_withdraw_stockpile_stack(item_id)
+	elif target_kind == "stockpile" and source_kind == "backpack":
+		_deposit_backpack_stack(item_id)
+
+
+## Drag a stockpile tile into the pack: withdraw the whole stack (Town Hall remains
+## the authority; the same withdraw() the click path and settlers use).
+func _withdraw_stockpile_stack(item_id: String) -> void:
+	if town_hall == null:
+		return
+	town_hall.withdraw(item_id, int(town_hall.stockpile.get(item_id, 0)), player)
+	refresh_town_panel()
+	update_inventory()
+
+
+## Drag a backpack item onto the stockpile: deposit the whole stack.
+func _deposit_backpack_stack(item_id: String) -> void:
+	if town_hall == null:
+		return
+	town_hall.deposit(item_id, player.inventory.count(item_id), player)
+	refresh_town_panel()
+	update_inventory()
 
 
 func _swap_backpack_slots(source_index: int, target_index: int) -> void:
@@ -4122,22 +4144,99 @@ func refresh_town_panel() -> void:
 	for item_id in stock_ids:
 		var n: int = int(town_hall.stockpile[item_id])
 		_stock_grid_counts[item_id] = n
-		# M2: clicking the tile withdraws the chosen amount of THIS item. bind()
-		# snapshots the id so every tile targets its own stack.
-		_make_item_tile(_stock_grid, item_id, n,
-			Callable(self, "_on_stockpile_tile_clicked").bind(str(item_id)))
+		_make_stockpile_cell(_stock_grid, str(item_id), n)
+	# A persistent empty deposit target so the pack can always drop items in (even
+	# when the stockpile is otherwise empty).
+	_make_stockpile_cell(_stock_grid, "", 0)
 	# R-07: crafting/building moved to the Crafting panel (C); refresh_town_panel
 	# now only reflects status, stockpile, and Repair.
 	_refresh_settler_rows()
 
 
-## M2: a stockpile tile was clicked — request a withdrawal of the currently chosen
-## amount of this item. game_root owns the authoritative move + feedback.
-func _on_stockpile_tile_clicked(item_id: String) -> void:
-	var amount := 1
-	if _withdraw_amount != null:
-		amount = int(_withdraw_amount.value)
-	withdraw_requested.emit(item_id, amount)
+## Drag/drop stockpile tile (kind "stockpile", keyed by item_id). Drag it into the
+## backpack to withdraw the stack; drop a backpack item onto any tile to deposit.
+## Clicking withdraws by quantity — Left=all, Right=half, Shift+Left=choose amount.
+## An empty tile (item_id == "") is a deposit-only target and never a drag source.
+func _make_stockpile_cell(parent: Control, item_id: String, count: int) -> void:
+	var cell = InventorySlotCellScript.new()
+	cell.setup(self, "stockpile", -1, item_id, count, item_id)
+	cell.custom_minimum_size = Vector2(52, 50)
+	cell.mouse_filter = Control.MOUSE_FILTER_STOP
+	cell.add_theme_stylebox_override("panel", _stockpile_slot_style(item_id == ""))
+	parent.add_child(cell)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(box)
+	if item_id == "":
+		cell.tooltip_text = "Drop an item here to deposit it into the stockpile."
+		var plus := Label.new()
+		plus.text = "＋"
+		plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		plus.add_theme_color_override("font_color", Color(0.7, 0.72, 0.5, 0.8))
+		box.add_child(plus)
+		return
+	cell.tooltip_text = "%s ×%d\nDrag to your pack, or click: L=all · R=half · Shift+L=amount" % [
+		BlockRegistry.display_name(item_id), count]
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(24, 22)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture = BlockRegistry.item_icon(item_id)
+	box.add_child(icon)
+	var count_label := Label.new()
+	count_label.text = "×%d" % count
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	count_label.add_theme_font_size_override("font_size", 11)
+	box.add_child(count_label)
+	var stack := count
+	cell.gui_input.connect(func(ev: InputEvent) -> void:
+		if not (ev is InputEventMouseButton and ev.pressed):
+			return
+		if ev.button_index == MOUSE_BUTTON_LEFT:
+			if ev.shift_pressed:
+				_open_stock_withdraw_popup(item_id, stack, (ev as InputEventMouseButton).global_position)
+			else:
+				withdraw_requested.emit(item_id, stack)          # all
+		elif ev.button_index == MOUSE_BUTTON_RIGHT:
+			withdraw_requested.emit(item_id, maxi(1, stack / 2)))  # half
+
+
+## A simple framed slot style for the stockpile grid (self-contained so it does not
+## depend on whichever builder last set the shared _slot_normal_sb).
+func _stockpile_slot_style(is_deposit: bool) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.1, 0.11, 0.14, 0.6 if is_deposit else 0.85)
+	sb.border_color = Color(0.55, 0.6, 0.4, 0.7) if is_deposit else Color(0.4, 0.42, 0.5, 0.9)
+	sb.set_border_width_all(2)
+	sb.set_content_margin_all(3)
+	return sb
+
+
+## Shift+click amount picker: a small popup with a SpinBox (1..available) and a
+## Withdraw button. Routes through withdraw_requested so game_root logs feedback.
+func _open_stock_withdraw_popup(item_id: String, max_count: int, at: Vector2) -> void:
+	var popup := PopupPanel.new()
+	var vb := VBoxContainer.new()
+	popup.add_child(vb)
+	_label(vb, "Withdraw %s" % BlockRegistry.display_name(item_id))
+	var spin := SpinBox.new()
+	spin.min_value = 1
+	spin.max_value = maxi(1, max_count)
+	spin.value = maxi(1, max_count)
+	spin.rounded = true
+	vb.add_child(spin)
+	var go := Button.new()
+	go.text = "Withdraw"
+	go.pressed.connect(func() -> void:
+		withdraw_requested.emit(item_id, int(spin.value))
+		popup.hide())
+	vb.add_child(go)
+	add_child(popup)
+	popup.popup_hide.connect(func() -> void: popup.queue_free())
+	popup.popup(Rect2i(int(at.x), int(at.y), 160, 96))
 
 
 ## R-08 slice 2 / citizen panel: rebuild the per-settler roster rows from the live

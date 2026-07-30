@@ -7647,6 +7647,40 @@ func _run() -> void:
 		"moved=%s empty=%s inv=%d" % [str(_w_all), str(hall.stockpile.is_empty()),
 			player.inventory.count("stone")])
 
+	# Slice 5: the stockpile is a two-way drag-and-drop grid — dropping a backpack
+	# item onto it deposits, dragging a tile into the pack withdraws, and only
+	# stockpile-eligible items deposit. town_hall stays the sole authority.
+	var _s5_inv0: Dictionary = player.inventory.to_dict()
+	var _s5_stock0: Dictionary = hall.stockpile.duplicate()
+	hall.stockpile = {"wood": 5}
+	player.inventory.from_dict({"stone": 4})
+	player.inventory_changed.emit()
+	# deposit: drag backpack "stone" onto the stockpile.
+	hud.drop_inventory_slot("stockpile", -1, {"source": "inventory_board",
+		"kind": "backpack", "item_id": "stone", "index": 0, "slot_id": ""}, "")
+	var _s5_deposit_ok: bool = int(hall.stockpile.get("stone", 0)) == 4 \
+		and player.inventory.count("stone") == 0
+	# withdraw: drag stockpile "wood" into the backpack.
+	hud.drop_inventory_slot("backpack", 0, {"source": "inventory_board",
+		"kind": "stockpile", "item_id": "wood", "index": -1, "slot_id": "wood"}, "")
+	var _s5_withdraw_ok: bool = not hall.stockpile.has("wood") \
+		and player.inventory.count("wood") == 5
+	# a UI-only surrogate (not stockpile-eligible) cannot be deposited.
+	var _s5_reject: bool = not hud.can_drop_inventory_slot("stockpile", -1,
+		{"source": "inventory_board", "kind": "backpack", "item_id": "armor",
+		"index": 0, "slot_id": ""}, "")
+	# a deposited stack can be dragged back (round-trips through the authority).
+	var _s5_roundtrip: bool = hud.can_drop_inventory_slot("backpack", 0,
+		{"source": "inventory_board", "kind": "stockpile", "item_id": "stone",
+		"index": -1, "slot_id": "stone"}, "")
+	hall.stockpile = _s5_stock0
+	player.inventory.from_dict(_s5_inv0)
+	player.inventory_changed.emit()
+	_check("stockpile_drag_grid",
+		_s5_deposit_ok and _s5_withdraw_ok and _s5_reject and _s5_roundtrip,
+		"deposit=%s withdraw=%s reject=%s roundtrip=%s" % [str(_s5_deposit_ok),
+			str(_s5_withdraw_ok), str(_s5_reject), str(_s5_roundtrip)])
+
 	# --- Settlement Coherence (M2-B): doors — obtainable, placeable-solid, toggle ---
 	player.inventory.from_dict({"wood": 4})
 	var _dr_crafted: bool = player.craft("craft_door")
