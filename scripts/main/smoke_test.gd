@@ -10,6 +10,7 @@ const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
 const ContractBalanceReportScript := preload("res://scripts/contracts/balance_report.gd")   # R-09.3
 const HudChrome := preload("res://scripts/ui/hud/hud_chrome.gd")   # R-06.1
 const HousingScript := preload("res://scripts/settlement/housing.gd")   # M2-B
+const CelestialScript := preload("res://scripts/world/celestial.gd")   # M5-A
 const HudEditGeometry := preload("res://scripts/ui/hud/hud_edit_geometry.gd")   # R-06.2
 
 var _results: Array = []
@@ -1608,12 +1609,16 @@ func _run() -> void:
 	_g14.note({"craft": true})
 	var _g14_before_survive: String = str(_g14.current()["id"])
 	_g14.note({"survive": true})
+	var _g14_after_survive: String = str(_g14.current()["id"])   # M5-B: onboarding continues
+	_g14.note({"house": true})
+	_g14.note({"defend": true})
 	_check("fq14_goals_advance_in_order",
 		_g14_start == "gather" and _g14_after_gather == "light"
-		and _g14_before_survive == "survive" and _g14.all_done()
-		and bool(_g14.current()["all_done"]),
-		"start=%s after_gather=%s before_survive=%s done=%s" % [
-			_g14_start, _g14_after_gather, _g14_before_survive, str(_g14.all_done())])
+		and _g14_before_survive == "survive" and _g14_after_survive == "house"
+		and _g14.all_done() and bool(_g14.current()["all_done"]),
+		"start=%s after_gather=%s before_survive=%s after_survive=%s done=%s" % [
+			_g14_start, _g14_after_gather, _g14_before_survive, _g14_after_survive,
+			str(_g14.all_done())])
 
 	# prefix-latch: a later objective latches earlier ones; a transient clear of
 	# an earlier condition never regresses the panel.
@@ -7461,6 +7466,27 @@ func _run() -> void:
 		world._set_tile(_ls_cell, "air")
 		_ls.remove_from_group("threats")
 		_ls.queue_free()
+
+	# --- Settlement Coherence (M5-A): sun/moon celestial renderer (presentation) ---
+	_check("m5_celestial_node_present", root._celestial != null)
+	var _cv := Rect2(0.0, 0.0, 1280.0, 720.0)
+	var _sky_dawn: Dictionary = CelestialScript.positions(0.02, _cv)
+	var _sky_noon: Dictionary = CelestialScript.positions(0.325, _cv)   # mid-day (0.65/2)
+	var _sky_dusk: Dictionary = CelestialScript.positions(0.63, _cv)
+	var _sky_night: Dictionary = CelestialScript.positions(0.82, _cv)
+	# the sun rises left, peaks (highest = smallest y) at mid-day, and sets right.
+	_check("m5_sun_arcs_across_day",
+		bool(_sky_dawn["sun_visible"]) and not bool(_sky_dawn["moon_visible"])
+		and float(_sky_noon["sun"].y) < float(_sky_dawn["sun"].y)
+		and float(_sky_noon["sun"].y) < float(_sky_dusk["sun"].y)
+		and float(_sky_dawn["sun"].x) < float(_sky_noon["sun"].x)
+		and float(_sky_noon["sun"].x) < float(_sky_dusk["sun"].x),
+		"dawn_y=%.0f noon_y=%.0f dusk_y=%.0f" % [
+			float(_sky_dawn["sun"].y), float(_sky_noon["sun"].y), float(_sky_dusk["sun"].y)])
+	# night belongs to the moon; the sun is down.
+	_check("m5_moon_rules_the_night",
+		bool(_sky_night["moon_visible"]) and not bool(_sky_night["sun_visible"]),
+		"is_night=%s" % str(_sky_night["is_night"]))
 
 	# --- Settlement Coherence (M2-A): stockpile withdrawal (Town Hall authority) ---
 	hall.stockpile = {"wood": 5, "stone": 4}

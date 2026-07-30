@@ -21,6 +21,10 @@ const GOALS := [
 		"hint": "Open the Town Hall (E) to forge gear or build a station."},
 	{"id": "survive", "text": "Survive the first night",
 		"hint": "Keep the hall lit and hold on until dawn."},
+	{"id": "house", "text": "Build a house",
+		"hint": "Wall in a room with a door (craft doors with C) — housing lets the settlement grow."},
+	{"id": "defend", "text": "Post a defender",
+		"hint": "Open the Town Hall (E) and cycle a settler to Defender to guard the walls."},
 ]
 
 var _done: Dictionary = {}   # objective id -> true once latched

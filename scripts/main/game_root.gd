@@ -10,6 +10,7 @@ signal music_event(kind: String)
 const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
 const SubjectScript := preload("res://scripts/entities/subject.gd")   # R-08
 const HousingScript := preload("res://scripts/settlement/housing.gd")   # M2-B house validator
+const CelestialScript := preload("res://scripts/world/celestial.gd")   # M5-A sun/moon renderer
 const SUBJECT_JOBS := ["farmhand", "repairer", "hauler", "defender"]   # R-08 + M3-C defender
 const ActionFx := preload("res://scripts/fx/action_fx.gd")   # FQ-09M confirmations
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
@@ -68,6 +69,7 @@ var _build_preview: Node2D     # R-07: placement ghost + validity tint
 var _craft_panel: CanvasLayer   # R-07: unified crafting/building navigation
 var _contracts_panel: CanvasLayer   # R-09: player-facing directed goals
 var time_of_day := 0.25
+var _celestial: Node2D   # M5-A: sun/moon sky renderer (presentation-only)
 var _clock_refresh_accum := 0.0
 var day_count := 1
 var is_night := false
@@ -179,6 +181,11 @@ func _ready() -> void:
 	# world) spawn the data-driven starting crew, sized to match the starting
 	# population authority so the visible roster is not fewer citizens than the
 	# settlement claims to hold.
+	# M5-A: the sun/moon sky renderer lives in the world canvas (day/night tint
+	# applies), presentation-only and never saved.
+	_celestial = CelestialScript.new()
+	world.add_child(_celestial)
+	_celestial.set_time(time_of_day)
 	if get_tree().get_nodes_in_group("subjects").is_empty():
 		_spawn_starting_crew()
 	if OS.get_environment("COHERONIA_SMOKE") == "1":
@@ -371,12 +378,28 @@ func _goal_snapshot() -> Dictionary:
 		"deposit": town_hall.total_stock() > 0,
 		"craft": player.tool_tier > 1 or player.axe_tier > 0 or _any_station_built(),
 		"survive": day_count >= 2,
+		# M5-B onboarding: guide the player into the settlement systems this arc added.
+		"house": housing_capacity() > _base_housing(),          # at least one valid house stands
+		"defend": _has_defender(),                              # a settler is posted as a defender
 	}
 
 
 func _any_station_built() -> bool:
 	for built in town_hall.stations_built.values():
 		if bool(built):
+			return true
+	return false
+
+
+## M5-B: the Town Hall's base shelter (settlers it houses before any house is built).
+func _base_housing() -> int:
+	return int(BlockRegistry.settlement_def().get("housing", {}).get("base_housing", 4))
+
+
+## M5-B: true when any live settler is assigned the defender job.
+func _has_defender() -> bool:
+	for s in get_tree().get_nodes_in_group("subjects"):
+		if not s.is_queued_for_deletion() and str(s.job) == "defender":
 			return true
 	return false
 
@@ -681,6 +704,8 @@ func _advance_time(delta: float) -> void:
 	elif not night_now and is_night:
 		_on_dawn()
 	is_night = night_now
+	if _celestial != null:
+		_celestial.set_time(time_of_day)   # M5-A: arc the sun/moon as time advances
 	# FQ-19: keep the events clock ticking between day/night transitions —
 	# once per real second, not per frame (threat counting walks the tree).
 	_clock_refresh_accum += delta
@@ -1635,6 +1660,8 @@ func apply_time_state(data: Dictionary) -> void:
 	# instantly roll a surprise storm.
 	_storm_rolled_today = bool(data.get("storm_rolled_today", time_of_day >= STORM_ROLL_TIME))
 	is_night = time_of_day >= NIGHT_START
+	if _celestial != null:
+		_celestial.set_time(time_of_day)   # M5-A: reflect the loaded time in the sky
 	canvas_modulate.color = ambient_target_color()
 
 
