@@ -462,6 +462,27 @@ func _shoot_item_wiring(root: Node2D, world: Node2D, player: CharacterBody2D, hu
 	_iw_cam.reset_smoothing()
 	await _shot("28_deep_block_build")
 
+	# Tall doors: a DOOR_HEIGHT-tall doorway in a short wall, one leaf open and one
+	# closed, with the player standing in an opening to show a character fits through.
+	var _dr0: int = _iw_hall.x - 3
+	for _dx in [-1, 3]:
+		for _cy in range(_iw_gy - world.DOOR_HEIGHT - 1, _iw_gy):
+			if world.block_at(Vector2i(_dr0 + _dx, _cy)) != "air":
+				world.break_block(Vector2i(_dr0 + _dx, _cy))
+		for _r in range(world.DOOR_HEIGHT + 1):
+			world.place_block(Vector2i(_dr0 + _dx, _iw_gy - 1 - _r), "stone")
+	for _dcol in [0, 2]:
+		for _cy in range(_iw_gy - world.DOOR_HEIGHT, _iw_gy):
+			if world.block_at(Vector2i(_dr0 + _dcol, _cy)) != "air":
+				world.break_block(Vector2i(_dr0 + _dcol, _cy))
+		world.place_door_stack(Vector2i(_dr0 + _dcol, _iw_gy - 1))
+	world.toggle_door(Vector2i(_dr0, _iw_gy - 1))          # open the left door
+	root.log_event("Doors are full-height now — settlers and the player walk through.")
+	player.global_position = world.cell_center(Vector2i(_dr0, _iw_gy - 2))
+	player.velocity = Vector2.ZERO
+	_iw_cam.reset_smoothing()
+	await _shot("34_tall_doors")
+
 
 ## Celestial shots: verify the enlarged sun/moon, radiated light, and the
 ## lit-crescent moon (dark side transparent → blends into the night sky).

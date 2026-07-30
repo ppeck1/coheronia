@@ -404,6 +404,18 @@ func break_block(cell: Vector2i) -> Dictionary:
 	var block_id := block_at(cell)
 	if block_id == "air":
 		return {}
+	# A multi-tile door is mined as one unit: breaking any cell removes the whole
+	# vertical run and returns a single door item (it was placed as one door).
+	if block_id in DOOR_IDS:
+		for c in _door_run(cell):
+			cells.erase(c)
+			deltas[c] = "air"
+			liquid_level.erase(c)
+			_set_tile(c, "air")
+			block_changed.emit(c, "air")
+			if _fluid != null:
+				_fluid.wake_neighbours(c)
+		return {"door": 1}
 	var block_drops := BlockRegistry.drops(block_id)
 	cells.erase(cell)
 	deltas[cell] = "air"
@@ -456,27 +468,73 @@ func place_block(cell: Vector2i, block_id: String) -> bool:
 	return true
 
 
-## Settlement Coherence (M2-B): toggle a door cell between closed (`door`, solid,
-## blocks light) and open (`door_open`, passable, lets light through). The swap is
-## a saved delta and retiles/relights exactly like a mined/placed block, so a door
-## opened before a save reopens on load. Returns true if a door was toggled.
+# A door is a DOOR_HEIGHT-tall, 1-wide unit so a full-height character (≈2 tiles)
+# fits through the opening — a 1-tile door could never be walked through. The cells
+# open/close together as one door.
+const DOOR_HEIGHT := 3
+const DOOR_IDS := ["door", "door_open"]
+
+
+## The contiguous vertical run of door cells through `cell` (top-to-bottom), so a
+## multi-tile door opens/closes and is mined as one unit. Empty if `cell` is no door.
+func _door_run(cell: Vector2i) -> Array:
+	if block_at(cell) not in DOOR_IDS:
+		return []
+	var top := cell
+	while block_at(Vector2i(top.x, top.y - 1)) in DOOR_IDS:
+		top = Vector2i(top.x, top.y - 1)
+	var run: Array = []
+	var c := top
+	while block_at(c) in DOOR_IDS:
+		run.append(c)
+		c = Vector2i(c.x, c.y + 1)
+	return run
+
+
+## Place a DOOR_HEIGHT-tall door with its base at `bottom`, growing upward. Every
+## target cell must be air. Saved as deltas like any placed block. Returns success.
+func place_door_stack(bottom: Vector2i) -> bool:
+	var targets: Array = []
+	for i in range(DOOR_HEIGHT):
+		var c := Vector2i(bottom.x, bottom.y - i)
+		if block_at(c) != "air":
+			return false
+		targets.append(c)
+	for c in targets:
+		cells[c] = "door"
+		deltas[c] = "door"
+		_set_tile(c, "door")
+		block_changed.emit(c, "door")
+		if _fluid != null:
+			_fluid.wake_neighbours(c)
+	return true
+
+
+## Settlement Coherence (M2-B): toggle a door between closed (`door`, solid, blocks
+## light) and open (`door_open`, passable, lets light through). Flips the WHOLE
+## vertical run together (a partly-open door fully opens). The swap is a saved delta
+## and retiles/relights exactly like a mined/placed block, so a door opened before a
+## save reopens on load. Returns true if a door was toggled.
 func toggle_door(cell: Vector2i) -> bool:
-	var here := block_at(cell)
-	var next := ""
-	if here == "door":
-		next = "door_open"
-	elif here == "door_open":
-		next = "door"
-	else:
+	var run := _door_run(cell)
+	if run.is_empty():
 		return false
-	cells[cell] = next
-	deltas[cell] = next
-	_set_tile(cell, next)
-	block_changed.emit(cell, next)
-	# Opening/closing changes solidity + light occlusion; wake adjacent liquid so a
-	# dammed channel re-settles, mirroring place_block/break_block.
-	if _fluid != null:
-		_fluid.wake_neighbours(cell)
+	# Open if ANY cell is currently closed, else close the whole run.
+	var opening := false
+	for c in run:
+		if block_at(c) == "door":
+			opening = true
+			break
+	var next := "door_open" if opening else "door"
+	for c in run:
+		cells[c] = next
+		deltas[c] = next
+		_set_tile(c, next)
+		block_changed.emit(c, next)
+		# Opening/closing changes solidity + light occlusion; wake adjacent liquid so a
+		# dammed channel re-settles, mirroring place_block/break_block.
+		if _fluid != null:
+			_fluid.wake_neighbours(c)
 	return true
 
 
@@ -1036,21 +1094,25 @@ func _make_block_texture(block_id: String, t: int) -> ImageTexture:
 			img.set_pixel(leaf.x, leaf.y, color)
 			img.set_pixel(leaf.x, leaf.y - 1, color.lightened(0.15))
 	elif block_id == "door":
-		# M2-B: a closed wooden door — full tile, two panels, a knob on the right.
+		# M2-B / tall door: a closed wooden door segment — full-height vertical planks
+		# with side posts and NO horizontal borders, so a DOOR_HEIGHT stack merges into
+		# one continuous door. A knob rides the right plank so it reads as a door.
 		img.fill(color)
 		var frame := color.darkened(0.35)
-		var panel := color.darkened(0.18)
-		for i in range(t):
-			img.set_pixel(0, i, frame)
-			img.set_pixel(t - 1, i, frame)
-			img.set_pixel(i, 0, frame)
-			img.set_pixel(i, t - 1, frame)
-		for y in range(3, t - 3):        # centre seam between two vertical panels
-			img.set_pixel(t / 2, y, panel)
-		img.set_pixel(t - 4, t / 2, Color(0.85, 0.78, 0.45))   # brass knob
+		var seam := color.darkened(0.18)
+		for y in range(t):
+			img.set_pixel(0, y, frame)
+			img.set_pixel(1, y, frame)          # left post
+			img.set_pixel(t - 1, y, frame)
+			img.set_pixel(t - 2, y, frame)      # right post
+			img.set_pixel(t / 3, y, seam)       # plank seams
+			img.set_pixel(2 * t / 3, y, seam)
+		img.set_pixel(t - 4, t / 2, Color(0.85, 0.78, 0.45))       # brass knob
+		img.set_pixel(t - 4, t / 2 - 1, Color(0.85, 0.78, 0.45))
 	elif block_id == "door_open":
-		# M2-B: an open door — just the jamb posts + a lintel, the middle is a
-		# walk-through gap (transparent), so it reads as an opening.
+		# M2-B / tall door: an open door segment — just the jamb posts, the middle a
+		# walk-through gap (transparent). Stacked DOOR_HEIGHT tall it reads as a clear,
+		# character-height opening framed by posts.
 		img.fill(Color(0, 0, 0, 0))
 		var post := color.darkened(0.25)
 		for y in range(t):
@@ -1058,12 +1120,8 @@ func _make_block_texture(block_id: String, t: int) -> ImageTexture:
 			img.set_pixel(1, y, post)
 			img.set_pixel(t - 1, y, post)
 			img.set_pixel(t - 2, y, post)
-		for x in range(t):
-			img.set_pixel(x, 0, post)
-			img.set_pixel(x, 1, post)
-		# the swung-aside leaf hinted against the left jamb
-		for y in range(2, t):
-			img.set_pixel(2, y, color)
+			img.set_pixel(2, y, color)          # the swung-aside leaf hinted against
+			img.set_pixel(3, y, color.darkened(0.12))   # the left jamb → reads as a door
 	elif block_id == "crop_ripe":
 		# FQ-12: taller golden stalks with grain heads — visibly ready to harvest.
 		img.fill(Color(0, 0, 0, 0))

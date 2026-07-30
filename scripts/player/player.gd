@@ -601,6 +601,17 @@ func try_place(cell: Vector2i, block_id: String) -> bool:
 	if reason != "":
 		player_event.emit(reason)
 		return false
+	# A door places as a full-height (DOOR_HEIGHT) doorway anchored at the aim cell,
+	# growing upward, so a character can actually walk through it. Needs clear air.
+	if block_id == "door":
+		if not world.place_door_stack(cell):
+			player_event.emit("No room for a full-height door there.")
+			return false
+		inventory.remove(block_id)
+		inventory_changed.emit()
+		placed.emit(block_id)
+		ActionFx.spawn(world, "place_pulse", world.cell_center(cell))
+		return true
 	if not world.place_block(cell, block_id):
 		player_event.emit("You can't build there.")
 		return false

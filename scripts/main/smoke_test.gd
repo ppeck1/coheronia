@@ -7711,6 +7711,43 @@ func _run() -> void:
 		"block=%s" % world.block_at(_dr_cell))
 	world.break_block(_dr_cell)
 
+	# Slice 6: a door is a DOOR_HEIGHT-tall, 1-wide unit so a full-height character
+	# fits through the opening. Place via the player, open the whole run, then mine
+	# it as one unit.
+	var _td_x: int = hall_cell.x + 20
+	var _td_by: int = int(world.surface.get(_td_x, hall_cell.y)) - 1   # base cell (on grade)
+	for _td_i in range(world.DOOR_HEIGHT + 1):
+		world.break_block(Vector2i(_td_x, _td_by - _td_i))            # clear the column
+	player.global_position = world.cell_center(Vector2i(_td_x - 2, _td_by - 1))
+	player.inventory.from_dict({"door": 1})
+	player.inventory_changed.emit()
+	var _td_placed: bool = player.try_place(Vector2i(_td_x, _td_by), "door")
+	var _td_solid := true
+	for _td_i in range(world.DOOR_HEIGHT):
+		var _tc := Vector2i(_td_x, _td_by - _td_i)
+		if world.block_at(_tc) != "door" or not world.is_solid_at(_tc):
+			_td_solid = false
+	var _td_consumed: bool = player.inventory.count("door") == 0
+	# open: the whole run becomes passable (a DOOR_HEIGHT-tall walk-through opening).
+	world.toggle_door(Vector2i(_td_x, _td_by))
+	var _td_open := true
+	for _td_i in range(world.DOOR_HEIGHT):
+		var _to := Vector2i(_td_x, _td_by - _td_i)
+		if world.block_at(_to) != "door_open" or world.is_solid_at(_to):
+			_td_open = false
+	# mine one cell → the whole door is removed and exactly one door returns.
+	var _td_drops: Dictionary = world.break_block(Vector2i(_td_x, _td_by - 1))
+	var _td_gone := true
+	for _td_i in range(world.DOOR_HEIGHT):
+		if world.block_at(Vector2i(_td_x, _td_by - _td_i)) != "air":
+			_td_gone = false
+	_check("m6_tall_door_place_toggle_mine",
+		_td_placed and _td_solid and _td_consumed and _td_open and _td_gone
+		and int(_td_drops.get("door", 0)) == 1 and world.DOOR_HEIGHT >= 2,
+		"placed=%s solid=%s consumed=%s open=%s gone=%s drop=%s H=%d" % [str(_td_placed),
+			str(_td_solid), str(_td_consumed), str(_td_open), str(_td_gone),
+			str(_td_drops), world.DOOR_HEIGHT])
+
 	# --- Settlement Coherence (M2-B): housing validation + housing-capped growth ---
 	var _hs_cfg: Dictionary = BlockRegistry.settlement_def().get("housing", {})
 	var _hs_hw: int = BlockRegistry.settlement_bound_cells("half_width_cells", 28)
