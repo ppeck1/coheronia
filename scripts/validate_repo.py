@@ -1165,3 +1165,32 @@ for lane in perk_lanes:
 if "stone_recovery" not in seen_perk_ids:
     fail("perks.json missing the live miner perk: stone_recovery")
 print("PASS perks data")
+
+# Settlement Coherence (M1): the bounded settlement rectangle + starting crew.
+# Bounds are positive tile-cell counts; the starting crew is a non-empty roster of
+# unique ids with valid jobs (matching game_root.SUBJECT_JOBS) and integer offsets.
+settlement_rules = json.loads((ROOT / "data/settlement_rules.json").read_text(encoding="utf-8"))
+sett = settlement_rules.get("settlement")
+if not isinstance(sett, dict) or not sett:
+    fail("settlement_rules.json missing non-empty settlement block (M1 bounds)")
+for sk in ["half_width_cells", "up_cells", "down_cells", "work_radius_cells"]:
+    if not isinstance(sett.get(sk), int) or sett[sk] <= 0:
+        fail(f"settlement_rules.json settlement.{sk} must be a positive int")
+crew = sett.get("starting_crew")
+if not isinstance(crew, list) or not crew:
+    fail("settlement_rules.json settlement.starting_crew must be a non-empty list")
+SETTLEMENT_JOBS = {"farmhand", "repairer", "hauler"}
+seen_crew_ids: set[str] = set()
+for m in crew:
+    if not isinstance(m, dict):
+        fail("settlement_rules.json starting_crew entries must be objects")
+    if not isinstance(m.get("id"), str) or not m["id"]:
+        fail("settlement_rules.json starting_crew entry missing string id")
+    if m["id"] in seen_crew_ids:
+        fail(f"settlement_rules.json duplicate starting_crew id {m['id']}")
+    seen_crew_ids.add(m["id"])
+    if m.get("job") not in SETTLEMENT_JOBS:
+        fail(f"settlement_rules.json starting_crew {m['id']} invalid job {m.get('job')!r}")
+    if not isinstance(m.get("home_dx"), int):
+        fail(f"settlement_rules.json starting_crew {m['id']} home_dx must be an int")
+print("PASS settlement rules (bounds + starting crew)")

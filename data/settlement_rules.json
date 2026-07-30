@@ -3,6 +3,19 @@
   "tick_seconds": 5.0,
   "clamp_min": 0,
   "clamp_max": 100,
+  "note_settlement": "Settlement Coherence M1: the bounded settlement rectangle, in TILE CELLS relative to the Town Hall centre cell. Citizens hard-clamp their position inside [hall - half_width_cells, hall + half_width_cells] x [hall - up_cells, hall + down_cells] and only search for work within work_radius_cells. These are movement/AI bounds only — NOT storage capacity (a real storage-building rule owns that later).",
+  "settlement": {
+    "half_width_cells": 28,
+    "up_cells": 12,
+    "down_cells": 10,
+    "work_radius_cells": 22,
+    "starting_crew": [
+      { "id": "citizen_1", "job": "farmhand", "home_dx": 4 },
+      { "id": "citizen_2", "job": "repairer", "home_dx": -4 },
+      { "id": "citizen_3", "job": "hauler", "home_dx": 8 },
+      { "id": "citizen_4", "job": "farmhand", "home_dx": -8 }
+    ]
+  },
   "inputs": [
     "shelter_score",
     "light_score",

@@ -38,6 +38,24 @@ func _load_all() -> void:
 		push_error("BlockRegistry: no blocks loaded from data/blocks.json")
 
 
+## Settlement Coherence (M1): the bounded settlement rectangle + crew, from
+## settlement_rules.json `settlement`. All bounds are in TILE CELLS relative to the
+## Town Hall centre cell; citizens read these for their work radius and hard
+## movement bounds. Falls back to sane defaults if the data is absent.
+func settlement_def() -> Dictionary:
+	return settlement_rules.get("settlement", {})
+
+
+func settlement_bound_cells(key: String, fallback: int) -> int:
+	return int(settlement_def().get(key, fallback))
+
+
+## The ordered starting-crew roster [{id, job, home_dx}, ...] — the visible
+## citizens spawned on a fresh world, sized to match the starting population.
+func settlement_starting_crew() -> Array:
+	return settlement_def().get("starting_crew", [])
+
+
 func trait_effects(trait_ids: Array) -> Dictionary:
 	var combined := {}
 	for trait_def in character_data.get("traits", []):

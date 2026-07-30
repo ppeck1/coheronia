@@ -4975,9 +4975,13 @@ func _run() -> void:
 			_sub = _r08_pick
 		elif str(_r08_pick.job) == "repairer" and _rep == null:
 			_rep = _r08_pick
+	# Settlement Coherence (M1): the starting crew is the data-driven roster (4),
+	# no longer a hardcoded pair, and still includes a farmhand + a repairer.
 	_check("r08_crew_spawns_with_jobs",
-		_r08_live.size() == 2 and _sub != null and _rep != null,
-		"count=%d farmhand=%s repairer=%s" % [_r08_live.size(),
+		_r08_live.size() == BlockRegistry.settlement_starting_crew().size()
+		and _r08_live.size() >= 2 and _sub != null and _rep != null,
+		"count=%d crew=%d farmhand=%s repairer=%s" % [_r08_live.size(),
+			BlockRegistry.settlement_starting_crew().size(),
 			str(_sub != null), str(_rep != null)])
 
 	# (b) the farmhand harvests a ripe crop in range and deposits its yield (+3
@@ -5102,12 +5106,12 @@ func _run() -> void:
 	var _r08_persist: bool = _r08_re_farm != null and bool(_r08_re_farm.hungry) \
 		and is_equal_approx(_r08_re_farm.global_position.x, 1234.0) and _r08_re_rep != null
 	_check("r08_crew_persists_across_save",
-		_r08_ser.size() == 2 and _r08_persist,
+		_r08_ser.size() == BlockRegistry.settlement_starting_crew().size() and _r08_persist,
 		"n=%d farm=%s rep_job=%s" % [_r08_ser.size(),
 			str(_r08_re_farm != null), str(_r08_re_rep != null)])
 
 	# (e) save robustness -- repeated application cannot duplicate: applying the
-	# same serialized crew twice leaves exactly the crew (two live subjects).
+	# same serialized crew twice leaves exactly the crew (the roster count).
 	# remove_from_group() retires outgoing settlers before their deferred
 	# queue_free, so the second apply cannot see -- or clone -- them.
 	var _r08_ser2: Array = root.serialize_subjects()
@@ -5118,7 +5122,8 @@ func _run() -> void:
 		if not _r08_s3.is_queued_for_deletion():
 			_r08_dup_live += 1
 	_check("r08_repeated_apply_no_duplicate",
-		_r08_ser2.size() == 2 and _r08_dup_live == 2,
+		_r08_ser2.size() == BlockRegistry.settlement_starting_crew().size()
+		and _r08_dup_live == _r08_ser2.size(),
 		"ser=%d live_after_double_apply=%d" % [_r08_ser2.size(), _r08_dup_live])
 
 	# (e2) save robustness -- legacy world state (pre-R-08, no "subjects" key)
@@ -7235,6 +7240,59 @@ func _run() -> void:
 		and BlockRegistry.is_placeable("hellstone") and BlockRegistry.is_placeable("obsidian"),
 		"placed=%s block=%s drop=%s" % [str(_hp_placed), str(_hp_is_block), str(_hp_drop)])
 	_r08_clear_ground_drops()
+
+	# --- Settlement Coherence (M1): bounded, persistent citizens; roster ==
+	# starting population. -----------------------------------------------------
+	for _m1_s in get_tree().get_nodes_in_group("subjects"):
+		_m1_s.remove_from_group("subjects")
+		_m1_s.queue_free()
+	root._spawn_starting_crew()
+	var _m1_live: Array = []
+	for _m1_s2 in get_tree().get_nodes_in_group("subjects"):
+		if not _m1_s2.is_queued_for_deletion():
+			_m1_live.append(_m1_s2)
+	var _m1_crew: int = BlockRegistry.settlement_starting_crew().size()
+	# (m1a) the visible roster matches the starting population authority.
+	_check("m1_roster_matches_population",
+		_m1_live.size() == _m1_crew and hall.population == _m1_crew and _m1_crew == 4,
+		"live=%d pop=%d crew=%d" % [_m1_live.size(), hall.population, _m1_crew])
+
+	# (m1b) hard settlement bounds: a position outside the rectangle clamps to the
+	# edge; a position inside is untouched (pure clamp, no physics needed).
+	var _m1_c: Node = _m1_live[0]
+	var _m1_b: Dictionary = _m1_c.settlement_bounds_px()
+	var _m1_clamped: Vector2 = _m1_c.clamp_to_settlement(
+		Vector2(float(_m1_b["min_x"]) - 1000.0, float(_m1_b["min_y"]) + 8.0))
+	var _m1_inside_pos := Vector2(
+		(float(_m1_b["min_x"]) + float(_m1_b["max_x"])) * 0.5,
+		(float(_m1_b["min_y"]) + float(_m1_b["max_y"])) * 0.5)
+	var _m1_inside: Vector2 = _m1_c.clamp_to_settlement(_m1_inside_pos)
+	_check("m1_hard_movement_bounds",
+		absf(_m1_clamped.x - float(_m1_b["min_x"])) < 0.001 and _m1_inside == _m1_inside_pos,
+		"clamped_x=%.1f min_x=%.1f inside_kept=%s" % [
+			_m1_clamped.x, float(_m1_b["min_x"]), str(_m1_inside == _m1_inside_pos)])
+
+	# (m1c) the citizen's home/guard post persists through a to_dict -> from_dict
+	# round-trip (save/load).
+	_m1_c.set_home(Vector2(1234.0, 567.0))
+	var _m1_dict: Dictionary = _m1_c.to_dict()
+	var _m1_c2: Node = _m1_live[1]
+	_m1_c2.from_dict(_m1_dict)
+	_check("m1_home_persists",
+		absf(float(_m1_dict.get("home_x", 0.0)) - 1234.0) < 0.001
+		and absf(float(_m1_c2.to_dict().get("home_x", 0.0)) - 1234.0) < 0.001,
+		"saved=%s restored=%s" % [
+			str(_m1_dict.get("home_x")), str(_m1_c2.to_dict().get("home_x"))])
+
+	# (m1d) stuck recovery: a citizen that intends to move but makes no horizontal
+	# progress accumulates stuck time and recovers past the threshold.
+	_m1_c.velocity.x = 40.0
+	_m1_c._last_x = _m1_c.global_position.x
+	var _m1_fired := false
+	for _m1_i in 3:
+		if _m1_c.update_stuck(1.0):
+			_m1_fired = true
+	_check("m1_stuck_recovery", _m1_fired, "fired=%s" % str(_m1_fired))
 
 	# Restore global state so later sections (screenshot) see a sane player.
 	player.player_event.disconnect(_fq01_msg_conn)

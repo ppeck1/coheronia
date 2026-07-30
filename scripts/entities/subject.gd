@@ -20,7 +20,15 @@ extends CharacterBody2D
 const GRAVITY := 900.0
 const MOVE_SPEED := 42.0
 const JUMP_VELOCITY := -260.0
-const WORK_RADIUS_CELLS := 22     # bounded roam around home
+const WORK_RADIUS_CELLS := 22     # bounded roam around home (fallback; data-owned)
+# Settlement Coherence (M1) fallback bounds in CELLS if settlement_rules omits them.
+const BOUND_HALF_WIDTH_CELLS := 28
+const BOUND_UP_CELLS := 12
+const BOUND_DOWN_CELLS := 10
+# Stuck detection: a citizen that intends to move but makes no horizontal progress
+# for this long has its goal dropped and hops to recover (then drifts home).
+const STUCK_SECONDS := 2.5
+const STUCK_EPS := 1.0
 const HARVEST_DIST := 14.0
 const REPAIR_DIST := 20.0         # the hall is wider than a crop cell
 const HOME_IDLE_DIST := 10.0
@@ -38,6 +46,8 @@ var job := "farmhand"
 var hungry := false
 var _home := Vector2.ZERO
 var _target := Vector2i(-1, -1)
+var _stuck_time := 0.0
+var _last_x := 0.0
 
 
 func _ready() -> void:
@@ -54,6 +64,59 @@ func setup(w: Node, hall: Node, id: String = "farmhand_1") -> void:
 	town_hall = hall
 	subject_id = id
 	_home = hall.global_position
+	_last_x = global_position.x
+
+
+## Settlement Coherence (M1): a citizen's home/guard post. Persisted, and the
+## anchor it idles at and returns to. game_root assigns each starting citizen a
+## distinct post around the hall; load restores the saved one.
+func set_home(pos: Vector2) -> void:
+	_home = pos
+
+
+## M1: bounded roam radius (cells) for finding work — data-owned, hall-relative.
+func work_radius_cells() -> int:
+	return BlockRegistry.settlement_bound_cells("work_radius_cells", WORK_RADIUS_CELLS)
+
+
+## M1: the settlement rectangle in WORLD PIXELS, centred on the Town Hall. Citizens
+## hard-clamp inside it so a settler can never wander off the map (the left-edge
+## bug) — target selection was already radius-bounded, but the body itself was not.
+func settlement_bounds_px() -> Dictionary:
+	var t := float(BlockRegistry.tile_size)
+	var c: Vector2 = town_hall.global_position
+	return {
+		"min_x": c.x - BlockRegistry.settlement_bound_cells("half_width_cells", BOUND_HALF_WIDTH_CELLS) * t,
+		"max_x": c.x + BlockRegistry.settlement_bound_cells("half_width_cells", BOUND_HALF_WIDTH_CELLS) * t,
+		"min_y": c.y - BlockRegistry.settlement_bound_cells("up_cells", BOUND_UP_CELLS) * t,
+		"max_y": c.y + BlockRegistry.settlement_bound_cells("down_cells", BOUND_DOWN_CELLS) * t,
+	}
+
+
+## M1: clamp a position into the settlement rectangle. Pure so the smoke can assert
+## it without running physics.
+func clamp_to_settlement(pos: Vector2) -> Vector2:
+	var b := settlement_bounds_px()
+	return Vector2(clampf(pos.x, b["min_x"], b["max_x"]), clampf(pos.y, b["min_y"], b["max_y"]))
+
+
+## M1: advance stuck detection for one tick. A citizen that wants to move
+## (|velocity.x| intent) but is not making horizontal progress accumulates stuck
+## time; past the threshold it drops its goal and hops to recover, then the normal
+## idle logic drifts it home. Returns true the tick recovery fires. Public so the
+## smoke can drive it deterministically.
+func update_stuck(delta: float) -> bool:
+	if absf(global_position.x - _last_x) < STUCK_EPS and absf(velocity.x) > 1.0:
+		_stuck_time += delta
+	else:
+		_stuck_time = 0.0
+	_last_x = global_position.x
+	if _stuck_time >= STUCK_SECONDS:
+		_stuck_time = 0.0
+		_target = Vector2i(-1, -1)       # drop the goal so idle logic returns home
+		velocity.y = JUMP_VELOCITY       # hop to clear a one-tile lip
+		return true
+	return false
 
 
 func _physics_process(delta: float) -> void:
@@ -71,7 +134,9 @@ func _physics_process(delta: float) -> void:
 		velocity.x = signf(dx) * MOVE_SPEED if absf(dx) > HOME_IDLE_DIST else 0.0
 	if is_on_wall() and is_on_floor():
 		velocity.y = JUMP_VELOCITY
+	update_stuck(delta)                  # M1: recover a wedged citizen
 	move_and_slide()
+	global_position = clamp_to_settlement(global_position)   # M1: hard settlement bounds
 	queue_redraw()
 
 
@@ -96,7 +161,7 @@ func run_job(delta: float) -> bool:
 func _run_farmhand(_delta: float) -> bool:
 	var home_cell: Vector2i = world.cell_of(_home)
 	if _target.x < 0 or world.block_at(_target) != "crop_ripe":
-		_target = world.nearest_ripe_crop(home_cell, WORK_RADIUS_CELLS)
+		_target = world.nearest_ripe_crop(home_cell, work_radius_cells())
 	if _target.x < 0:
 		return false
 	var tpos: Vector2 = world.cell_center(_target)
@@ -132,7 +197,7 @@ func _run_repairer(_delta: float) -> bool:
 ## stockpile and never spends food.
 func _run_hauler(_delta: float) -> bool:
 	var home_cell: Vector2i = world.cell_of(_home)
-	var drop = world.nearest_item_drop(home_cell, WORK_RADIUS_CELLS)
+	var drop = world.nearest_item_drop(home_cell, work_radius_cells())
 	if drop == null:
 		return false
 	var dpos: Vector2 = drop.global_position
@@ -206,6 +271,8 @@ func to_dict() -> Dictionary:
 	return {
 		"id": subject_id, "job": job, "hungry": hungry,
 		"x": global_position.x, "y": global_position.y,
+		# M1: persist the citizen's home/guard post so it survives save/load.
+		"home_x": _home.x, "home_y": _home.y,
 	}
 
 
@@ -215,3 +282,6 @@ func from_dict(d: Dictionary) -> void:
 	hungry = bool(d.get("hungry", false))
 	global_position = Vector2(
 		float(d.get("x", global_position.x)), float(d.get("y", global_position.y)))
+	# M1: restore home; a pre-M1 save (no home key) keeps the setup() default (hall).
+	_home = Vector2(float(d.get("home_x", _home.x)), float(d.get("home_y", _home.y)))
+	_last_x = global_position.x

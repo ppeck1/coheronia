@@ -173,12 +173,13 @@ func _ready() -> void:
 	_contracts_panel = ContractsPanelScript.new()
 	add_child(_contracts_panel)
 	_contracts_panel.setup(self)
-	# R-08: the visible settler crew. Saved subjects were restored above by
-	# apply_state -> apply_subjects; if none exist (a fresh world), spawn the
-	# starting crew -- a farmhand and a repairer, one on each side of the hall.
+	# R-08 / Settlement Coherence (M1): the visible settler crew. Saved subjects
+	# were restored above by apply_state -> apply_subjects; if none exist (a fresh
+	# world) spawn the data-driven starting crew, sized to match the starting
+	# population authority so the visible roster is not fewer citizens than the
+	# settlement claims to hold.
 	if get_tree().get_nodes_in_group("subjects").is_empty():
-		_spawn_subject_at(town_hall.global_position + Vector2(56, -40), "farmhand_1", "farmhand")
-		_spawn_subject_at(town_hall.global_position + Vector2(-56, -40), "repairer_1", "repairer")
+		_spawn_starting_crew()
 	if OS.get_environment("COHERONIA_SMOKE") == "1":
 		var smoke := preload("res://scripts/main/smoke_test.gd").new()
 		smoke.name = "SmokeTest"
@@ -1269,7 +1270,26 @@ func _spawn_subject_at(pos: Vector2, id: String, job: String = "farmhand") -> No
 	subj.global_position = pos
 	subj.setup(world, town_hall, id)
 	subj.job = job
+	subj.set_home(pos)
 	return subj
+
+
+## Settlement Coherence (M1): spawn the data-driven starting crew around the hall,
+## each citizen at its own home/guard post, and set the population authority to the
+## roster size so the abstract count and the visible citizens agree at the start.
+## (Dynamic population growth/shrink <-> roster coupling is a later slice, wired
+## together with per-citizen identity generation.)
+func _spawn_starting_crew() -> void:
+	var crew: Array = BlockRegistry.settlement_starting_crew()
+	if crew.is_empty():
+		crew = [{"id": "citizen_1", "job": "farmhand", "home_dx": 4},
+			{"id": "citizen_2", "job": "repairer", "home_dx": -4}]
+	var t := float(BlockRegistry.tile_size)
+	for entry in crew:
+		var pos: Vector2 = town_hall.global_position \
+			+ Vector2(int(entry.get("home_dx", 0)) * t, -40.0)
+		_spawn_subject_at(pos, str(entry.get("id", "citizen")), str(entry.get("job", "farmhand")))
+	town_hall.population = crew.size()
 
 
 ## R-08 slice 2: reassign a settler's job (validated against SUBJECT_JOBS). The
