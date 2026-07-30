@@ -833,6 +833,7 @@ func _on_dawn() -> void:
 	log_event("Dawn breaks. The pressure recedes." if survived > 0 else "Dawn breaks.")
 	award_xp("night_survived")
 	consume_daily_food()
+	sync_roster_to_population()   # M3-B: the visible roster tracks the population authority
 	contracts.evaluate()   # R-09: survive_to_day reads day_count live
 	settlement.compute()
 	music_event.emit("dawn")
@@ -1320,17 +1321,16 @@ func _spawn_starting_crew() -> void:
 		crew = [{"id": "citizen_1", "job": "farmhand", "home_dx": 4},
 			{"id": "citizen_2", "job": "repairer", "home_dx": -4}]
 	var t := float(BlockRegistry.tile_size)
-	var idx := 0
 	for entry in crew:
+		var id := str(entry.get("id", "citizen"))
 		var pos: Vector2 = town_hall.global_position \
 			+ Vector2(int(entry.get("home_dx", 0)) * t, -40.0)
-		var subj := _spawn_subject_at(pos, str(entry.get("id", "citizen")),
-			str(entry.get("job", "farmhand")))
-		# M3: give each starting citizen a deterministic ancestry identity, so the
-		# same world always spawns the same faces (and load restores them verbatim).
-		var idn: Dictionary = _generate_citizen_identity(world.world_seed * 131 + idx)
+		var subj := _spawn_subject_at(pos, id, str(entry.get("job", "farmhand")))
+		# M3: give each starting citizen a deterministic ancestry identity keyed by
+		# its citizen num (same key the dynamic spawn uses), so the same world always
+		# spawns the same faces and load restores them verbatim.
+		var idn: Dictionary = _generate_citizen_identity(world.world_seed * 131 + _citizen_num(id))
 		subj.set_identity(str(idn["species"]), str(idn["body_variant"]), int(idn["visual_variant"]))
-		idx += 1
 	town_hall.population = crew.size()
 
 
@@ -1353,6 +1353,67 @@ func _generate_citizen_identity(key: int) -> Dictionary:
 		species = str(live[rng.randi() % live.size()])
 	var variant := "masculine" if rng.randf() < 0.5 else "feminine"
 	return {"species": species, "body_variant": variant, "visual_variant": 0}
+
+
+## M3-B: the trailing integer of a "citizen_N" id (0 if none) — the ordering key
+## for who leaves first and the seed offset for a citizen's stable identity.
+func _citizen_num(id: String) -> int:
+	var parts := id.split("_")
+	if parts.size() >= 2 and str(parts[parts.size() - 1]).is_valid_int():
+		return int(parts[parts.size() - 1])
+	return 0
+
+
+## M3-B: the lowest unused "citizen_N" id in the live roster.
+func _next_citizen_id() -> String:
+	var used := {}
+	for s in get_tree().get_nodes_in_group("subjects"):
+		if not s.is_queued_for_deletion():
+			used[str(s.subject_id)] = true
+	var n := 1
+	while used.has("citizen_%d" % n):
+		n += 1
+	return "citizen_%d" % n
+
+
+## M3-B: spawn one new visible citizen at a spread-out post around the hall, BORN
+## WITH a deterministic ancestry identity (keyed by its num, so it is stable and
+## restores verbatim on load). Job defaults to farmhand (production).
+func _spawn_citizen(job: String = "farmhand") -> Node:
+	var id := _next_citizen_id()
+	var num := _citizen_num(id)
+	var t := float(BlockRegistry.tile_size)
+	var hw := BlockRegistry.settlement_bound_cells("half_width_cells", 28)
+	var dx := ((num % 2) * 2 - 1) * mini(hw - 2, 3 + int(num / 2.0) * 3)
+	var pos: Vector2 = town_hall.global_position + Vector2(dx * t, -40.0)
+	var subj := _spawn_subject_at(pos, id, job)
+	var idn: Dictionary = _generate_citizen_identity(world.world_seed * 131 + num)
+	subj.set_identity(str(idn["species"]), str(idn["body_variant"]), int(idn["visual_variant"]))
+	return subj
+
+
+## M3-B: reconcile the VISIBLE roster with the population authority. Growth spawns
+## a new citizen (born with an identity); starvation removes the newest settler
+## (highest num first, so the founding crew is the last to leave). town_hall.population
+## stays the single authority — this only makes the roster match it. Called from the
+## real dawn flow (_on_dawn), so the abstract food-economy paths that manipulate
+## population directly are unaffected.
+func sync_roster_to_population() -> void:
+	var live: Array = []
+	for s in get_tree().get_nodes_in_group("subjects"):
+		if not s.is_queued_for_deletion():
+			live.append(s)
+	var target: int = town_hall.population
+	if live.size() > target:
+		live.sort_custom(func(a, b) -> bool:
+			return _citizen_num(str(a.subject_id)) < _citizen_num(str(b.subject_id)))
+		while live.size() > target and not live.is_empty():
+			var victim = live.pop_back()
+			victim.remove_from_group("subjects")
+			victim.queue_free()
+	else:
+		while live.size() < target:
+			live.append(_spawn_citizen())
 
 
 ## R-08 slice 2: reassign a settler's job (validated against SUBJECT_JOBS). The

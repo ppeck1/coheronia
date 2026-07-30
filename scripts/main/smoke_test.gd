@@ -4965,7 +4965,15 @@ func _run() -> void:
 			str(_ci_axe), str(_ci_sword), str(_ci_armor)])
 
 	# --- R-08: visible settler crew (slice 1 farmhand + slice 2 repairer/assignment) ---
-	# (a) the starting crew is two LIVE visible subjects -- one farmhand and one
+	# M3-B: earlier sections drove the population authority and one _on_dawn() synced
+	# the roster to it, so reset to a clean starting crew before the crew tests below
+	# assert the founding roster.
+	for _rs in get_tree().get_nodes_in_group("subjects"):
+		_rs.remove_from_group("subjects")
+		_rs.queue_free()
+	hall.population = BlockRegistry.settlement_starting_crew().size()
+	root._spawn_starting_crew()
+	# (a) the starting crew is the data-driven roster -- includes a farmhand and a
 	# repairer (live count filters queue_free'd subjects not yet reaped this frame).
 	var _r08_live: Array = []
 	for _r08_s in get_tree().get_nodes_in_group("subjects"):
@@ -7326,6 +7334,37 @@ func _run() -> void:
 	_check("m3_identity_sprite_resolves",
 		BlockRegistry.visual_texture("players",
 			BlockRegistry.player_body_id("dwarf", "feminine")) != null)
+
+	# --- Settlement Coherence (M3-B): dynamic roster <-> population authority ---
+	# grow the population authority; the sync spawns newcomers to match, each born
+	# with a live-species identity.
+	hall.population = 6
+	root.sync_roster_to_population()
+	var _rc_grow := 0
+	var _rc_species := {}
+	for _rc_s in get_tree().get_nodes_in_group("subjects"):
+		if not _rc_s.is_queued_for_deletion():
+			_rc_grow += 1
+			_rc_species[str(_rc_s.subject_id)] = str(_rc_s.species)
+	_check("m3b_roster_grows_to_population",
+		_rc_grow == 6 and _rc_grow == hall.population,
+		"roster=%d pop=%d" % [_rc_grow, hall.population])
+	var _rc_live: Array = BlockRegistry.player_visuals.get("live_species", [])
+	var _rc_born_ok := not _rc_species.is_empty()
+	for _rc_k in _rc_species:
+		if str(_rc_species[_rc_k]) not in _rc_live:
+			_rc_born_ok = false
+	_check("m3b_newcomers_born_with_identity", _rc_born_ok)
+	# starve the authority; the sync removes settlers (newest first) down to target.
+	hall.population = 3
+	root.sync_roster_to_population()
+	var _rc_shrink := 0
+	for _rc_s2 in get_tree().get_nodes_in_group("subjects"):
+		if not _rc_s2.is_queued_for_deletion():
+			_rc_shrink += 1
+	_check("m3b_roster_shrinks_to_population",
+		_rc_shrink == 3 and _rc_shrink == hall.population,
+		"roster=%d pop=%d" % [_rc_shrink, hall.population])
 
 	# --- Settlement Coherence (M2-A): stockpile withdrawal (Town Hall authority) ---
 	hall.stockpile = {"wood": 5, "stone": 4}
