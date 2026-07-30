@@ -19,6 +19,18 @@
       "station": "hand"
     },
     {
+      "recipe_id": "craft_door",
+      "display_name": "Door",
+      "note": "Settlement Coherence M2-B: a placeable wooden door — the required opening for a valid house. Provisional quantity.",
+      "inputs": {
+        "wood": 4
+      },
+      "outputs": {
+        "door": 1
+      },
+      "station": "hand"
+    },
+    {
       "recipe_id": "craft_seeds",
       "display_name": "Crop Seeds",
       "inputs": {

@@ -25,6 +25,7 @@
     "bronze_ingot": { "display_name": "Bronze Ingot", "color": "c98a3f", "description": "Alloyed from copper and tin at the furnace.", "future_use": true },
     "crop_seeds": { "display_name": "Crop Seeds", "color": "b7c96a", "description": "Plant on tilled soil (G) to grow food." },
     "tree_seed": { "display_name": "Tree Seed", "color": "7a5a2e", "description": "Plant on dirt or grass (Place) to grow a new tree. Dropped now and then when clearing leaves." },
+    "door": { "display_name": "Door", "color": "8a5a2c", "description": "A wooden door. Place it in a wall; Place again on it to open or close it. Houses need at least one." },
     "farm_soil": { "display_name": "Tilled Soil", "color": "5a3f24", "description": "Tilled earth. Crops grow on it." },
     "crop_seedling": { "display_name": "Sprouting Crop", "color": "7ba64d", "description": "A young crop. Give it time." },
     "crop_ripe": { "display_name": "Ripe Crop", "color": "d9b83f", "description": "Harvest (mine) for food and a seed." },

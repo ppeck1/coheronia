@@ -7320,6 +7320,36 @@ func _run() -> void:
 		"moved=%s empty=%s inv=%d" % [str(_w_all), str(hall.stockpile.is_empty()),
 			player.inventory.count("stone")])
 
+	# --- Settlement Coherence (M2-B): doors — obtainable, placeable-solid, toggle ---
+	player.inventory.from_dict({"wood": 4})
+	var _dr_crafted: bool = player.craft("craft_door")
+	_check("m2b_craft_door", _dr_crafted and player.inventory.count("door") >= 1,
+		"crafted=%s door=%d" % [str(_dr_crafted), player.inventory.count("door")])
+	var _dr_cell := Vector2i(hall_cell.x + 18,
+		int(world.surface.get(hall_cell.x + 18, hall_cell.y)) - 3)
+	world.break_block(_dr_cell)
+	var _dr_placed: bool = world.place_block(_dr_cell, "door")
+	_check("m2b_door_places_solid",
+		_dr_placed and world.block_at(_dr_cell) == "door" and world.is_solid_at(_dr_cell)
+		and BlockRegistry.blocks_light("door"),
+		"placed=%s block=%s solid=%s" % [str(_dr_placed), world.block_at(_dr_cell),
+			str(world.is_solid_at(_dr_cell))])
+	# opening it makes it passable, lets light through, and saves as a delta.
+	var _dr_open: bool = world.toggle_door(_dr_cell)
+	_check("m2b_door_opens_passable",
+		_dr_open and world.block_at(_dr_cell) == "door_open"
+		and not world.is_solid_at(_dr_cell) and not BlockRegistry.blocks_light("door_open")
+		and str(world.deltas.get(_dr_cell, "")) == "door_open",
+		"open=%s block=%s solid=%s delta=%s" % [str(_dr_open), world.block_at(_dr_cell),
+			str(world.is_solid_at(_dr_cell)), str(world.deltas.get(_dr_cell, ""))])
+	# closing it restores a solid door; toggling a non-door is a safe no-op.
+	world.toggle_door(_dr_cell)
+	_check("m2b_door_closes_and_noop",
+		world.block_at(_dr_cell) == "door" and world.is_solid_at(_dr_cell)
+		and not world.toggle_door(Vector2i(hall_cell.x, hall_cell.y - 20)),
+		"block=%s" % world.block_at(_dr_cell))
+	world.break_block(_dr_cell)
+
 	# Restore global state so later sections (screenshot) see a sane player.
 	player.player_event.disconnect(_fq01_msg_conn)
 	player.health = player.max_health

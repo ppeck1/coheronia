@@ -110,6 +110,8 @@ const BLOCK_COLORS := {
 	"tree_sapling": Color(0.36, 0.56, 0.24),
 	"tree_trunk": Color(0.48, 0.35, 0.20),
 	"tree_leaves": Color(0.22, 0.44, 0.19),
+	"door": Color(0.54, 0.36, 0.18),
+	"door_open": Color(0.54, 0.36, 0.18),
 	"town_hall_core": Color(0.42, 0.30, 0.55),
 }
 
@@ -448,6 +450,30 @@ func place_block(cell: Vector2i, block_id: String) -> bool:
 	_set_tile(cell, block_id)
 	block_changed.emit(cell, block_id)
 	# LQ-1: placing (e.g. damming a channel) wakes adjacent liquid to re-settle.
+	if _fluid != null:
+		_fluid.wake_neighbours(cell)
+	return true
+
+
+## Settlement Coherence (M2-B): toggle a door cell between closed (`door`, solid,
+## blocks light) and open (`door_open`, passable, lets light through). The swap is
+## a saved delta and retiles/relights exactly like a mined/placed block, so a door
+## opened before a save reopens on load. Returns true if a door was toggled.
+func toggle_door(cell: Vector2i) -> bool:
+	var here := block_at(cell)
+	var next := ""
+	if here == "door":
+		next = "door_open"
+	elif here == "door_open":
+		next = "door"
+	else:
+		return false
+	cells[cell] = next
+	deltas[cell] = next
+	_set_tile(cell, next)
+	block_changed.emit(cell, next)
+	# Opening/closing changes solidity + light occlusion; wake adjacent liquid so a
+	# dammed channel re-settles, mirroring place_block/break_block.
 	if _fluid != null:
 		_fluid.wake_neighbours(cell)
 	return true
@@ -1008,6 +1034,35 @@ func _make_block_texture(block_id: String, t: int) -> ImageTexture:
 				Vector2i(t / 2 - 3, t / 2 + 2), Vector2i(t / 2 + 2, t / 2 + 1)]:
 			img.set_pixel(leaf.x, leaf.y, color)
 			img.set_pixel(leaf.x, leaf.y - 1, color.lightened(0.15))
+	elif block_id == "door":
+		# M2-B: a closed wooden door — full tile, two panels, a knob on the right.
+		img.fill(color)
+		var frame := color.darkened(0.35)
+		var panel := color.darkened(0.18)
+		for i in range(t):
+			img.set_pixel(0, i, frame)
+			img.set_pixel(t - 1, i, frame)
+			img.set_pixel(i, 0, frame)
+			img.set_pixel(i, t - 1, frame)
+		for y in range(3, t - 3):        # centre seam between two vertical panels
+			img.set_pixel(t / 2, y, panel)
+		img.set_pixel(t - 4, t / 2, Color(0.85, 0.78, 0.45))   # brass knob
+	elif block_id == "door_open":
+		# M2-B: an open door — just the jamb posts + a lintel, the middle is a
+		# walk-through gap (transparent), so it reads as an opening.
+		img.fill(Color(0, 0, 0, 0))
+		var post := color.darkened(0.25)
+		for y in range(t):
+			img.set_pixel(0, y, post)
+			img.set_pixel(1, y, post)
+			img.set_pixel(t - 1, y, post)
+			img.set_pixel(t - 2, y, post)
+		for x in range(t):
+			img.set_pixel(x, 0, post)
+			img.set_pixel(x, 1, post)
+		# the swung-aside leaf hinted against the left jamb
+		for y in range(2, t):
+			img.set_pixel(2, y, color)
 	elif block_id == "crop_ripe":
 		# FQ-12: taller golden stalks with grain heads — visibly ready to harvest.
 		img.fill(Color(0, 0, 0, 0))

@@ -364,7 +364,8 @@ func _physics_process(delta: float) -> void:
 	_apply_environmental_hazard()   # WD-3: lava (and any contact_damage block)
 	if Input.is_action_just_pressed("place"):
 		var _place_cell: Vector2i = world.cell_of(get_global_mouse_position())
-		if not _try_use_bucket(_place_cell) and not _try_plant_sapling(_place_cell):
+		if not _try_use_bucket(_place_cell) and not _try_plant_sapling(_place_cell) \
+				and not _try_toggle_door(_place_cell):
 			try_place(_place_cell, selected_item())
 	if Input.is_action_just_pressed("farm_action"):
 		try_farm(world.cell_of(get_global_mouse_position()))
@@ -659,6 +660,23 @@ func _try_plant_sapling(cell: Vector2i) -> bool:
 			return true
 		return true
 	player_event.emit("Plant tree seeds on dirt or grass with clear space above.")
+	return true
+
+
+## Settlement Coherence (M2-B): the place-action gesture for an existing door —
+## open a closed one / close an open one. Fires only when the targeted cell is a
+## door (so aiming a held Door at an air cell still places a new one via try_place),
+## and returns true then so it consumes the action. Out of reach is a no-op message.
+func _try_toggle_door(cell: Vector2i) -> bool:
+	if world.block_at(cell) not in ["door", "door_open"]:
+		return false
+	if not _in_reach(cell):
+		player_event.emit("That is out of reach.")
+		return true
+	if world.toggle_door(cell):
+		ActionFx.spawn(world, "place_pulse", world.cell_center(cell))
+		player_event.emit("Opened the door." if world.block_at(cell) == "door_open"
+			else "Closed the door.")
 	return true
 
 

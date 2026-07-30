@@ -1088,6 +1088,31 @@ if blocks["tree_sapling"].get("is_placeable", True):
     fail("blocks.json tree_sapling must not be hotbar-placeable (planted via a seed)")
 print("PASS renewable tree loop wiring")
 
+# Settlement Coherence (M2-B): doors. A closed `door` is a placeable solid that
+# blocks light and drops itself; an open `door_open` is a non-solid, light-passing
+# world state that also drops a `door`. Both carry the "door" settlement tag so the
+# housing validator can recognise a permitted wall opening. `craft_door` makes it
+# obtainable.
+for door_id in ["door", "door_open"]:
+    if door_id not in blocks:
+        fail(f"blocks.json missing door block: {door_id}")
+    if int(blocks[door_id].get("drops", {}).get("door", 0)) < 1:
+        fail(f"blocks.json {door_id} must drop a door")
+    if "door" not in blocks[door_id].get("settlement_tags", []):
+        fail(f"blocks.json {door_id} must carry the 'door' settlement tag")
+if not blocks["door"].get("is_placeable", False) or not blocks["door"].get("is_solid", False):
+    fail("blocks.json: door (closed) must be placeable and solid")
+if not blocks["door"].get("blocks_light", False):
+    fail("blocks.json: door (closed) must block light")
+if blocks["door_open"].get("is_solid", True) or blocks["door_open"].get("is_placeable", True):
+    fail("blocks.json: door_open must be non-solid and not hotbar-placeable (a toggled state)")
+if blocks["door_open"].get("blocks_light", True):
+    fail("blocks.json: door_open must let light through")
+door_recipe = next((r for r in all_recipes if r.get("recipe_id") == "craft_door"), {})
+if not door_recipe or int(door_recipe.get("outputs", {}).get("door", 0)) < 1:
+    fail("recipes.json missing craft_door -> door")
+print("PASS door blocks + recipe")
+
 ancestries_data = json.loads((ROOT / "data/ancestries.json").read_text(encoding="utf-8"))
 ancestry_ids = {a["id"] for a in ancestries_data["ancestries"]}
 expected_ancestries = {"human", "dwarf", "deep_dwarf", "elf", "deep_elf", "orc", "goblin", "deep_goblin", "gnome", "deep_gnome", "lizardfolk", "dragonkin"}

@@ -350,6 +350,42 @@
         "safety"
       ]
     },
+    "door": {
+      "display_name": "Door",
+      "hardness": 0.5,
+      "required_tool_tier": 0,
+      "drops": {
+        "door": 1
+      },
+      "is_placeable": true,
+      "is_solid": true,
+      "blocks_light": true,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "axe",
+      "settlement_tags": [
+        "structure",
+        "door"
+      ]
+    },
+    "door_open": {
+      "display_name": "Open Door",
+      "hardness": 0.5,
+      "required_tool_tier": 0,
+      "drops": {
+        "door": 1
+      },
+      "is_placeable": false,
+      "is_solid": false,
+      "blocks_light": false,
+      "emits_light": false,
+      "light_radius": 0,
+      "preferred_tool": "axe",
+      "settlement_tags": [
+        "structure",
+        "door"
+      ]
+    },
     "town_hall_core": {
       "display_name": "Town Hall Core",
       "hardness": 9999.0,

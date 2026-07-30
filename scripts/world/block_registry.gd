@@ -493,7 +493,7 @@ const NON_STOCKPILE_IDS := {
 	"crop_seedling": true, "crop_ripe": true, "berry_bush": true,
 	"tree_sapling": true, "tree_trunk": true, "tree_leaves": true,
 	"town_hall_core": true, "bedrock": true, "deepstone": true,
-	"lava": true, "water": true,
+	"lava": true, "water": true, "door_open": true,
 	# Carried tools / utilities: placed or used by the player, not settlement stock.
 	"torch": true, "lantern": true, "bucket": true,
 	"bucket_water": true, "bucket_lava": true,
