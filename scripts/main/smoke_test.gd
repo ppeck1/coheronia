@@ -7551,17 +7551,32 @@ func _run() -> void:
 	_check("m5_moon_rules_the_night",
 		bool(_sky_night["moon_visible"]) and not bool(_sky_night["sun_visible"]),
 		"is_night=%s" % str(_sky_night["is_night"]))
-	# lunar cycle: full at phase 0, new (dark) at phase 4, half at phase 2.
+	# continuous lunar cycle: new (dark) at phase 0.0, full at 0.5, half at 0.25.
 	_check("m5_moon_phase_cycle",
-		CelestialScript.illumination(0) > 0.98
-		and CelestialScript.illumination(4) < 0.02
-		and absf(CelestialScript.illumination(2) - 0.5) < 0.02,
-		"full=%.2f new=%.2f half=%.2f" % [CelestialScript.illumination(0),
-			CelestialScript.illumination(4), CelestialScript.illumination(2)])
+		CelestialScript.illumination_f(0.5) > 0.98
+		and CelestialScript.illumination_f(0.0) < 0.02
+		and absf(CelestialScript.illumination_f(0.25) - 0.5) < 0.02,
+		"full=%.2f new=%.2f quarter=%.2f" % [CelestialScript.illumination_f(0.5),
+			CelestialScript.illumination_f(0.0), CelestialScript.illumination_f(0.25)])
+	# a true ~29-day synodic cycle: exactly one full-moon day, illumination peaks near 1.
+	var _cyc_full_days: int = 0
+	var _cyc_peak: float = 0.0
+	var _cyc_names := {}
+	for _cyc_d in range(root._celestial.SYNODIC_DAYS):
+		root._celestial.set_phase_from_day(_cyc_d)
+		if root._celestial.is_full_moon():
+			_cyc_full_days += 1
+		_cyc_peak = maxf(_cyc_peak,
+			CelestialScript.illumination_f(float(_cyc_d) / float(root._celestial.SYNODIC_DAYS)))
+		_cyc_names[root._celestial.phase_name()] = true
+	root._celestial.set_phase_from_day(root.day_count)   # restore
+	_check("m5_lunar_cycle_true",
+		_cyc_full_days == 1 and _cyc_peak > 0.98 and _cyc_names.size() >= 6,
+		"full_days=%d peak=%.2f distinct_names=%d" % [_cyc_full_days, _cyc_peak, _cyc_names.size()])
 	# the full-moon gameplay hook tracks the day-driven phase.
-	root._celestial.set_phase_from_day(0)
+	root._celestial.set_phase_from_day(root._celestial.FULL_MOON_DAY)
 	var _fm_full: bool = root._celestial.is_full_moon()
-	root._celestial.set_phase_from_day(4)
+	root._celestial.set_phase_from_day(0)   # new moon
 	var _fm_new: bool = not root._celestial.is_full_moon()
 	root._celestial.set_phase_from_day(root.day_count)   # restore
 	_check("m5_full_moon_hook", _fm_full and _fm_new)

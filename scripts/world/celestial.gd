@@ -27,9 +27,14 @@ const SUN_GLOW_R := 88.0
 const SUN_CORE_R := 44.0
 const MOON_R := 36.0
 const MOON_TEX_PX := 128     # moon texture resolution (square) — hi-res for a soft edge
-# An 8-step lunar cycle (advances one step per in-game day). Phase 0 = full moon,
-# phase 4 = new moon; a later gameplay hook can read is_full_moon().
-const MOON_PHASES := 8
+# A true continuous synodic cycle: illumination advances smoothly one day at a time
+# over SYNODIC_DAYS, `_phase_f` in [0,1) where 0 = new moon and 0.5 = full moon. The
+# eight named milestones are read off `_phase_f`; full moons are rare (once per cycle),
+# which is what makes the deferred full-moon hook special.
+const SYNODIC_DAYS := 29
+const FULL_MOON_DAY := 15    # posmod(day, SYNODIC_DAYS) whose phase is nearest full
+const MOON_PHASE_NAMES := ["New Moon", "Waxing Crescent", "First Quarter",
+	"Waxing Gibbous", "Full Moon", "Waning Gibbous", "Last Quarter", "Waning Crescent"]
 # Baked mare/craters: [nx, ny, radius, depth] in normalized disc space (-1..1). Only
 # darken already-lit pixels, so the transparent dark side stays untouched.
 const MOON_CRATERS := [
@@ -38,7 +43,8 @@ const MOON_CRATERS := [
 ]
 
 var _time := 0.25
-var _phase := 0                      # 0..MOON_PHASES-1, set from the day count
+var _phase_f := 0.0                  # continuous lunar phase, 0 = new .. 0.5 = full
+var _phase_day := 0                  # posmod(day, SYNODIC_DAYS) — rebuild key
 var _moon_tex: ImageTexture = null   # cached per-phase lit-crescent texture
 var _light: PointLight2D = null      # the soft glow the body casts onto the world
 var _sky_layer: CanvasLayer = null   # camera-following layer, immune to the tint
@@ -97,11 +103,13 @@ func set_time(t: float) -> void:
 	_redraw_sky()
 
 
-## Advance the lunar cycle from the day count (one phase per day).
+## Advance the continuous lunar cycle from the day count (one step per in-game day
+## over the ~29-day synodic period). Rebuild the texture only when the day changes.
 func set_phase_from_day(day: int) -> void:
-	var next := posmod(day, MOON_PHASES)
-	if next != _phase:
-		_phase = next
+	var d := posmod(day, SYNODIC_DAYS)
+	if d != _phase_day:
+		_phase_day = d
+		_phase_f = float(d) / float(SYNODIC_DAYS)
 		_rebuild_moon_texture()
 	_redraw_sky()
 
@@ -111,19 +119,26 @@ func _redraw_sky() -> void:
 		_sky.queue_redraw()
 
 
-## The 0..1 lit fraction of the moon for a phase (1 = full at phase 0, 0 = new at
-## phase 4). Pure so the smoke can assert the cycle without rendering.
-static func illumination(phase: int) -> float:
-	return cos(float(posmod(phase, MOON_PHASES)) / float(MOON_PHASES) * TAU) * 0.5 + 0.5
+## The 0..1 lit fraction of the moon for a continuous phase (0 = new, 0.5 = full).
+## Pure so the smoke can assert the cycle without rendering.
+static func illumination_f(phase_f: float) -> float:
+	return 0.5 - 0.5 * cos(fposmod(phase_f, 1.0) * TAU)
 
 
-## A later gameplay hook: true on the full-moon night (brightest phase).
+## A later gameplay hook: true only on the single full-moon day of the cycle.
 func is_full_moon() -> bool:
-	return posmod(_phase, MOON_PHASES) == 0
+	return _phase_day == FULL_MOON_DAY
 
 
+## Nearest named milestone (New / Waxing Crescent / First Quarter / Waxing Gibbous /
+## Full / Waning Gibbous / Last Quarter / Waning Crescent).
+func phase_name() -> String:
+	return MOON_PHASE_NAMES[int(round(_phase_f * 8.0)) % 8]
+
+
+## Nearest 0..7 milestone bucket (0 = new, 4 = full) — kept for external readers.
 func moon_phase() -> int:
-	return posmod(_phase, MOON_PHASES)
+	return int(round(_phase_f * 8.0)) % 8
 
 
 ## Pure geometry so the smoke can assert the arc without rendering: where the sun
@@ -155,8 +170,8 @@ func _rebuild_moon_texture() -> void:
 	var n := MOON_TEX_PX
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	var f := illumination(_phase)
-	var waxing := _phase < 4
+	var f := illumination_f(_phase_f)
+	var waxing := _phase_f < 0.5
 	var r := float(n) * 0.5 - 1.0
 	var cx := float(n) * 0.5
 	var cy := float(n) * 0.5
@@ -226,7 +241,7 @@ func _draw_bodies() -> void:
 		_radiate(s, Color(1.0, 0.86, 0.55), SUN_GLOW_R * 3.0, 0.9)
 	else:
 		var m: Vector2 = p["moon"]
-		var lit := illumination(_phase)
+		var lit := illumination_f(_phase_f)
 		# A soft halo so the fuller moon visibly radiates — ramped in only near full
 		# so a crescent's dark side stays fully transparent and blends into the sky.
 		var halo := 0.18 * smoothstep(0.6, 1.0, lit)

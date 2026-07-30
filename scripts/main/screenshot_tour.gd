@@ -489,8 +489,8 @@ func _shoot_celestial(root: Node2D, world: Node2D, player: CharacterBody2D, hud:
 	root.is_night = true
 	root.canvas_modulate.color = root.NIGHT_TINT
 	cel.set_time(root.time_of_day)
-	for _phase_shot in [[2, "30_moon_crescent"], [5, "31_moon_gibbous"], [0, "32_moon_full"]]:
-		cel._phase = int(_phase_shot[0])
+	for _phase_shot in [[0.16, "30_moon_crescent"], [0.34, "31_moon_gibbous"], [0.5, "32_moon_full"]]:
+		cel._phase_f = float(_phase_shot[0])
 		cel._rebuild_moon_texture()
 		cel._redraw_sky()
 		await _shot(str(_phase_shot[1]))

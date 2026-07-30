@@ -2480,6 +2480,10 @@ func _build_log() -> void:
 	_event_time_label = _label(event_box, "Day 1 · Day")
 	_event_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_event_time_label.add_theme_color_override("font_color", Color(0.80, 0.72, 0.48))
+	# Wrap within the fixed panel width (the clock line now also carries the moon
+	# phase at night) so a long readout never widens the events module.
+	_event_time_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_event_time_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_log_label = Label.new()
 	_log_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_log_label.add_theme_color_override("font_color", Color(0.95, 0.93, 0.85))
@@ -3973,6 +3977,9 @@ func update_time(day: int, is_night: bool, threat_count: int = 0,
 			else:
 				phase = "Day"
 		text = "Day %d • %s %s" % [day, phase, _clock_text(time_fraction)]
+		# At night, name the moon phase (drives the lunar cycle readout).
+		if is_night and game_root != null and game_root._celestial != null:
+			text += " • %s" % game_root._celestial.phase_name()
 	else:
 		text = "Day %d — %s" % [day, "Night" if is_night else "Day"]
 	if threat_count > 0:
