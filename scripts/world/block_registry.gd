@@ -69,6 +69,18 @@ func citizen_stat_ids() -> Array:
 	return citizen_names.get("stats", ["vigor", "craft", "guard", "spirit"])
 
 
+func citizen_wants() -> Array:
+	return citizen_names.get("wants", [])
+
+
+## The {id, text, need} want dict for an id (empty if unknown).
+func citizen_want_def(want_id: String) -> Dictionary:
+	for w in citizen_wants():
+		if str(w.get("id", "")) == want_id:
+			return w
+	return {}
+
+
 func trait_effects(trait_ids: Array) -> Dictionary:
 	var combined := {}
 	for trait_def in character_data.get("traits", []):

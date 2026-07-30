@@ -2,6 +2,13 @@
   "schema_version": "0.1",
   "note": "Settlement Coherence: ancestry-aligned citizen name pools + per-ancestry stat biases. A citizen's name/stats are generated deterministically from its identity seed (so they are stable across runs/loads) and persisted on the subject. Given names are split by body variant; a surname/epithet gives each citizen a full name. stats lists the four settler attributes; stat_bias nudges an ancestry toward its strengths (dwarves guard, elves spirit, orcs vigor, goblins craft, humans balanced).",
   "stats": ["vigor", "craft", "guard", "spirit"],
+  "wants": [
+    { "id": "larder", "text": "a full larder", "need": "food" },
+    { "id": "roof", "text": "a roof overhead", "need": "shelter" },
+    { "id": "quiet", "text": "a quiet night", "need": "safety" },
+    { "id": "plenty", "text": "plentiful stores", "need": "food" },
+    { "id": "walls", "text": "strong walls", "need": "safety" }
+  ],
   "species": {
     "human": {
       "masculine": ["Aldric", "Bram", "Cedric", "Doran", "Emrys", "Garrick", "Hollis", "Rowan", "Tomas", "Willem"],

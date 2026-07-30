@@ -24,6 +24,11 @@ func _run() -> void:
 		print("SHOTS complete (item-wiring) -> user://shots")
 		get_tree().quit(0)
 		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "cel":
+		await _shoot_celestial(root, world, player, hud)
+		print("SHOTS complete (celestial) -> user://shots")
+		get_tree().quit(0)
+		return
 	world.setup(4242)
 	root._position_actors()
 	player.get_node("Camera2D").reset_smoothing()
@@ -456,6 +461,37 @@ func _shoot_item_wiring(root: Node2D, world: Node2D, player: CharacterBody2D, hu
 	player.velocity = Vector2.ZERO
 	_iw_cam.reset_smoothing()
 	await _shot("28_deep_block_build")
+
+
+## Celestial shots: verify the enlarged sun/moon, radiated light, and the
+## lit-crescent moon (dark side transparent → blends into the night sky).
+func _shoot_celestial(root: Node2D, world: Node2D, player: CharacterBody2D, hud: CanvasLayer) -> void:
+	world.setup(4242)
+	root._position_actors()
+	hud.visible = false            # clear the sky so the sun/moon read unobstructed
+	var cam: Camera2D = player.get_node("Camera2D")
+	cam.zoom = Vector2(1.0, 1.0)   # widen the frame so the sky arc is in view
+	cam.reset_smoothing()
+	var cel: Node2D = root._celestial
+
+	# Midday sun: high, radiating warm light.
+	root.time_of_day = 0.3
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	cel.set_time(root.time_of_day)
+	cam.reset_smoothing()
+	await _shot("29_sun_radiant")
+
+	# Mid-night moon at several phases so the crescent/gibbous shapes read.
+	root.time_of_day = 0.5 * (1.0 + cel.NIGHT_START)   # peak of the night arc
+	root.is_night = true
+	root.canvas_modulate.color = root.NIGHT_TINT
+	cel.set_time(root.time_of_day)
+	for _phase_shot in [[2, "30_moon_crescent"], [5, "31_moon_gibbous"], [0, "32_moon_full"]]:
+		cel._phase = int(_phase_shot[0])
+		cel._rebuild_moon_texture()
+		cel.queue_redraw()
+		await _shot(str(_phase_shot[1]))
 
 
 func _shot(shot_name: String) -> void:

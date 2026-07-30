@@ -7378,6 +7378,32 @@ func _run() -> void:
 	hud.close_npc_panel()
 	_check("cp_info_panel_opens", _cp_open and not hud.npc_panel_open())
 
+	# stats drive effectiveness: higher Guard hits harder, higher Vigor moves faster.
+	_cp_c.set_profile("Strong", 2, {"guard": 10, "vigor": 10}, "")
+	var _cp_hi_dmg: int = _cp_c.defend_damage()
+	var _cp_hi_spd: float = _cp_c.effective_move_speed()
+	_cp_c.set_profile("Weak", 2, {"guard": 1, "vigor": 1}, "")
+	_check("cp_stats_affect_behavior",
+		_cp_hi_dmg > _cp_c.defend_damage() and _cp_hi_spd > _cp_c.effective_move_speed(),
+		"dmg %d>%d spd %.1f>%.1f" % [_cp_hi_dmg, _cp_c.defend_damage(),
+			_cp_hi_spd, _cp_c.effective_move_speed()])
+
+	# citizen report: needs (food met/unmet), a work-inhibiting issue when hungry,
+	# contentment that drops when a need fails, and a want tied to a need.
+	root.assign_subject_job(str(_cp_c.subject_id), "farmhand")   # non-defender: hunger stops work
+	_cp_c.set_profile("Hopeful", 2, {"spirit": 5}, "larder")     # wants a full larder (food)
+	hall.stockpile["food"] = 8
+	var _cp_rep_fed: Dictionary = root.citizen_report(_cp_c)
+	hall.stockpile.erase("food")
+	var _cp_rep_hungry: Dictionary = root.citizen_report(_cp_c)
+	_check("cp_report_needs_issue_want",
+		bool(_cp_rep_fed["needs"]["food"]) and not bool(_cp_rep_hungry["needs"]["food"])
+		and str(_cp_rep_fed["issue"]) == "" and str(_cp_rep_hungry["issue"]) != ""
+		and int(_cp_rep_fed["coherence"]) > int(_cp_rep_hungry["coherence"])
+		and bool(_cp_rep_fed["want"]["met"]) and not bool(_cp_rep_hungry["want"]["met"]),
+		"fed_coh=%d hungry_coh=%d hungry_issue=%s" % [int(_cp_rep_fed["coherence"]),
+			int(_cp_rep_hungry["coherence"]), str(_cp_rep_hungry["issue"] != "")])
+
 	# --- Settlement Coherence (M3-B): dynamic roster <-> population authority ---
 	# grow the population authority; the sync spawns newcomers to match, each born
 	# with a live-species identity.

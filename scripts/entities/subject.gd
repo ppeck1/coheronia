@@ -77,6 +77,7 @@ var _body_tex: Texture2D = null
 var citizen_name := ""
 var birth_day := 1
 var stats: Dictionary = {}
+var want := ""   # a persisted want id (see citizen_names.json wants); flavor + a need hook
 
 const BODY_RECT := Rect2(-8, -32, 16, 32)   # 16x32 body, feet at the origin
 
@@ -152,15 +153,32 @@ func _resolve_body_tex() -> void:
 
 ## Set the persisted citizen profile (name, join day, stats). game_root generates
 ## these deterministically from the citizen's identity seed.
-func set_profile(cname: String, born: int, cstats: Dictionary) -> void:
+func set_profile(cname: String, born: int, cstats: Dictionary, cwant: String = "") -> void:
 	citizen_name = cname
 	birth_day = born
 	stats = cstats.duplicate()
+	want = cwant
 
 
 ## Days this citizen has been part of the settlement, given the current day.
 func days_alive(current_day: int) -> int:
 	return maxi(0, current_day - birth_day)
+
+
+## A stat value (defaults to a middling 5 for a citizen with no rolled stats).
+func stat(id: String) -> int:
+	return int(stats.get(id, 5))
+
+
+## Stat-driven effectiveness. Vigor makes a settler move a little faster on the
+## job; Guard makes a defender hit harder. (Craft/Spirit feed settlement
+## contentment — see game_root.citizen_report.)
+func effective_move_speed() -> float:
+	return MOVE_SPEED * (0.8 + 0.04 * float(stat("vigor")))
+
+
+func defend_damage() -> int:
+	return maxi(1, DEFEND_ATTACK_DAMAGE + int(float(stat("guard")) / 3.0))
 
 
 ## Settlement Coherence (M1): a citizen's home/guard post. Persisted, and the
@@ -231,7 +249,7 @@ func _physics_process(delta: float) -> void:
 		# away, otherwise pace gently — never freeze in place.
 		var dx := _home.x - global_position.x
 		if absf(dx) > PATROL_RADIUS:
-			velocity.x = signf(dx) * MOVE_SPEED
+			velocity.x = signf(dx) * effective_move_speed()
 		else:
 			_idle_patrol(delta)
 	if is_on_wall() and is_on_floor():
@@ -274,7 +292,7 @@ func _run_farmhand(_delta: float) -> bool:
 		_target = Vector2i(-1, -1)
 		velocity.x = 0.0
 		return true
-	velocity.x = signf(tpos.x - global_position.x) * MOVE_SPEED
+	velocity.x = signf(tpos.x - global_position.x) * effective_move_speed()
 	return true
 
 
@@ -290,7 +308,7 @@ func _run_repairer(_delta: float) -> bool:
 		town_hall.queue_redraw()
 		velocity.x = 0.0
 		return true
-	velocity.x = signf(hpos.x - global_position.x) * MOVE_SPEED
+	velocity.x = signf(hpos.x - global_position.x) * effective_move_speed()
 	return true
 
 
@@ -309,7 +327,7 @@ func _run_hauler(_delta: float) -> bool:
 		_deposit_drop(drop)
 		velocity.x = 0.0
 		return true
-	velocity.x = signf(dpos.x - global_position.x) * MOVE_SPEED
+	velocity.x = signf(dpos.x - global_position.x) * effective_move_speed()
 	return true
 
 
@@ -329,10 +347,10 @@ func _run_defender(delta: float) -> bool:
 	if global_position.distance_to(tpos) <= DEFEND_ATTACK_RANGE:
 		velocity.x = 0.0
 		if _attack_cd <= 0.0:
-			threat.take_hit(DEFEND_ATTACK_DAMAGE)
+			threat.take_hit(defend_damage())
 			_attack_cd = DEFEND_ATTACK_COOLDOWN
 		return true
-	velocity.x = signf(tpos.x - global_position.x) * MOVE_SPEED
+	velocity.x = signf(tpos.x - global_position.x) * effective_move_speed()
 	return true
 
 
@@ -437,8 +455,8 @@ func to_dict() -> Dictionary:
 		"home_x": _home.x, "home_y": _home.y,
 		# M3: persist the ancestry identity so it is never regenerated on load.
 		"species": species, "body_variant": body_variant, "visual_variant": visual_variant,
-		# Citizen profile: name/join-day/stats persist verbatim.
-		"name": citizen_name, "birth_day": birth_day, "stats": stats.duplicate(),
+		# Citizen profile: name/join-day/stats/want persist verbatim.
+		"name": citizen_name, "birth_day": birth_day, "stats": stats.duplicate(), "want": want,
 	}
 
 
@@ -462,3 +480,4 @@ func from_dict(d: Dictionary) -> void:
 		stats = {}
 		for k in raw_stats:
 			stats[str(k)] = int(raw_stats[k])
+	want = str(d.get("want", want))

@@ -508,6 +508,7 @@ func _wire_references() -> void:
 	save_manager.game_root = self
 	hud.player = player
 	hud.town_hall = town_hall
+	hud.game_root = self   # citizen panel reads live status via game_root.citizen_report
 	# FQ-06: the skill tree panel reads perk state through this game_root.
 	hud.setup_skill_panel(self)
 
@@ -1410,7 +1411,7 @@ func _spawn_starting_crew() -> void:
 		var idn: Dictionary = _generate_citizen_identity(key)
 		subj.set_identity(str(idn["species"]), str(idn["body_variant"]), int(idn["visual_variant"]))
 		var prof: Dictionary = _generate_citizen_profile(key, str(idn["species"]), str(idn["body_variant"]))
-		subj.set_profile(str(prof["name"]), day_count, prof["stats"])
+		subj.set_profile(str(prof["name"]), day_count, prof["stats"], str(prof.get("want", "")))
 	town_hall.population = crew.size()
 
 
@@ -1456,7 +1457,44 @@ func _generate_citizen_profile(key: int, species: String, variant: String) -> Di
 	var cstats := {}
 	for stat_id in BlockRegistry.citizen_stat_ids():
 		cstats[str(stat_id)] = clampi(3 + int(bias.get(stat_id, 0)) + rng.randi_range(0, 4), 1, 10)
-	return {"name": cname, "stats": cstats}
+	var wants: Array = BlockRegistry.citizen_wants()
+	var want_id := "" if wants.is_empty() else str(wants[rng.randi() % wants.size()].get("id", ""))
+	return {"name": cname, "stats": cstats, "want": want_id}
+
+
+## A live report for a settler's HUD panel: what it is doing / any issue inhibiting
+## its work, whether the settlement is meeting its needs, its contentment
+## ("coherence" with the settlement), and its want. All read live from settlement
+## state — the citizen never keeps a shadow copy.
+func citizen_report(subject) -> Dictionary:
+	var food_ok := int(town_hall.stockpile.get("food", 0)) > 0
+	var shelter_ok: bool = housing_capacity() >= int(town_hall.population)
+	var safe: bool = _live_threat_count() == 0 and float(town_hall.damage) < 50.0
+	var needs := {"food": food_ok, "shelter": shelter_ok, "safety": safe}
+	var met := 0
+	for k in needs:
+		if bool(needs[k]):
+			met += 1
+	# Contentment: mostly needs-met, lifted a little by the citizen's Spirit.
+	var coherence := int(clampf(round(80.0 * float(met) / float(needs.size())
+		+ 2.0 * float(subject.stat("spirit"))), 0.0, 100.0))
+	var is_defender := str(subject.job) == "defender"
+	var status := "On guard at its post." if is_defender else "Working the settlement."
+	var issue := ""
+	if not food_ok and not is_defender:
+		status = "Idle — hungry."
+		issue = "No food in the stockpile — this settler has stopped working until the larder is refilled."
+	elif not food_ok and is_defender:
+		issue = "Hungry — still holding its post, but the larder is empty."
+	var want_def := BlockRegistry.citizen_want_def(str(subject.want))
+	var want_need := str(want_def.get("need", ""))
+	return {
+		"status": status, "issue": issue, "needs": needs, "coherence": coherence,
+		"want": {
+			"text": str(want_def.get("text", "")),
+			"met": bool(needs.get(want_need, true)),
+		},
+	}
 
 
 ## M3-B: the trailing integer of a "citizen_N" id (0 if none) — the ordering key
@@ -1495,7 +1533,7 @@ func _spawn_citizen(job: String = "farmhand") -> Node:
 	var idn: Dictionary = _generate_citizen_identity(key)
 	subj.set_identity(str(idn["species"]), str(idn["body_variant"]), int(idn["visual_variant"]))
 	var prof: Dictionary = _generate_citizen_profile(key, str(idn["species"]), str(idn["body_variant"]))
-	subj.set_profile(str(prof["name"]), day_count, prof["stats"])
+	subj.set_profile(str(prof["name"]), day_count, prof["stats"], str(prof.get("want", "")))
 	return subj
 
 

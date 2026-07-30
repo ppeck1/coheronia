@@ -18,6 +18,7 @@ const LOW_HEALTH_TINT_FRACTION := 0.25
 
 var player: CharacterBody2D
 var town_hall: Node2D
+var game_root: Node   # citizen info panel reads live status via game_root.citizen_report
 var _hud_visual_theme := ""
 
 var _health_label: Label
@@ -51,6 +52,9 @@ var _npc_name_label: Label
 var _npc_meta_label: Label         # ancestry + days alive
 var _npc_role_label: Label
 var _npc_stats_label: Label
+var _npc_status_label: Label       # current state / any issue inhibiting work
+var _npc_needs_label: Label        # food / shelter / safety + contentment
+var _npc_want_label: Label
 var _current_day := 1
 var _town_info: Label
 var _repair_button: Button
@@ -2517,6 +2521,10 @@ func _build_npc_panel() -> void:
 	box.add_child(role_btn)
 	_label(box, "Stats:")
 	_npc_stats_label = _label(box, "")
+	_npc_status_label = _label(box, "")
+	_npc_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_npc_needs_label = _label(box, "")
+	_npc_want_label = _label(box, "")
 	var close_btn := Button.new()
 	close_btn.text = "Close"
 	close_btn.pressed.connect(func() -> void: close_npc_panel())
@@ -2566,6 +2574,34 @@ func refresh_npc_panel() -> void:
 		parts.append("%s %d" % [str(stat_id).capitalize(),
 			int(_npc_subject.stats.get(str(stat_id), 0))])
 	_npc_stats_label.text = "   ".join(parts)
+	# Live status / needs / contentment / want from game_root.
+	if game_root == null:
+		_npc_status_label.text = ""
+		_npc_needs_label.text = ""
+		_npc_want_label.text = ""
+		return
+	var report: Dictionary = game_root.citizen_report(_npc_subject)
+	var issue := str(report.get("issue", ""))
+	if issue != "":
+		_npc_status_label.text = "⚠ %s" % issue
+		_npc_status_label.add_theme_color_override("font_color", Color(0.95, 0.6, 0.4))
+	else:
+		_npc_status_label.text = str(report.get("status", ""))
+		_npc_status_label.add_theme_color_override("font_color", Color(0.85, 0.9, 0.8))
+	var needs: Dictionary = report.get("needs", {})
+	var need_parts: Array[String] = []
+	for need_id in needs:
+		need_parts.append("%s %s" % ["✓" if bool(needs[need_id]) else "✗",
+			str(need_id).capitalize()])
+	_npc_needs_label.text = "Needs: %s    Coherence: %d%%" % [
+		"  ".join(need_parts), int(report.get("coherence", 0))]
+	var want: Dictionary = report.get("want", {})
+	var want_text := str(want.get("text", ""))
+	if want_text != "":
+		_npc_want_label.text = "Wants %s — %s" % [want_text,
+			"content" if bool(want.get("met", false)) else "unmet"]
+	else:
+		_npc_want_label.text = ""
 
 
 func _build_town_panel() -> void:

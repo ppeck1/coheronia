@@ -1262,4 +1262,19 @@ for cn_sp in EXPECTED_PLAYER_SPECIES:   # the five live, art-backed player speci
     for st in cn_stats:
         if not isinstance(bias.get(st, 0), int):
             fail(f"citizen_names.json {cn_sp}.stat_bias.{st} must be an int")
+cn_wants = citizen_names.get("wants")
+if not isinstance(cn_wants, list) or not cn_wants:
+    fail("citizen_names.json must list a non-empty 'wants' array")
+CITIZEN_NEED_IDS = {"food", "shelter", "safety"}
+cn_want_ids = set()
+for w in cn_wants:
+    if not isinstance(w, dict) or not isinstance(w.get("id"), str) or not w["id"]:
+        fail("citizen_names.json each want needs a string id")
+    if w["id"] in cn_want_ids:
+        fail(f"citizen_names.json duplicate want id {w['id']}")
+    cn_want_ids.add(w["id"])
+    if not isinstance(w.get("text"), str) or not w["text"].strip():
+        fail(f"citizen_names.json want {w['id']} needs text")
+    if w.get("need") not in CITIZEN_NEED_IDS:
+        fail(f"citizen_names.json want {w['id']} need must be one of {sorted(CITIZEN_NEED_IDS)}")
 print("PASS citizen name pools")

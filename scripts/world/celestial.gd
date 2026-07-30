@@ -4,7 +4,12 @@ extends Node2D
 ## moon during the night, both driven purely by game_root.time_of_day (the same
 ## saved 0..1 value that already drives the tint and HUD clock). Like the backdrop
 ## it lives in the world canvas so the day/night CanvasModulate tint applies, has
-## no collision, ignores 2D lights (light_mask = 0), and NEVER enters a save.
+## no collision, and NEVER enters a save.
+##
+## The moon is drawn as a per-pixel texture so only its LIT crescent/gibbous is
+## opaque and its dark side is fully transparent — it blends into the night sky
+## instead of showing a grey disc. Both bodies also carry a soft PointLight2D so
+## they radiate light.
 ##
 ## No class_name (repo convention + the runtime global-class gotcha): game_root
 ## preloads and owns this node.
@@ -13,38 +18,84 @@ extends Node2D
 const NIGHT_START := 0.65
 const SUN_CORE := Color(1.0, 0.9, 0.5)
 const SUN_GLOW := Color(1.0, 0.85, 0.45, 0.25)
-const MOON_CORE := Color(0.9, 0.92, 0.98)
-const MOON_SHADOW := Color(0.20, 0.22, 0.34)
-# Bodies at 2x their first size (operator request). Sun = glow + core; moon disc.
-const SUN_GLOW_R := 44.0
-const SUN_CORE_R := 22.0
-const MOON_R := 18.0
+const MOON_CORE := Color(0.92, 0.94, 1.0)
+# Bodies at 4x the first size (operator request: +100% twice). Sun = glow + core;
+# moon = a lit-crescent texture of side 2*MOON_R.
+const SUN_GLOW_R := 88.0
+const SUN_CORE_R := 44.0
+const MOON_R := 36.0
+const MOON_TEX_PX := 64      # moon texture resolution (square)
 # An 8-step lunar cycle (advances one step per in-game day). Phase 0 = full moon,
 # phase 4 = new moon; a later gameplay hook can read is_full_moon().
 const MOON_PHASES := 8
 
 var _time := 0.25
-var _phase := 0   # 0..MOON_PHASES-1, set from the day count
+var _phase := 0                      # 0..MOON_PHASES-1, set from the day count
+var _moon_tex: ImageTexture = null   # cached per-phase lit-crescent texture
+var _light: PointLight2D = null      # the soft glow the body casts onto the world
+var _sky_layer: CanvasLayer = null   # camera-following layer, immune to the tint
+var _sky: Node2D = null              # draws the bodies at full brightness on _sky_layer
 
 
 func _ready() -> void:
 	name = "Celestial"
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	light_mask = 0                # a torch must not light the sky
-	z_index = -9                  # in front of the backdrop (-10), behind terrain
+	light_mask = 0                    # a torch must not light the sky bodies
+	# The radiated moon/sunlight that falls on the world stays in the world canvas.
+	_light = PointLight2D.new()
+	_light.texture = _make_glow_texture()
+	_light.energy = 0.0               # positioned/energised per-frame while drawing
+	_light.z_index = -9
+	add_child(_light)
+	# The bodies themselves draw on a follow-the-camera CanvasLayer so the day/night
+	# CanvasModulate does NOT dim them — a full moon reads as a bright disc against
+	# the dark sky, and the sun stays luminous (mirrors the R-07 build-preview layer).
+	_sky_layer = CanvasLayer.new()
+	_sky_layer.name = "CelestialSkyLayer"
+	_sky_layer.follow_viewport_enabled = true
+	_sky_layer.layer = 0
+	add_child(_sky_layer)
+	_sky = Node2D.new()
+	_sky.name = "CelestialBodies"
+	_sky.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_sky.light_mask = 0
+	_sky.z_index = -9
+	_sky.draw.connect(_draw_bodies)
+	_sky_layer.add_child(_sky)
+	_rebuild_moon_texture()
 
 
-## Set the current time-of-day fraction (0..1) and redraw. Called by game_root as
-## time advances and on load.
+## A soft round gradient for the radiated glow (bright centre → transparent rim).
+func _make_glow_texture() -> GradientTexture2D:
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1, 1, 1, 1))
+	grad.set_color(1, Color(1, 1, 1, 0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 256
+	tex.height = 256
+	return tex
+
+
 func set_time(t: float) -> void:
 	_time = fposmod(t, 1.0)
-	queue_redraw()
+	_redraw_sky()
 
 
 ## Advance the lunar cycle from the day count (one phase per day).
 func set_phase_from_day(day: int) -> void:
-	_phase = posmod(day, MOON_PHASES)
-	queue_redraw()
+	var next := posmod(day, MOON_PHASES)
+	if next != _phase:
+		_phase = next
+		_rebuild_moon_texture()
+	_redraw_sky()
+
+
+func _redraw_sky() -> void:
+	if _sky != null:
+		_sky.queue_redraw()
 
 
 ## The 0..1 lit fraction of the moon for a phase (1 = full at phase 0, 0 = new at
@@ -60,10 +111,6 @@ func is_full_moon() -> bool:
 
 func moon_phase() -> int:
 	return posmod(_phase, MOON_PHASES)
-
-
-func _process(_delta: float) -> void:
-	queue_redraw()               # follow the camera as it pans
 
 
 ## Pure geometry so the smoke can assert the arc without rendering: where the sun
@@ -88,36 +135,87 @@ static func positions(t: float, view: Rect2) -> Dictionary:
 	}
 
 
+## Rebuild the moon texture for the current phase: opaque only where the disc is LIT
+## (dark side transparent → blends into the night sky). Waxing lights the right
+## limb, waning the left; full is a whole disc, new is empty.
+func _rebuild_moon_texture() -> void:
+	var n := MOON_TEX_PX
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var f := illumination(_phase)
+	var waxing := _phase < 4
+	var r := float(n) * 0.5 - 1.0
+	var cx := float(n) * 0.5
+	var cy := float(n) * 0.5
+	for py in range(n):
+		var ny := (float(py) + 0.5 - cy) / r        # -1..1
+		if absf(ny) > 1.0:
+			continue
+		var limb := sqrt(maxf(0.0, 1.0 - ny * ny))   # normalized half-width of the disc row
+		var term_x := (1.0 - 2.0 * f) * limb          # terminator x (normalized)
+		for px in range(n):
+			var nx := (float(px) + 0.5 - cx) / r      # -1..1
+			if nx * nx + ny * ny > 1.0:
+				continue                              # outside the disc
+			var lit := nx >= term_x if waxing else nx <= -term_x
+			if not lit:
+				continue
+			# soft rim so the crescent edge is not aliased-hard
+			var edge := 1.0 - smoothstep(r - 1.5, r, sqrt((nx * r) * (nx * r) + (ny * r) * (ny * r)))
+			var c := MOON_CORE
+			c.a *= clampf(edge, 0.35, 1.0)
+			img.set_pixel(px, py, c)
+	_moon_tex = ImageTexture.create_from_image(img)
+
+
+func _process(_delta: float) -> void:
+	_redraw_sky()                # follow the camera as it pans
+
+
 func _current_view() -> Rect2:
-	var inv := get_canvas_transform().affine_inverse()
+	var inv := _sky.get_canvas_transform().affine_inverse()
 	var vp := get_viewport_rect().size
 	var a := inv * Vector2.ZERO
 	var b := inv * vp
 	return Rect2(a, b - a)
 
 
-func _draw() -> void:
+## Draw the sun/moon on the tint-immune sky layer and cast the matching light onto
+## the world. Called via the _sky node's `draw` signal (the drawing calls target it).
+func _draw_bodies() -> void:
 	var view := _current_view()
 	if view.size.x <= 0.0 or view.size.y <= 0.0:
 		return
 	var p: Dictionary = positions(_time, view)
 	if bool(p["sun_visible"]):
 		var s: Vector2 = p["sun"]
-		draw_circle(s, SUN_GLOW_R, SUN_GLOW)
-		draw_circle(s, SUN_CORE_R * 1.55, Color(SUN_GLOW.r, SUN_GLOW.g, SUN_GLOW.b, 0.35))
-		draw_circle(s, SUN_CORE_R, SUN_CORE)
+		_sky.draw_circle(s, SUN_GLOW_R, SUN_GLOW)
+		_sky.draw_circle(s, SUN_CORE_R * 1.5, Color(SUN_GLOW.r, SUN_GLOW.g, SUN_GLOW.b, 0.35))
+		_sky.draw_circle(s, SUN_CORE_R, SUN_CORE)
+		_radiate(s, Color(1.0, 0.86, 0.55), SUN_GLOW_R * 3.0, 0.9)
 	else:
-		_draw_moon(p["moon"])
+		var m: Vector2 = p["moon"]
+		var lit := illumination(_phase)
+		# A soft halo so the fuller moon visibly radiates — ramped in only near full
+		# so a crescent's dark side stays fully transparent and blends into the sky.
+		var halo := 0.18 * smoothstep(0.6, 1.0, lit)
+		if halo > 0.0:
+			_sky.draw_circle(m, MOON_R * 1.9,
+				Color(MOON_CORE.r, MOON_CORE.g, MOON_CORE.b, halo))
+		if _moon_tex != null:
+			var side := MOON_R * 2.0
+			_sky.draw_texture_rect(_moon_tex, Rect2(m - Vector2(MOON_R, MOON_R),
+				Vector2(side, side)), false)
+		# moonlight cast on the world scales with how much of the moon is lit.
+		_radiate(m, Color(0.7, 0.78, 1.0), MOON_R * 4.0, 0.15 + 0.35 * lit)
 
 
-## Draw the moon at its current phase: the bright disc, then a shadow disc offset
-## horizontally to leave a lit crescent/gibbous (waxing = shadow on the left, waning
-## = on the right). At full moon (phase 0) no shadow is drawn.
-func _draw_moon(m: Vector2) -> void:
-	draw_circle(m, MOON_R, MOON_CORE)
-	var illum := illumination(_phase)
-	if illum >= 0.98:
+## Position and energise the radiated glow at the body.
+func _radiate(at: Vector2, color: Color, radius: float, energy: float) -> void:
+	if _light == null:
 		return
-	var side := -1.0 if _phase < 4 else 1.0        # waxing shadow left, waning right
-	var shadow_dx := side * (1.0 - illum) * 2.0 * MOON_R
-	draw_circle(m + Vector2(shadow_dx, 0.0), MOON_R, MOON_SHADOW)
+	_light.position = at
+	_light.color = color
+	_light.energy = energy
+	# GradientTexture2D is 256px; texture_scale maps it to the desired radius.
+	_light.texture_scale = (radius * 2.0) / 256.0
