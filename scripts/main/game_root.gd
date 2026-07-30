@@ -712,6 +712,7 @@ func _advance_time(delta: float) -> void:
 	is_night = night_now
 	if _celestial != null:
 		_celestial.set_time(time_of_day)   # M5-A: arc the sun/moon as time advances
+		_celestial.set_sky_visible(_sky_visible_now())   # hide the sky underground
 	# FQ-19: keep the events clock ticking between day/night transitions —
 	# once per real second, not per frame (threat counting walks the tree).
 	_clock_refresh_accum += delta
@@ -734,6 +735,15 @@ func ambient_darkness_factor() -> float:
 	var cell: Vector2i = world.cell_of(player.global_position)
 	var depth_px := player.global_position.y - float(world.sky_line(cell.x)) * t
 	return clampf(depth_px / (CAVE_FADE_CELLS * t), 0.0, 1.0)
+
+
+## The sun/moon draw on an above-world layer (so the night tint can't dim them),
+## which means terrain no longer occludes them — so hide the whole sky once the
+## player is a few tiles below the surface (else the sun floats over rock).
+func _sky_visible_now() -> bool:
+	if world == null or player == null:
+		return true
+	return ambient_darkness_factor() < 0.5
 
 
 ## The ambient tint the world lerps toward: the day/night/storm base pushed
@@ -1746,6 +1756,7 @@ func apply_time_state(data: Dictionary) -> void:
 	if _celestial != null:
 		_celestial.set_time(time_of_day)   # M5-A: reflect the loaded time in the sky
 		_celestial.set_phase_from_day(day_count)
+		_celestial.set_sky_visible(_sky_visible_now())
 	canvas_modulate.color = ambient_target_color()
 
 

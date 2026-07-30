@@ -81,6 +81,7 @@ const BackdropScript := preload("res://scripts/world/world_backdrop.gd")
 const ItemDropScript := preload("res://scripts/entities/item_drop.gd")   # R-08 slice 3
 const FluidSimScript := preload("res://scripts/world/fluid_sim.gd")      # LQ-1 liquid physics
 const LavaBubblesScript := preload("res://scripts/world/lava_bubbles.gd") # LQ-2c rising-bubble overlay
+const LightingScript := preload("res://scripts/world/lighting.gd")        # shared soft-glow authoring
 const WALL_MATERIALS := {"dirt_wall": "dirt", "stone_wall": "stone"}
 
 const BLOCK_COLORS := {
@@ -1124,17 +1125,9 @@ func _normalize_art(art: ImageTexture, t: int) -> ImageTexture:
 
 
 func _make_light_texture() -> GradientTexture2D:
-	var grad := Gradient.new()
-	grad.set_color(0, Color(1, 1, 1, 1))
-	grad.set_color(1, Color(1, 1, 1, 0))
-	var tex := GradientTexture2D.new()
-	tex.gradient = grad
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(0.5, 0.0)
-	tex.width = 256
-	tex.height = 256
-	return tex
+	# Shared soft-glow authoring: torches/lava now cast the same source-weighted,
+	# gently-feathered light as the sun/moon (was a hard linear centre->edge ramp).
+	return LightingScript.glow_texture()
 
 
 func serialize_deltas() -> Dictionary:

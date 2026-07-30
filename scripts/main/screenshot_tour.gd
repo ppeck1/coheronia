@@ -473,16 +473,18 @@ func _shoot_celestial(root: Node2D, world: Node2D, player: CharacterBody2D, hud:
 	cam.zoom = Vector2(1.0, 1.0)   # widen the frame so the sky arc is in view
 	cam.reset_smoothing()
 	var cel: Node2D = root._celestial
+	cel.set_sky_visible(true)
 
-	# Midday sun: high, radiating warm light.
+	# Midday sun: high, radiating warm light + flares.
 	root.time_of_day = 0.3
 	root.is_night = false
 	root.canvas_modulate.color = root.DAY_TINT
 	cel.set_time(root.time_of_day)
+	cel._redraw_sky()
 	cam.reset_smoothing()
 	await _shot("29_sun_radiant")
 
-	# Mid-night moon at several phases so the crescent/gibbous shapes read.
+	# Mid-night moon at several phases so the crescent/gibbous/crater shapes read.
 	root.time_of_day = 0.5 * (1.0 + cel.NIGHT_START)   # peak of the night arc
 	root.is_night = true
 	root.canvas_modulate.color = root.NIGHT_TINT
@@ -490,8 +492,22 @@ func _shoot_celestial(root: Node2D, world: Node2D, player: CharacterBody2D, hud:
 	for _phase_shot in [[2, "30_moon_crescent"], [5, "31_moon_gibbous"], [0, "32_moon_full"]]:
 		cel._phase = int(_phase_shot[0])
 		cel._rebuild_moon_texture()
-		cel.queue_redraw()
+		cel._redraw_sky()
 		await _shot(str(_phase_shot[1]))
+
+	# Underground: the sky must NOT draw over rock (gate fed by the player's depth).
+	root.time_of_day = 0.3
+	root.is_night = false
+	var _uc: Vector2i = world.hall_info["center_cell"]
+	var _ugy: int = world.hall_info["ground_y"]
+	player.global_position = world.cell_center(Vector2i(_uc.x, _ugy + 10))
+	player.velocity = Vector2.ZERO
+	cam.reset_smoothing()
+	root.canvas_modulate.color = root.ambient_target_color()
+	cel.set_time(root.time_of_day)
+	cel.set_sky_visible(root._sky_visible_now())
+	cel._redraw_sky()
+	await _shot("33_underground_no_sky")
 
 
 func _shot(shot_name: String) -> void:

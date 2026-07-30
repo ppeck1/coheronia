@@ -14,6 +14,8 @@ extends Node2D
 ## No class_name (repo convention + the runtime global-class gotcha): game_root
 ## preloads and owns this node.
 
+const LightingScript := preload("res://scripts/world/lighting.gd")  # shared soft glow
+
 ## Mirror of game_root.NIGHT_START so the sun sets exactly when night falls.
 const NIGHT_START := 0.65
 const SUN_CORE := Color(1.0, 0.9, 0.5)
@@ -24,10 +26,16 @@ const MOON_CORE := Color(0.92, 0.94, 1.0)
 const SUN_GLOW_R := 88.0
 const SUN_CORE_R := 44.0
 const MOON_R := 36.0
-const MOON_TEX_PX := 64      # moon texture resolution (square)
+const MOON_TEX_PX := 128     # moon texture resolution (square) — hi-res for a soft edge
 # An 8-step lunar cycle (advances one step per in-game day). Phase 0 = full moon,
 # phase 4 = new moon; a later gameplay hook can read is_full_moon().
 const MOON_PHASES := 8
+# Baked mare/craters: [nx, ny, radius, depth] in normalized disc space (-1..1). Only
+# darken already-lit pixels, so the transparent dark side stays untouched.
+const MOON_CRATERS := [
+	[-0.30, -0.26, 0.24, 0.34], [0.30, 0.12, 0.17, 0.30], [0.06, 0.44, 0.14, 0.26],
+	[0.42, -0.40, 0.11, 0.24], [-0.16, 0.30, 0.10, 0.22], [-0.44, 0.18, 0.09, 0.20],
+]
 
 var _time := 0.25
 var _phase := 0                      # 0..MOON_PHASES-1, set from the day count
@@ -35,6 +43,7 @@ var _moon_tex: ImageTexture = null   # cached per-phase lit-crescent texture
 var _light: PointLight2D = null      # the soft glow the body casts onto the world
 var _sky_layer: CanvasLayer = null   # camera-following layer, immune to the tint
 var _sky: Node2D = null              # draws the bodies at full brightness on _sky_layer
+var _sky_visible := true             # false underground so the sky never shows on rock
 
 
 func _ready() -> void:
@@ -64,19 +73,23 @@ func _ready() -> void:
 	_rebuild_moon_texture()
 
 
-## A soft round gradient for the radiated glow (bright centre → transparent rim).
+## The soft radiated glow — shared with torches/lava via the lighting module so all
+## light sources fall off the same gentle way (bright core, feathered rim).
 func _make_glow_texture() -> GradientTexture2D:
-	var grad := Gradient.new()
-	grad.set_color(0, Color(1, 1, 1, 1))
-	grad.set_color(1, Color(1, 1, 1, 0))
-	var tex := GradientTexture2D.new()
-	tex.gradient = grad
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(1.0, 0.5)
-	tex.width = 256
-	tex.height = 256
-	return tex
+	return LightingScript.glow_texture()
+
+
+## Underground the sky must not draw over rock: game_root feeds this from the
+## player's depth vs the surface line. Hiding the sky node stops its `draw` signal,
+## so we also zero the cast light (which is re-energised on the next visible draw).
+func set_sky_visible(v: bool) -> void:
+	if v == _sky_visible:
+		return
+	_sky_visible = v
+	if _sky != null:
+		_sky.visible = v
+	if not v and _light != null:
+		_light.energy = 0.0
 
 
 func set_time(t: float) -> void:
@@ -160,10 +173,22 @@ func _rebuild_moon_texture() -> void:
 			var lit := nx >= term_x if waxing else nx <= -term_x
 			if not lit:
 				continue
-			# soft rim so the crescent edge is not aliased-hard
-			var edge := 1.0 - smoothstep(r - 1.5, r, sqrt((nx * r) * (nx * r) + (ny * r) * (ny * r)))
+			# wide soft rim so the whole edge (and the crescent terminator) feathers
+			# out instead of reading as a hard-cut disc.
+			var dist := sqrt((nx * r) * (nx * r) + (ny * r) * (ny * r))
+			var edge := 1.0 - smoothstep(r - 4.0, r, dist)
+			# soften the terminator too, so the lit/dark boundary is not a hard line.
+			var term_soft := smoothstep(0.0, 0.06, absf(nx - (term_x if waxing else -term_x)))
 			var c := MOON_CORE
-			c.a *= clampf(edge, 0.35, 1.0)
+			# baked mare: darken (not erase) near crater centres → grey seas, silhouette intact.
+			var dim := 1.0
+			for cr in MOON_CRATERS:
+				var cd := sqrt((nx - cr[0]) * (nx - cr[0]) + (ny - cr[1]) * (ny - cr[1]))
+				if cd < cr[2]:
+					dim -= float(cr[3]) * (1.0 - smoothstep(cr[2] * 0.35, cr[2], cd))
+			dim = clampf(dim, 0.45, 1.0)
+			c = Color(c.r * dim, c.g * dim, c.b * dim, c.a)
+			c.a *= clampf(edge, 0.0, 1.0) * clampf(0.4 + 0.6 * term_soft, 0.0, 1.0)
 			img.set_pixel(px, py, c)
 	_moon_tex = ImageTexture.create_from_image(img)
 
@@ -189,6 +214,12 @@ func _draw_bodies() -> void:
 	var p: Dictionary = positions(_time, view)
 	if bool(p["sun_visible"]):
 		var s: Vector2 = p["sun"]
+		# corona + radiating flares behind the disc, then the layered glow + core.
+		_sky.draw_circle(s, SUN_GLOW_R * 1.4, Color(SUN_GLOW.r, SUN_GLOW.g, SUN_GLOW.b, 0.10))
+		var rays := 12
+		for i in range(rays):
+			var ang := TAU * float(i) / float(rays) + 0.13
+			_draw_sun_ray(s, ang, SUN_GLOW_R * (1.7 if i % 2 == 0 else 1.3))
 		_sky.draw_circle(s, SUN_GLOW_R, SUN_GLOW)
 		_sky.draw_circle(s, SUN_CORE_R * 1.5, Color(SUN_GLOW.r, SUN_GLOW.g, SUN_GLOW.b, 0.35))
 		_sky.draw_circle(s, SUN_CORE_R, SUN_CORE)
@@ -208,6 +239,20 @@ func _draw_bodies() -> void:
 				Vector2(side, side)), false)
 		# moonlight cast on the world scales with how much of the moon is lit.
 		_radiate(m, Color(0.7, 0.78, 1.0), MOON_R * 4.0, 0.15 + 0.35 * lit)
+
+
+## One tapered flare spike from just outside the core out to `length`.
+func _draw_sun_ray(center: Vector2, ang: float, length: float) -> void:
+	var dir := Vector2(cos(ang), sin(ang))
+	var perp := Vector2(-dir.y, dir.x)
+	var base_r := SUN_CORE_R * 1.15
+	var w := 5.0
+	var pts := PackedVector2Array([
+		center + dir * base_r + perp * w,
+		center + dir * base_r - perp * w,
+		center + dir * length,
+	])
+	_sky.draw_colored_polygon(pts, Color(1.0, 0.88, 0.5, 0.5))
 
 
 ## Position and energise the radiated glow at the body.
