@@ -182,8 +182,8 @@ var _hud_resize_origin_size := Vector2.ZERO
 var _hud_edit_overlay: Control
 var _command_toggles: Dictionary = {}   # label -> Button
 var _hud_default_sizes: Dictionary = {}
-const HUD_WIDGET_IDS := ["crest", "goal", "events", "map", "modules", "dock"]
-const HUD_EDITABLE_WIDGET_IDS := ["crest", "goal", "events", "map", "modules"]
+const HUD_WIDGET_IDS := ["crest", "goal", "events", "map", "modules", "dock", "npc"]
+const HUD_EDITABLE_WIDGET_IDS := ["crest", "goal", "events", "map", "modules", "npc"]
 # FQ-20/FQ-22 direct manipulation: continuous resize via panel size, never
 # Control.scale. Fractional transforms blur HUD chrome and expose nine-slice seams.
 # R-06.2: min/max size factors, safe margin, and grip size moved to
@@ -361,6 +361,7 @@ func _register_hud_widgets() -> void:
 		"map": _map_panel,
 		"modules": _command_center_panel,
 		"dock": _bottom_dock,
+		"npc": _npc_panel,   # the settler info panel — movable/resizable when open
 	}
 	for widget_id in HUD_WIDGET_IDS:
 		var control: Control = _hud_widgets.get(widget_id)

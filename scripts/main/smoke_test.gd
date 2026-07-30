@@ -1983,6 +1983,27 @@ func _run() -> void:
 			str(_r06g_size_ok), str(_r06g_grip_ok), str(_r06g_min_ok),
 			str(_r06g_max_ok), str(_r06g_clamp_slack_ok), str(_r06g_clamp_noslack_ok)])
 
+	# Slice 3: the settler info panel is a first-class editable HUD widget — it can
+	# be moved and resized through the same edit path as the crest/goal/events.
+	var _npce_registered: bool = hud._hud_widgets.get("npc") == hud._npc_panel \
+		and hud._editable_hud_widget_ids().has("npc")
+	hud._npc_panel.visible = true
+	await get_tree().process_frame
+	var _npce_grip: Rect2 = hud._hud_grip_rect("npc")   # non-empty only when visible
+	var _npce_pos0: Vector2 = hud._npc_panel.position
+	hud._hud_edit_selected = "npc"
+	hud._nudge_hud_widget(Vector2(24, 12))
+	var _npce_moved: bool = hud._npc_panel.position != _npce_pos0
+	var _npce_size0: Vector2 = hud._hud_widget_size(hud._npc_panel)
+	hud._resize_hud_widget_to_size("npc", _npce_size0 + Vector2(20, 20))
+	var _npce_resized: bool = hud._hud_widget_size(hud._npc_panel) != _npce_size0
+	hud.reset_hud_layout()
+	hud._npc_panel.visible = false
+	_check("hud_npc_panel_editable",
+		_npce_registered and _npce_grip.size.x > 0.0 and _npce_moved and _npce_resized,
+		"reg=%s grip=%s moved=%s resized=%s" % [str(_npce_registered),
+			str(_npce_grip.size), str(_npce_moved), str(_npce_resized)])
+
 	# R-06.3 seam: vessel/chrome texture prep now builds in HudChrome; hud.gd
 	# keeps the caches + source lookup. Textures are freshly built (not
 	# identity-equal), so assert resulting dimensions + null-safety.
