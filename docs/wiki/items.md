@@ -83,12 +83,10 @@ This page is the item landing page for the current Coheronia wiki tree. It is me
 | [Clay](items/clay.md) | planned | [Mudling](enemies/mudling.md) | Recommended first implementation sink: bricks, pottery, or furnace upgrade. |
 | [Forged Seal](items/forged_seal.md) | planned | [False Taxman](enemies/false_taxman.md) | Recommended first implementation sink: civic quest or treasury sink. |
 | [Fungal Thread](items/fungal_thread.md) | planned | [Sporekin](enemies/sporekin.md) | Recommended first implementation sink: wraps, filters, or attunement cloth. |
-| [Fuse Cord](items/fuse_cord.md) | planned | [Raider Sapper](enemies/raider_sapper.md) | Recommended first implementation sink: demolition or trap recipes. |
 | [Glow Gland](items/glow_gland.md) | planned | [Lantern Leech](enemies/lantern_leech.md) | Recommended first implementation sink: cave lamp or alchemy light. |
 | [Hide](items/hide.md) | planned | [Hollow Stag](enemies/hollow_stag.md), [Burrow Maw](enemies/burrow_maw.md) | Recommended first implementation sink: medium armor or packs. |
 | [Mud](items/mud.md) | planned | [Mudling](enemies/mudling.md) | Recommended first implementation sink: clay prep or farming amendment. |
 | [Oil](items/oil.md) | planned | [Lantern Leech](enemies/lantern_leech.md) | Recommended first implementation sink: lantern fuel or fire weapons. |
-| [Picks](items/picks.md) | planned | [Raider Sapper](enemies/raider_sapper.md) | Recommended first implementation sink: tool repair or iron salvage. |
 | [Reed Fiber](items/reed_fiber.md) | planned | [Mudling](enemies/mudling.md) | Recommended first implementation sink: rope, nets, or matting. |
 | [Spores](items/spores.md) | planned | [Sporekin](enemies/sporekin.md) | Recommended first implementation sink: medicine, poison, or farming catalyst. |
 | [Stone Plates](items/stone_plates.md) | planned | [Stoneback Beetle](enemies/stoneback_beetle.md) | Recommended first implementation sink: armor or barricade plating. |

@@ -1310,7 +1310,7 @@ func _run() -> void:
 
 	# Fix 16: use root's shared registry instances instead of creating duplicates.
 	var enemy_reg = root._enemy_registry
-	_check("enemies_json_loads", enemy_reg.live_defs().size() == 6,
+	_check("enemies_json_loads", enemy_reg.live_defs().size() == 7,
 		"%d live defs" % enemy_reg.live_defs().size())
 
 	var slime_node: Node = root.spawn_enemy_for_test("surface_slime")
@@ -7399,6 +7399,35 @@ func _run() -> void:
 	if is_instance_valid(_df_far):
 		_df_far.remove_from_group("threats")
 		_df_far.queue_free()
+
+	# --- Settlement Coherence (M4-A): raider_sapper breaches walls ---
+	var _sp = root.spawn_enemy_for_test("raider_sapper")
+	_check("m4_sapper_is_live",
+		_sp != null and str(_sp.enemy_id) == "raider_sapper" and bool(_sp.breaks_walls),
+		"id=%s breaks=%s" % [str(_sp.enemy_id) if _sp != null else "null",
+			str(_sp.breaks_walls) if _sp != null else "n/a"])
+	if _sp != null:
+		# a structural wall between the sapper and the hall gets broken; a protected
+		# block (hall core / bedrock) never does.
+		var _sp_center: Vector2i = world.hall_info["center_cell"]
+		var _sp_cell := Vector2i(_sp_center.x + 6, _sp_center.y)
+		var _sp_wall := _sp_cell + Vector2i(-1, 0)   # one cell toward the hall
+		world.break_block(_sp_wall)
+		world.place_block(_sp_wall, "stone")
+		_sp.global_position = world.cell_center(_sp_cell)
+		var _sp_broke := false
+		for _sp_i in 3:
+			_sp._try_sap_wall(1.0)
+			if world.block_at(_sp_wall) == "air":
+				_sp_broke = true
+				break
+		_check("m4_sapper_breaks_structural_wall", _sp_broke,
+			"wall_now=%s" % world.block_at(_sp_wall))
+		_check("m4_sapper_spares_protected",
+			not _sp._is_sappable("town_hall_core") and not _sp._is_sappable("bedrock")
+			and _sp._is_sappable("stone") and _sp._is_sappable("door"))
+		_sp.remove_from_group("threats")
+		_sp.queue_free()
 
 	# --- Settlement Coherence (M2-A): stockpile withdrawal (Town Hall authority) ---
 	hall.stockpile = {"wood": 5, "stone": 4}

@@ -36,6 +36,12 @@ var drops: Array = []      # Array of {item_id, chance}
 var loot_mult: float = 1.0
 ## Test hook: if >= 0.0 this value overrides every drop's rolled chance.
 var drop_chance_override: float = -1.0
+## M4-A raider_sapper: when blocked by a structural wall/door, break through it
+## (on a cooldown) instead of climbing over — this is what tests the settlement's
+## walls, doors, and defenders. Set by the spawner from the def's breaks_walls flag.
+var breaks_walls := false
+var _sap_cd := 0.0
+const SAP_BREAK_COOLDOWN := 1.0
 
 ## FQ-01: data-driven contact damage/speed, set by the spawner from the enemy
 ## def's "contact_damage"/"speed" fields (fallback to the PLAYER_DAMAGE/SPEED
@@ -119,7 +125,10 @@ func _physics_process(delta: float) -> void:
 		else:
 			velocity.x = signf(dx) * move_speed
 	if is_on_wall() and is_on_floor() and not at_hall:
-		velocity.y = JUMP_VELOCITY
+		# M4-A: a sapper breaches a structural wall/door in its path; everyone else
+		# (and a sapper facing non-structural terrain) climbs over as before.
+		if not (breaks_walls and _try_sap_wall(delta)):
+			velocity.y = JUMP_VELOCITY
 	move_and_slide()
 	apply_environmental_hazard(delta)   # Liquid Physics: lava burns enemies too
 	if not is_inside_tree():
@@ -127,6 +136,38 @@ func _physics_process(delta: float) -> void:
 	if player != null and global_position.distance_to(player.global_position) < 18.0:
 		player.take_damage(contact_damage)
 	queue_redraw()
+
+
+## M4-A: the sapper stops and breaks the structural block directly ahead (toward
+## the hall) on a cooldown, returning true while it is digging so the caller does
+## not also make it jump. Only solid, non-protected STRUCTURE/DEFENSE/door blocks
+## are sappable — player walls and doors, never bedrock, the hall core, or natural
+## ground. break_block removes the wall without spawning loot.
+func _try_sap_wall(delta: float) -> bool:
+	_sap_cd = maxf(0.0, _sap_cd - delta)
+	if world == null or town_hall == null:
+		return false
+	var dir := signf(town_hall.global_position.x - global_position.x)
+	if dir == 0.0:
+		return false
+	var t := float(BlockRegistry.tile_size)
+	var front: Vector2i = world.cell_of(global_position + Vector2(dir * t, 0.0))
+	if not _is_sappable(world.block_at(front)):
+		return false
+	velocity.x = 0.0
+	if _sap_cd <= 0.0:
+		world.break_block(front)
+		SimpleThreatFx.spawn(get_parent(), "dust_puff", world.cell_center(front))
+		_sap_cd = SAP_BREAK_COOLDOWN
+	return true
+
+
+func _is_sappable(block_id: String) -> bool:
+	if not BlockRegistry.is_solid(block_id) or BlockRegistry.has_tag(block_id, "protected"):
+		return false
+	return BlockRegistry.has_tag(block_id, "structure") \
+		or BlockRegistry.has_tag(block_id, "defense") \
+		or BlockRegistry.has_tag(block_id, "door")
 
 
 ## Liquid Physics: environmental contact hazard. A threat standing in a

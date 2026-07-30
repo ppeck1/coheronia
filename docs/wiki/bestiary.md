@@ -14,6 +14,7 @@ This page groups the current enemy definitions into live and planned slices, sim
 | [Ore Tick](enemies/ore_tick.md) | underground | Ore veins | Ore pocket nuisance, provides metal residue | 1 canonical image + 3 variants |
 | [Raider Basic](enemies/raider_basic.md) | raider | Raider camps and raid waves | Settlement raid unit targeting player, Town Hall, or subjects | 1 canonical image + 3 variants |
 | [Raider Torchbearer](enemies/raider_torchbearer.md) | raider | Raider camps and raid waves | Raider with fire attacks, supplies raid consumables | 1 canonical image + 3 variants |
+| [Raider Sapper](enemies/raider_sapper.md) | raider | Raider camps and raid waves | Wall destruction specialist, threatens settlement defenses | No authored image. |
 
 ## Planned Enemies
 
@@ -26,7 +27,6 @@ This page groups the current enemy definitions into live and planned slices, sim
 | [Stoneback Beetle](enemies/stoneback_beetle.md) | underground | Stone caverns | Rare stone cavern dweller, provides construction material | No authored image. |
 | [Sporekin](enemies/sporekin.md) | underground | Fungal caves | Fungal cave cluster enemy, provides alchemy and crafting materials | No authored image. |
 | [Burrow Maw](enemies/burrow_maw.md) | underground | Mine shafts | Rare mine shaft threat, provides bone and leather materials | No authored image. |
-| [Raider Sapper](enemies/raider_sapper.md) | raider | Raider camps and raid waves | Wall destruction specialist, threatens settlement defenses | No authored image. |
 | [Hungry Deserter](enemies/hungry_deserter.md) | raider | Raider camps and raid waves | Moral choice encounter, potential recruitment opportunity | No authored image. |
 | [False Taxman](enemies/false_taxman.md) | raider | Raider camps and raid waves | Governance event encounter, supplies authority-related items | No authored image. |
 

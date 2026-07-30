@@ -1,29 +1,32 @@
-# Picks
+# Sapper Picks
 
 Generated: 2026-07-30
 
-> `Item` page. Current status: `planned`.
+> `Item` page. Current status: `source-only`.
+
+![Sapper Picks](../../../art/generated/items/picks.png)
 
 | Field | Value |
 |---|---|
 | ID | `picks` |
 | Page type | Item |
-| Current status | planned |
-| Storage | not implemented |
-| Player-facing? | No |
-| Status explanation | Referenced by planned enemy data only. Not implemented. |
-| Image path | Not implemented. |
-| Fallback / placeholder | No live item icon path yet. |
+| Current status | source-only |
+| Storage | inventory |
+| Player-facing? | Yes |
+| Description | A bundle of raider digging picks. |
+| Status explanation | A live source exists, but the current game still lacks a meaningful downstream sink. |
+| Image path | `art/generated/items/picks.png` |
+| Fallback / placeholder | Generated 16x16 swatch via `BlockRegistry.item_icon()` if the canonical item icon is absent. |
 
 ## Summary
 
-Picks is a planned item hook. Referenced by planned Raider Sapper drops only.
+Sapper Picks is live and obtainable, but it still ends in a source-only branch.
 
 ## Acquisition
 
 | Source type | Source | Quantity / chance | Notes |
 |---|---|---|---|
-| Enemy drop | [Raider Sapper](../enemies/raider_sapper.md) | 50% drop chance; planned only | Live acquisition only if the enemy is live. |
+| Enemy drop | [Raider Sapper](../enemies/raider_sapper.md) | 50% drop chance | Live acquisition only if the enemy is live. |
 
 ## Current Uses
 
@@ -37,4 +40,3 @@ No meaningful live downstream use is currently defined.
 ## Notes
 
 - Recommended first implementation sink: tool repair or iron salvage.
-- This page is intentionally marked as not implemented.

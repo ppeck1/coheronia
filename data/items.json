@@ -45,6 +45,8 @@
     "silk": { "display_name": "Cave Silk", "color": "d8d5c6", "description": "Pale fiber spun by cave crawlers.", "future_use": true },
     "eyes": { "display_name": "Crawler Eyes", "color": "4e8f88", "description": "A glossy alchemical reagent from a cave crawler.", "future_use": true },
     "coins": { "display_name": "Raider Coins", "color": "b68a3d", "description": "Worn coinage taken from raiders. Stockpile them for a raider-bounty contract." },
+    "picks": { "display_name": "Sapper Picks", "color": "8a8f9a", "description": "A bundle of raider digging picks.", "future_use": true },
+    "fuse_cord": { "display_name": "Fuse Cord", "color": "9a6a3a", "description": "Oiled cord a sapper uses to breach walls.", "future_use": true },
     "scrap_weapons": { "display_name": "Weapon Scrap", "color": "756b5f", "description": "Broken blades and bent points. Reclaim them into iron at the furnace." },
     "wet_fiber": { "display_name": "Wet Fiber", "color": "4f8cc9", "description": "Damp plant strands.", "future_use": true },
     "tiny_core": { "display_name": "Tiny Core", "color": "e0d060", "description": "A faintly humming mote. Set into a Focus Amulet at the workbench." },

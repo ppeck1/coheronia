@@ -791,6 +791,7 @@ func _on_nightfall() -> void:
 	_maybe_spawn_thornrat()
 	_maybe_spawn_raider()
 	_maybe_spawn_torchbearer()
+	_maybe_spawn_sapper()   # M4-A: wall-breaching raider (its own later spawn_rule)
 	hud.update_time(day_count, true, spawn_count, time_of_day)
 	settlement.compute()
 	music_event.emit("nightfall")
@@ -986,6 +987,36 @@ func _maybe_spawn_torchbearer() -> void:
 	music_event.emit("raid_warning")
 
 
+## M4-A: a raider sapper joins the latest raids (its own, later spawn_rule) and
+## breaks through walls/doors on its way to the hall — the escalation that tests
+## the settlement's defenses now that walls, doors, and defenders exist. Rolled
+## independently of the basic raider and torchbearer.
+func _maybe_spawn_sapper() -> void:
+	if _enemy_registry == null:
+		return
+	if not config().rule("darkness_increases_enemies"):
+		return
+	var def: Dictionary = _enemy_registry.get_def("raider_sapper")
+	if def.is_empty():
+		return
+	var rule: Dictionary = def.get("spawn_rule", {})
+	var day_thresh: int = int(rule.get("day_threshold", 10))
+	var stock_thresh: int = int(rule.get("stockpile_threshold", 50))
+	if day_count < day_thresh and town_hall.total_stock() < stock_thresh:
+		return
+	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
+	var chance: float = float(rule.get("base_chance", 0.18)) * float(scaling.get("density_mult", 1.0))
+	if randf() > chance * config().difficulty("enemy"):
+		return
+	var hall_cell: Vector2i = world.hall_info["center_cell"]
+	var side := 1 if randi() % 2 == 0 else -1
+	var spawn_x: int = hall_cell.x + side * 40
+	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
+	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
+	log_event("WARNING: A Sapper moves to breach the settlement walls!")
+	music_event.emit("raid_warning")
+
+
 ## Advance the cave crawler periodic spawn timer; spawn underground when ready.
 func _advance_cave_spawns(delta: float) -> void:
 	if _enemy_registry == null:
@@ -1063,6 +1094,7 @@ func _spawn_enemy_at(def: Dictionary, pos: Vector2) -> Node:
 	threat.contact_damage = float(def.get("contact_damage", threat.PLAYER_DAMAGE)) \
 		* config().difficulty("enemy")
 	threat.move_speed = float(def.get("speed", threat.SPEED))
+	threat.breaks_walls = bool(def.get("breaks_walls", false))   # M4-A raider_sapper
 	threat.died.connect(_on_threat_died)
 	threats.add_child(threat)
 	return threat
