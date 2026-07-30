@@ -33,9 +33,17 @@ const HARVEST_DIST := 14.0
 const REPAIR_DIST := 20.0         # the hall is wider than a crop cell
 const HOME_IDLE_DIST := 10.0
 const HAUL_DIST := 14.0
+# M3-C defender: engages a threat within this radius of its guard post, closes to
+# attack range, strikes on a cooldown, then (no threat) drifts back to its post.
+# The settlement clamp keeps it in bounds; guard radius keeps it near its post.
+const GUARD_RADIUS_PX := 150.0
+const DEFEND_ATTACK_RANGE := 18.0
+const DEFEND_ATTACK_DAMAGE := 2
+const DEFEND_ATTACK_COOLDOWN := 0.8
 const BODY_COL := Color(0.52, 0.78, 0.5)
 const REPAIRER_COL := Color(0.5, 0.62, 0.82)
 const HAULER_COL := Color(0.78, 0.66, 0.42)
+const DEFENDER_COL := Color(0.72, 0.4, 0.4)   # M3-C
 const HUNGRY_COL := Color(0.82, 0.62, 0.38)
 const TRIM_COL := Color(0.30, 0.24, 0.18)
 
@@ -48,6 +56,7 @@ var _home := Vector2.ZERO
 var _target := Vector2i(-1, -1)
 var _stuck_time := 0.0
 var _last_x := 0.0
+var _attack_cd := 0.0   # M3-C: defender attack cooldown
 # M3: per-citizen persisted identity. The sprite reuses the player body pipeline
 # (BlockRegistry.player_body_id -> the live ancestry PNG); a job overlay still
 # marks the trade. Generated deterministically at spawn, then PERSISTED (never
@@ -187,6 +196,8 @@ func run_job(delta: float) -> bool:
 			return _run_repairer(delta)
 		"hauler":
 			return _run_hauler(delta)
+		"defender":
+			return _run_defender(delta)
 	return false
 
 
@@ -243,6 +254,45 @@ func _run_hauler(_delta: float) -> bool:
 	return true
 
 
+## M3-C Defender: guard the settlement. Engage the nearest threat within the guard
+## radius of the post; close to attack range and strike on a cooldown (reusing the
+## enemy's take_hit combat, so a defender kill routes through the same death/XP/
+## contract path as a player kill). When no threat is in the guard zone this returns
+## false, so the shared idle logic drifts the defender back to its post. Bounded to
+## the settlement by the M1 movement clamp, and to its post by the guard radius —
+## this is an assigned role, not direct player control.
+func _run_defender(delta: float) -> bool:
+	_attack_cd = maxf(0.0, _attack_cd - delta)
+	var threat = _nearest_threat_in_guard_zone()
+	if threat == null:
+		return false
+	var tpos: Vector2 = threat.global_position
+	if global_position.distance_to(tpos) <= DEFEND_ATTACK_RANGE:
+		velocity.x = 0.0
+		if _attack_cd <= 0.0:
+			threat.take_hit(DEFEND_ATTACK_DAMAGE)
+			_attack_cd = DEFEND_ATTACK_COOLDOWN
+		return true
+	velocity.x = signf(tpos.x - global_position.x) * MOVE_SPEED
+	return true
+
+
+## M3-C: the nearest live threat within GUARD_RADIUS of this defender's post, or
+## null. Measuring from the POST (not the body) keeps the defender anchored to its
+## guard zone instead of chasing a fleeing enemy across the map.
+func _nearest_threat_in_guard_zone():
+	var best = null
+	var best_d := GUARD_RADIUS_PX + 1.0
+	for t in get_tree().get_nodes_in_group("threats"):
+		if not is_instance_valid(t) or t.is_queued_for_deletion():
+			continue
+		var d: float = _home.distance_to(t.global_position)
+		if d <= GUARD_RADIUS_PX and d < best_d:
+			best_d = d
+			best = t
+	return best
+
+
 ## Deposit a ground drop's whole stack into the stockpile and remove it. Guards a
 ## drop already reaped this frame so the stack is never double-counted. Eligibility
 ## uses the SAME BlockRegistry.is_stockpile_material authority as the manual
@@ -296,6 +346,8 @@ func _draw() -> void:
 		base_col = REPAIRER_COL
 	elif job == "hauler":
 		base_col = HAULER_COL
+	elif job == "defender":
+		base_col = DEFENDER_COL
 	var col: Color = HUNGRY_COL if hungry else base_col
 	draw_rect(Rect2(-5, -22, 10, 22), col)          # torso/legs
 	draw_circle(Vector2(0, -26), 5, col)            # head
@@ -311,6 +363,9 @@ func _draw_job_marker() -> void:
 		draw_rect(Rect2(9, -30, 5, 4), TRIM_COL)                      # hammer head
 	elif job == "hauler":
 		draw_rect(Rect2(4, -20, 8, 8), TRIM_COL)                      # a crate on the back
+	elif job == "defender":
+		draw_line(Vector2(7, -8), Vector2(7, -28), Color(0.85, 0.86, 0.9), 2.0)  # sword blade
+		draw_line(Vector2(4, -24), Vector2(10, -24), TRIM_COL, 2.0)              # crossguard
 	else:
 		draw_line(Vector2(5, -20), Vector2(11, -28), TRIM_COL, 2.0)   # a hoe
 

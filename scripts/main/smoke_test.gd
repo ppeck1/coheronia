@@ -7366,6 +7366,40 @@ func _run() -> void:
 		_rc_shrink == 3 and _rc_shrink == hall.population,
 		"roster=%d pop=%d" % [_rc_shrink, hall.population])
 
+	# --- Settlement Coherence (M3-C): defender role ---
+	for _dt in get_tree().get_nodes_in_group("threats"):   # clean slate for the guard-zone checks
+		_dt.remove_from_group("threats")
+		_dt.queue_free()
+	var _df_home: Vector2 = world.cell_center(Vector2i(hall_cell.x + 2, hall_cell.y))
+	var _df: Node = root._spawn_subject_at(_df_home, "defender_test", "defender")
+	_df.set_home(_df_home)
+	var _df_threat = root.spawn_enemy_for_test("surface_slime")
+	_df_threat.global_position = _df_home + Vector2(10.0, 0.0)   # in attack range + guard zone
+	var _df_hp0: int = int(_df_threat.hp)
+	# a defender engages a threat in its guard zone and damages/kills it (delta 1.0
+	# clears the attack cooldown each tick).
+	var _df_engaged := false
+	for _df_i in 12:
+		_df.run_job(1.0)
+		if not is_instance_valid(_df_threat) or _df_threat.is_queued_for_deletion() \
+				or int(_df_threat.hp) < _df_hp0:
+			_df_engaged = true
+			break
+	_check("m3c_defender_attacks_threat_in_guard_zone", _df_engaged,
+		"engaged=%s hp0=%d" % [str(_df_engaged), _df_hp0])
+	if is_instance_valid(_df_threat):
+		_df_threat.remove_from_group("threats")
+		_df_threat.queue_free()
+	# a defender ignores a threat OUTSIDE its guard radius (it returns to its post).
+	var _df_far = root.spawn_enemy_for_test("surface_slime")
+	_df_far.global_position = _df_home + Vector2(400.0, 0.0)
+	_check("m3c_defender_ignores_out_of_zone_threat", not _df.run_job(1.0))
+	_df.remove_from_group("subjects")
+	_df.queue_free()
+	if is_instance_valid(_df_far):
+		_df_far.remove_from_group("threats")
+		_df_far.queue_free()
+
 	# --- Settlement Coherence (M2-A): stockpile withdrawal (Town Hall authority) ---
 	hall.stockpile = {"wood": 5, "stone": 4}
 	player.inventory.from_dict({})

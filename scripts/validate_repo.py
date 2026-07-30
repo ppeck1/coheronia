@@ -1204,7 +1204,7 @@ for sk in ["half_width_cells", "up_cells", "down_cells", "work_radius_cells"]:
 crew = sett.get("starting_crew")
 if not isinstance(crew, list) or not crew:
     fail("settlement_rules.json settlement.starting_crew must be a non-empty list")
-SETTLEMENT_JOBS = {"farmhand", "repairer", "hauler"}
+SETTLEMENT_JOBS = {"farmhand", "repairer", "hauler", "defender"}   # matches game_root.SUBJECT_JOBS
 seen_crew_ids: set[str] = set()
 for m in crew:
     if not isinstance(m, dict):

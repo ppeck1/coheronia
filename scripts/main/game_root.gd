@@ -10,7 +10,7 @@ signal music_event(kind: String)
 const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
 const SubjectScript := preload("res://scripts/entities/subject.gd")   # R-08
 const HousingScript := preload("res://scripts/settlement/housing.gd")   # M2-B house validator
-const SUBJECT_JOBS := ["farmhand", "repairer", "hauler"]   # R-08 slice 2/3: assignable jobs
+const SUBJECT_JOBS := ["farmhand", "repairer", "hauler", "defender"]   # R-08 + M3-C defender
 const ActionFx := preload("res://scripts/fx/action_fx.gd")   # FQ-09M confirmations
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
 const ProgressionRegistryClass := preload("res://scripts/data/progression_registry.gd")
