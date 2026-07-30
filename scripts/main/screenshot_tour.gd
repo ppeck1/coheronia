@@ -494,6 +494,7 @@ func _shoot_celestial(root: Node2D, world: Node2D, player: CharacterBody2D, hud:
 	cam.zoom = Vector2(1.0, 1.0)   # widen the frame so the sky arc is in view
 	cam.reset_smoothing()
 	var cel: Node2D = root._celestial
+	cel.set_sky_baseline(root._sky_baseline_y())   # world regenerated → refresh the arc altitude
 	cel.set_sky_visible(true)
 
 	# Midday sun: high, radiating warm light + flares.

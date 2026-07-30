@@ -27,6 +27,13 @@ const SUN_GLOW_R := 88.0
 const SUN_CORE_R := 44.0
 const MOON_R := 36.0
 const MOON_TEX_PX := 128     # moon texture resolution (square) — hi-res for a soft edge
+# The arc is anchored to a FIXED sky altitude in world space (not the camera view), so
+# the bodies sit high above the surface and slide off-screen as you descend — never
+# floating over rock. X follows the camera; Y rides this fixed baseline.
+const ARC_HEIGHT_PX := 150.0   # how far above the sky baseline the body peaks at noon
+# Moonlight reads cool + subtle; the sun warm + strong.
+const MOON_LIGHT_COL := Color(0.55, 0.68, 1.0)
+const SUN_LIGHT_COL := Color(1.0, 0.86, 0.55)
 # A true continuous synodic cycle: illumination advances smoothly one day at a time
 # over SYNODIC_DAYS, `_phase_f` in [0,1) where 0 = new moon and 0.5 = full moon. The
 # eight named milestones are read off `_phase_f`; full moons are rare (once per cycle),
@@ -50,14 +57,17 @@ var _light: PointLight2D = null      # the soft glow the body casts onto the wor
 var _sky_layer: CanvasLayer = null   # camera-following layer, immune to the tint
 var _sky: Node2D = null              # draws the bodies at full brightness on _sky_layer
 var _sky_visible := true             # false underground so the sky never shows on rock
+var _glow_tex: GradientTexture2D = null   # smooth radial glow sprite (no stacked rings)
+var _sky_baseline_y := NAN           # fixed world-Y the arc rides (fed by game_root)
 
 
 func _ready() -> void:
 	name = "Celestial"
 	light_mask = 0                    # a torch must not light the sky bodies
 	# The radiated moon/sunlight that falls on the world stays in the world canvas.
+	_glow_tex = _make_glow_texture()
 	_light = PointLight2D.new()
-	_light.texture = _make_glow_texture()
+	_light.texture = _glow_tex
 	_light.energy = 0.0               # positioned/energised per-frame while drawing
 	_light.z_index = -9
 	add_child(_light)
@@ -96,6 +106,13 @@ func set_sky_visible(v: bool) -> void:
 		_sky.visible = v
 	if not v and _light != null:
 		_light.energy = 0.0
+
+
+## The fixed world-Y the arc rides — game_root feeds this from the average surface so
+## the bodies sit at a constant sky altitude (never drawn relative to the camera view).
+func set_sky_baseline(world_y: float) -> void:
+	_sky_baseline_y = world_y
+	_redraw_sky()
 
 
 func set_time(t: float) -> void:
@@ -141,21 +158,22 @@ func moon_phase() -> int:
 	return int(round(_phase_f * 8.0)) % 8
 
 
-## Pure geometry so the smoke can assert the arc without rendering: where the sun
-## and moon sit for a given time-of-day within a visible world rect, and which is
-## up. The active body rises at the left edge, peaks at mid-phase, and sets at the
-## right — sun across the day, moon across the night.
-static func positions(t: float, view: Rect2) -> Dictionary:
-	var horizon_y := view.position.y + view.size.y * 0.42
-	var arc_h := view.size.y * 0.34
+## Pure geometry so the smoke can assert the arc without rendering: where the sun and
+## moon sit for a given time-of-day and which is up. X sweeps across the visible width
+## (rise left → set right) so the body is always above the surface you're on; Y rides a
+## FIXED sky altitude (`baseline_y`, world-space) and peaks `ARC_HEIGHT_PX` above it at
+## noon — so underground (camera far below the baseline) the body is off-screen. When
+## `baseline_y` is NAN (pure-geometry callers) it falls back to a view-relative altitude.
+static func positions(t: float, view: Rect2, baseline_y := NAN) -> Dictionary:
 	var margin := view.size.x * 0.08
 	var span := view.size.x - margin * 2.0
 	var is_night := t >= NIGHT_START
 	var frac := t / NIGHT_START if not is_night \
 		else (t - NIGHT_START) / (1.0 - NIGHT_START)
 	frac = clampf(frac, 0.0, 1.0)
+	var base_y := baseline_y if not is_nan(baseline_y) else view.position.y + view.size.y * 0.40
 	var body := Vector2(view.position.x + margin + span * frac,
-		horizon_y - sin(frac * PI) * arc_h)
+		base_y - sin(frac * PI) * ARC_HEIGHT_PX)
 	return {
 		"is_night": is_night,
 		"sun": body, "moon": body,
@@ -226,48 +244,39 @@ func _draw_bodies() -> void:
 	var view := _current_view()
 	if view.size.x <= 0.0 or view.size.y <= 0.0:
 		return
-	var p: Dictionary = positions(_time, view)
+	var p: Dictionary = positions(_time, view, _sky_baseline_y)
 	if bool(p["sun_visible"]):
 		var s: Vector2 = p["sun"]
-		# corona + radiating flares behind the disc, then the layered glow + core.
-		_sky.draw_circle(s, SUN_GLOW_R * 1.4, Color(SUN_GLOW.r, SUN_GLOW.g, SUN_GLOW.b, 0.10))
-		var rays := 12
-		for i in range(rays):
-			var ang := TAU * float(i) / float(rays) + 0.13
-			_draw_sun_ray(s, ang, SUN_GLOW_R * (1.7 if i % 2 == 0 else 1.3))
-		_sky.draw_circle(s, SUN_GLOW_R, SUN_GLOW)
-		_sky.draw_circle(s, SUN_CORE_R * 1.5, Color(SUN_GLOW.r, SUN_GLOW.g, SUN_GLOW.b, 0.35))
+		# Smooth, layered soft-glow sprites (a broad warm corona → tighter bright glow),
+		# then a solid core. Using the shared radial gradient means a continuous falloff
+		# with no stacked-circle banding or hard flare polygons.
+		_draw_glow(s, SUN_GLOW_R * 2.6, Color(1.0, 0.82, 0.45, 0.22))
+		_draw_glow(s, SUN_GLOW_R * 1.5, Color(1.0, 0.86, 0.5, 0.45))
+		_draw_glow(s, SUN_CORE_R * 1.6, Color(1.0, 0.9, 0.55, 0.7))
 		_sky.draw_circle(s, SUN_CORE_R, SUN_CORE)
-		_radiate(s, Color(1.0, 0.86, 0.55), SUN_GLOW_R * 3.0, 0.9)
+		_radiate(s, SUN_LIGHT_COL, SUN_GLOW_R * 3.0, 0.9)
 	else:
 		var m: Vector2 = p["moon"]
 		var lit := illumination_f(_phase_f)
-		# A soft halo so the fuller moon visibly radiates — ramped in only near full
-		# so a crescent's dark side stays fully transparent and blends into the sky.
-		var halo := 0.18 * smoothstep(0.6, 1.0, lit)
-		if halo > 0.0:
-			_sky.draw_circle(m, MOON_R * 1.9,
-				Color(MOON_CORE.r, MOON_CORE.g, MOON_CORE.b, halo))
+		# A cool, subtle halo (blue, far fainter than the sun) that grows with how full
+		# the moon is; smooth gradient sprite, no banding.
+		if lit > 0.05:
+			_draw_glow(m, MOON_R * 2.4, Color(0.6, 0.72, 1.0, 0.10 * lit))
 		if _moon_tex != null:
 			var side := MOON_R * 2.0
 			_sky.draw_texture_rect(_moon_tex, Rect2(m - Vector2(MOON_R, MOON_R),
 				Vector2(side, side)), false)
-		# moonlight cast on the world scales with how much of the moon is lit.
-		_radiate(m, Color(0.7, 0.78, 1.0), MOON_R * 4.0, 0.15 + 0.35 * lit)
+		# subtle, cool moonlight cast on the world — much fainter than the sun.
+		_radiate(m, MOON_LIGHT_COL, MOON_R * 4.0, 0.08 + 0.16 * lit)
 
 
-## One tapered flare spike from just outside the core out to `length`.
-func _draw_sun_ray(center: Vector2, ang: float, length: float) -> void:
-	var dir := Vector2(cos(ang), sin(ang))
-	var perp := Vector2(-dir.y, dir.x)
-	var base_r := SUN_CORE_R * 1.15
-	var w := 5.0
-	var pts := PackedVector2Array([
-		center + dir * base_r + perp * w,
-		center + dir * base_r - perp * w,
-		center + dir * length,
-	])
-	_sky.draw_colored_polygon(pts, Color(1.0, 0.88, 0.5, 0.5))
+## Draw one smooth radial glow sprite (the shared gradient, tinted) centred at `at`.
+func _draw_glow(at: Vector2, radius: float, color: Color) -> void:
+	if _glow_tex == null:
+		return
+	var d := radius * 2.0
+	_sky.draw_texture_rect(_glow_tex, Rect2(at - Vector2(radius, radius),
+		Vector2(d, d)), false, color)
 
 
 ## Position and energise the radiated glow at the body.

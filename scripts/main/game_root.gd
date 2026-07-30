@@ -185,6 +185,7 @@ func _ready() -> void:
 	# applies), presentation-only and never saved.
 	_celestial = CelestialScript.new()
 	world.add_child(_celestial)
+	_celestial.set_sky_baseline(_sky_baseline_y())
 	_celestial.set_time(time_of_day)
 	_celestial.set_phase_from_day(day_count)
 	if get_tree().get_nodes_in_group("subjects").is_empty():
@@ -738,12 +739,28 @@ func ambient_darkness_factor() -> float:
 
 
 ## The sun/moon draw on an above-world layer (so the night tint can't dim them),
-## which means terrain no longer occludes them — so hide the whole sky once the
-## player is a few tiles below the surface (else the sun floats over rock).
+## which means terrain no longer occludes them — so hide the whole sky the moment the
+## player drops below the local surface line (a hard cutoff, ~half a tile of tolerance
+## so standing on the grade still counts as above-ground). Combined with the fixed sky
+## altitude, the bodies are never seen underground.
 func _sky_visible_now() -> bool:
 	if world == null or player == null:
 		return true
-	return ambient_darkness_factor() < 0.5
+	var cell: Vector2i = world.cell_of(player.global_position)
+	var surface_py := float(world.sky_line(cell.x)) * float(world.tile_size())
+	return player.global_position.y <= surface_py + float(world.tile_size()) * 0.5
+
+
+## The fixed world-Y the sun/moon arc rides: a set height above the AVERAGE surface, so
+## the bodies sit high in the sky regardless of where the camera is.
+func _sky_baseline_y() -> float:
+	if world == null or world.surface.is_empty():
+		return 0.0
+	var sum := 0.0
+	for x in world.surface:
+		sum += float(world.surface[x])
+	var avg_surface := sum / float(world.surface.size())
+	return (avg_surface - 6.0) * float(world.tile_size())   # ~6 tiles above the grade
 
 
 ## The ambient tint the world lerps toward: the day/night/storm base pushed
@@ -1754,6 +1771,7 @@ func apply_time_state(data: Dictionary) -> void:
 	_storm_rolled_today = bool(data.get("storm_rolled_today", time_of_day >= STORM_ROLL_TIME))
 	is_night = time_of_day >= NIGHT_START
 	if _celestial != null:
+		_celestial.set_sky_baseline(_sky_baseline_y())
 		_celestial.set_time(time_of_day)   # M5-A: reflect the loaded time in the sky
 		_celestial.set_phase_from_day(day_count)
 		_celestial.set_sky_visible(_sky_visible_now())
