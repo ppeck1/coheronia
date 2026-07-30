@@ -7,6 +7,8 @@ signal deposit_requested
 signal repair_requested
 signal contracts_requested
 signal subject_job_cycle_requested(id: String)   # R-08 slice 2: settler job assignment
+signal withdraw_requested(item_id: String, amount: int)   # M2: pull a stack from the stockpile
+signal withdraw_all_requested                             # M2: pull the whole stockpile
 
 ## Low-health fraction mirrors player._low_health_fraction (data-driven
 ## default 0.25); the HUD does not read player state directly so it keeps a
@@ -135,6 +137,7 @@ var _dock_assignment_row: HBoxContainer
 var _selected_item_detail: Label
 var _stock_grid: GridContainer
 var _stock_grid_counts: Dictionary = {}  # item_id -> displayed count
+var _withdraw_amount: SpinBox            # M2: how many to pull per stockpile-tile click
 # FQ-19: contextual right-band stack — entries appear only when relevant
 # (blueprint: selected item, save toast, interaction prompt), auto-hide, and
 # stack in fixed priority order so they can never overlap each other.
@@ -2300,12 +2303,22 @@ func _make_slot_style(ui_id: String, border: Color) -> StyleBox:
 
 ## FQ-09: one icon+count tile for the item grids. Descriptor arrives on hover
 ## via the tooltip (display name + items.json description when present).
-func _make_item_tile(parent: Control, item_id: String, count: int) -> void:
+func _make_item_tile(parent: Control, item_id: String, count: int,
+		on_click: Callable = Callable()) -> void:
 	var col := VBoxContainer.new()
 	var tip := BlockRegistry.display_name(item_id)
 	var desc := BlockRegistry.item_description(item_id)
 	if desc != "":
 		tip += "\n" + desc
+	# M2: a stockpile tile is clickable (withdraw); it stops mouse events and its
+	# tooltip says so. Ordinary tiles keep passing the mouse through unchanged.
+	if on_click.is_valid():
+		tip += "\n(click to withdraw)"
+		col.mouse_filter = Control.MOUSE_FILTER_STOP
+		col.gui_input.connect(func(ev: InputEvent) -> void:
+			if ev is InputEventMouseButton and ev.pressed \
+					and ev.button_index == MOUSE_BUTTON_LEFT:
+				on_click.call())
 	col.tooltip_text = tip
 	parent.add_child(col)
 	var icon := TextureRect.new()
@@ -2487,11 +2500,26 @@ func _build_town_panel() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_town_info = _label(box, "")
 	# FQ-09: visual stockpile grid between the status text and the stations.
-	_label(box, "Stockpile:")
+	# M2: click a stockpile tile to withdraw `_withdraw_amount` of it back into the
+	# backpack (the stockpile stays the authority); "Withdraw all" empties it.
+	_label(box, "Stockpile (click a tile to withdraw):")
 	_stock_empty_label = _label(box, "  (empty)")
 	_stock_grid = GridContainer.new()
 	_stock_grid.columns = 6
 	box.add_child(_stock_grid)
+	var withdraw_row := HBoxContainer.new()
+	box.add_child(withdraw_row)
+	_label(withdraw_row, "Amount:")
+	_withdraw_amount = SpinBox.new()
+	_withdraw_amount.min_value = 1
+	_withdraw_amount.max_value = 999
+	_withdraw_amount.value = 1
+	_withdraw_amount.rounded = true
+	withdraw_row.add_child(_withdraw_amount)
+	var withdraw_all := Button.new()
+	withdraw_all.text = "Withdraw all"
+	withdraw_all.pressed.connect(func() -> void: withdraw_all_requested.emit())
+	withdraw_row.add_child(withdraw_all)
 	# FQ-09: station buttons carry item icons (re-resolved on every panel
 	# refresh so late-arriving art shows up); disabled states keep the
 	# engine's dimming plus the crafted-state text set in refresh_town_panel.
@@ -3935,10 +3963,22 @@ func refresh_town_panel() -> void:
 	for item_id in stock_ids:
 		var n: int = int(town_hall.stockpile[item_id])
 		_stock_grid_counts[item_id] = n
-		_make_item_tile(_stock_grid, item_id, n)
+		# M2: clicking the tile withdraws the chosen amount of THIS item. bind()
+		# snapshots the id so every tile targets its own stack.
+		_make_item_tile(_stock_grid, item_id, n,
+			Callable(self, "_on_stockpile_tile_clicked").bind(str(item_id)))
 	# R-07: crafting/building moved to the Crafting panel (C); refresh_town_panel
 	# now only reflects status, stockpile, and Repair.
 	_refresh_settler_rows()
+
+
+## M2: a stockpile tile was clicked — request a withdrawal of the currently chosen
+## amount of this item. game_root owns the authoritative move + feedback.
+func _on_stockpile_tile_clicked(item_id: String) -> void:
+	var amount := 1
+	if _withdraw_amount != null:
+		amount = int(_withdraw_amount.value)
+	withdraw_requested.emit(item_id, amount)
 
 
 ## R-08 slice 2: rebuild the per-settler assignment rows from the live crew. Each

@@ -57,6 +57,12 @@ func _ready() -> void:
 	rect.size = Vector2(10, 24)
 	shape.shape = rect
 	add_child(shape)
+	# Settlement Coherence (M1): settlers collide with the WORLD (layer 1) so they
+	# walk on the ground, but occupy NO collision layer themselves — so they never
+	# shove the player or each other (a citizen spawned on the player's tile must
+	# not block player movement). Terrain collision is unchanged.
+	collision_layer = 0
+	collision_mask = 1
 
 
 func setup(w: Node, hall: Node, id: String = "farmhand_1") -> void:

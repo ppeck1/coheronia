@@ -7294,6 +7294,32 @@ func _run() -> void:
 			_m1_fired = true
 	_check("m1_stuck_recovery", _m1_fired, "fired=%s" % str(_m1_fired))
 
+	# --- Settlement Coherence (M2-A): stockpile withdrawal (Town Hall authority) ---
+	hall.stockpile = {"wood": 5, "stone": 4}
+	player.inventory.from_dict({})
+	# withdraw a chosen amount: exactly that many move, stockpile is decremented.
+	var _w_take: int = hall.withdraw("wood", 2, player)
+	_check("m2_withdraw_amount",
+		_w_take == 2 and int(hall.stockpile.get("wood", 0)) == 3
+		and player.inventory.count("wood") == 2,
+		"took=%d stock=%d inv=%d" % [_w_take, int(hall.stockpile.get("wood", 0)),
+			player.inventory.count("wood")])
+	# a request larger than the stock takes only the remainder (atomic, clamped).
+	var _w_over: int = hall.withdraw("wood", 99, player)
+	_check("m2_withdraw_clamps_to_stock",
+		_w_over == 3 and not hall.stockpile.has("wood") and player.inventory.count("wood") == 5,
+		"took=%d has_wood=%s inv=%d" % [_w_over, str(hall.stockpile.has("wood")),
+			player.inventory.count("wood")])
+	# withdrawing an absent item is a safe no-op.
+	_check("m2_withdraw_empty_is_noop", hall.withdraw("gold", 1, player) == 0)
+	# withdraw-all empties the whole stockpile into the backpack.
+	var _w_all: Dictionary = hall.withdraw_all(player)
+	_check("m2_withdraw_all_empties_stockpile",
+		int(_w_all.get("stone", 0)) == 4 and hall.stockpile.is_empty()
+		and player.inventory.count("stone") == 4,
+		"moved=%s empty=%s inv=%d" % [str(_w_all), str(hall.stockpile.is_empty()),
+			player.inventory.count("stone")])
+
 	# Restore global state so later sections (screenshot) see a sane player.
 	player.player_event.disconnect(_fq01_msg_conn)
 	player.health = player.max_health

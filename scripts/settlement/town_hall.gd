@@ -64,6 +64,48 @@ func deposit_all(inventory: InventoryData) -> Dictionary:
 	return moved
 
 
+## Settlement Coherence (M2): withdraw up to `amount` of one stockpile item back
+## into the player's inventory. Atomic and clamped to what is actually stored, so
+## a request larger than the stock takes the remainder. The Town Hall stockpile
+## stays the single authority (no second inventory model). Returns the count
+## actually moved; 0 when nothing is stored or the inventory cannot accept it (the
+## null guard is the seam a future storage-capacity rule plugs into — there is no
+## arbitrary cap today). The caller reports feedback from the returned count.
+func withdraw(item_id: String, amount: int, player: CharacterBody2D) -> int:
+	if amount <= 0 or player == null or player.inventory == null:
+		return 0
+	var have := int(stockpile.get(item_id, 0))
+	var take := mini(amount, have)
+	if take <= 0:
+		return 0
+	stockpile[item_id] = have - take
+	if int(stockpile[item_id]) <= 0:
+		stockpile.erase(item_id)
+	player.inventory.add(item_id, take)
+	player.inventory_changed.emit()
+	stockpile_changed.emit()
+	return take
+
+
+## M2: withdraw the ENTIRE stockpile back into the player's inventory (the inverse
+## of deposit_all). Returns the { item_id: count } actually moved.
+func withdraw_all(player: CharacterBody2D) -> Dictionary:
+	var moved := {}
+	if player == null or player.inventory == null:
+		return moved
+	for item_id in stockpile.keys():
+		var n := int(stockpile[item_id])
+		if n > 0:
+			player.inventory.add(str(item_id), n)
+			moved[item_id] = n
+	if not moved.is_empty():
+		for item_id in moved:
+			stockpile.erase(item_id)
+		player.inventory_changed.emit()
+		stockpile_changed.emit()
+	return moved
+
+
 func take_damage(amount: float) -> void:
 	damage = clampf(damage + amount, 0.0, 100.0)
 	queue_redraw()

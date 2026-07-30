@@ -516,6 +516,8 @@ func _wire_signals() -> void:
 	hud.repair_requested.connect(_on_repair_requested)
 	hud.contracts_requested.connect(_open_contracts_panel)
 	hud.subject_job_cycle_requested.connect(_on_subject_job_cycle)   # R-08 slice 2
+	hud.withdraw_requested.connect(_on_withdraw_requested)           # M2 stockpile withdraw
+	hud.withdraw_all_requested.connect(_on_withdraw_all_requested)
 
 
 func _position_actors() -> void:
@@ -1129,6 +1131,37 @@ func _on_deposit_requested() -> void:
 		log_event("Deposited %s." % ", ".join(parts))
 		award_xp("resource_deposited")
 	player.inventory_changed.emit()
+	hud.refresh_town_panel()
+
+
+## M2: withdraw a chosen amount of one item from the stockpile into the backpack,
+## with clear feedback: what actually moved, that only part was available, or that
+## nothing was. The Town Hall stockpile is the authority; this only reports.
+func _on_withdraw_requested(item_id: String, amount: int) -> void:
+	var name: String = BlockRegistry.display_name(item_id)
+	if int(town_hall.stockpile.get(item_id, 0)) <= 0:
+		log_event("No %s in the stockpile." % name)
+		return
+	var moved: int = town_hall.withdraw(item_id, amount, player)
+	if moved <= 0:
+		log_event("Couldn't withdraw %s." % name)
+	elif moved < amount:
+		log_event("Withdrew %d %s (only %d were stored)." % [moved, name, moved])
+	else:
+		log_event("Withdrew %d %s." % [moved, name])
+	hud.refresh_town_panel()
+
+
+## M2: withdraw the entire stockpile back into the backpack (inverse of Deposit).
+func _on_withdraw_all_requested() -> void:
+	var moved: Dictionary = town_hall.withdraw_all(player)
+	if moved.is_empty():
+		log_event("Nothing to withdraw.")
+	else:
+		var parts: Array[String] = []
+		for item_id in moved:
+			parts.append("%s ×%d" % [BlockRegistry.display_name(item_id), moved[item_id]])
+		log_event("Withdrew %s." % ", ".join(parts))
 	hud.refresh_town_panel()
 
 
