@@ -7487,6 +7487,20 @@ func _run() -> void:
 	_check("m5_moon_rules_the_night",
 		bool(_sky_night["moon_visible"]) and not bool(_sky_night["sun_visible"]),
 		"is_night=%s" % str(_sky_night["is_night"]))
+	# lunar cycle: full at phase 0, new (dark) at phase 4, half at phase 2.
+	_check("m5_moon_phase_cycle",
+		CelestialScript.illumination(0) > 0.98
+		and CelestialScript.illumination(4) < 0.02
+		and absf(CelestialScript.illumination(2) - 0.5) < 0.02,
+		"full=%.2f new=%.2f half=%.2f" % [CelestialScript.illumination(0),
+			CelestialScript.illumination(4), CelestialScript.illumination(2)])
+	# the full-moon gameplay hook tracks the day-driven phase.
+	root._celestial.set_phase_from_day(0)
+	var _fm_full: bool = root._celestial.is_full_moon()
+	root._celestial.set_phase_from_day(4)
+	var _fm_new: bool = not root._celestial.is_full_moon()
+	root._celestial.set_phase_from_day(root.day_count)   # restore
+	_check("m5_full_moon_hook", _fm_full and _fm_new)
 
 	# --- Settlement Coherence (M2-A): stockpile withdrawal (Town Hall authority) ---
 	hall.stockpile = {"wood": 5, "stone": 4}

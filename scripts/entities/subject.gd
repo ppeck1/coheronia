@@ -57,6 +57,13 @@ var _target := Vector2i(-1, -1)
 var _stuck_time := 0.0
 var _last_x := 0.0
 var _attack_cd := 0.0   # M3-C: defender attack cooldown
+# Idle patrol: when a citizen has no work it paces gently near its post instead of
+# standing frozen, so the settlement reads as alive.
+var _patrol_dir := 1.0
+var _patrol_timer := 0.0
+var _patrol_moving := false
+const PATROL_RADIUS := 34.0
+const PATROL_SPEED := 16.0
 # M3: per-citizen persisted identity. The sprite reuses the player body pipeline
 # (BlockRegistry.player_body_id -> the live ancestry PNG); a job overlay still
 # marks the trade. Generated deterministically at spawn, then PERSISTED (never
@@ -75,6 +82,10 @@ func _ready() -> void:
 	var rect := RectangleShape2D.new()
 	rect.size = Vector2(10, 24)
 	shape.shape = rect
+	# The sprite is drawn with its FEET at the origin (BODY_RECT bottom = 0), so the
+	# collision box is lifted half its height to put its bottom at the origin too —
+	# otherwise the body rests 12px (≈ one tile) above the ground and looks to float.
+	shape.position = Vector2(0, -12)
 	add_child(shape)
 	# Settlement Coherence (M1): settlers collide with the WORLD (layer 1) so they
 	# walk on the ground, but occupy NO collision layer themselves — so they never
@@ -90,6 +101,30 @@ func setup(w: Node, hall: Node, id: String = "farmhand_1") -> void:
 	subject_id = id
 	_home = hall.global_position
 	_last_x = global_position.x
+
+
+## Gentle idle pacing within PATROL_RADIUS of the post: alternate short walks and
+## pauses, turning back at the edge. Keeps citizens visibly alive when there is no
+## job to do, without wandering out of the settlement.
+func _idle_patrol(delta: float) -> void:
+	_patrol_timer -= delta
+	if _patrol_timer <= 0.0:
+		_patrol_moving = not _patrol_moving
+		_patrol_timer = randf_range(1.0, 2.6)
+		if _patrol_moving:
+			var dx := global_position.x - _home.x
+			_patrol_dir = -signf(dx) if absf(dx) > PATROL_RADIUS * 0.6 \
+				else (1.0 if randf() < 0.5 else -1.0)
+			if _patrol_dir == 0.0:
+				_patrol_dir = 1.0
+	if _patrol_moving:
+		# Turn back before leaving the patrol radius.
+		if absf(global_position.x - _home.x) > PATROL_RADIUS \
+				and signf(global_position.x - _home.x) == _patrol_dir:
+			_patrol_dir = -_patrol_dir
+		velocity.x = _patrol_dir * PATROL_SPEED
+	else:
+		velocity.x = 0.0
 
 
 ## M3: set (and resolve the sprite for) this citizen's ancestry look. Reuses the
@@ -169,12 +204,18 @@ func _physics_process(delta: float) -> void:
 		velocity.y += GRAVITY * delta
 	refresh_hunger()
 	var acted := false
-	if not hungry:
+	# Defense is critical and is NOT gated by hunger — a defender always answers a
+	# threat in its guard zone. Other jobs pause when the settlement has no food.
+	if job == "defender" or not hungry:
 		acted = run_job(delta)
 	if not acted:
-		# nothing to do (or hungry): drift back toward home and idle there.
+		# No work (or a hungry non-defender): patrol near the post if we have drifted
+		# away, otherwise pace gently — never freeze in place.
 		var dx := _home.x - global_position.x
-		velocity.x = signf(dx) * MOVE_SPEED if absf(dx) > HOME_IDLE_DIST else 0.0
+		if absf(dx) > PATROL_RADIUS:
+			velocity.x = signf(dx) * MOVE_SPEED
+		else:
+			_idle_patrol(delta)
 	if is_on_wall() and is_on_floor():
 		velocity.y = JUMP_VELOCITY
 	update_stuck(delta)                  # M1: recover a wedged citizen

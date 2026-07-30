@@ -25,7 +25,7 @@ const CraftPanelScript := preload("res://scripts/ui/craft_panel.gd")   # R-07
 const ContractModelScript := preload("res://scripts/contracts/contract_model.gd")   # R-09
 const ContractsPanelScript := preload("res://scripts/ui/contracts_panel.gd")   # R-09
 
-const DAY_LENGTH_SECONDS := 100.0
+const DAY_LENGTH_SECONDS := 200.0   # slowed 2x (operator request: a calmer day/night pace)
 const NIGHT_START := 0.65          # time_of_day fraction where night begins
 const NIGHT_BASE_SEVERITY := 10.0
 const INTERACT_RANGE := 72.0
@@ -186,6 +186,7 @@ func _ready() -> void:
 	_celestial = CelestialScript.new()
 	world.add_child(_celestial)
 	_celestial.set_time(time_of_day)
+	_celestial.set_phase_from_day(day_count)
 	if get_tree().get_nodes_in_group("subjects").is_empty():
 		_spawn_starting_crew()
 	if OS.get_environment("COHERONIA_SMOKE") == "1":
@@ -698,6 +699,8 @@ func _advance_time(delta: float) -> void:
 		time_of_day -= 1.0
 		day_count += 1
 		_storm_rolled_today = false
+		if _celestial != null:
+			_celestial.set_phase_from_day(day_count)   # advance the lunar cycle each dawn
 	var night_now := time_of_day >= NIGHT_START
 	if night_now and not is_night:
 		_on_nightfall()
@@ -1662,6 +1665,7 @@ func apply_time_state(data: Dictionary) -> void:
 	is_night = time_of_day >= NIGHT_START
 	if _celestial != null:
 		_celestial.set_time(time_of_day)   # M5-A: reflect the loaded time in the sky
+		_celestial.set_phase_from_day(day_count)
 	canvas_modulate.color = ambient_target_color()
 
 

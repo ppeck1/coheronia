@@ -22,7 +22,7 @@
       { "id": "citizen_1", "job": "farmhand", "home_dx": 4 },
       { "id": "citizen_2", "job": "repairer", "home_dx": -6 },
       { "id": "citizen_3", "job": "hauler", "home_dx": 8 },
-      { "id": "citizen_4", "job": "farmhand", "home_dx": -10 }
+      { "id": "citizen_4", "job": "defender", "home_dx": -10 }
     ]
   },
   "inputs": [

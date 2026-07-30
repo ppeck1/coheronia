@@ -13,10 +13,18 @@ extends Node2D
 const NIGHT_START := 0.65
 const SUN_CORE := Color(1.0, 0.9, 0.5)
 const SUN_GLOW := Color(1.0, 0.85, 0.45, 0.25)
-const MOON_CORE := Color(0.86, 0.88, 0.95)
-const MOON_SHADOW := Color(0.30, 0.33, 0.45)
+const MOON_CORE := Color(0.9, 0.92, 0.98)
+const MOON_SHADOW := Color(0.20, 0.22, 0.34)
+# Bodies at 2x their first size (operator request). Sun = glow + core; moon disc.
+const SUN_GLOW_R := 44.0
+const SUN_CORE_R := 22.0
+const MOON_R := 18.0
+# An 8-step lunar cycle (advances one step per in-game day). Phase 0 = full moon,
+# phase 4 = new moon; a later gameplay hook can read is_full_moon().
+const MOON_PHASES := 8
 
 var _time := 0.25
+var _phase := 0   # 0..MOON_PHASES-1, set from the day count
 
 
 func _ready() -> void:
@@ -31,6 +39,27 @@ func _ready() -> void:
 func set_time(t: float) -> void:
 	_time = fposmod(t, 1.0)
 	queue_redraw()
+
+
+## Advance the lunar cycle from the day count (one phase per day).
+func set_phase_from_day(day: int) -> void:
+	_phase = posmod(day, MOON_PHASES)
+	queue_redraw()
+
+
+## The 0..1 lit fraction of the moon for a phase (1 = full at phase 0, 0 = new at
+## phase 4). Pure so the smoke can assert the cycle without rendering.
+static func illumination(phase: int) -> float:
+	return cos(float(posmod(phase, MOON_PHASES)) / float(MOON_PHASES) * TAU) * 0.5 + 0.5
+
+
+## A later gameplay hook: true on the full-moon night (brightest phase).
+func is_full_moon() -> bool:
+	return posmod(_phase, MOON_PHASES) == 0
+
+
+func moon_phase() -> int:
+	return posmod(_phase, MOON_PHASES)
 
 
 func _process(_delta: float) -> void:
@@ -74,9 +103,21 @@ func _draw() -> void:
 	var p: Dictionary = positions(_time, view)
 	if bool(p["sun_visible"]):
 		var s: Vector2 = p["sun"]
-		draw_circle(s, 22.0, SUN_GLOW)
-		draw_circle(s, 11.0, SUN_CORE)
+		draw_circle(s, SUN_GLOW_R, SUN_GLOW)
+		draw_circle(s, SUN_CORE_R * 1.55, Color(SUN_GLOW.r, SUN_GLOW.g, SUN_GLOW.b, 0.35))
+		draw_circle(s, SUN_CORE_R, SUN_CORE)
 	else:
-		var m: Vector2 = p["moon"]
-		draw_circle(m, 9.0, MOON_CORE)
-		draw_circle(m + Vector2(4.0, -2.0), 8.0, MOON_SHADOW)   # carve a crescent
+		_draw_moon(p["moon"])
+
+
+## Draw the moon at its current phase: the bright disc, then a shadow disc offset
+## horizontally to leave a lit crescent/gibbous (waxing = shadow on the left, waning
+## = on the right). At full moon (phase 0) no shadow is drawn.
+func _draw_moon(m: Vector2) -> void:
+	draw_circle(m, MOON_R, MOON_CORE)
+	var illum := illumination(_phase)
+	if illum >= 0.98:
+		return
+	var side := -1.0 if _phase < 4 else 1.0        # waxing shadow left, waning right
+	var shadow_dx := side * (1.0 - illum) * 2.0 * MOON_R
+	draw_circle(m + Vector2(shadow_dx, 0.0), MOON_R, MOON_SHADOW)
