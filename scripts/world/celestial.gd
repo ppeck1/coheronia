@@ -254,7 +254,10 @@ func _draw_bodies() -> void:
 		_draw_glow(s, SUN_GLOW_R * 1.5, Color(1.0, 0.86, 0.5, 0.45))
 		_draw_glow(s, SUN_CORE_R * 1.6, Color(1.0, 0.9, 0.55, 0.7))
 		_sky.draw_circle(s, SUN_CORE_R, SUN_CORE)
-		_radiate(s, SUN_LIGHT_COL, SUN_GLOW_R * 3.0, 0.9)
+		# A large, soft warm pool cast onto the world so light visibly radiates from the
+		# sun (most apparent at dawn/dusk when the ambient is dim; midday daylight is
+		# already full-bright ambient). Fades smoothly from the body outward.
+		_radiate(s, SUN_LIGHT_COL, 760.0, 0.85)
 	else:
 		var m: Vector2 = p["moon"]
 		var lit := illumination_f(_phase_f)
@@ -266,8 +269,9 @@ func _draw_bodies() -> void:
 			var side := MOON_R * 2.0
 			_sky.draw_texture_rect(_moon_tex, Rect2(m - Vector2(MOON_R, MOON_R),
 				Vector2(side, side)), false)
-		# subtle, cool moonlight cast on the world — much fainter than the sun.
-		_radiate(m, MOON_LIGHT_COL, MOON_R * 4.0, 0.08 + 0.16 * lit)
+		# A large but subtle, cool moonlight pool — clearly weaker than the sun, so the
+		# night reads as softly moonlit rather than daylit.
+		_radiate(m, MOON_LIGHT_COL, 600.0, 0.10 + 0.22 * lit)
 
 
 ## Draw one smooth radial glow sprite (the shared gradient, tinted) centred at `at`.
