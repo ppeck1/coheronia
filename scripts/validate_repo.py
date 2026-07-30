@@ -1218,4 +1218,17 @@ for m in crew:
         fail(f"settlement_rules.json starting_crew {m['id']} invalid job {m.get('job')!r}")
     if not isinstance(m.get("home_dx"), int):
         fail(f"settlement_rules.json starting_crew {m['id']} home_dx must be an int")
-print("PASS settlement rules (bounds + starting crew)")
+# M2-B: the housing block that caps population growth.
+housing = sett.get("housing")
+if not isinstance(housing, dict) or not housing:
+    fail("settlement_rules.json settlement.housing must be a non-empty object")
+for hk in ["min_interior", "max_interior", "min_dim", "max_dim", "base_housing", "per_house_capacity"]:
+    if not isinstance(housing.get(hk), int) or housing[hk] < 0:
+        fail(f"settlement_rules.json settlement.housing.{hk} must be a non-negative int")
+if housing["min_interior"] > housing["max_interior"]:
+    fail("settlement_rules.json housing.min_interior must be <= max_interior")
+if housing["min_dim"] > housing["max_dim"] or housing["min_dim"] < 1:
+    fail("settlement_rules.json housing.min_dim must satisfy 1 <= min_dim <= max_dim")
+if housing["per_house_capacity"] < 1:
+    fail("settlement_rules.json housing.per_house_capacity must be >= 1 (a house must add capacity)")
+print("PASS settlement rules (bounds + starting crew + housing)")

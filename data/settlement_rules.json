@@ -9,6 +9,15 @@
     "up_cells": 12,
     "down_cells": 10,
     "work_radius_cells": 22,
+    "note_housing": "M2-B housing: a valid house is an enclosed air pocket inside the settlement rectangle whose whole boundary is solid walls/roof or door blocks, with at least one door, an interior of min_interior..max_interior air cells, and a bounding box of min_dim..max_dim cells per side. base_housing is the Town Hall's own shelter (covers the starting settlers); each valid house adds per_house_capacity. Population GROWTH is capped at min(base-level cap, base_housing + houses*per_house_capacity). These are provisional values.",
+    "housing": {
+      "min_interior": 1,
+      "max_interior": 40,
+      "min_dim": 3,
+      "max_dim": 9,
+      "base_housing": 4,
+      "per_house_capacity": 2
+    },
     "starting_crew": [
       { "id": "citizen_1", "job": "farmhand", "home_dx": 4 },
       { "id": "citizen_2", "job": "repairer", "home_dx": -6 },

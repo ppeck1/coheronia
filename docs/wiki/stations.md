@@ -1,6 +1,6 @@
 # Crafting Stations
 
-Generated: 2026-07-29
+Generated: 2026-07-30
 
 This page groups the current station surfaces that host recipes or route crafting behavior.
 

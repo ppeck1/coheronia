@@ -9,6 +9,7 @@ signal music_event(kind: String)
 
 const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
 const SubjectScript := preload("res://scripts/entities/subject.gd")   # R-08
+const HousingScript := preload("res://scripts/settlement/housing.gd")   # M2-B house validator
 const SUBJECT_JOBS := ["farmhand", "repairer", "hauler"]   # R-08 slice 2/3: assignable jobs
 const ActionFx := preload("res://scripts/fx/action_fx.gd")   # FQ-09M confirmations
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
@@ -874,7 +875,8 @@ func _update_population(meal: Dictionary, coherence_at_dawn: float) -> void:
 			town_hall.population -= 1
 			log_event("A settler left after going hungry. Population is now %d." % town_hall.population)
 	elif coherence_at_dawn >= growth_threshold() and food_ok \
-			and town_hall.population < effective_population_cap():
+			and town_hall.population < mini(effective_population_cap(), housing_capacity()):
+		# M2-B: growth needs BOTH the base-level cap and available housing.
 		town_hall.population += 1
 		log_event("Drawn by a thriving settlement, a settler arrived. Population is now %d." % town_hall.population)
 	town_hall.stockpile_changed.emit()
@@ -1645,6 +1647,31 @@ func _base_level_display_name() -> String:
 		if int(bl.get("level", 0)) == base_level:
 			return str(bl.get("display_name", "Camp"))
 	return "Camp"
+
+
+## Settlement Coherence (M2-B): the settlement's housing capacity — the Town Hall's
+## own shelter (base_housing, covers the starting settlers) plus per_house_capacity
+## for every valid house recognised inside the settlement rectangle (see Housing).
+## Population GROWTH is capped by this AND the base-level cap, so building real
+## houses is what lets a settlement grow past its starting shelter.
+## `housing_override` is a smoke hook (>= 0 forces the value) so the abstract
+## food-economy tests can exercise growth without hand-building rooms.
+var housing_override := -1
+
+
+func housing_capacity() -> int:
+	if housing_override >= 0:
+		return housing_override
+	var cfg: Dictionary = BlockRegistry.settlement_def().get("housing", {})
+	var base: int = int(cfg.get("base_housing", 4))
+	var per: int = int(cfg.get("per_house_capacity", 2))
+	if world == null or not world.hall_info.has("center_cell"):
+		return base
+	var houses: int = HousingScript.count_valid_houses(world, world.hall_info["center_cell"],
+		BlockRegistry.settlement_bound_cells("half_width_cells", 28),
+		BlockRegistry.settlement_bound_cells("up_cells", 12),
+		BlockRegistry.settlement_bound_cells("down_cells", 10), cfg)
+	return base + houses * per
 
 
 ## Population cap gated by base level; never exceeds POPULATION_MAX.

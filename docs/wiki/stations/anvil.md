@@ -1,6 +1,6 @@
 # Anvil
 
-Generated: 2026-07-29
+Generated: 2026-07-30
 
 > `Crafting station` page.
 

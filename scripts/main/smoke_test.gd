@@ -9,6 +9,7 @@ const AudioSettings := preload("res://scripts/audio/audio_settings.gd")   # R-07
 const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
 const ContractBalanceReportScript := preload("res://scripts/contracts/balance_report.gd")   # R-09.3
 const HudChrome := preload("res://scripts/ui/hud/hud_chrome.gd")   # R-06.1
+const HousingScript := preload("res://scripts/settlement/housing.gd")   # M2-B
 const HudEditGeometry := preload("res://scripts/ui/hud/hud_edit_geometry.gd")   # R-06.2
 
 var _results: Array = []
@@ -308,11 +309,13 @@ func _run() -> void:
 	_check("population_floors_at_one", hall.population == 1, "pop=%d" % hall.population)
 	hall.stockpile["food"] = 100
 	root.base_level = 3  # village cap reaches POPULATION_MAX; growth is gated by base level
+	root.housing_override = root.POPULATION_MAX   # M2-B: stub housing so the BASE-LEVEL cap is under test
 	for i in range(10):
 		settlement.coherence = 80.0
 		root.consume_daily_food()
 	_check("population_caps_at_max", hall.population == root.POPULATION_MAX,
 		"pop=%d" % hall.population)
+	root.housing_override = -1
 
 	# --- Simulation rule toggles read from the world config ---
 	var rules: Dictionary = GameState.current_config.data["rules"]
@@ -7349,6 +7352,73 @@ func _run() -> void:
 		and not world.toggle_door(Vector2i(hall_cell.x, hall_cell.y - 20)),
 		"block=%s" % world.block_at(_dr_cell))
 	world.break_block(_dr_cell)
+
+	# --- Settlement Coherence (M2-B): housing validation + housing-capped growth ---
+	var _hs_cfg: Dictionary = BlockRegistry.settlement_def().get("housing", {})
+	var _hs_hw: int = BlockRegistry.settlement_bound_cells("half_width_cells", 28)
+	var _hs_up: int = BlockRegistry.settlement_bound_cells("up_cells", 12)
+	var _hs_dn: int = BlockRegistry.settlement_bound_cells("down_cells", 10)
+	var _hs_x0: int = hall_cell.x + 14
+	var _hs_y0: int = hall_cell.y - 7        # inside the up-bound, above hall grade
+	var _hs_w := 5
+	var _hs_h := 4
+	# clear the footprint, then stamp a solid stone shell with an air interior.
+	for _yy in range(_hs_y0, _hs_y0 + _hs_h):
+		for _xx in range(_hs_x0, _hs_x0 + _hs_w):
+			world.break_block(Vector2i(_xx, _yy))
+	var _hs_base_count: int = HousingScript.count_valid_houses(
+		world, hall_cell, _hs_hw, _hs_up, _hs_dn, _hs_cfg)
+	var _hs_cap_before: int = root.housing_capacity()
+	for _yy in range(_hs_y0, _hs_y0 + _hs_h):
+		for _xx in range(_hs_x0, _hs_x0 + _hs_w):
+			if _xx == _hs_x0 or _xx == _hs_x0 + _hs_w - 1 \
+					or _yy == _hs_y0 or _yy == _hs_y0 + _hs_h - 1:
+				world.place_block(Vector2i(_xx, _yy), "stone")
+	var _hs_door := Vector2i(_hs_x0 + 2, _hs_y0 + _hs_h - 1)   # a door in the bottom wall
+	world.break_block(_hs_door)
+	world.place_block(_hs_door, "door")
+	# (a) the enclosed, doored room is recognised, adding per_house_capacity.
+	_check("m2b_housing_recognizes_valid_house",
+		HousingScript.count_valid_houses(world, hall_cell, _hs_hw, _hs_up, _hs_dn, _hs_cfg)
+			== _hs_base_count + 1,
+		"base=%d with_house=%d" % [_hs_base_count,
+			HousingScript.count_valid_houses(world, hall_cell, _hs_hw, _hs_up, _hs_dn, _hs_cfg)])
+	_check("m2b_housing_capacity_increases",
+		root.housing_capacity() == _hs_cap_before + int(_hs_cfg.get("per_house_capacity", 2)),
+		"before=%d after=%d" % [_hs_cap_before, root.housing_capacity()])
+	# (b) sealing the only door makes it NOT a house (>=1 door is required).
+	world.break_block(_hs_door)
+	world.place_block(_hs_door, "stone")
+	_check("m2b_house_needs_a_door",
+		HousingScript.count_valid_houses(world, hall_cell, _hs_hw, _hs_up, _hs_dn, _hs_cfg)
+			== _hs_base_count,
+		"sealed_count=%d base=%d" % [
+			HousingScript.count_valid_houses(world, hall_cell, _hs_hw, _hs_up, _hs_dn, _hs_cfg),
+			_hs_base_count])
+	# (c) growth is gated by housing: with the base-level cap high (village, 8) and
+	# housing capacity == population, a thriving dawn adds nobody; raising housing
+	# capacity above population lets exactly one settler arrive. housing_override
+	# controls capacity deterministically so this isolates the housing gate from the
+	# base-level cap (and from any incidental enclosed pockets in the test world).
+	root.base_level = 3                       # base cap 8, so housing is the binding gate
+	hall.population = 4
+	hall.stockpile["food"] = 100
+	settlement.coherence = 80.0
+	root.housing_override = 4                  # capacity == population -> blocked
+	root.consume_daily_food()
+	var _g_blocked: bool = hall.population == 4
+	root.housing_override = 6                  # capacity above population -> +1
+	hall.stockpile["food"] = 100
+	settlement.coherence = 80.0
+	root.consume_daily_food()
+	_check("m2b_growth_gated_by_housing",
+		_g_blocked and hall.population == 5,
+		"blocked=%s grew_to=%d" % [str(_g_blocked), hall.population])
+	root.housing_override = -1
+	# clean up the test house so later sections see clean terrain.
+	for _yy in range(_hs_y0, _hs_y0 + _hs_h):
+		for _xx in range(_hs_x0, _hs_x0 + _hs_w):
+			world.break_block(Vector2i(_xx, _yy))
 
 	# Restore global state so later sections (screenshot) see a sane player.
 	player.player_event.disconnect(_fq01_msg_conn)

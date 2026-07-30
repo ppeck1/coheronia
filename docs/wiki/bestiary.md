@@ -1,6 +1,6 @@
 # Bestiary
 
-Generated: 2026-07-29
+Generated: 2026-07-30
 
 This page groups the current enemy definitions into live and planned slices, similar to a bestiary landing page.
 
