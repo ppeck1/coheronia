@@ -27,6 +27,7 @@ Obsidian is live and obtainable, but it still ends in a source-only branch.
 | Source type | Source | Quantity / chance | Notes |
 |---|---|---|---|
 | Block drop | [Obsidian](../blocks/obsidian.md) | 1x | Current block harvest result. |
+| Enemy drop | [Lava Slime](../enemies/lava_slime.md) | 30% drop chance | Live acquisition only if the enemy is live. |
 
 ## Current Uses
 

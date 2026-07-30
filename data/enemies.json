@@ -206,6 +206,39 @@
       "role": "Ore pocket nuisance, provides metal residue"
     },
     {
+      "id": "lava_slime",
+      "display_name": "Lava Slime",
+      "family": "underground",
+      "status": "live",
+      "contact_damage": 10,
+      "speed": 26,
+      "hp": 4,
+      "hp_mult": 1.2,
+      "emits_bubbles": true,
+      "lava_immune": true,
+      "location": "Lava pools in the hell layer",
+      "density": {
+        "count_min": 1,
+        "count_max": 2,
+        "per_tiles": 120
+      },
+      "drops": [
+        {
+          "item_id": "slime_gel",
+          "chance": 0.6
+        },
+        {
+          "item_id": "obsidian",
+          "chance": 0.3
+        },
+        {
+          "item_id": "hellstone",
+          "chance": 0.15
+        }
+      ],
+      "role": "Molten dweller of the lava layer; leaves obsidian and hellstone"
+    },
+    {
       "id": "lantern_leech",
       "display_name": "Lantern Leech",
       "family": "underground",

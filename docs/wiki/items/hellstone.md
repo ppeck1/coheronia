@@ -27,6 +27,7 @@ Hellstone is live and obtainable, but it still ends in a source-only branch.
 | Source type | Source | Quantity / chance | Notes |
 |---|---|---|---|
 | Block drop | [Hellstone](../blocks/hellstone.md) | 1x | Current block harvest result. |
+| Enemy drop | [Lava Slime](../enemies/lava_slime.md) | 15% drop chance | Live acquisition only if the enemy is live. |
 
 ## Current Uses
 

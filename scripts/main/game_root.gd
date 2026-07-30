@@ -1052,11 +1052,14 @@ func _advance_cave_spawns(delta: float) -> void:
 		tries += 1
 	if world.block_at(spawn_cell) != "air":
 		return
-	# FQ-13: near an ore vein the underground spawn is an ore tick (ore-pocket
-	# nuisance); otherwise the usual cave crawler.
+	# FQ-13/M4-B: near lava the underground spawn is a lava slime (molten dweller);
+	# near an ore vein it is an ore tick; otherwise the usual cave crawler.
 	var eid := "cave_crawler"
 	var event := "A Cave Crawler lurks in the dark below."
-	if world.has_ore_within(spawn_cell, 2) and not _enemy_registry.get_def("ore_tick").is_empty():
+	if _lava_near(spawn_cell, 3) and not _enemy_registry.get_def("lava_slime").is_empty():
+		eid = "lava_slime"
+		event = "A Lava Slime oozes from the molten rock."
+	elif world.has_ore_within(spawn_cell, 2) and not _enemy_registry.get_def("ore_tick").is_empty():
 		eid = "ore_tick"
 		event = "An Ore Tick clings to the ore nearby."
 	var def: Dictionary = _enemy_registry.get_def(eid)
@@ -1064,6 +1067,16 @@ func _advance_cave_spawns(delta: float) -> void:
 		return
 	_spawn_enemy_at(def, world.cell_center(spawn_cell))
 	log_event(event)
+
+
+## M4-B: true when a lava cell sits within `radius` (Chebyshev) of `cell` — the
+## lava-slime spawn trigger, mirroring world.has_ore_within for the ore tick.
+func _lava_near(cell: Vector2i, radius: int) -> bool:
+	for dy in range(-radius, radius + 1):
+		for dx in range(-radius, radius + 1):
+			if world.block_at(cell + Vector2i(dx, dy)) == "lava":
+				return true
+	return false
 
 
 ## Generic enemy spawner configured from a def dict.
@@ -1095,6 +1108,8 @@ func _spawn_enemy_at(def: Dictionary, pos: Vector2) -> Node:
 		* config().difficulty("enemy")
 	threat.move_speed = float(def.get("speed", threat.SPEED))
 	threat.breaks_walls = bool(def.get("breaks_walls", false))   # M4-A raider_sapper
+	threat.emits_bubbles = bool(def.get("emits_bubbles", false))   # M4-B lava_slime
+	threat.lava_immune = bool(def.get("lava_immune", false))
 	threat.died.connect(_on_threat_died)
 	threats.add_child(threat)
 	return threat

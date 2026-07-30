@@ -42,6 +42,20 @@ var drop_chance_override: float = -1.0
 var breaks_walls := false
 var _sap_cd := 0.0
 const SAP_BREAK_COOLDOWN := 1.0
+## M4-B lava_slime: immune to the lava hazard, and emits a small, HARD-CAPPED field
+## of molten bubbles (array dicts, never scene nodes — reuses the lava_bubbles.gd
+## look/behaviour as a per-entity capped budget, so a swarm can never spawn 1000
+## nodes). Set by the spawner from the def.
+var emits_bubbles := false
+var lava_immune := false
+var _bubbles: Array = []
+const MAX_SLIME_BUBBLES := 10          # hard cap on simultaneous visible bubbles
+const SLIME_BUBBLE_RATE := 7.0         # expected births/sec (variable, gated by the cap)
+const SLIME_BUBBLE_RISE := 10.0
+const SLIME_BUBBLE_POP := 0.28
+const BUBBLE_CORE := Color(1.0, 0.74, 0.30)
+const BUBBLE_EDGE := Color(0.87, 0.31, 0.11)
+const BUBBLE_HILITE := Color(1.0, 0.92, 0.64)
 
 ## FQ-01: data-driven contact damage/speed, set by the spawner from the enemy
 ## def's "contact_damage"/"speed" fields (fallback to the PLAYER_DAMAGE/SPEED
@@ -135,6 +149,8 @@ func _physics_process(delta: float) -> void:
 		return                          # died in lava this frame; skip the rest
 	if player != null and global_position.distance_to(player.global_position) < 18.0:
 		player.take_damage(contact_damage)
+	if emits_bubbles:
+		_tick_bubbles(delta)   # M4-B: capped molten-bubble field
 	queue_redraw()
 
 
@@ -170,12 +186,59 @@ func _is_sappable(block_id: String) -> bool:
 		or BlockRegistry.has_tag(block_id, "door")
 
 
+## M4-B: advance the capped molten-bubble field (local to the body). Poisson-ish
+## births gated by the hard cap, a slow wobbling rise, and a short burst at the top
+## — the same behaviour as the lava-tile overlay, but as lightweight state, never
+## scene nodes. Purely decorative: it touches no world/save state.
+func _tick_bubbles(delta: float) -> void:
+	var expected := SLIME_BUBBLE_RATE * delta
+	while expected > 0.0 and _bubbles.size() < MAX_SLIME_BUBBLES:
+		if randf() < expected:
+			_bubbles.append({
+				"x": randf_range(-5.0, 5.0), "y": randf_range(2.0, 5.0),
+				"r": randf_range(1.0, 2.2),
+				"speed": SLIME_BUBBLE_RISE * randf_range(0.7, 1.4),
+				"wob": randf() * TAU, "amp": randf_range(1.5, 4.0),
+				"pop": -1.0,
+			})
+		expected -= 1.0
+	var kept: Array = []
+	for b in _bubbles:
+		if b["pop"] >= 0.0:
+			b["pop"] += delta
+			if b["pop"] < SLIME_BUBBLE_POP:
+				kept.append(b)
+			continue
+		b["wob"] += delta * 3.0
+		b["y"] -= b["speed"] * delta
+		b["x"] += sin(b["wob"]) * b["amp"] * delta
+		if b["y"] <= -8.0:            # broke the top of the body -> burst
+			b["y"] = -8.0
+			b["pop"] = 0.0
+		kept.append(b)
+	_bubbles = kept
+
+
+func _draw_bubbles() -> void:
+	for b in _bubbles:
+		var pos := Vector2(b["x"], b["y"])
+		if b["pop"] >= 0.0:
+			var f: float = b["pop"] / SLIME_BUBBLE_POP
+			draw_arc(pos, b["r"] * (1.0 + f * 2.0), 0.0, TAU, 10,
+				Color(BUBBLE_CORE.r, BUBBLE_CORE.g, BUBBLE_CORE.b, 1.0 - f), 0.6, true)
+		else:
+			draw_circle(pos, b["r"] + 0.5, BUBBLE_EDGE)
+			draw_circle(pos, b["r"], BUBBLE_CORE)
+			draw_circle(pos - Vector2(b["r"] * 0.3, b["r"] * 0.3),
+				maxf(b["r"] * 0.4, 0.4), BUBBLE_HILITE)
+
+
 ## Liquid Physics: environmental contact hazard. A threat standing in a
 ## contact-damage block (lava) burns like the player — sampled at the body cell
 ## and the cell above — with damage accumulated into whole hits via take_hit, so
 ## a weak enemy dies quickly in lava and a tough one lasts a few ticks.
 func apply_environmental_hazard(delta: float) -> void:
-	if world == null:
+	if world == null or lava_immune:   # M4-B: a lava slime is at home in the molten rock
 		return
 	var base_cell: Vector2i = world.cell_of(global_position)
 	var dmg := 0.0
@@ -261,6 +324,8 @@ func _draw() -> void:
 		draw_rect(Rect2(-7, -6, 14, 12), body)
 		draw_rect(Rect2(-4, -3, 3, 3), Color.WHITE)
 		draw_rect(Rect2(1, -3, 3, 3), Color.WHITE)
+	if emits_bubbles:   # M4-B: molten bubbles rise over the body
+		_draw_bubbles()
 	# FQ-08: mini health bar above the body once damaged — damage is visible
 	# well before death on both the art and fallback paths.
 	if hp < max_hp:

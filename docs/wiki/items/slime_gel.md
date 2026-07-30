@@ -27,6 +27,7 @@ Slime Gel is live and obtainable, but it still ends in a source-only branch.
 | Source type | Source | Quantity / chance | Notes |
 |---|---|---|---|
 | Enemy drop | [Surface Slime](../enemies/surface_slime.md) | 70% drop chance | Live acquisition only if the enemy is live. |
+| Enemy drop | [Lava Slime](../enemies/lava_slime.md) | 60% drop chance | Live acquisition only if the enemy is live. |
 
 ## Current Uses
 

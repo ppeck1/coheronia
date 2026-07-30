@@ -1310,7 +1310,7 @@ func _run() -> void:
 
 	# Fix 16: use root's shared registry instances instead of creating duplicates.
 	var enemy_reg = root._enemy_registry
-	_check("enemies_json_loads", enemy_reg.live_defs().size() == 7,
+	_check("enemies_json_loads", enemy_reg.live_defs().size() == 8,
 		"%d live defs" % enemy_reg.live_defs().size())
 
 	var slime_node: Node = root.spawn_enemy_for_test("surface_slime")
@@ -7428,6 +7428,39 @@ func _run() -> void:
 			and _sp._is_sappable("stone") and _sp._is_sappable("door"))
 		_sp.remove_from_group("threats")
 		_sp.queue_free()
+
+	# --- Settlement Coherence (M4-B): lava_slime (capped bubbles + lava immunity) ---
+	var _ls = root.spawn_enemy_for_test("lava_slime")
+	_check("m4_lava_slime_is_live",
+		_ls != null and str(_ls.enemy_id) == "lava_slime"
+		and bool(_ls.emits_bubbles) and bool(_ls.lava_immune),
+		"id=%s bubbles=%s immune=%s" % [str(_ls.enemy_id) if _ls != null else "null",
+			str(_ls.emits_bubbles) if _ls != null else "n/a",
+			str(_ls.lava_immune) if _ls != null else "n/a"])
+	if _ls != null:
+		# the molten-bubble field is HARD-CAPPED — a long run never exceeds the cap
+		# (a per-entity budget of array dicts, never runaway scene nodes).
+		for _ls_i in 300:
+			_ls._tick_bubbles(0.1)
+		_check("m4_lava_slime_bubbles_capped",
+			_ls._bubbles.size() <= _ls.MAX_SLIME_BUBBLES,
+			"bubbles=%d cap=%d" % [_ls._bubbles.size(), _ls.MAX_SLIME_BUBBLES])
+		# lava immunity: standing in a lava cell deals no environmental hazard damage.
+		var _ls_cell := Vector2i(hall_cell.x + 25, hall_cell.y + 6)
+		world.break_block(_ls_cell)
+		world.cells[_ls_cell] = "lava"
+		world._set_tile(_ls_cell, "lava")
+		_ls.global_position = world.cell_center(_ls_cell)
+		var _ls_hp0: int = int(_ls.hp)
+		for _ls_j in 20:
+			_ls.apply_environmental_hazard(1.0)
+		_check("m4_lava_slime_immune_to_lava", int(_ls.hp) == _ls_hp0,
+			"hp %d->%d" % [_ls_hp0, int(_ls.hp)])
+		world.cells.erase(_ls_cell)
+		world.deltas[_ls_cell] = "air"
+		world._set_tile(_ls_cell, "air")
+		_ls.remove_from_group("threats")
+		_ls.queue_free()
 
 	# --- Settlement Coherence (M2-A): stockpile withdrawal (Town Hall authority) ---
 	hall.stockpile = {"wood": 5, "stone": 4}
