@@ -12,6 +12,7 @@ signal items_picked_up(items: Dictionary)   # R-08 slice 3: {item_id: count} swe
 signal crafted(recipe_id: String)
 signal placed(block_id: String)
 signal player_event(message: String)
+signal npc_inspected(npc)   # a settler was clicked — open its info panel
 
 const SPEED := 140.0
 const JUMP_VELOCITY := -300.0
@@ -433,9 +434,24 @@ func _handle_mining(delta: float) -> void:
 		_reset_mining()
 		return
 	var cell: Vector2i = world.cell_of(get_global_mouse_position())
-	if Input.is_action_just_pressed("mine") and _try_hit_threat(get_global_mouse_position()):
-		return
+	if Input.is_action_just_pressed("mine"):
+		# A click that lands on a settler inspects it (opens its info panel); a click
+		# on a threat hits it. Either consumes the click so it does not also mine.
+		if _try_inspect_npc(get_global_mouse_position()):
+			return
+		if _try_hit_threat(get_global_mouse_position()):
+			return
 	process_mining(cell, delta)
+
+
+## Clicking on a settler opens its info panel (via game_root). Not reach-gated —
+## you can inspect any settler you can see. Returns true if one was clicked.
+func _try_inspect_npc(at: Vector2) -> bool:
+	for npc in get_tree().get_nodes_in_group("subjects"):
+		if not npc.is_queued_for_deletion() and npc.global_position.distance_to(at) < 16.0:
+			npc_inspected.emit(npc)
+			return true
+	return false
 
 
 ## Shared mining path used by live input and the smoke test.

@@ -13,6 +13,7 @@ var visual_assets: Dictionary = {}  # FQ-07: data/visual_assets.json (image refs
 var player_visuals: Dictionary = {} # body variants, rig anchors, gear overlays
 var _visual_cache: Dictionary = {}  # resolved path -> Texture2D (or null = missing)
 var items_data: Dictionary = {}     # FQ-09: data/items.json (non-block item metadata)
+var citizen_names: Dictionary = {}  # data/citizen_names.json (ancestry name pools + stat biases)
 var _item_icon_cache: Dictionary = {}  # item_id -> Texture2D (art or fallback swatch)
 
 
@@ -34,6 +35,7 @@ func _load_all() -> void:
 	visual_assets = _load_json("res://data/visual_assets.json")
 	player_visuals = _load_json("res://data/player_visuals.json")
 	items_data = _load_json("res://data/items.json").get("items", {})
+	citizen_names = _load_json("res://data/citizen_names.json")   # citizen name pools + stat biases
 	if blocks.is_empty():
 		push_error("BlockRegistry: no blocks loaded from data/blocks.json")
 
@@ -54,6 +56,17 @@ func settlement_bound_cells(key: String, fallback: int) -> int:
 ## citizens spawned on a fresh world, sized to match the starting population.
 func settlement_starting_crew() -> Array:
 	return settlement_def().get("starting_crew", [])
+
+
+## Citizen naming (Settlement Coherence): the name pools + stat bias for a species,
+## and the ordered settler stat ids. Used by game_root to generate a stable, ancestry
+## -aligned name and stats for each citizen.
+func citizen_name_pool(species: String) -> Dictionary:
+	return citizen_names.get("species", {}).get(species, {})
+
+
+func citizen_stat_ids() -> Array:
+	return citizen_names.get("stats", ["vigor", "craft", "guard", "spirit"])
 
 
 func trait_effects(trait_ids: Array) -> Dictionary:

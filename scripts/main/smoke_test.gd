@@ -7340,6 +7340,44 @@ func _run() -> void:
 		BlockRegistry.visual_texture("players",
 			BlockRegistry.player_body_id("dwarf", "feminine")) != null)
 
+	# --- Citizen profile: ancestry-aligned name, days alive, stats, info panel ---
+	# deterministic name/stats for a given seed+ancestry.
+	var _cp_a: Dictionary = root._generate_citizen_profile(7777, "dwarf", "masculine")
+	var _cp_b: Dictionary = root._generate_citizen_profile(7777, "dwarf", "masculine")
+	_check("cp_profile_deterministic", str(_cp_a["name"]) == str(_cp_b["name"]))
+	# the name is aligned with the ancestry: the given (first) name is in that
+	# species' pool for the body variant.
+	var _cp_pool: Dictionary = BlockRegistry.citizen_name_pool("dwarf")
+	var _cp_given: String = str(_cp_a["name"]).split(" ")[0]
+	_check("cp_name_ancestry_aligned", _cp_given in _cp_pool.get("masculine", []),
+		"given=%s name=%s" % [_cp_given, str(_cp_a["name"])])
+	# stats: every declared stat present and within 1..10.
+	var _cp_stats: Dictionary = _cp_a["stats"]
+	var _cp_stat_ids: Array = BlockRegistry.citizen_stat_ids()
+	var _cp_range_ok := _cp_stats.size() == _cp_stat_ids.size()
+	for _cp_sid in _cp_stat_ids:
+		var _cp_v: int = int(_cp_stats.get(str(_cp_sid), 0))
+		if _cp_v < 1 or _cp_v > 10:
+			_cp_range_ok = false
+	_check("cp_stats_in_range", _cp_range_ok, "stats=%s" % str(_cp_stats))
+	# days-alive and profile persistence through save/load.
+	var _cp_c: Node = _m1_live[0]
+	_cp_c.set_profile("Test Dwarf", 2, {"vigor": 5})
+	_check("cp_days_alive", _cp_c.days_alive(6) == 4, "days=%d" % _cp_c.days_alive(6))
+	var _cp_dict: Dictionary = _cp_c.to_dict()
+	var _cp_c2: Node = _m1_live[1]
+	_cp_c2.from_dict(_cp_dict)
+	_check("cp_profile_persists",
+		str(_cp_c2.citizen_name) == "Test Dwarf" and int(_cp_c2.birth_day) == 2
+		and int(_cp_c2.stats.get("vigor", 0)) == 5,
+		"name=%s born=%d vigor=%d" % [str(_cp_c2.citizen_name), int(_cp_c2.birth_day),
+			int(_cp_c2.stats.get("vigor", 0))])
+	# the info panel opens for a settler and closes cleanly.
+	hud.open_npc_panel(_cp_c)
+	var _cp_open: bool = hud.npc_panel_open()
+	hud.close_npc_panel()
+	_check("cp_info_panel_opens", _cp_open and not hud.npc_panel_open())
+
 	# --- Settlement Coherence (M3-B): dynamic roster <-> population authority ---
 	# grow the population authority; the sync spawns newcomers to match, each born
 	# with a live-species identity.

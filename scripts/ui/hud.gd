@@ -9,6 +9,7 @@ signal contracts_requested
 signal subject_job_cycle_requested(id: String)   # R-08 slice 2: settler job assignment
 signal withdraw_requested(item_id: String, amount: int)   # M2: pull a stack from the stockpile
 signal withdraw_all_requested                             # M2: pull the whole stockpile
+signal subject_inspect_requested(id: String)   # open a settler's info panel from the roster
 
 ## Low-health fraction mirrors player._low_health_fraction (data-driven
 ## default 0.25); the HUD does not read player state directly so it keeps a
@@ -43,6 +44,14 @@ var _event_panel: PanelContainer
 var _event_time_label: Label
 var _log_lines: Array[String] = []
 var _town_panel: PanelContainer
+# Citizen info panel (click a settler, or a Town Hall roster row, to open it).
+var _npc_panel: PanelContainer
+var _npc_subject = null            # the settler currently shown
+var _npc_name_label: Label
+var _npc_meta_label: Label         # ancestry + days alive
+var _npc_role_label: Label
+var _npc_stats_label: Label
+var _current_day := 1
 var _town_info: Label
 var _repair_button: Button
 var _settler_box: VBoxContainer   # R-08 slice 2: per-settler job-assignment rows
@@ -195,6 +204,7 @@ func _ready() -> void:
 	_build_log()
 	_build_context_stack()
 	_build_town_panel()
+	_build_npc_panel()
 	_build_inventory_panel()
 	_build_character_panel()
 	_skill_panel = SkillTreePanelScript.new()
@@ -2476,6 +2486,88 @@ func _build_log() -> void:
 	event_box.add_child(_log_label)
 
 
+## Citizen info panel: name, ancestry, role (with a change button), days alive, and
+## the settler's stats. Opened by clicking a settler in the world or a Town Hall
+## roster row. Built once and hidden; populated per subject in refresh_npc_panel.
+func _build_npc_panel() -> void:
+	_npc_panel = PanelContainer.new()
+	_npc_panel.anchor_left = 0.5
+	_npc_panel.anchor_right = 0.5
+	_npc_panel.anchor_top = 0.5
+	_npc_panel.anchor_bottom = 0.5
+	_npc_panel.offset_left = -150
+	_npc_panel.offset_top = -140
+	_npc_panel.custom_minimum_size = Vector2(300, 260)
+	_npc_panel.visible = false
+	add_child(_npc_panel)
+	var content := _module_content_host(_npc_panel, "ornate")
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(280, 0)
+	content.add_child(box)
+	_npc_name_label = _label(box, "")
+	_npc_name_label.add_theme_font_size_override("font_size", 18)
+	_npc_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_npc_meta_label = _label(box, "")
+	_npc_role_label = _label(box, "")
+	var role_btn := Button.new()
+	role_btn.text = "Change role"
+	role_btn.pressed.connect(func() -> void:
+		if _npc_subject != null and not _npc_subject.is_queued_for_deletion():
+			subject_job_cycle_requested.emit(str(_npc_subject.subject_id)))
+	box.add_child(role_btn)
+	_label(box, "Stats:")
+	_npc_stats_label = _label(box, "")
+	var close_btn := Button.new()
+	close_btn.text = "Close"
+	close_btn.pressed.connect(func() -> void: close_npc_panel())
+	box.add_child(close_btn)
+
+
+## Open the info panel for a specific settler node.
+func open_npc_panel(subject) -> void:
+	if subject == null:
+		return
+	_npc_subject = subject
+	refresh_npc_panel()
+	_npc_panel.visible = true
+
+
+func close_npc_panel() -> void:
+	if _npc_panel != null:
+		_npc_panel.visible = false
+	_npc_subject = null
+
+
+func npc_panel_open() -> bool:
+	return _npc_panel != null and _npc_panel.visible
+
+
+## Repaint the panel from the current subject (or close it if the subject is gone —
+## e.g. a citizen who left after a starvation).
+func refresh_npc_panel() -> void:
+	if _npc_panel == null:
+		return
+	if _npc_subject == null or not is_instance_valid(_npc_subject) \
+			or _npc_subject.is_queued_for_deletion():
+		close_npc_panel()
+		return
+	var cname := str(_npc_subject.citizen_name)
+	_npc_name_label.text = cname if cname != "" else "Settler"
+	var species_name := BlockRegistry.display_name(str(_npc_subject.species))
+	if species_name == str(_npc_subject.species):
+		species_name = str(_npc_subject.species).capitalize()
+	var variant := str(_npc_subject.body_variant).capitalize()
+	var days := int(_npc_subject.days_alive(_current_day))
+	_npc_meta_label.text = "%s %s · %d day%s in the settlement" % [
+		variant, species_name, days, "" if days == 1 else "s"]
+	_npc_role_label.text = "Role: %s" % str(_npc_subject.job).capitalize()
+	var parts: Array[String] = []
+	for stat_id in BlockRegistry.citizen_stat_ids():
+		parts.append("%s %d" % [str(stat_id).capitalize(),
+			int(_npc_subject.stats.get(str(stat_id), 0))])
+	_npc_stats_label.text = "   ".join(parts)
+
+
 func _build_town_panel() -> void:
 	_town_panel = PanelContainer.new()
 	_town_panel.anchor_left = 0.5
@@ -3829,6 +3921,9 @@ func _clock_text(fraction: float) -> String:
 
 func update_time(day: int, is_night: bool, threat_count: int = 0,
 		time_fraction: float = -1.0) -> void:
+	_current_day = day                 # kept for the citizen "days alive" readout
+	if _npc_panel != null and _npc_panel.visible:
+		refresh_npc_panel()
 	# Blueprint events header: "Day 5 • Dusk 18:42". Callers that do not know
 	# the fraction keep the coarse day/night form.
 	var text: String
@@ -3981,9 +4076,10 @@ func _on_stockpile_tile_clicked(item_id: String) -> void:
 	withdraw_requested.emit(item_id, amount)
 
 
-## R-08 slice 2: rebuild the per-settler assignment rows from the live crew. Each
-## row is a button that cycles that settler's job via game_root; no instructional
-## text, just "Settler N: <Job>".
+## R-08 slice 2 / citizen panel: rebuild the per-settler roster rows from the live
+## crew. Each row shows the settler's NAME and role and, when clicked, opens that
+## settler's info panel (where the role is changed) — the Town Hall link to the
+## same panel the world-click opens.
 func _refresh_settler_rows() -> void:
 	if _settler_box == null:
 		return
@@ -3994,14 +4090,14 @@ func _refresh_settler_rows() -> void:
 		if not s.is_queued_for_deletion():
 			roster.append(s)
 	roster.sort_custom(func(a, b): return str(a.subject_id) < str(b.subject_id))
-	var idx := 1
 	for s in roster:
 		var sid: String = str(s.subject_id)
+		var cname := str(s.citizen_name)
+		var label := cname if cname != "" else sid
 		var b := Button.new()
-		b.text = "Settler %d: %s" % [idx, str(s.job).capitalize()]
-		b.pressed.connect(func() -> void: subject_job_cycle_requested.emit(sid))
+		b.text = "%s — %s" % [label, str(s.job).capitalize()]
+		b.pressed.connect(func() -> void: subject_inspect_requested.emit(sid))
 		_settler_box.add_child(b)
-		idx += 1
 
 
 func _refresh_stock() -> void:

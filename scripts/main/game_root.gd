@@ -541,6 +541,8 @@ func _wire_signals() -> void:
 	hud.repair_requested.connect(_on_repair_requested)
 	hud.contracts_requested.connect(_open_contracts_panel)
 	hud.subject_job_cycle_requested.connect(_on_subject_job_cycle)   # R-08 slice 2
+	hud.subject_inspect_requested.connect(_on_subject_inspect_requested)   # citizen panel from roster
+	player.npc_inspected.connect(hud.open_npc_panel)                       # citizen panel from a world click
 	hud.withdraw_requested.connect(_on_withdraw_requested)           # M2 stockpile withdraw
 	hud.withdraw_all_requested.connect(_on_withdraw_all_requested)
 
@@ -1404,8 +1406,11 @@ func _spawn_starting_crew() -> void:
 		# M3: give each starting citizen a deterministic ancestry identity keyed by
 		# its citizen num (same key the dynamic spawn uses), so the same world always
 		# spawns the same faces and load restores them verbatim.
-		var idn: Dictionary = _generate_citizen_identity(world.world_seed * 131 + _citizen_num(id))
+		var key: int = world.world_seed * 131 + _citizen_num(id)
+		var idn: Dictionary = _generate_citizen_identity(key)
 		subj.set_identity(str(idn["species"]), str(idn["body_variant"]), int(idn["visual_variant"]))
+		var prof: Dictionary = _generate_citizen_profile(key, str(idn["species"]), str(idn["body_variant"]))
+		subj.set_profile(str(prof["name"]), day_count, prof["stats"])
 	town_hall.population = crew.size()
 
 
@@ -1428,6 +1433,30 @@ func _generate_citizen_identity(key: int) -> Dictionary:
 		species = str(live[rng.randi() % live.size()])
 	var variant := "masculine" if rng.randf() < 0.5 else "feminine"
 	return {"species": species, "body_variant": variant, "visual_variant": 0}
+
+
+## A deterministic, ancestry-aligned citizen profile (name + settler stats) for a
+## given identity key, species, and body variant. Keyed like the identity so a
+## citizen keeps the same name/stats across runs and loads. Names come from the
+## per-ancestry pools; stats are a species-biased 1..10 spread.
+func _generate_citizen_profile(key: int, species: String, variant: String) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(key) ^ 0x9E3779B9   # a distinct stream from the identity RNG
+	var pool: Dictionary = BlockRegistry.citizen_name_pool(species)
+	var given_list: Array = pool.get(variant, pool.get("masculine", ["Settler"]))
+	if given_list.is_empty():
+		given_list = ["Settler"]
+	var surnames: Array = pool.get("surnames", [""])
+	if surnames.is_empty():
+		surnames = [""]
+	var given := str(given_list[rng.randi() % given_list.size()])
+	var surname := str(surnames[rng.randi() % surnames.size()])
+	var cname := given if surname == "" else "%s %s" % [given, surname]
+	var bias: Dictionary = pool.get("stat_bias", {})
+	var cstats := {}
+	for stat_id in BlockRegistry.citizen_stat_ids():
+		cstats[str(stat_id)] = clampi(3 + int(bias.get(stat_id, 0)) + rng.randi_range(0, 4), 1, 10)
+	return {"name": cname, "stats": cstats}
 
 
 ## M3-B: the trailing integer of a "citizen_N" id (0 if none) — the ordering key
@@ -1462,8 +1491,11 @@ func _spawn_citizen(job: String = "farmhand") -> Node:
 	var dx := ((num % 2) * 2 - 1) * mini(hw - 2, 3 + int(num / 2.0) * 3)
 	var pos: Vector2 = town_hall.global_position + Vector2(dx * t, -40.0)
 	var subj := _spawn_subject_at(pos, id, job)
-	var idn: Dictionary = _generate_citizen_identity(world.world_seed * 131 + num)
+	var key: int = world.world_seed * 131 + num
+	var idn: Dictionary = _generate_citizen_identity(key)
 	subj.set_identity(str(idn["species"]), str(idn["body_variant"]), int(idn["visual_variant"]))
+	var prof: Dictionary = _generate_citizen_profile(key, str(idn["species"]), str(idn["body_variant"]))
+	subj.set_profile(str(prof["name"]), day_count, prof["stats"])
 	return subj
 
 
@@ -1513,9 +1545,19 @@ func _on_subject_job_cycle(id: String) -> void:
 			var idx: int = SUBJECT_JOBS.find(str(s.job))
 			var next_job: String = str(SUBJECT_JOBS[(idx + 1) % SUBJECT_JOBS.size()])
 			assign_subject_job(id, next_job)
-			log_event("%s reassigned to %s." % [id, next_job])
+			var who := str(s.citizen_name) if str(s.citizen_name) != "" else id
+			log_event("%s reassigned to %s." % [who, next_job])
 			break
 	hud.refresh_town_panel()
+	hud.refresh_npc_panel()   # keep an open citizen panel in sync with the new role
+
+
+## Open the info panel for the settler with this id (from a Town Hall roster row).
+func _on_subject_inspect_requested(id: String) -> void:
+	for s in get_tree().get_nodes_in_group("subjects"):
+		if not s.is_queued_for_deletion() and str(s.subject_id) == id:
+			hud.open_npc_panel(s)
+			return
 
 
 ## R-08: serialize the visible settlers for the world save (identity/pos/job/hunger).

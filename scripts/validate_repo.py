@@ -34,6 +34,7 @@ REQUIRED_FILES = [
     "data/visual_assets.json",
     "data/player_visuals.json",
     "data/items.json",
+    "data/citizen_names.json",
     "data/contracts.json",
     "scripts/contracts/balance_report.gd",
     "scripts/ci/balance_report.py",
@@ -1232,3 +1233,33 @@ if housing["min_dim"] > housing["max_dim"] or housing["min_dim"] < 1:
 if housing["per_house_capacity"] < 1:
     fail("settlement_rules.json housing.per_house_capacity must be >= 1 (a house must add capacity)")
 print("PASS settlement rules (bounds + starting crew + housing)")
+
+# Citizen naming: every LIVE player species needs masculine+feminine given names,
+# surnames, and a stat_bias covering the declared stats, so a citizen of any live
+# ancestry gets an aligned name and stats.
+citizen_names = json.loads((ROOT / "data/citizen_names.json").read_text(encoding="utf-8"))
+cn_stats = citizen_names.get("stats")
+if not isinstance(cn_stats, list) or not cn_stats:
+    fail("citizen_names.json must list a non-empty 'stats' array")
+cn_species = citizen_names.get("species")
+if not isinstance(cn_species, dict):
+    fail("citizen_names.json must have a 'species' object")
+for cn_sp in EXPECTED_PLAYER_SPECIES:   # the five live, art-backed player species
+    sp = cn_species.get(cn_sp)
+    if not isinstance(sp, dict):
+        fail(f"citizen_names.json missing name pool for live species: {cn_sp}")
+    for variant in ["masculine", "feminine"]:
+        pool = sp.get(variant)
+        if not isinstance(pool, list) or len(pool) < 4:
+            fail(f"citizen_names.json {cn_sp}.{variant} must list >= 4 given names")
+        if any((not isinstance(nm, str)) or not nm.strip() for nm in pool):
+            fail(f"citizen_names.json {cn_sp}.{variant} has an empty/non-string name")
+    if not isinstance(sp.get("surnames"), list) or len(sp["surnames"]) < 4:
+        fail(f"citizen_names.json {cn_sp}.surnames must list >= 4 surnames")
+    bias = sp.get("stat_bias", {})
+    if not isinstance(bias, dict):
+        fail(f"citizen_names.json {cn_sp}.stat_bias must be an object")
+    for st in cn_stats:
+        if not isinstance(bias.get(st, 0), int):
+            fail(f"citizen_names.json {cn_sp}.stat_bias.{st} must be an int")
+print("PASS citizen name pools")

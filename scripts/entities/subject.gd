@@ -72,6 +72,11 @@ var species := "human"
 var body_variant := "masculine"
 var visual_variant := 0
 var _body_tex: Texture2D = null
+# Citizen profile (persisted): an ancestry-aligned name, the day the citizen joined
+# the settlement (for "days alive"), and a small set of settler stats.
+var citizen_name := ""
+var birth_day := 1
+var stats: Dictionary = {}
 
 const BODY_RECT := Rect2(-8, -32, 16, 32)   # 16x32 body, feet at the origin
 
@@ -143,6 +148,19 @@ func _resolve_body_tex() -> void:
 	var body_id: String = BlockRegistry.player_body_id(species, body_variant)
 	if body_id != "":
 		_body_tex = BlockRegistry.visual_texture("players", body_id)
+
+
+## Set the persisted citizen profile (name, join day, stats). game_root generates
+## these deterministically from the citizen's identity seed.
+func set_profile(cname: String, born: int, cstats: Dictionary) -> void:
+	citizen_name = cname
+	birth_day = born
+	stats = cstats.duplicate()
+
+
+## Days this citizen has been part of the settlement, given the current day.
+func days_alive(current_day: int) -> int:
+	return maxi(0, current_day - birth_day)
 
 
 ## Settlement Coherence (M1): a citizen's home/guard post. Persisted, and the
@@ -419,6 +437,8 @@ func to_dict() -> Dictionary:
 		"home_x": _home.x, "home_y": _home.y,
 		# M3: persist the ancestry identity so it is never regenerated on load.
 		"species": species, "body_variant": body_variant, "visual_variant": visual_variant,
+		# Citizen profile: name/join-day/stats persist verbatim.
+		"name": citizen_name, "birth_day": birth_day, "stats": stats.duplicate(),
 	}
 
 
@@ -434,3 +454,11 @@ func from_dict(d: Dictionary) -> void:
 	# M3: restore the persisted identity (pre-M3 saves default to human/masculine).
 	set_identity(str(d.get("species", species)),
 		str(d.get("body_variant", body_variant)), int(d.get("visual_variant", visual_variant)))
+	# Restore the citizen profile (name/join-day/stats).
+	citizen_name = str(d.get("name", citizen_name))
+	birth_day = int(d.get("birth_day", birth_day))
+	var raw_stats: Dictionary = d.get("stats", {})
+	if not raw_stats.is_empty():
+		stats = {}
+		for k in raw_stats:
+			stats[str(k)] = int(raw_stats[k])
