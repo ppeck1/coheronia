@@ -7297,6 +7297,36 @@ func _run() -> void:
 			_m1_fired = true
 	_check("m1_stuck_recovery", _m1_fired, "fired=%s" % str(_m1_fired))
 
+	# --- Settlement Coherence (M3-A): per-citizen ancestry identity ---
+	# deterministic: the same key always yields the same identity (stable faces).
+	var _id_a: Dictionary = root._generate_citizen_identity(12345)
+	var _id_b: Dictionary = root._generate_citizen_identity(12345)
+	_check("m3_identity_deterministic",
+		str(_id_a["species"]) == str(_id_b["species"])
+		and str(_id_a["body_variant"]) == str(_id_b["body_variant"]),
+		"a=%s b=%s" % [str(_id_a), str(_id_b)])
+	# every generated species is a LIVE (art-backed) player species.
+	var _id_live: Array = BlockRegistry.player_visuals.get("live_species", [])
+	var _id_live_ok := true
+	for _id_i in 20:
+		if str(root._generate_citizen_identity(_id_i)["species"]) not in _id_live:
+			_id_live_ok = false
+	_check("m3_identity_species_live", _id_live_ok and not _id_live.is_empty())
+	# identity persists through to_dict -> from_dict (never regenerated on load).
+	var _idc: Node = _m1_live[0]
+	_idc.set_identity("dwarf", "feminine", 0)
+	var _idd: Dictionary = _idc.to_dict()
+	var _idc2: Node = _m1_live[1]
+	_idc2.from_dict(_idd)
+	_check("m3_identity_persists",
+		str(_idd.get("species")) == "dwarf" and str(_idd.get("body_variant")) == "feminine"
+		and str(_idc2.to_dict().get("species")) == "dwarf",
+		"saved=%s restored=%s" % [str(_idd.get("species")), str(_idc2.to_dict().get("species"))])
+	# the ancestry sprite resolves from the live imagery (player-pipeline reuse).
+	_check("m3_identity_sprite_resolves",
+		BlockRegistry.visual_texture("players",
+			BlockRegistry.player_body_id("dwarf", "feminine")) != null)
+
 	# --- Settlement Coherence (M2-A): stockpile withdrawal (Town Hall authority) ---
 	hall.stockpile = {"wood": 5, "stone": 4}
 	player.inventory.from_dict({})

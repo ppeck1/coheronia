@@ -48,6 +48,16 @@ var _home := Vector2.ZERO
 var _target := Vector2i(-1, -1)
 var _stuck_time := 0.0
 var _last_x := 0.0
+# M3: per-citizen persisted identity. The sprite reuses the player body pipeline
+# (BlockRegistry.player_body_id -> the live ancestry PNG); a job overlay still
+# marks the trade. Generated deterministically at spawn, then PERSISTED (never
+# regenerated on load), so a citizen keeps its face across saves.
+var species := "human"
+var body_variant := "masculine"
+var visual_variant := 0
+var _body_tex: Texture2D = null
+
+const BODY_RECT := Rect2(-8, -32, 16, 32)   # 16x32 body, feet at the origin
 
 
 func _ready() -> void:
@@ -71,6 +81,24 @@ func setup(w: Node, hall: Node, id: String = "farmhand_1") -> void:
 	subject_id = id
 	_home = hall.global_position
 	_last_x = global_position.x
+
+
+## M3: set (and resolve the sprite for) this citizen's ancestry look. Reuses the
+## same body-id + art authority the player uses, so citizens draw from the live
+## ancestry imagery; unknown/absent art falls back to the procedural body.
+func set_identity(sp: String, variant: String, vv: int = 0) -> void:
+	species = sp
+	body_variant = BlockRegistry.normalize_body_variant(variant)
+	visual_variant = vv
+	_resolve_body_tex()
+	queue_redraw()
+
+
+func _resolve_body_tex() -> void:
+	_body_tex = null
+	var body_id: String = BlockRegistry.player_body_id(species, body_variant)
+	if body_id != "":
+		_body_tex = BlockRegistry.visual_texture("players", body_id)
 
 
 ## Settlement Coherence (M1): a citizen's home/guard post. Persisted, and the
@@ -255,6 +283,14 @@ func refresh_hunger() -> void:
 
 
 func _draw() -> void:
+	# M3: prefer the ancestry body sprite (live imagery via the player pipeline);
+	# a warm pale tint reads "hungry". A job overlay still marks the trade.
+	if _body_tex != null:
+		var mod := Color(1.0, 0.86, 0.7) if hungry else Color(1, 1, 1)
+		draw_texture_rect(_body_tex, BODY_RECT, false, mod)
+		_draw_job_marker()
+		return
+	# Procedural fallback when no ancestry art is present.
 	var base_col: Color = BODY_COL
 	if job == "repairer":
 		base_col = REPAIRER_COL
@@ -264,13 +300,19 @@ func _draw() -> void:
 	draw_rect(Rect2(-5, -22, 10, 22), col)          # torso/legs
 	draw_circle(Vector2(0, -26), 5, col)            # head
 	draw_rect(Rect2(-5, -22, 10, 4), TRIM_COL)      # belt/hem
+	_draw_job_marker()
+
+
+## M3: a small tool overlay by the citizen's hand marking its trade, drawn over
+## either the sprite or the procedural fallback.
+func _draw_job_marker() -> void:
 	if job == "repairer":
-		draw_line(Vector2(6, -16), Vector2(11, -25), TRIM_COL, 2.0)   # hammer handle
-		draw_rect(Rect2(9, -28, 5, 4), TRIM_COL)                      # hammer head
+		draw_line(Vector2(6, -18), Vector2(11, -27), TRIM_COL, 2.0)   # hammer handle
+		draw_rect(Rect2(9, -30, 5, 4), TRIM_COL)                      # hammer head
 	elif job == "hauler":
-		draw_rect(Rect2(4, -18, 8, 8), TRIM_COL)                      # a crate on the back
+		draw_rect(Rect2(4, -20, 8, 8), TRIM_COL)                      # a crate on the back
 	else:
-		draw_line(Vector2(5, -18), Vector2(11, -26), TRIM_COL, 2.0)   # a hoe
+		draw_line(Vector2(5, -20), Vector2(11, -28), TRIM_COL, 2.0)   # a hoe
 
 
 func to_dict() -> Dictionary:
@@ -279,6 +321,8 @@ func to_dict() -> Dictionary:
 		"x": global_position.x, "y": global_position.y,
 		# M1: persist the citizen's home/guard post so it survives save/load.
 		"home_x": _home.x, "home_y": _home.y,
+		# M3: persist the ancestry identity so it is never regenerated on load.
+		"species": species, "body_variant": body_variant, "visual_variant": visual_variant,
 	}
 
 
@@ -291,3 +335,6 @@ func from_dict(d: Dictionary) -> void:
 	# M1: restore home; a pre-M1 save (no home key) keeps the setup() default (hall).
 	_home = Vector2(float(d.get("home_x", _home.x)), float(d.get("home_y", _home.y)))
 	_last_x = global_position.x
+	# M3: restore the persisted identity (pre-M3 saves default to human/masculine).
+	set_identity(str(d.get("species", species)),
+		str(d.get("body_variant", body_variant)), int(d.get("visual_variant", visual_variant)))

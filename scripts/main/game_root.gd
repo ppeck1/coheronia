@@ -1320,11 +1320,39 @@ func _spawn_starting_crew() -> void:
 		crew = [{"id": "citizen_1", "job": "farmhand", "home_dx": 4},
 			{"id": "citizen_2", "job": "repairer", "home_dx": -4}]
 	var t := float(BlockRegistry.tile_size)
+	var idx := 0
 	for entry in crew:
 		var pos: Vector2 = town_hall.global_position \
 			+ Vector2(int(entry.get("home_dx", 0)) * t, -40.0)
-		_spawn_subject_at(pos, str(entry.get("id", "citizen")), str(entry.get("job", "farmhand")))
+		var subj := _spawn_subject_at(pos, str(entry.get("id", "citizen")),
+			str(entry.get("job", "farmhand")))
+		# M3: give each starting citizen a deterministic ancestry identity, so the
+		# same world always spawns the same faces (and load restores them verbatim).
+		var idn: Dictionary = _generate_citizen_identity(world.world_seed * 131 + idx)
+		subj.set_identity(str(idn["species"]), str(idn["body_variant"]), int(idn["visual_variant"]))
+		idx += 1
 	town_hall.population = crew.size()
+
+
+## M3: a deterministic mixed-ancestry citizen identity, biased toward the player's
+## own ancestry (settlers are mostly the player's kin, with visiting others). `key`
+## seeds the RNG so a given citizen is stable across runs/loads. Species are the
+## LIVE player species (those with body art); body variant is 50/50.
+const CITIZEN_PLAYER_ANCESTRY_BIAS := 0.45
+
+
+func _generate_citizen_identity(key: int) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(key)
+	var live: Array = BlockRegistry.player_visuals.get("live_species", ["human"])
+	if live.is_empty():
+		live = ["human"]
+	var player_species := str(GameState.current_character.get("species", "human"))
+	var species := player_species
+	if player_species not in live or rng.randf() >= CITIZEN_PLAYER_ANCESTRY_BIAS:
+		species = str(live[rng.randi() % live.size()])
+	var variant := "masculine" if rng.randf() < 0.5 else "feminine"
+	return {"species": species, "body_variant": variant, "visual_variant": 0}
 
 
 ## R-08 slice 2: reassign a settler's job (validated against SUBJECT_JOBS). The
