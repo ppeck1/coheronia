@@ -331,6 +331,12 @@ func requires_support(block_id: String) -> bool:
 	return bool(get_block(block_id).get("requires_support", false))
 
 
+## Gravity blocks (trees) fall when their connected cluster loses its footing on the
+## solid ground — cohesive terrain (stone/dirt/ore) has no gravity and never falls.
+func has_gravity(block_id: String) -> bool:
+	return bool(get_block(block_id).get("has_gravity", false))
+
+
 # ---------------------------------------------------------------------------
 # FQ-07: visual assets (data/visual_assets.json) — image-first, color fallback
 # ---------------------------------------------------------------------------

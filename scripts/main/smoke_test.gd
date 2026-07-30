@@ -7748,6 +7748,40 @@ func _run() -> void:
 			str(_td_solid), str(_td_consumed), str(_td_open), str(_td_gone),
 			str(_td_drops), world.DOOR_HEIGHT])
 
+	# Slice C: block gravity — a free-standing tree collapses (its blocks fall as ground
+	# drops) when its footing is cut; the grounded part stays; cohesive stone never falls.
+	var _gv_x: int = hall_cell.x - 24
+	var _gv_gy: int = int(world.surface.get(_gv_x, hall_cell.y))   # ground row for this column
+	for _gv_i in range(7):
+		world.break_block(Vector2i(_gv_x, _gv_gy - 1 - _gv_i))     # clear a column above ground
+	# an explicit solid floor so the base's footing is deterministic (not terrain-dependent).
+	world.cells[Vector2i(_gv_x, _gv_gy)] = "stone"
+	world.deltas[Vector2i(_gv_x, _gv_gy)] = "stone"
+	world._set_tile(Vector2i(_gv_x, _gv_gy), "stone")
+	for _gv_i in range(4):                                          # 4-tall trunk on the floor
+		var _tc := Vector2i(_gv_x, _gv_gy - 1 - _gv_i)
+		world.cells[_tc] = "tree_trunk"; world.deltas[_tc] = "tree_trunk"
+		world._set_tile(_tc, "tree_trunk")
+	var _gv_leaf := Vector2i(_gv_x + 1, _gv_gy - 4)                 # a leaf on the top trunk
+	world.cells[_gv_leaf] = "tree_leaves"; world.deltas[_gv_leaf] = "tree_leaves"
+	world._set_tile(_gv_leaf, "tree_leaves")
+	var _gv_drops0: int = get_tree().get_nodes_in_group("item_drops").size()
+	world.break_block(Vector2i(_gv_x, _gv_gy - 2))                 # cut the trunk mid-way
+	var _gv_base_stays: bool = world.block_at(Vector2i(_gv_x, _gv_gy - 1)) == "tree_trunk"
+	var _gv_top_fell: bool = world.block_at(Vector2i(_gv_x, _gv_gy - 3)) == "air" \
+		and world.block_at(Vector2i(_gv_x, _gv_gy - 4)) == "air" \
+		and world.block_at(_gv_leaf) == "air"
+	var _gv_dropped: bool = get_tree().get_nodes_in_group("item_drops").size() > _gv_drops0
+	# stone is cohesive: mining beside it never makes it fall.
+	var _gv_sx := Vector2i(_gv_x + 6, _gv_gy + 2)
+	world.cells[_gv_sx] = "stone"; world.deltas[_gv_sx] = "stone"; world._set_tile(_gv_sx, "stone")
+	world.break_block(Vector2i(_gv_sx.x, _gv_sx.y + 1))            # mine directly under it
+	var _gv_stone_stays: bool = world.block_at(_gv_sx) == "stone"
+	_check("gravity_tree_collapse",
+		_gv_base_stays and _gv_top_fell and _gv_dropped and _gv_stone_stays,
+		"base=%s top_fell=%s dropped=%s stone_stays=%s" % [str(_gv_base_stays),
+			str(_gv_top_fell), str(_gv_dropped), str(_gv_stone_stays)])
+
 	# --- Settlement Coherence (M2-B): housing validation + housing-capped growth ---
 	var _hs_cfg: Dictionary = BlockRegistry.settlement_def().get("housing", {})
 	var _hs_hw: int = BlockRegistry.settlement_bound_cells("half_width_cells", 28)

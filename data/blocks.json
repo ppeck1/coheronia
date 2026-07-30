@@ -282,6 +282,7 @@
       "blocks_light": false,
       "emits_light": false,
       "light_radius": 0,
+      "has_gravity": true,
       "preferred_tool": "axe",
       "settlement_tags": []
     },
@@ -295,6 +296,7 @@
       "blocks_light": false,
       "emits_light": false,
       "light_radius": 0,
+      "has_gravity": true,
       "preferred_tool": "axe",
       "settlement_tags": []
     },

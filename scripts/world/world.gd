@@ -450,7 +450,69 @@ func break_block(cell: Vector2i) -> Dictionary:
 		block_changed.emit(above, "air")
 		for item_id in above_drops:
 			block_drops[item_id] = int(block_drops.get(item_id, 0)) + int(above_drops[item_id])
+	# Gravity: mining can leave a free-standing cluster of gravity blocks (a tree, or
+	# its severed top) with no footing on solid ground — it collapses, its blocks
+	# falling as ground drops. Cohesive terrain (no has_gravity) is untouched, so
+	# mining under stone/dirt costs nothing here.
+	for n in [Vector2i(cell.x, cell.y - 1), Vector2i(cell.x, cell.y + 1),
+			Vector2i(cell.x - 1, cell.y), Vector2i(cell.x + 1, cell.y)]:
+		_collapse_if_floating(n)
 	return block_drops
+
+
+## The connected 4-neighbour cluster of has_gravity cells reachable from `start`
+## (empty if `start` is not a gravity block). Capped so a pathological forest can't
+## stall the frame.
+func _gravity_component(start: Vector2i) -> Array:
+	var comp: Array = []
+	if not BlockRegistry.has_gravity(block_at(start)):
+		return comp
+	var seen := {start: true}
+	var stack: Array = [start]
+	while not stack.is_empty() and comp.size() < 512:
+		var c: Vector2i = stack.pop_back()
+		comp.append(c)
+		for n in [Vector2i(c.x, c.y - 1), Vector2i(c.x, c.y + 1),
+				Vector2i(c.x - 1, c.y), Vector2i(c.x + 1, c.y)]:
+			if not seen.has(n) and BlockRegistry.has_gravity(block_at(n)):
+				seen[n] = true
+				stack.append(n)
+	return comp
+
+
+## A gravity cluster is grounded if ANY of its cells sits directly on a solid,
+## non-gravity block (dirt/stone/etc.) — that footing holds the whole cluster up.
+func _component_grounded(comp: Array) -> bool:
+	for c in comp:
+		var below: Vector2i = Vector2i(c.x, c.y + 1)
+		var bid := block_at(below)
+		if bid != "air" and BlockRegistry.is_solid(bid) and not BlockRegistry.has_gravity(bid):
+			return true
+	return false
+
+
+## If the gravity cluster at `start` has lost its footing, collapse it: remove every
+## cell and drop its items as falling ground drops (leaves keep their tree_seed roll).
+func _collapse_if_floating(start: Vector2i) -> void:
+	if not BlockRegistry.has_gravity(block_at(start)):
+		return
+	var comp := _gravity_component(start)
+	if comp.is_empty() or _component_grounded(comp):
+		return
+	for c in comp:
+		var here := block_at(c)
+		var drops := BlockRegistry.drops(here)
+		var seed_roll := here == "tree_leaves" and randf() < LEAF_SEED_DROP_CHANCE
+		cells.erase(c)
+		deltas[c] = "air"
+		tree_growth.erase(c)
+		_set_tile(c, "air")
+		block_changed.emit(c, "air")
+		var pos := cell_center(c)
+		for item_id in drops:
+			spawn_item_drop(pos, str(item_id), int(drops[item_id]))
+		if seed_roll:
+			spawn_item_drop(pos, "tree_seed", 1)
 
 
 func place_block(cell: Vector2i, block_id: String) -> bool:

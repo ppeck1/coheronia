@@ -483,6 +483,15 @@ func _shoot_item_wiring(root: Node2D, world: Node2D, player: CharacterBody2D, hu
 	_iw_cam.reset_smoothing()
 	await _shot("34_tall_doors")
 
+	# Block gravity: cut the standing tree (shot 27) mid-trunk — the severed top and
+	# canopy lose their footing and fall as wood/leaf drops, while the base stays.
+	world.break_block(Vector2i(_tw0, _tw_row - 3))
+	root.log_event("Cut a trunk and everything above it falls — free-standing blocks obey gravity.")
+	player.global_position = world.cell_center(Vector2i(_tw0 + 1, _tw_row - 1))
+	player.velocity = Vector2.ZERO
+	_iw_cam.reset_smoothing()
+	await _shot("35_tree_gravity")
+
 
 ## Celestial shots: verify the enlarged sun/moon, radiated light, and the
 ## lit-crescent moon (dark side transparent → blends into the night sky).
