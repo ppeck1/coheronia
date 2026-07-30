@@ -21,6 +21,9 @@ const FAMILY_COLORS := {
 	"underground": Color(0.25, 0.55, 0.25, 0.9),
 	"raider": Color(0.72, 0.32, 0.18, 0.9),
 }
+## M4-B: a lava slime is molten, not a generic cave dweller — its body glows the
+## lighter lava-red of its own bubbles rather than the underground green.
+const SLIME_BODY_COL := Color(0.92, 0.42, 0.2, 0.95)
 
 var world: Node2D
 var town_hall: Node2D
@@ -318,7 +321,8 @@ func _draw() -> void:
 		var tint := Color(1.0, 1.0 - hurt, 1.0 - hurt)
 		draw_texture(_art, -_art.get_size() / 2.0, tint)
 	else:
-		var body: Color = FAMILY_COLORS.get(family, FAMILY_COLORS["surface"])
+		var body: Color = SLIME_BODY_COL if emits_bubbles \
+			else FAMILY_COLORS.get(family, FAMILY_COLORS["surface"])
 		if hurt > 0.0:
 			body = body.lightened(hurt)
 		draw_rect(Rect2(-7, -6, 14, 12), body)
