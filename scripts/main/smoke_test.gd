@@ -1888,6 +1888,25 @@ func _run() -> void:
 			str(_fq21_full_width), _fq21_nav_found, hud._hotbar_slots.size(),
 			str(_fq21_child_names)])
 
+	# Slice 4: the cursor can pick a dock slot — cells claim their clicks (STOP)
+	# and are wired to the selection path (was number-keys only).
+	var _dc_prev: int = player.selected_slot
+	var _dc_target: int = 0 if player.selected_slot != 0 else 1
+	var _dc_cells_ok: bool = hud._hotbar_cells.size() >= 5
+	var _dc_stop_ok: bool = _dc_cells_ok \
+		and (hud._hotbar_cells[0] as Control).mouse_filter == Control.MOUSE_FILTER_STOP
+	var _dc_wired_ok: bool = _dc_cells_ok \
+		and (hud._hotbar_cells[0] as Control).gui_input.get_connections().size() >= 1
+	hud._select_dock_slot(_dc_target)   # the exact path a cell click invokes
+	var _dc_selected_ok: bool = player.selected_slot == _dc_target \
+		and hud.hotbar_selected_index() == _dc_target
+	player.selected_slot = _dc_prev
+	hud._refresh_dock_selection_styles()
+	_check("hud_dock_click_selects",
+		_dc_stop_ok and _dc_wired_ok and _dc_selected_ok,
+		"stop=%s wired=%s selected=%s cells=%d" % [str(_dc_stop_ok), str(_dc_wired_ok),
+			str(_dc_selected_ok), hud._hotbar_cells.size()])
+
 	# Optional HUD themes resolve per static asset. Missing, unsafe-id, and
 	# wrong-size candidates must all fall back to the required base PNG, while
 	# a valid same-contract sibling is selected without changing gameplay data.

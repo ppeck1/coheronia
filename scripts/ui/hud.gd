@@ -204,6 +204,7 @@ func _ready() -> void:
 	_hud_visual_theme = _initial_hud_visual_theme()
 	_build_top_left()
 	_build_bottom_left()
+	_wire_hotbar_clicks()
 	_build_command_center_widget()
 	_build_log()
 	_build_context_stack()
@@ -3335,6 +3336,25 @@ func _select_equipment_slot(slot: Dictionary, item_id: String) -> void:
 	if _is_tool_slot(str(slot.get("id", ""))):
 		lines.append("Drag to backpack to stow this tool.")
 	_set_selected_detail(lines)
+
+
+## Slice 4: let the cursor pick a dock slot (previously number-keys only). Each
+## hotbar cell claims its clicks and selects its slot; the number keys and the
+## inventory-board dock drag are unchanged, and clicks are ignored while the HUD
+## is in edit mode so the dock band stays draggable.
+func _wire_hotbar_clicks() -> void:
+	for i in range(_hotbar_cells.size()):
+		var cell: Control = _hotbar_cells[i]
+		if cell == null:
+			continue
+		cell.mouse_filter = Control.MOUSE_FILTER_STOP
+		var slot_index := i
+		cell.gui_input.connect(func(ev: InputEvent) -> void:
+			if _hud_edit_mode:
+				return
+			if ev is InputEventMouseButton and ev.pressed \
+					and ev.button_index == MOUSE_BUTTON_LEFT:
+				_select_dock_slot(slot_index))
 
 
 func _select_dock_slot(index: int) -> void:
