@@ -1,6 +1,6 @@
 # Current Live
 
-Generated: 2026-07-16
+Generated: 2026-07-30
 
 This page lists wiki surfaces that represent current live behavior or currently obtainable data. Source-only entries appear here only when they are live or defined in current data; planning notes are kept on [Planned Data](planned_data.md).
 
@@ -43,11 +43,21 @@ This page lists wiki surfaces that represent current live behavior or currently 
 
 | Surface | Current live state |
 |---|---|
-| Primary HUD | A native 19-asset layered dock kit is the preferred runtime path. Contract v2 positions every runtime child from JSON, protects vessel keep-outs, validates state-family geometry and alpha rules, and permits manifest-declared non-interactive decorative layers. Health, attunement, icons, counts, hotkeys, visible labels, actions, and interaction states remain runtime-driven. Map and Events are independent movable modules and can remain open together. |
+| Primary HUD | A native 19-asset layered dock kit is the preferred runtime path. Contract v2 positions every runtime child from JSON, protects vessel keep-outs, validates state-family geometry and alpha rules, and permits manifest-declared non-interactive decorative layers. Health, attunement, icons, counts, hotkeys, visible labels, actions, and interaction states remain runtime-driven. Map and Events are independent movable modules and can remain open together. **Dock slots are cursor-selectable** (click to select; number keys still work). The **settler info panel** (click any citizen or its Town Hall row) shows name, role, days alive, four stats, and a live needs/coherence/want report, and is itself a **movable/resizable Edit-mode widget**. The **Town Hall stockpile is a drag-and-drop grid** like the player inventory — drag stacks in to deposit and out to withdraw, or click to pull (Left = all, Right = half, Shift+Left = choose an amount), with the Town Hall as the sole authority. |
+| Sky & lighting | A presentation-only **sun and moon** ride a fixed arc anchored in world space, hidden entirely underground. The moon runs a **true ~29-day continuous synodic cycle** through every named phase (New → Waxing Crescent → First Quarter → Waxing Gibbous → Full → …, named on the night clock). Torches, lava, and the sun/moon share one soft **radial-glow** lighting helper (bright core, feathered edge), and each body casts a large soft light — a warm sun and a subtle cooler-blue moon that pools moonlight on the ground at night. |
 | Equipped character presentation | Crude helmet, torso, and feet have authored overlays for all ten current bodies. The basic pick, forged pick, and crude axe have authored three-phase swing overlays for all ten bodies. Other equipment retains a rig-aware procedural fallback. |
 | Opening presentation | All eight opening scenes have authored cel pools, with ten PNGs total. Deterministic plotted scenes remain available as fallback. |
 
 Presentation defects that do not invalidate the gameplay state are tracked on [Known Issues](known_issues.md).
+
+## Current World & Settlement Mechanics
+
+| Mechanic | Current live state |
+|---|---|
+| Bounded persistent citizens | Each settler has a saved home/guard post, a hard movement clamp, an ancestry identity drawn through the player sprite pipeline, and four stats. Stats bite: Vigor scales move speed, Guard scales a defender's hit. A defender role guards a post and engages threats; the visible roster tracks the population authority. |
+| Doors | Doors are a **full-height (3-tall × 1-wide) unit** that opens/closes and mines as one, leaving a character-height opening the player and every settler can walk through when open. Placed via the `door` item; recognized by the housing rule. |
+| Block gravity | Free-standing gravity blocks (tree trunk/leaves, via the `has_gravity` flag) **fall when their footing is cut** — mine through a trunk and the severed top and canopy drop as wood/leaf ground items, while the grounded base stays. Cohesive terrain (stone, dirt, ore) never falls. |
+| Housing-capped growth | An enclosed, doored room is recognized as a house and caps population growth at `min(base-level cap, housing)`, so building is required to grow. |
 
 ## Live Species
 
