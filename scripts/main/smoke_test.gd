@@ -7444,6 +7444,26 @@ func _run() -> void:
 		"fed_coh=%d hungry_coh=%d hungry_issue=%s" % [int(_cp_rep_fed["coherence"]),
 			int(_cp_rep_hungry["coherence"]), str(_cp_rep_hungry["issue"] != "")])
 
+	# Slice 2 (feedback): each need carries a label + a plain-language reason (the
+	# hover qualifier), the reason changes with met/unmet, and a vague want ("strong
+	# walls") is defined via its need so the panel is self-explanatory.
+	_cp_c.set_profile("Curious", 2, {"spirit": 5}, "walls")     # wants strong walls (safety)
+	var _cp_walls: Dictionary = root.citizen_report(_cp_c)
+	var _cp_food_d: Dictionary = _cp_walls.get("need_details", {}).get("food", {})
+	hall.stockpile["food"] = 8
+	var _cp_food_ok_d: Dictionary = root.citizen_report(_cp_c).get("need_details", {}).get("food", {})
+	hall.stockpile.erase("food")
+	var _cp_want: Dictionary = _cp_walls.get("want", {})
+	_check("cp_report_needs_reasons",
+		str(_cp_food_d.get("label", "")) == "Food"
+		and str(_cp_food_d.get("reason", "")) != ""
+		and str(_cp_food_d.get("reason", "")) != str(_cp_food_ok_d.get("reason", ""))
+		and str(_cp_want.get("text", "")) == "strong walls"
+		and str(_cp_want.get("need", "")) == "safety"
+		and str(_cp_want.get("definition", "")) != "",
+		"unmet_reason=%s want=%s def=%s" % [str(_cp_food_d.get("reason", "")),
+			str(_cp_want.get("text", "")), str(_cp_want.get("definition", ""))])
+
 	# --- Settlement Coherence (M3-B): dynamic roster <-> population authority ---
 	# grow the population authority; the sync spawns newcomers to match, each born
 	# with a live-species identity.

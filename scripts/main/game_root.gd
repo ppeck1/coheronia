@@ -1513,13 +1513,42 @@ func citizen_report(subject) -> Dictionary:
 		issue = "No food in the stockpile — this settler has stopped working until the larder is refilled."
 	elif not food_ok and is_defender:
 		issue = "Hungry — still holding its post, but the larder is empty."
+	# Per-need detail: a label, whether it is met, and a plain-language reason. The
+	# reason on an UNMET need explains what is wrong and how to fix it (shown when the
+	# player hovers the red ✗ in the panel); a met need reads as a short confirmation.
+	var need_details := {
+		"food": {
+			"label": "Food", "met": food_ok,
+			"reason": "The larder is stocked." if food_ok
+				else "The larder is empty — deposit food into the Town Hall stockpile.",
+		},
+		"shelter": {
+			"label": "Shelter", "met": shelter_ok,
+			"reason": "There is a bed for everyone." if shelter_ok
+				else "Housing is below the population — build enclosed, doored houses to make room.",
+		},
+		"safety": {
+			"label": "Safety", "met": safe,
+			"reason": "The settlement is secure." if safe
+				else "A threat is near or the hall is damaged — post a defender and repair the walls.",
+		},
+	}
 	var want_def := BlockRegistry.citizen_want_def(str(subject.want))
 	var want_need := str(want_def.get("need", ""))
+	# Define the want in plain language via the need it stands for, so a vague want
+	# like "strong walls" reads as what actually satisfies it.
+	var need_meaning := {
+		"food": "a well-stocked larder", "shelter": "a roof and room for everyone",
+		"safety": "the settlement kept safe from threats",
+	}
 	return {
 		"status": status, "issue": issue, "needs": needs, "coherence": coherence,
+		"need_details": need_details,
 		"want": {
 			"text": str(want_def.get("text", "")),
 			"met": bool(needs.get(want_need, true)),
+			"need": want_need,
+			"definition": str(need_meaning.get(want_need, "")),
 		},
 	}
 

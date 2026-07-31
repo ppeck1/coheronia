@@ -492,6 +492,19 @@ func _shoot_item_wiring(root: Node2D, world: Node2D, player: CharacterBody2D, hu
 	_iw_cam.reset_smoothing()
 	await _shot("35_tree_gravity")
 
+	# Settler info panel: green ✓ / red ✗ per-need chips + a defined want. Empty the
+	# larder so at least one need shows red, then open the panel on a settler.
+	var _sp_hall = root.get_node("TownHall")
+	if _sp_hall != null:
+		_sp_hall.stockpile.erase("food")
+		_sp_hall.stockpile_changed.emit()
+	for _sp_sub in get_tree().get_nodes_in_group("subjects"):
+		if not _sp_sub.is_queued_for_deletion():
+			_sp_sub.set_profile("Rowan Ashfield", 1, {"vigor": 6, "craft": 7, "guard": 4, "spirit": 5}, "walls")
+			hud.open_npc_panel(_sp_sub)
+			break
+	await _shot("37_settler_panel")
+
 
 ## Celestial shots: verify the enlarged sun/moon, radiated light, and the
 ## lit-crescent moon (dark side transparent → blends into the night sky).
