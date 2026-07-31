@@ -1,6 +1,6 @@
 # Workbench
 
-Generated: 2026-07-30
+Generated: 2026-07-31
 
 > `Crafting station` page.
 

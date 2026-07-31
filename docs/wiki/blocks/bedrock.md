@@ -1,6 +1,6 @@
 # Bedrock
 
-Generated: 2026-07-30
+Generated: 2026-07-31
 
 > `Block` page.
 

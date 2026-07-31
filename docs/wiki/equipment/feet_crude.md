@@ -1,6 +1,6 @@
 # Crude Boots
 
-Generated: 2026-07-30
+Generated: 2026-07-31
 
 > `Equipment` page. Current status: `complete`.
 

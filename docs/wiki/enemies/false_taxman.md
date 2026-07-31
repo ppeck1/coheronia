@@ -1,6 +1,6 @@
 # False Taxman
 
-Generated: 2026-07-30
+Generated: 2026-07-31
 
 > `Enemy` page. Current status: `planned`.
 

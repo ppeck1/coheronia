@@ -1,6 +1,6 @@
 # Current Live
 
-Generated: 2026-07-30
+Generated: 2026-07-31
 
 This page lists wiki surfaces that represent current live behavior or currently obtainable data. Source-only entries appear here only when they are live or defined in current data; planning notes are kept on [Planned Data](planned_data.md).
 
@@ -54,7 +54,8 @@ Presentation defects that do not invalidate the gameplay state are tracked on [K
 
 | Mechanic | Current live state |
 |---|---|
-| Bounded persistent citizens | Each settler has a saved home/guard post, a hard movement clamp, an ancestry identity drawn through the player sprite pipeline, and four stats. Stats bite: Vigor scales move speed, Guard scales a defender's hit. A defender role guards a post and engages threats; the visible roster tracks the population authority. |
+| Bounded persistent citizens | Each settler has a saved home/guard post, a hard movement clamp, an ancestry identity drawn through the player sprite pipeline, and four stats. Stats bite: Vigor scales move speed, Guard scales a defender's hit. A defender role guards a post and engages threats; the visible roster tracks the population authority. The info panel shows needs as **green ✓ / red ✗** chips (hover a ✗ for what's wrong and how to fix it) and defines each want. |
+| Settler jobs & work zones | Farmhands **harvest and replant** (a seed pouch keeps a seed from each harvest to sow on tilled soil); haulers carry ground drops to the stockpile; repairers fix the hall; defenders hold a post. Any settler can be given a **work zone** — *Set work zone* on its panel, then drag a rectangle in the world — and it then works only inside that zone (clamped to the settlement bounds). |
 | Doors | Doors are a **full-height (3-tall × 1-wide) unit** that opens/closes and mines as one, leaving a character-height opening the player and every settler can walk through when open. Placed via the `door` item; recognized by the housing rule. |
 | Block gravity | Free-standing gravity blocks (tree trunk/leaves, via the `has_gravity` flag) **fall when their footing is cut** — mine through a trunk and the severed top and canopy drop as wood/leaf ground items, while the grounded base stays. Cohesive terrain (stone, dirt, ore) never falls. |
 | Housing-capped growth | An enclosed, doored room is recognized as a house and caps population growth at `min(base-level cap, housing)`, so building is required to grow. |
