@@ -2006,8 +2006,12 @@ func _run() -> void:
 	# be moved and resized through the same edit path as the crest/goal/events.
 	var _npce_registered: bool = hud._hud_widgets.get("npc") == hud._npc_panel \
 		and hud._editable_hud_widget_ids().has("npc")
+	# Reset the widget to its default geometry first so a layout persisted by an
+	# earlier run cannot leave the panel off-screen / unsized when we read the grip.
+	hud._npc_panel.position = hud._hud_default_positions.get("npc", hud._npc_panel.position)
 	hud._npc_panel.visible = true
-	await get_tree().process_frame
+	for _npce_f in range(3):
+		await get_tree().process_frame       # let the container compute its size
 	var _npce_grip: Rect2 = hud._hud_grip_rect("npc")   # non-empty only when visible
 	var _npce_pos0: Vector2 = hud._npc_panel.position
 	hud._hud_edit_selected = "npc"
@@ -5100,6 +5104,32 @@ func _run() -> void:
 		_r08_hungry and not _r08_worked_hungry and _r08_crop_standing and _r08_fed,
 		"hungry=%s worked_while_hungry=%s crop_standing=%s fed_clears=%s" % [
 			str(_r08_hungry), str(_r08_worked_hungry), str(_r08_crop_standing), str(_r08_fed)])
+
+	# Slice 3 (feedback): a farmhand also PLANTS — with no crop to reap but seed in its
+	# pouch and tilled soil in its area, it sows a fresh seedling; an empty pouch does
+	# not. (Harvesting refills the pouch, so it's a self-sustaining replant loop.)
+	hall.stockpile["food"] = 5                    # fed, so it isn't idle-hungry
+	_sub.job = "farmhand"
+	_sub.refresh_hunger()
+	var _fp_soil: Vector2i = world.cell_of(_sub.global_position) + Vector2i(3, 3)
+	var _fp_air: Vector2i = Vector2i(_fp_soil.x, _fp_soil.y - 1)
+	world.cells[_fp_soil] = "farm_soil"; world.deltas[_fp_soil] = "farm_soil"
+	world._set_tile(_fp_soil, "farm_soil")
+	world.cells.erase(_fp_air); world.deltas[_fp_air] = "air"; world._set_tile(_fp_air, "air")
+	_sub.global_position = world.cell_center(_fp_air)
+	_sub.set_home(world.cell_center(_fp_air))     # bed within the work radius
+	_sub.seed_pouch = 3
+	_sub.run_job(0.1)
+	var _fp_planted: bool = world.block_at(_fp_air) == "crop_seedling" and _sub.seed_pouch == 2
+	world.break_block(_fp_air)                    # clear it and retry with no seed
+	world.cells.erase(_fp_air); world.deltas[_fp_air] = "air"; world._set_tile(_fp_air, "air")
+	_sub.seed_pouch = 0
+	_sub.run_job(0.1)
+	var _fp_no_seed: bool = world.block_at(_fp_air) != "crop_seedling"
+	world.cells.erase(_fp_soil); world.deltas.erase(_fp_soil); world._set_tile(_fp_soil, "air")
+	hall.stockpile["food"] = _r08_saved_food
+	_check("farmhand_replants", _fp_planted and _fp_no_seed,
+		"planted=%s pouch=%d no_seed=%s" % [str(_fp_planted), _sub.seed_pouch, str(_fp_no_seed)])
 
 	# (r) R-08 slice 2: a repairer settler repairs a damaged hall from the
 	# stockpile (the same town_hall.repair authority as the player's button:

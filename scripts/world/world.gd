@@ -702,6 +702,25 @@ func nearest_ripe_crop(from: Vector2i, radius: int) -> Vector2i:
 	return best
 
 
+## The nearest empty planting spot within `radius` (Chebyshev) of `from`: the AIR
+## cell directly above a tilled `farm_soil` cell (where plant_crop can sow). Used by
+## the farmhand's replant loop. Returns (-1,-1) when none is in range.
+func nearest_plantable_soil(from: Vector2i, radius: int) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_d := radius + 1
+	for cell in cells:
+		if cells[cell] != "farm_soil":
+			continue
+		var above := Vector2i(cell.x, cell.y - 1)
+		if block_at(above) != "air":
+			continue
+		var d: int = maxi(absi(above.x - from.x), absi(above.y - from.y))
+		if d <= radius and d < best_d:
+			best_d = d
+			best = above
+	return best
+
+
 ## R-08: a farmhand harvesting a ripe crop -- removes it and returns its drops
 ## (food + seed). Only crop_ripe yields; anything else returns {}. Mirrors
 ## eat_crop's bookkeeping but keeps the harvest yield for the settlement.

@@ -78,6 +78,7 @@ var citizen_name := ""
 var birth_day := 1
 var stats: Dictionary = {}
 var want := ""   # a persisted want id (see citizen_names.json wants); flavor + a need hook
+var seed_pouch := 3   # crop seeds the farmhand carries; harvest refills, planting spends
 
 const BODY_RECT := Rect2(-8, -32, 16, 32)   # 16x32 body, feet at the origin
 
@@ -284,11 +285,22 @@ func _run_farmhand(_delta: float) -> bool:
 	var home_cell: Vector2i = world.cell_of(_home)
 	if _target.x < 0 or world.block_at(_target) != "crop_ripe":
 		_target = world.nearest_ripe_crop(home_cell, work_radius_cells())
+	# No ripe crop to reap: if the farmhand still carries seed, tend the beds by
+	# planting on empty tilled soil in its work area (a self-sustaining harvest ->
+	# replant loop). TODO(future): also till dirt/grass into farm_soil first.
+	var planting := false
+	if _target.x < 0 and seed_pouch > 0:
+		_target = world.nearest_plantable_soil(home_cell, work_radius_cells())
+		planting = _target.x >= 0
 	if _target.x < 0:
 		return false
 	var tpos: Vector2 = world.cell_center(_target)
 	if global_position.distance_to(tpos) <= HARVEST_DIST:
-		_harvest(_target)
+		if planting:
+			if world.plant_crop(_target):
+				seed_pouch -= 1
+		else:
+			_harvest(_target)
 		_target = Vector2i(-1, -1)
 		velocity.x = 0.0
 		return true
@@ -391,9 +403,16 @@ func _deposit_drop(drop) -> void:
 ## solely by the abstract population model (see the contract note at the top).
 func _harvest(cell: Vector2i) -> void:
 	var drops: Dictionary = world.harvest_crop(cell)
+	var deposited := false
 	for item_id in drops:
+		# Keep harvested seed in the farmhand's pouch to replant (seeds are not
+		# stockpile-eligible by design); everything else (food) goes to the stockpile.
+		if str(item_id) == "crop_seeds":
+			seed_pouch += int(drops[item_id])
+			continue
 		town_hall.stockpile[item_id] = int(town_hall.stockpile.get(item_id, 0)) + int(drops[item_id])
-	if not drops.is_empty():
+		deposited = true
+	if deposited:
 		town_hall.stockpile_changed.emit()
 
 
@@ -457,6 +476,7 @@ func to_dict() -> Dictionary:
 		"species": species, "body_variant": body_variant, "visual_variant": visual_variant,
 		# Citizen profile: name/join-day/stats/want persist verbatim.
 		"name": citizen_name, "birth_day": birth_day, "stats": stats.duplicate(), "want": want,
+		"seed_pouch": seed_pouch,
 	}
 
 
@@ -481,3 +501,4 @@ func from_dict(d: Dictionary) -> void:
 		for k in raw_stats:
 			stats[str(k)] = int(raw_stats[k])
 	want = str(d.get("want", want))
+	seed_pouch = int(d.get("seed_pouch", seed_pouch))
