@@ -702,6 +702,38 @@ func nearest_ripe_crop(from: Vector2i, radius: int) -> Vector2i:
 	return best
 
 
+## Work-zone variants: the nearest ripe crop / plantable soil INSIDE a cell rect
+## (the settler's work_bounds), tie-broken by distance to `from` (home). Empty rect
+## → nothing found. Used so a per-NPC work zone can steer where each settler works.
+func nearest_ripe_crop_in(rect: Rect2i, from: Vector2i) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_d := 1 << 30
+	for cell in cells:
+		if cells[cell] != "crop_ripe" or not rect.has_point(cell):
+			continue
+		var d: int = maxi(absi(cell.x - from.x), absi(cell.y - from.y))
+		if d < best_d:
+			best_d = d
+			best = cell
+	return best
+
+
+func nearest_plantable_soil_in(rect: Rect2i, from: Vector2i) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_d := 1 << 30
+	for cell in cells:
+		if cells[cell] != "farm_soil":
+			continue
+		var above := Vector2i(cell.x, cell.y - 1)
+		if not rect.has_point(above) or block_at(above) != "air":
+			continue
+		var d: int = maxi(absi(above.x - from.x), absi(above.y - from.y))
+		if d < best_d:
+			best_d = d
+			best = above
+	return best
+
+
 ## The nearest empty planting spot within `radius` (Chebyshev) of `from`: the AIR
 ## cell directly above a tilled `farm_soil` cell (where plant_crop can sow). Used by
 ## the farmhand's replant loop. Returns (-1,-1) when none is in range.
@@ -770,6 +802,26 @@ func nearest_item_drop(from: Vector2i, radius: int) -> Node:
 		var c: Vector2i = cell_of(d.global_position)
 		var dist: int = maxi(absi(c.x - from.x), absi(c.y - from.y))
 		if dist <= radius and dist < best_d:
+			best_d = dist
+			best = d
+	return best
+
+
+## Work-zone variant of nearest_item_drop: nearest depositable ground drop INSIDE a
+## cell rect (the hauler's work_bounds), tie-broken by distance to `from`.
+func nearest_item_drop_in(rect: Rect2i, from: Vector2i) -> Node:
+	var best: Node = null
+	var best_d := 1 << 30
+	for d in get_tree().get_nodes_in_group("item_drops"):
+		if not is_instance_valid(d) or d.is_queued_for_deletion():
+			continue
+		if not BlockRegistry.is_stockpile_material(str(d.item_id)):
+			continue
+		var c: Vector2i = cell_of(d.global_position)
+		if not rect.has_point(c):
+			continue
+		var dist: int = maxi(absi(c.x - from.x), absi(c.y - from.y))
+		if dist < best_d:
 			best_d = dist
 			best = d
 	return best

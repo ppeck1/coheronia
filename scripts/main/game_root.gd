@@ -70,6 +70,11 @@ var _craft_panel: CanvasLayer   # R-07: unified crafting/building navigation
 var _contracts_panel: CanvasLayer   # R-09: player-facing directed goals
 var time_of_day := 0.25
 var _celestial: Node2D   # M5-A: sun/moon sky renderer (presentation-only)
+# Per-NPC work-zone drag assignment (feedback): a modal mode where two world clicks
+# define the rectangle a settler works in. A world-space preview draws the pending rect.
+var _workzone_target := ""
+var _workzone_anchor := Vector2i(-1, -1)
+var _workzone_preview: Node2D
 var _clock_refresh_accum := 0.0
 var day_count := 1
 var is_night := false
@@ -183,6 +188,13 @@ func _ready() -> void:
 	# settlement claims to hold.
 	# M5-A: the sun/moon sky renderer lives in the world canvas (day/night tint
 	# applies), presentation-only and never saved.
+	# Work-zone drag preview (world-space; drawn while assigning a settler's zone).
+	_workzone_preview = Node2D.new()
+	_workzone_preview.name = "WorkZonePreview"
+	_workzone_preview.z_index = 60
+	_workzone_preview.visible = false
+	_workzone_preview.draw.connect(_draw_workzone_preview)
+	world.add_child(_workzone_preview)
 	_celestial = CelestialScript.new()
 	world.add_child(_celestial)
 	_celestial.set_sky_baseline(_sky_baseline_y())
@@ -544,6 +556,7 @@ func _wire_signals() -> void:
 	hud.contracts_requested.connect(_open_contracts_panel)
 	hud.subject_job_cycle_requested.connect(_on_subject_job_cycle)   # R-08 slice 2
 	hud.subject_inspect_requested.connect(_on_subject_inspect_requested)   # citizen panel from roster
+	hud.subject_workzone_requested.connect(_begin_work_zone)   # drag-to-define a settler's work area
 	player.npc_inspected.connect(hud.open_npc_panel)                       # citizen panel from a world click
 	hud.withdraw_requested.connect(_on_withdraw_requested)           # M2 stockpile withdraw
 	hud.withdraw_all_requested.connect(_on_withdraw_all_requested)
@@ -584,9 +597,14 @@ func _process(delta: float) -> void:
 	var _near_hall: bool = not hud.town_panel_open() \
 		and player.global_position.distance_to(town_hall.global_position) <= INTERACT_RANGE
 	hud.set_interaction_prompt("[E] Town Hall" if _near_hall else "")
+	if GameState.workzone_mode and _workzone_preview != null:
+		_workzone_preview.queue_redraw()   # follow the aim cell while dragging the zone
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if GameState.workzone_mode:
+		_handle_workzone_input(event)
+		return
 	if GameState.hud_edit_mode:
 		return
 	if event.is_action_pressed("save_game"):
@@ -1652,6 +1670,77 @@ func _on_subject_inspect_requested(id: String) -> void:
 		if not s.is_queued_for_deletion() and str(s.subject_id) == id:
 			hud.open_npc_panel(s)
 			return
+
+
+## Feedback: enter the modal work-zone assign mode for a settler. Two world clicks
+## define the rectangle it works in; the player may still walk (to reach off-screen
+## cells) but clicks are captured. Esc / right-click cancels.
+func _begin_work_zone(id: String) -> void:
+	_workzone_target = id
+	_workzone_anchor = Vector2i(-1, -1)
+	GameState.workzone_mode = true
+	if _workzone_preview != null:
+		_workzone_preview.visible = true
+	log_event("Set work zone: click two corners in the world (Esc to cancel).")
+
+
+func _end_work_zone() -> void:
+	GameState.workzone_mode = false
+	_workzone_target = ""
+	_workzone_anchor = Vector2i(-1, -1)
+	if _workzone_preview != null:
+		_workzone_preview.visible = false
+
+
+func _handle_workzone_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo \
+			and event.keycode == KEY_ESCAPE:
+		log_event("Work zone cancelled.")
+		_end_work_zone()
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			log_event("Work zone cancelled.")
+			_end_work_zone()
+		elif event.button_index == MOUSE_BUTTON_LEFT:
+			var cell: Vector2i = world.cell_of(get_global_mouse_position())
+			if _workzone_anchor.x < 0 or _workzone_anchor.y < 0:
+				_workzone_anchor = cell   # first corner; move + click again for the second
+			else:
+				var rect := _rect_from_corners(_workzone_anchor, cell)
+				assign_work_zone(_workzone_target, rect)
+				log_event("Work zone set (%d×%d cells)." % [rect.size.x, rect.size.y])
+				_end_work_zone()
+		get_viewport().set_input_as_handled()
+
+
+## The socket both the world-drag and a future Map-drawn source call to store a
+## settler's work zone. Returns true if the settler was found.
+func assign_work_zone(subject_id: String, rect: Rect2i) -> bool:
+	for s in get_tree().get_nodes_in_group("subjects"):
+		if not s.is_queued_for_deletion() and str(s.subject_id) == subject_id:
+			s.set_work_rect(rect)
+			hud.refresh_npc_panel()
+			return true
+	return false
+
+
+func _rect_from_corners(a: Vector2i, b: Vector2i) -> Rect2i:
+	return Rect2i(mini(a.x, b.x), mini(a.y, b.y), absi(a.x - b.x) + 1, absi(a.y - b.y) + 1)
+
+
+func _draw_workzone_preview() -> void:
+	if _workzone_preview == null or not GameState.workzone_mode or world == null:
+		return
+	var aim: Vector2i = world.cell_of(get_global_mouse_position())
+	var a: Vector2i = _workzone_anchor if _workzone_anchor.x >= 0 else aim
+	var rc := _rect_from_corners(a, aim)
+	var t := float(world.tile_size())
+	var r := Rect2(float(rc.position.x) * t, float(rc.position.y) * t,
+		float(rc.size.x) * t, float(rc.size.y) * t)
+	_workzone_preview.draw_rect(r, Color(0.4, 0.9, 0.45, 0.18))
+	_workzone_preview.draw_rect(r, Color(0.55, 1.0, 0.55, 0.9), false, 2.0)
 
 
 ## R-08: serialize the visible settlers for the world save (identity/pos/job/hunger).

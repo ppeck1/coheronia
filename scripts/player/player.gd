@@ -360,6 +360,13 @@ func _physics_process(delta: float) -> void:
 	if world == null:
 		return
 	_handle_hotbar()
+	# While assigning a settler's work zone, the player may still walk (to extend the
+	# zone off-screen) but mouse clicks define the rectangle — suppress mine/place/farm.
+	if GameState.workzone_mode:
+		collect_ground_drops()
+		_apply_environmental_hazard()
+		queue_redraw()
+		return
 	_handle_mining(delta)
 	collect_ground_drops()   # R-08 slice 3: walk over loose items to pick them up
 	_apply_environmental_hazard()   # WD-3: lava (and any contact_damage block)

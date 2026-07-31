@@ -24,6 +24,7 @@ var current_world_id: String = ""
 var current_config: WorldConfig = null
 var hud_edit_mode := false
 var craft_panel_open := false   # R-07: the crafting panel captures player input
+var workzone_mode := false      # assigning a settler's work zone: clicks define a rect
 # R-03: injectable persistence root (see COHERONIA_PERSIST_ROOT). Derives the
 # shell + worlds paths so a test root fully isolates from the real profile.
 var persistence_root := DEFAULT_PERSISTENCE_ROOT

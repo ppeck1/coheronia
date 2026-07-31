@@ -79,6 +79,7 @@ var birth_day := 1
 var stats: Dictionary = {}
 var want := ""   # a persisted want id (see citizen_names.json wants); flavor + a need hook
 var seed_pouch := 3   # crop seeds the farmhand carries; harvest refills, planting spends
+var work_rect := Rect2i()   # cell-space work zone; empty (0 area) = radius around home
 
 const BODY_RECT := Rect2(-8, -32, 16, 32)   # 16x32 body, feet at the origin
 
@@ -194,6 +195,34 @@ func work_radius_cells() -> int:
 	return BlockRegistry.settlement_bound_cells("work_radius_cells", WORK_RADIUS_CELLS)
 
 
+## The effective work area in CELLS: the player-assigned `work_rect` if one is set,
+## otherwise a radius box around home. Always clamped to the settlement bounds so the
+## (movement-clamped) settler can actually reach every cell it is told to work. Job
+## target searches (crops, planting, hauling) run inside this rect.
+func work_bounds() -> Rect2i:
+	var t := float(BlockRegistry.tile_size)
+	var b := settlement_bounds_px()
+	var smin := Vector2i(int(floor(b["min_x"] / t)), int(floor(b["min_y"] / t)))
+	var smax := Vector2i(int(ceil(b["max_x"] / t)), int(ceil(b["max_y"] / t)))
+	var rect: Rect2i
+	if work_rect.size.x > 0 and work_rect.size.y > 0:
+		rect = work_rect
+	else:
+		var hc: Vector2i = world.cell_of(_home)
+		var r := work_radius_cells()
+		rect = Rect2i(hc.x - r, hc.y - r, r * 2, r * 2)
+	var x0 := maxi(rect.position.x, smin.x)
+	var y0 := maxi(rect.position.y, smin.y)
+	var x1 := mini(rect.position.x + rect.size.x, smax.x)
+	var y1 := mini(rect.position.y + rect.size.y, smax.y)
+	return Rect2i(x0, y0, maxi(0, x1 - x0), maxi(0, y1 - y0))
+
+
+## Assign (or clear, with an empty rect) this settler's work zone.
+func set_work_rect(rect: Rect2i) -> void:
+	work_rect = rect
+
+
 ## M1: the settlement rectangle in WORLD PIXELS, centred on the Town Hall. Citizens
 ## hard-clamp inside it so a settler can never wander off the map (the left-edge
 ## bug) — target selection was already radius-bounded, but the body itself was not.
@@ -283,14 +312,15 @@ func run_job(delta: float) -> bool:
 ## to it and, once in range, harvest it into the hall stockpile.
 func _run_farmhand(_delta: float) -> bool:
 	var home_cell: Vector2i = world.cell_of(_home)
+	var zone := work_bounds()
 	if _target.x < 0 or world.block_at(_target) != "crop_ripe":
-		_target = world.nearest_ripe_crop(home_cell, work_radius_cells())
+		_target = world.nearest_ripe_crop_in(zone, home_cell)
 	# No ripe crop to reap: if the farmhand still carries seed, tend the beds by
 	# planting on empty tilled soil in its work area (a self-sustaining harvest ->
 	# replant loop). TODO(future): also till dirt/grass into farm_soil first.
 	var planting := false
 	if _target.x < 0 and seed_pouch > 0:
-		_target = world.nearest_plantable_soil(home_cell, work_radius_cells())
+		_target = world.nearest_plantable_soil_in(zone, home_cell)
 		planting = _target.x >= 0
 	if _target.x < 0:
 		return false
@@ -331,7 +361,7 @@ func _run_repairer(_delta: float) -> bool:
 ## stockpile and never spends food.
 func _run_hauler(_delta: float) -> bool:
 	var home_cell: Vector2i = world.cell_of(_home)
-	var drop = world.nearest_item_drop(home_cell, work_radius_cells())
+	var drop = world.nearest_item_drop_in(work_bounds(), home_cell)
 	if drop == null:
 		return false
 	var dpos: Vector2 = drop.global_position
@@ -477,6 +507,8 @@ func to_dict() -> Dictionary:
 		# Citizen profile: name/join-day/stats/want persist verbatim.
 		"name": citizen_name, "birth_day": birth_day, "stats": stats.duplicate(), "want": want,
 		"seed_pouch": seed_pouch,
+		# Per-settler work zone (cells); [x, y, w, h], all zero = unset (radius default).
+		"work_zone": [work_rect.position.x, work_rect.position.y, work_rect.size.x, work_rect.size.y],
 	}
 
 
@@ -502,3 +534,6 @@ func from_dict(d: Dictionary) -> void:
 			stats[str(k)] = int(raw_stats[k])
 	want = str(d.get("want", want))
 	seed_pouch = int(d.get("seed_pouch", seed_pouch))
+	var wz: Array = d.get("work_zone", [])
+	if wz.size() >= 4:
+		work_rect = Rect2i(int(wz[0]), int(wz[1]), int(wz[2]), int(wz[3]))

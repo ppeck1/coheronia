@@ -5131,6 +5131,31 @@ func _run() -> void:
 	_check("farmhand_replants", _fp_planted and _fp_no_seed,
 		"planted=%s pouch=%d no_seed=%s" % [str(_fp_planted), _sub.seed_pouch, str(_fp_no_seed)])
 
+	# Slice 4 (feedback): a per-settler work zone steers where it works, scopes its
+	# job search, and round-trips through save/load. The zone clamps to settlement
+	# bounds; a rect fully inside them is returned verbatim.
+	var _wz_rect := Rect2i(hall_cell.x - 3, hall_cell.y - 4, 6, 6)
+	_sub.set_home(hall.global_position)
+	root.assign_work_zone(str(_sub.subject_id), _wz_rect)
+	var _wz_bounds: Rect2i = _sub.work_bounds()
+	var _wz_in := Vector2i(hall_cell.x, hall_cell.y - 2)         # inside the zone
+	var _wz_out := Vector2i(hall_cell.x + 10, hall_cell.y - 2)   # outside zone, inside radius
+	for _wzc in [_wz_in, _wz_out]:
+		world.cells[_wzc] = "crop_ripe"; world.deltas[_wzc] = "crop_ripe"
+		world._set_tile(_wzc, "crop_ripe")
+	var _wz_target: Vector2i = world.nearest_ripe_crop_in(_sub.work_bounds(), hall_cell)
+	var _wz_scopes: bool = _wz_target == _wz_in                  # picks in-zone, ignores outside
+	var _wz_dict: Dictionary = _sub.to_dict()
+	_sub.set_work_rect(Rect2i())
+	_sub.from_dict(_wz_dict)
+	var _wz_saved: bool = _sub.work_rect == _wz_rect
+	for _wzc in [_wz_in, _wz_out]:
+		world.cells.erase(_wzc); world.deltas.erase(_wzc); world._set_tile(_wzc, "air")
+	_sub.set_work_rect(Rect2i())
+	_check("subject_work_zone",
+		_wz_bounds == _wz_rect and _wz_scopes and _wz_saved,
+		"bounds=%s scopes=%s saved=%s" % [str(_wz_bounds), str(_wz_scopes), str(_wz_saved)])
+
 	# (r) R-08 slice 2: a repairer settler repairs a damaged hall from the
 	# stockpile (the same town_hall.repair authority as the player's button:
 	# -25 damage, 2 stone), and idles -- spending nothing -- when the hall is

@@ -10,6 +10,7 @@ signal subject_job_cycle_requested(id: String)   # R-08 slice 2: settler job ass
 signal withdraw_requested(item_id: String, amount: int)   # M2: pull a stack from the stockpile
 signal withdraw_all_requested                             # M2: pull the whole stockpile
 signal subject_inspect_requested(id: String)   # open a settler's info panel from the roster
+signal subject_workzone_requested(id: String)   # drag-to-define a settler's work area
 
 ## Low-health fraction mirrors player._low_health_fraction (data-driven
 ## default 0.25); the HUD does not read player state directly so it keeps a
@@ -2525,6 +2526,14 @@ func _build_npc_panel() -> void:
 		if _npc_subject != null and not _npc_subject.is_queued_for_deletion():
 			subject_job_cycle_requested.emit(str(_npc_subject.subject_id)))
 	box.add_child(role_btn)
+	var zone_btn := Button.new()
+	zone_btn.text = "Set work zone"
+	zone_btn.tooltip_text = "Click, then drag out the area in the world where this settler should work."
+	zone_btn.pressed.connect(func() -> void:
+		if _npc_subject != null and not _npc_subject.is_queued_for_deletion():
+			close_npc_panel()   # get the panel out of the way of the world drag
+			subject_workzone_requested.emit(str(_npc_subject.subject_id)))
+	box.add_child(zone_btn)
 	_label(box, "Stats:")
 	_npc_stats_label = _label(box, "")
 	_npc_status_label = _label(box, "")
