@@ -89,6 +89,7 @@
       "drops": {
         "ore": 1
       },
+      "has_gravity": true,
       "is_placeable": false,
       "is_solid": true,
       "blocks_light": true,
@@ -106,6 +107,7 @@
       "drops": {
         "coal": 1
       },
+      "has_gravity": true,
       "is_placeable": false,
       "is_solid": true,
       "blocks_light": true,
@@ -124,6 +126,7 @@
       "drops": {
         "copper_ore": 1
       },
+      "has_gravity": true,
       "is_placeable": false,
       "is_solid": true,
       "blocks_light": true,
@@ -141,6 +144,7 @@
       "drops": {
         "tin_ore": 1
       },
+      "has_gravity": true,
       "is_placeable": false,
       "is_solid": true,
       "blocks_light": true,
@@ -158,6 +162,7 @@
       "drops": {
         "iron_ore": 1
       },
+      "has_gravity": true,
       "is_placeable": false,
       "is_solid": true,
       "blocks_light": true,
@@ -175,6 +180,7 @@
       "drops": {
         "silver_ore": 1
       },
+      "has_gravity": true,
       "is_placeable": false,
       "is_solid": true,
       "blocks_light": true,
@@ -192,6 +198,7 @@
       "drops": {
         "crystal": 1
       },
+      "has_gravity": true,
       "is_placeable": false,
       "is_solid": true,
       "blocks_light": true,

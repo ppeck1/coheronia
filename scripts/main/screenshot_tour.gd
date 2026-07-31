@@ -540,6 +540,24 @@ func _shoot_celestial(root: Node2D, world: Node2D, player: CharacterBody2D, hud:
 	cel._redraw_sky()
 	await _shot("33_underground_no_sky")
 
+	# Occlusion: standing on the surface at midday, a dug shaft's lower cells must NOT
+	# be lit by the sun through solid ground (sun light casts shadows off the terrain).
+	root.time_of_day = 0.3
+	root.is_night = false
+	cam.zoom = Vector2(2.2, 2.2)
+	var _sh_x: int = _uc.x + 6
+	var _sh_gy: int = int(world.surface.get(_sh_x, _ugy))
+	for _sh_i in range(9):
+		world.break_block(Vector2i(_sh_x, _sh_gy + _sh_i))   # a deep open shaft
+	player.global_position = world.cell_center(Vector2i(_sh_x - 2, _sh_gy - 1))  # on the surface
+	player.velocity = Vector2.ZERO
+	root.canvas_modulate.color = root.ambient_target_color()
+	cel.set_sky_visible(root._sky_visible_now())
+	cel.set_time(root.time_of_day)
+	cel._redraw_sky()
+	cam.reset_smoothing()
+	await _shot("36_shaft_occlusion")
+
 
 func _shot(shot_name: String) -> void:
 	for i in range(20):

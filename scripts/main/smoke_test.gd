@@ -7782,6 +7782,33 @@ func _run() -> void:
 		"base=%s top_fell=%s dropped=%s stone_stays=%s" % [str(_gv_base_stays),
 			str(_gv_top_fell), str(_gv_dropped), str(_gv_stone_stays)])
 
+	# Slice 1 (feedback): ore now has gravity — undermining a lone ore drops it, while
+	# cohesive stone beside it never falls.
+	var _go_x: int = hall_cell.x - 28
+	var _go_gy: int = int(world.surface.get(_go_x, hall_cell.y))
+	for _go_i in range(4):
+		world.break_block(Vector2i(_go_x, _go_gy - 1 - _go_i))
+	world.cells[Vector2i(_go_x, _go_gy)] = "stone"                 # a floor under the ore
+	world.deltas[Vector2i(_go_x, _go_gy)] = "stone"
+	world._set_tile(Vector2i(_go_x, _go_gy), "stone")
+	var _go_ore := Vector2i(_go_x, _go_gy - 1)
+	world.cells[_go_ore] = "iron_ore"; world.deltas[_go_ore] = "iron_ore"
+	world._set_tile(_go_ore, "iron_ore")
+	var _go_drops0: int = get_tree().get_nodes_in_group("item_drops").size()
+	world.break_block(Vector2i(_go_x, _go_gy))                     # mine the floor under it
+	var _go_ore_fell: bool = world.block_at(_go_ore) == "air" \
+		and get_tree().get_nodes_in_group("item_drops").size() > _go_drops0
+	# a stone with its footing mined is cohesive and stays put.
+	var _go_stone := Vector2i(_go_x + 4, _go_gy - 1)
+	world.cells[_go_stone] = "stone"; world.deltas[_go_stone] = "stone"
+	world._set_tile(_go_stone, "stone")
+	world.break_block(Vector2i(_go_stone.x, _go_stone.y + 1))
+	var _go_stone_stays: bool = world.block_at(_go_stone) == "stone"
+	_check("gravity_ore_falls",
+		_go_ore_fell and _go_stone_stays and BlockRegistry.has_gravity("iron_ore")
+		and not BlockRegistry.has_gravity("stone"),
+		"ore_fell=%s stone_stays=%s" % [str(_go_ore_fell), str(_go_stone_stays)])
+
 	# --- Settlement Coherence (M2-B): housing validation + housing-capped growth ---
 	var _hs_cfg: Dictionary = BlockRegistry.settlement_def().get("housing", {})
 	var _hs_hw: int = BlockRegistry.settlement_bound_cells("half_width_cells", 28)

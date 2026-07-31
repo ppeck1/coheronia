@@ -70,6 +70,11 @@ func _ready() -> void:
 	_light.texture = _glow_tex
 	_light.energy = 0.0               # positioned/energised per-frame while drawing
 	_light.z_index = -9
+	# Cast shadows against the terrain occluders (like torch light) so sun/moonlight
+	# is blocked by solid ground instead of bleeding through it to light underground
+	# rock — only a mined shaft admits daylight below the surface.
+	_light.shadow_enabled = true
+	_light.shadow_filter = PointLight2D.SHADOW_FILTER_PCF5
 	add_child(_light)
 	# The bodies themselves draw on a follow-the-camera CanvasLayer so the day/night
 	# CanvasModulate does NOT dim them — a full moon reads as a bright disc against
