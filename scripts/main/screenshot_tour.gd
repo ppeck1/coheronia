@@ -218,6 +218,31 @@ func _run() -> void:
 	player.get_node("Camera2D").reset_smoothing()
 	await _shot("09_underground_midday_torch")
 
+	# Underground-lighting rework verification: the player stands on the SURFACE
+	# beside a deep shaft at high noon. The per-column depth shader must render the
+	# mined cross-section DARK (only the surface lip and the shaft floor catch
+	# daylight) while the ground the player stands on stays fully lit — the whole
+	# point of the fix (previously the underground read lit-from-the-surface).
+	# A fresh column well clear of shot 09's torch, so the only light down the
+	# shaft is the daylight admitted at its mouth — the darkness below is the
+	# shader's alone. Open a wide mouth (to catch the surface lip) tapering into a
+	# deep, torch-free vertical shaft.
+	var _sv_x: int = shaft_x - 20
+	var _sv_top: int = int(world.surface.get(_sv_x, 30))
+	for _dy in range(_sv_top, mini(_sv_top + 22, world.height - 2)):
+		var _halfw: int = 3 if _dy < _sv_top + 3 else 1   # flared mouth, narrow shaft
+		for _dx in range(_sv_x - _halfw, _sv_x + _halfw + 1):
+			if world.block_at(Vector2i(_dx, _dy)) != "air":
+				world.break_block(Vector2i(_dx, _dy))
+	root.time_of_day = 0.5
+	root.is_night = false
+	player.global_position = world.cell_center(Vector2i(_sv_x - 3, _sv_top - 1))
+	player.velocity = Vector2.ZERO
+	world.set_viewer_darkness(root.ambient_darkness_factor())
+	root.canvas_modulate.color = root.ambient_target_color()
+	player.get_node("Camera2D").reset_smoothing()
+	await _shot("09b_surface_shaft_daylight")
+
 	# World Depths (WD-1..4): the deep world ends in a HELL biome. Stage a
 	# readable pocket near the bottom of the descent -- hellstone walls, obsidian
 	# accents, and a glowing lava pool (lava emits its own light) under the ember

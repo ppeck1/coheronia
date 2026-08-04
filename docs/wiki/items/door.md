@@ -1,6 +1,6 @@
 # Door
 
-Generated: 2026-07-31
+Generated: 2026-08-04
 
 > `Item` page. Current status: `source-only`.
 

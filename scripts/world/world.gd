@@ -76,12 +76,21 @@ var _wall_source_ids: Dictionary = {}   # wall_id -> tileset source id
 # LIVE cells (mining a shaft re-admits daylight). Invalidated per column on
 # any block change; documented approximation (no lateral light bleed).
 var _sky_line: Dictionary = {}
+# Underground-lighting rework: the per-column depth shader shared across the
+# Blocks / BackgroundWalls / lava-bubble layers, and the one-texel-per-column
+# sky-line texture that feeds it. Rebuilt (dirty flag) whenever a block change
+# moves a column's sky line — the same trigger that invalidates `_sky_line`.
+var _cave_material: ShaderMaterial
+var _sky_img: Image
+var _sky_tex: ImageTexture
+var _sky_tex_dirty := true
 
 const BackdropScript := preload("res://scripts/world/world_backdrop.gd")
 const ItemDropScript := preload("res://scripts/entities/item_drop.gd")   # R-08 slice 3
 const FluidSimScript := preload("res://scripts/world/fluid_sim.gd")      # LQ-1 liquid physics
 const LavaBubblesScript := preload("res://scripts/world/lava_bubbles.gd") # LQ-2c rising-bubble overlay
 const LightingScript := preload("res://scripts/world/lighting.gd")        # shared soft-glow authoring
+const CaveDepthShader := preload("res://shaders/cave_depth.gdshader")      # per-column depth darkening
 const WALL_MATERIALS := {"dirt_wall": "dirt", "stone_wall": "stone"}
 
 const BLOCK_COLORS := {
@@ -150,6 +159,8 @@ func _process(delta: float) -> void:
 	if not fluid_paused and _fluid != null:
 		_fluid.tick(delta)
 	_tick_lava_glow(delta)   # LQ-2b: slow flicker on molten lights
+	if _cave_material != null and _sky_tex_dirty:
+		_rebuild_sky_texture()   # refresh the depth shader's per-column sky line
 	if _lava_bubbles != null:
 		_lava_bubbles.tick(delta)   # LQ-2c: rising/bursting lava bubbles
 
@@ -903,6 +914,65 @@ func sky_line(x: int) -> int:
 	return _sky_line[x]
 
 
+## Underground-lighting rework: build the shared per-column depth-darkening
+## material and hand it to every world plane that should read dark below the
+## surface (foreground blocks, backing walls, the lava-bubble overlay). Called
+## once by game_root after the world is generated/loaded, with the same CAVE_TINT
+## and fade band the global CanvasModulate uses, so the two models stay in step.
+func enable_cave_depth_shading(cave_tint: Color, fade_cells: float) -> void:
+	if OS.get_environment("COHERONIA_NO_CAVE_SHADER") == "1":
+		return   # A/B verification gate: render the legacy global-tint-only model
+	_cave_material = ShaderMaterial.new()
+	_cave_material.shader = CaveDepthShader
+	_cave_material.set_shader_parameter("tile_size", float(tile_size()))
+	_cave_material.set_shader_parameter("world_width", float(width))
+	_cave_material.set_shader_parameter("cave_fade_cells", maxf(fade_cells, 0.001))
+	_cave_material.set_shader_parameter("cave_tint", cave_tint)
+	_cave_material.set_shader_parameter("viewer_darkness", 0.0)
+	_rebuild_sky_texture()
+	if _tilemap != null:
+		_tilemap.material = _cave_material
+	if _walls != null:
+		_walls.material = _cave_material
+	if _lava_bubbles != null:
+		_lava_bubbles.material = _cave_material
+
+
+## True once the depth shader is live — used by the smoke suite as evidence.
+func cave_depth_shading_enabled() -> bool:
+	return _cave_material != null
+
+
+## The per-column sky-line texture the depth shader samples (smoke evidence).
+func cave_sky_texture() -> Texture2D:
+	return _sky_tex
+
+
+## Push the player's own 0..1 depth factor into the shader each frame. The shader
+## only darkens terrain DEEPER than this, so it never double-darkens what the
+## global CanvasModulate already dimmed at the viewer's depth.
+func set_viewer_darkness(f: float) -> void:
+	if _cave_material != null:
+		_cave_material.set_shader_parameter("viewer_darkness", clampf(f, 0.0, 1.0))
+
+
+## Repaint the one-texel-per-column sky-line texture (R = first solid y in tiles)
+## the depth shader samples. Cheap: width texels, only when a dig moved a column.
+func _rebuild_sky_texture() -> void:
+	_sky_tex_dirty = false
+	if _cave_material == null:
+		return
+	if _sky_img == null or _sky_img.get_width() != width:
+		_sky_img = Image.create(maxi(width, 1), 1, false, Image.FORMAT_RF)
+	for x in range(width):
+		_sky_img.set_pixel(x, 0, Color(float(sky_line(x)), 0.0, 0.0, 1.0))
+	if _sky_tex == null:
+		_sky_tex = ImageTexture.create_from_image(_sky_img)
+	else:
+		_sky_tex.update(_sky_img)
+	_cave_material.set_shader_parameter("sky_tex", _sky_tex)
+
+
 ## Walls have no physics or occlusion layers at all — variety in this layer
 ## can never change collision, lighting, shelter, or settlement math.
 func _build_wall_tileset() -> TileSet:
@@ -935,6 +1005,7 @@ func _make_wall_texture(wall_id: String, base_block: String, t: int) -> ImageTex
 
 func _set_tile(cell: Vector2i, block_id: String) -> void:
 	_sky_line.erase(cell.x)   # FQ-09W: any block change re-derives that column's skylight
+	_sky_tex_dirty = true     # ...and the depth-shader's sky-line texture with it
 	# _block_textures guarantees at least one source per known block; the
 	# is_empty guard makes that invariant explicit rather than an index crash.
 	if block_id == "air" or (_source_ids.get(block_id, []) as Array).is_empty():

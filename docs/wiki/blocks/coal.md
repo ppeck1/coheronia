@@ -1,6 +1,6 @@
 # Coal Seam
 
-Generated: 2026-07-31
+Generated: 2026-08-04
 
 > `Block` page.
 

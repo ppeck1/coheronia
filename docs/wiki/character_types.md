@@ -1,6 +1,6 @@
 # Character Types
 
-Generated: 2026-07-31
+Generated: 2026-08-04
 
 This page groups the current character-facing data into species, roles, traits, and planned ancestries.
 

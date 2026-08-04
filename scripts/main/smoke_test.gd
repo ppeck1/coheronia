@@ -111,6 +111,16 @@ func _run() -> void:
 
 	_check("main_scene_launches", true)
 	_check("terrain_generated", world.cells.size() > 1000, "%d cells" % world.cells.size())
+	# Underground-lighting rework: the per-column depth shader is live and its
+	# sky-line texture spans one texel per world column.
+	var _cave_tex: Texture2D = world.cave_sky_texture()
+	_check("cave_depth_shading",
+		world.cave_depth_shading_enabled() and _cave_tex != null
+			and _cave_tex.get_width() == int(world.width),
+		"enabled=%s tex_w=%d world_w=%d" % [
+			str(world.cave_depth_shading_enabled()),
+			(_cave_tex.get_width() if _cave_tex != null else -1),
+			int(world.width)])
 	_check("town_hall_exists", not world.hall_info.is_empty()
 		and world.block_at(world.hall_info["core_cells"][0]) == "town_hall_core")
 	_check("town_hall_core_protected", not world.can_mine(world.hall_info["core_cells"][0], 99))

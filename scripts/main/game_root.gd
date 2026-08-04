@@ -141,6 +141,12 @@ func _ready() -> void:
 	if not saved_state.is_empty():
 		# Saved player position overrides the default spawn.
 		save_manager.apply_player_position(saved_state)
+	# Underground-lighting rework: with the world's cells populated, hand the
+	# per-column depth shader the same CAVE_TINT / fade band the global
+	# CanvasModulate uses. The shader darkens terrain by its OWN depth below the
+	# local sky line (minus the viewer's depth), so a mined cross-section viewed
+	# from the surface finally reads dark instead of lit-from-the-surface.
+	world.enable_cave_depth_shading(CAVE_TINT, CAVE_FADE_CELLS)
 	hud.update_inventory()
 	hud.update_health(player.health, player.max_health)
 	hud.update_attunement(player.attunement, player.max_attunement())
@@ -742,6 +748,9 @@ func _advance_time(delta: float) -> void:
 	# Smooth tint transition near the day/night/storm boundaries and across
 	# cave mouths (FQ-09W: the target itself is depth-aware).
 	canvas_modulate.color = canvas_modulate.color.lerp(ambient_target_color(), delta * 1.5)
+	# Feed the same viewer-depth factor to the per-column depth shader so it only
+	# darkens terrain DEEPER than the player (no double-dim with the tint above).
+	world.set_viewer_darkness(ambient_darkness_factor())
 
 
 ## FQ-09W: 0 = sky-exposed, 1 = fully buried. Column-skylight approximation:
