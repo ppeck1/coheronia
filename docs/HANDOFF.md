@@ -36,10 +36,11 @@ metal-ladder regression: this pass touches zero HUD/UI code (`git diff --name-on
 docs), and the check passed in an earlier run this session. All 6 `ml_*` checks
 pass. Smoke lineage tail: … → 437 → 509 (prior tail) → **515** (metal ladder).
 `validate_repo.py` PASS, `verify_gear_alignment.py` PASS, `check_links.py` PASS.
-`asset_audit --strict` / `capsule_doctor` / exported-build smoke: not yet re-run
-this pass. Not committed, not pushed (operator gate). Independent review agent hit
-the session limit (resets 12:10pm) before returning; the ring-cascade logic was
-self-reviewed — relaunch the reviewer after reset for the full diff pass.
+`asset_audit --strict` clean, `capsule_doctor --profile public_repo` healthy.
+**COMMITTED + PUSHED** `origin/main==ffe70a0` (6e25494..ffe70a0). Independent review
+agent hit the session limit (resets 12:10pm) before returning; the ring-cascade
+logic was self-reviewed — a follow-up reviewer pass is optional. Exported-build
+smoke: not re-run this pass.
 
 ---
 
