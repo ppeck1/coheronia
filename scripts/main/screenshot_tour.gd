@@ -156,10 +156,15 @@ func _run() -> void:
 	await _shot("14_map_events_together")
 	hud.toggle_map()
 
-	root.player_level = 4
-	root.try_purchase_perk("stone_recovery")
+	# Calling system: stage the Warden Path (default Calling = Oathbound) with two
+	# Tier-I skills bought so the panel shows owned + available + tier-locked
+	# states, then inspect an owned skill.
+	root.player_level = 8
+	root.try_purchase_perk("tempered_frame")
+	root.try_purchase_perk("armored_bearing")
+	hud.skill_panel().setup(root)
 	hud.toggle_skill_panel()
-	hud.skill_panel().select_node("deep_sense")
+	hud.skill_panel().select_node("tempered_frame")
 	await _shot("05_skill_tree")
 	hud.toggle_skill_panel()
 

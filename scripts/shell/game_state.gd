@@ -232,7 +232,8 @@ func create_character(char_data: Dictionary) -> Dictionary:
 		"visual_variant": maxi(0, int(char_data.get("visual_variant", 0))),
 		"appearance": str(char_data.get("appearance", "tan")),
 		"traits": char_data.get("traits", []),
-		"role": str(char_data.get("role", "homesteader")),
+		# Calling system: `role` stays the serialized key; its value is a Calling.
+		"role": str(char_data.get("role", BlockRegistry.default_calling())),
 		"created_at": _now(),
 		# Wave B: carried state lives on the character, not the world save.
 		"items_granted": false,
@@ -461,7 +462,7 @@ func get_current_state() -> Dictionary:
 func ensure_play_context() -> void:
 	if current_config != null:
 		return
-	var character := create_character({"name": "Wanderer", "role": "homesteader"})
+	var character := create_character({"name": "Wanderer", "role": BlockRegistry.default_calling()})
 	var config: Dictionary = WorldConfig.from_preset("folk_kingdom")
 	config["name"] = "Quick World"
 	var world_id := create_world(config)

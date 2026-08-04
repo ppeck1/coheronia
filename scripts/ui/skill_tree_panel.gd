@@ -18,10 +18,17 @@ extends PanelContainer
 
 signal purchase_requested(perk_id: String)
 
-const LIVE_LANE := "miner"
+## Calling system: the panel shows the character's Calling and its two Paths,
+## laid out as tier rows (I / II / III / Capstone) per Path column. Tier and
+## Calling gating come from game_root.perk_state, so locked tiers read as LOCKED.
 const NODE_SIZE := Vector2(150, 46)
 const SPACING := Vector2(180, 76)
+## Horizontal gap between the two Path columns (each Path is a stack of tier rows).
+const PATH_GAP := 150.0
 const CANVAS_MARGIN := Vector2(20, 26)
+## Tier rows top-to-bottom.
+const TIER_ORDER := ["1", "2", "3", "capstone"]
+const TIER_LABELS := {"1": "I", "2": "II", "3": "III", "capstone": "Capstone"}
 
 ## PR-08: the panel is sized as a fraction of the logical viewport (clamped)
 ## and re-centred whenever the viewport resizes, so it stays roomy at 1280x720
@@ -55,12 +62,14 @@ const STARFIELD_COUNT := 110
 
 var game_root: Node
 var _selected_id := ""
+var _title_label: Label
 var _points_label: Label
 var _info_label: Label
 var _buy_button: Button
 var _planned_label: Label
 var _canvas: Control
 var _node_buttons: Dictionary = {}   # perk_id -> Button
+var _aux_labels: Array = []          # Path/tier header labels (freed on rebuild)
 var _node_states: Dictionary = {}    # perk_id -> "purchased"/"available"/"locked"
 var _links: Array = []               # [prereq_id, perk_id] pairs in the live lane
 var _state_styles: Dictionary = {}   # state -> StyleBoxFlat for node plaques
@@ -92,11 +101,11 @@ func _ready() -> void:
 		_state_styles[state] = plaque
 	var box := VBoxContainer.new()
 	add_child(box)
-	var title := Label.new()
-	title.text = "SKILL CONSTELLATIONS — MINER LANE"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_color", TEXT_WARM)
-	box.add_child(title)
+	_title_label = Label.new()
+	_title_label.text = "CALLING"
+	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title_label.add_theme_color_override("font_color", TEXT_WARM)
+	box.add_child(_title_label)
 	_points_label = Label.new()
 	_points_label.add_theme_font_size_override("font_size", 13)
 	_points_label.add_theme_color_override("font_color", TEXT_WARM)
@@ -176,41 +185,95 @@ func setup(root: Node) -> void:
 	refresh()
 
 
+## Calling system: lay out the character's Calling as two Path columns, each a
+## vertical stack of tier rows (I / II / III / Capstone) with the skills of that
+## tier spread horizontally. Path/tier gating comes from game_root.perk_state.
 func _build_nodes() -> void:
 	for existing in _node_buttons.values():
 		existing.queue_free()
 	_node_buttons.clear()
+	for lbl in _aux_labels:
+		lbl.queue_free()
+	_aux_labels.clear()
 	_links.clear()
-	var live_lane: Dictionary = {}
-	var planned: Array[String] = []
+	var calling := str(game_root.current_calling())
+	var my_lanes: Array = []
+	var other: Array[String] = []
 	for lane: Dictionary in game_root.perk_lanes():
-		if str(lane.get("id", "")) == LIVE_LANE:
-			live_lane = lane
+		if str(lane.get("calling", "")) == calling:
+			my_lanes.append(lane)
 		else:
-			planned.append(str(lane.get("display_name", "?")))
-	_planned_label.text = "Planned constellations: %s" % ", ".join(planned)
-	var max_grid := Vector2.ZERO
-	for perk: Dictionary in live_lane.get("perks", []):
-		var perk_id := str(perk.get("id", ""))
-		var pos_arr: Array = perk.get("position", [0, 0])
-		if pos_arr.size() < 2:
-			pos_arr = [0, 0]
-		var grid := Vector2(float(pos_arr[0]), float(pos_arr[1]))
-		max_grid = max_grid.max(grid)
-		var btn := Button.new()
-		btn.custom_minimum_size = NODE_SIZE
-		btn.position = CANVAS_MARGIN + grid * SPACING
-		btn.pressed.connect(_on_node_pressed.bind(perk_id))
-		_canvas.add_child(btn)
-		_node_buttons[perk_id] = btn
-		for prereq in perk.get("prerequisites", []):
-			_links.append([str(prereq), perk_id])
-	_canvas.custom_minimum_size = CANVAS_MARGIN * 2.0 + max_grid * SPACING + NODE_SIZE
+			other.append(str(lane.get("display_name", "?")))
+	_planned_label.text = "Other Callings' Paths: %s" % ", ".join(other)
+	var col_width := 0.0
+	for lane: Dictionary in my_lanes:
+		var tiered: Dictionary = {}
+		for perk: Dictionary in lane.get("perks", []):
+			var tk: String = game_root.tier_key_of(perk)
+			if not tiered.has(tk):
+				tiered[tk] = []
+			tiered[tk].append(perk)
+		var widest := 1
+		for tk in tiered:
+			widest = maxi(widest, (tiered[tk] as Array).size())
+		col_width = maxf(col_width, float(widest) * SPACING.x + PATH_GAP)
+	var max_x := 0.0
+	var max_y := 0.0
+	for li in range(my_lanes.size()):
+		var lane: Dictionary = my_lanes[li]
+		var base_x := CANVAS_MARGIN.x + float(li) * col_width
+		var header := Label.new()
+		header.text = str(lane.get("display_name", "?")).to_upper()
+		header.position = Vector2(base_x, 0.0)
+		header.add_theme_font_size_override("font_size", 13)
+		header.add_theme_color_override("font_color", TEXT_WARM)
+		_canvas.add_child(header)
+		_aux_labels.append(header)
+		var tiered: Dictionary = {}
+		for perk: Dictionary in lane.get("perks", []):
+			var tk: String = game_root.tier_key_of(perk)
+			if not tiered.has(tk):
+				tiered[tk] = []
+			tiered[tk].append(perk)
+		for ti in range(TIER_ORDER.size()):
+			var tier_key: String = TIER_ORDER[ti]
+			var perks: Array = tiered.get(tier_key, [])
+			if perks.is_empty():
+				continue
+			var row_y := CANVAS_MARGIN.y + float(ti) * SPACING.y
+			var tlabel := Label.new()
+			tlabel.text = str(TIER_LABELS.get(tier_key, tier_key))
+			tlabel.position = Vector2(base_x - 4.0, row_y - 2.0)
+			tlabel.add_theme_font_size_override("font_size", 11)
+			tlabel.add_theme_color_override("font_color", TEXT_DIM)
+			_canvas.add_child(tlabel)
+			_aux_labels.append(tlabel)
+			for pi in range(perks.size()):
+				var perk: Dictionary = perks[pi]
+				var perk_id := str(perk.get("id", ""))
+				var at := Vector2(base_x + float(pi) * SPACING.x, row_y + 14.0)
+				var btn := Button.new()
+				btn.custom_minimum_size = NODE_SIZE
+				btn.position = at
+				btn.pressed.connect(_on_node_pressed.bind(perk_id))
+				_canvas.add_child(btn)
+				_node_buttons[perk_id] = btn
+				max_x = maxf(max_x, at.x + NODE_SIZE.x)
+				max_y = maxf(max_y, at.y + NODE_SIZE.y)
+				for prereq in perk.get("prerequisites", []):
+					_links.append([str(prereq), perk_id])
+	_canvas.custom_minimum_size = Vector2(max_x + CANVAS_MARGIN.x, max_y + CANVAS_MARGIN.y)
 
 
 func refresh() -> void:
 	if game_root == null:
 		return
+	var calling := str(game_root.current_calling())
+	var cdef: Dictionary = BlockRegistry.calling_def(calling)
+	var innate: Dictionary = cdef.get("innate", {})
+	_title_label.text = "CALLING — %s · Innate: %s" % [
+		str(cdef.get("display_name", calling)).to_upper(),
+		str(innate.get("name", "—"))]
 	_points_label.text = "Perk points: %d available / %d total (1 per level above 1)" % [
 		game_root.perk_points_available(), game_root.perk_points_total()]
 	for perk_id in _node_buttons:
@@ -286,14 +349,17 @@ func _refresh_inspector() -> void:
 		return
 	var perk: Dictionary = game_root.get_perk(_selected_id)
 	var state: String = game_root.perk_state(_selected_id)
-	var prereq_names: Array[String] = []
-	for prereq in perk.get("prerequisites", []):
-		prereq_names.append(str(game_root.get_perk(str(prereq)).get("display_name", prereq)))
-	_info_label.text = "%s — %s\nCost: %d point%s · Effect: %s x%.2f · Requires: %s\n%s" % [
-		str(perk.get("display_name", _selected_id)), state.to_upper(),
+	var path := str(perk.get("lane", ""))
+	var tier_key: String = game_root.tier_key_of(perk)
+	var tier_label := str(TIER_LABELS.get(tier_key, tier_key))
+	var gate: int = game_root.tier_gate(tier_key)
+	var in_path: int = game_root.skills_purchased_in_path(path)
+	var gate_note := "open" if in_path >= gate else "needs %d in Path (have %d)" % [gate, in_path]
+	var support := str(perk.get("support", "live"))
+	_info_label.text = "%s — %s · Tier %s (%s)\nCost: %d point%s · Effect: %s x%.2f · Support: %s\n%s" % [
+		str(perk.get("display_name", _selected_id)), state.to_upper(), tier_label, gate_note,
 		int(perk.get("cost", 1)), "" if int(perk.get("cost", 1)) == 1 else "s",
-		str(perk.get("effect_key", "?")), float(perk.get("effect_value", 0.0)),
-		", ".join(prereq_names) if not prereq_names.is_empty() else "nothing",
+		str(perk.get("effect_key", "?")), float(perk.get("effect_value", 0.0)), support,
 		str(perk.get("description", ""))]
 	_buy_button.disabled = not (state == "available"
 		and int(perk.get("cost", 1)) <= game_root.perk_points_available())
@@ -308,6 +374,16 @@ func info_text() -> String:
 ## the live lane) the canvas draws.
 func link_count() -> int:
 	return _links.size()
+
+
+## Calling system hooks: how many skill nodes the panel currently shows (both
+## Paths of the character's Calling), and whether a specific skill has a node.
+func node_count() -> int:
+	return _node_buttons.size()
+
+
+func has_skill_node(perk_id: String) -> bool:
+	return _node_buttons.has(perk_id)
 
 
 func select_node(perk_id: String) -> void:

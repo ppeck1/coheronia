@@ -2,7 +2,7 @@
 
 Generated: 2026-08-04
 
-This page groups the current character-facing data into species, roles, traits, and planned ancestries.
+This page groups the current character-facing data into species, Callings, traits, and planned ancestries.
 
 ## Species
 
@@ -14,13 +14,13 @@ This page groups the current character-facing data into species, roles, traits, 
 | [Goblin](characters/species/goblin.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | Small and quick scavengers with a knack for ingenuity. |
 | [Orc](characters/species/orc.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | Powerful and durable. High health, built for endurance. |
 
-## Roles
+## Callings
 
-| Role | Starting items | Effects |
+| Calling | Starting items | Effects |
 |---|---|---|
-| [Homesteader](characters/roles/homesteader.md) | dirt x10, wood x5 | No active stat effect. |
-| [Prospector](characters/roles/prospector.md) | torch x3, stone x2 | No active stat effect. |
-| [Warden](characters/roles/warden.md) | none | max_health_bonus=15 |
+| [Oathbound](characters/roles/oathbound.md) | none | No active stat effect. |
+| [Wayfarer](characters/roles/wayfarer.md) | none | No active stat effect. |
+| [Runewright](characters/roles/runewright.md) | none | No active stat effect. |
 
 ## Traits
 

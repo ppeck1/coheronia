@@ -126,6 +126,12 @@ var _drown_accum := 0.0
 # perks by game_root._apply_purchased_perk_effects — never set directly).
 var perk_mine_speed_mult := 1.0
 var perk_attunement_bonus := 0.0
+# Calling system static skill effects (Warden Tempered Frame / Armored Bearing).
+var perk_max_health_bonus := 0.0
+var perk_armor_mult := 1.0
+## Calling system: back-reference to game_root, set in _wire_references. Lets the
+## damage/heal hooks query context-aware Calling multipliers (nil-safe).
+var game_root: Node = null
 
 var mine_target := Vector2i(-99999, -99999)
 var mine_progress := 0.0
@@ -262,6 +268,9 @@ func apply_character(character: Dictionary) -> void:
 		else:
 			effects[key] = role["effects"][key]
 	max_health = _base_max_health + float(effects.get("max_health_bonus", 0.0))
+	# Calling system: max_health is rebuilt from base+trait+role here, so clear the
+	# tracked perk (Tempered Frame) bonus — apply_perk_effects re-adds it as a delta.
+	perk_max_health_bonus = 0.0
 	health = minf(health, max_health)
 	trait_mine_mult = float(effects.get("mine_speed_mult", 1.0))
 	reach_bonus = float(effects.get("reach_bonus", 0.0))
@@ -960,7 +969,9 @@ func armor_total() -> float:
 		var item_id: String = str(equipped[slot_id])
 		if item_id != "":
 			total += float(BlockRegistry.equipment_item(item_id).get("effects", {}).get("armor", 0.0))
-	return total
+	# Warden "Armored Bearing": amplifies armor from equipped gear only (never
+	# weapons/tools/unrelated effects), applied as a read-time multiplier.
+	return total * perk_armor_mult
 
 
 ## FQ-06: applies the combined live perk effects (computed by game_root from
@@ -969,7 +980,32 @@ func armor_total() -> float:
 func apply_perk_effects(effects: Dictionary) -> void:
 	perk_mine_speed_mult = float(effects.get("mining_speed", 1.0))
 	perk_attunement_bonus = float(effects.get("attunement_bonus", 0.0))
+	# Calling system statics: Armored Bearing (armor mult, read-time) and Tempered
+	# Frame (additive max health, applied as an idempotent delta so repeated
+	# recomputes per purchase never drift).
+	perk_armor_mult = float(effects.get("armor_mult", 1.0))
+	var new_health_bonus := float(effects.get("max_health_bonus", 0.0))
+	max_health += new_health_bonus - perk_max_health_bonus
+	perk_max_health_bonus = new_health_bonus
+	health = minf(health, max_health)
 	_clamp_attunement()
+
+
+## Calling system: apply healing (clamped to max), emitting the HUD update.
+## Used by on-defeat (Relentless) and threat-end (Victory's Breath) restores.
+func heal(amount: float) -> void:
+	if amount <= 0.0:
+		return
+	health = minf(max_health, health + amount)
+	health_changed.emit(health, max_health)
+
+
+## Calling system: restore Attunement (clamped to the live maximum).
+func restore_attunement(amount: float) -> void:
+	if amount <= 0.0:
+		return
+	attunement = minf(max_attunement(), attunement + amount)
+	attunement_changed.emit(attunement, max_attunement())
 
 
 ## Better picks mine faster: +50% speed per tier above 1; traits and
@@ -1015,11 +1051,15 @@ func _apply_environmental_hazard() -> void:
 	for probe in [base_cell, base_cell + Vector2i(0, -1)]:
 		var dmg := BlockRegistry.contact_damage(world.block_at(probe))
 		if dmg > 0.0:
-			take_damage(dmg)
+			take_damage(dmg, "hazard")
 			return
 
 
-func take_damage(amount: float) -> void:
+## Calling system: `source` tags the damage origin ("enemy" / "hazard" /
+## "drowning" / default "generic"). Only enemy and hazard damage is scoped by
+## Calling reductions (Oathbound Resolve, Warden Holdfast/Last Watch, Prospector
+## Tunnel Hardened, Trailseeker Stormwise); generic/drowning are never reduced.
+func take_damage(amount: float, source: String = "generic") -> void:
 	# FQ-04 review: non-positive amounts stay a no-op (pre-armor contract);
 	# the minimum-chip rule below only applies to real landed hits.
 	if amount <= 0.0:
@@ -1027,6 +1067,10 @@ func take_damage(amount: float) -> void:
 	if _hurt_cooldown > 0.0:
 		return
 	_hurt_cooldown = _hurt_cooldown_sec
+	# Calling system: context-aware incoming-damage reduction, applied to the raw
+	# hostile/hazard amount before flat armor mitigation.
+	if game_root != null and (source == "enemy" or source == "hazard"):
+		amount *= float(game_root.calling_incoming_damage_mult(source))
 	# FQ-04: flat armor mitigation from equipped gear. A landed hit always
 	# chips at least 1 health so armor can never grant outright immunity.
 	var mitigated := maxf(1.0, amount - armor_total())

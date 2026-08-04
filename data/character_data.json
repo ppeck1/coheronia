@@ -1,6 +1,7 @@
 {
-  "schema_version": "0.4",
+  "schema_version": "0.5",
   "max_traits": 2,
+  "default_calling": "oathbound",
   "player_defaults": {
     "base_max_health": 100,
     "hurt_cooldown_sec": 0.8,
@@ -85,9 +86,45 @@
     { "id": "long_reach", "display_name": "Long Reach", "description": "+1 tile mining/placement reach.", "effects": { "reach_bonus": 1 } }
   ],
   "roles": [
-    { "id": "homesteader", "display_name": "Homesteader", "description": "Starts with building materials.", "starting_items": { "dirt": 10, "wood": 5 }, "effects": {} },
-    { "id": "prospector", "display_name": "Prospector", "description": "Starts with torches and stone.", "starting_items": { "torch": 3, "stone": 2 }, "effects": {} },
-    { "id": "warden", "display_name": "Warden", "description": "+15 max health, starts empty-handed.", "starting_items": {}, "effects": { "max_health_bonus": 15 } }
+    {
+      "id": "oathbound",
+      "display_name": "Oathbound",
+      "description": "Sworn defender of the settlement. Endures hostile blows and turns threats aside. Paths: Warden and Vanguard.",
+      "paths": ["warden", "vanguard"],
+      "starting_items": {},
+      "effects": {},
+      "innate": {
+        "name": "Resolve",
+        "description": "Damage received from hostile creatures is reduced. This protection becomes stronger during an active settlement threat.",
+        "effects": { "hostile_damage_mult": 0.9, "hostile_damage_mult_threat": 0.8 }
+      }
+    },
+    {
+      "id": "wayfarer",
+      "display_name": "Wayfarer",
+      "description": "Ranging explorer of the deep and the wild. Swift beyond the walls and far-sighted. Paths: Prospector and Trailseeker.",
+      "paths": ["prospector", "trailseeker"],
+      "starting_items": {},
+      "effects": {},
+      "innate": {
+        "name": "Trailcraft",
+        "description": "Movement is faster outside settlement bounds, and map-reveal radius is permanently increased.",
+        "effects": { "move_speed_mult_wild": 1.12, "reveal_radius_bonus": 1 }
+      }
+    },
+    {
+      "id": "runewright",
+      "display_name": "Runewright",
+      "description": "Keeper of hearth and resonance. Mends what breaks and channels Attunement. Paths: Hearthwright and Resonant.",
+      "paths": ["hearthwright", "resonant"],
+      "starting_items": {},
+      "effects": {},
+      "innate": {
+        "name": "Measured Hand",
+        "description": "Player-performed structure repairs restore more structure health, and positive maximum-Attunement bonuses supplied by equipment are amplified.",
+        "effects": { "repair_amount_mult": 1.2, "equip_attunement_amp": 1.15 }
+      }
+    }
   ],
   "appearances": [
     { "id": "tan", "display_name": "Tan", "body": "ebd48c", "trim": "59402e" },

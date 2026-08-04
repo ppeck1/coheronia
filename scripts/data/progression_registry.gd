@@ -63,8 +63,33 @@ func xp_types() -> Array:
 
 
 ## FQ-06: all perk lane defs [{id, display_name, theme, status, perks}, ...].
+## Calling system: each lane is a Path and now also carries a "calling" key.
 func perk_lanes() -> Array:
 	return _perk_data.get("perk_lanes", [])
+
+
+## Calling system: the count of skills that must already be purchased in a Path
+## before a given tier opens. tier_key is "1"/"2"/"3"/"capstone". Data-driven
+## (perks.json "tier_gates"), with the spec defaults as the fallback.
+func tier_gate(tier_key: String) -> int:
+	var gates: Dictionary = _perk_data.get("tier_gates", {})
+	var fallback := {"1": 0, "2": 2, "3": 6, "capstone": 9}
+	return int(gates.get(tier_key, fallback.get(tier_key, 0)))
+
+
+## Calling system: the Calling id that owns a Path (lane), or "".
+func calling_of_lane(lane_id: String) -> String:
+	return str(perk_lane(lane_id).get("calling", ""))
+
+
+## Calling system: a perk's tier as a canonical string key ("1"/"2"/"3"/
+## "capstone"). JSON parses numeric tiers as floats, so a plain str() would yield
+## "1.0" and miss the "1"-keyed gate/label lookups — normalize through int here.
+func tier_key_of(perk: Dictionary) -> String:
+	var t: Variant = perk.get("tier", 1)
+	if t is String:
+		return t
+	return str(int(t))
 
 
 ## FQ-06: one lane def by id, or {}.

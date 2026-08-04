@@ -1210,20 +1210,37 @@ research = json.loads((ROOT / "data/progression/research_domains.json").read_tex
 if len(research["research_domains"]) != 7:
     fail("research_domains.json must define 7 domains")
 perks = json.loads((ROOT / "data/progression/perks.json").read_text(encoding="utf-8"))
-# FQ-06: perk lanes are a real gameplay surface now — validate the node schema.
+# Calling system: perk lanes are the six Paths (two per Calling). Each Path is a
+# real gameplay surface — validate the node schema, tiers, and Calling wiring.
 perk_lanes = perks.get("perk_lanes") or []
-if len(perk_lanes) != 7:
-    fail(f"perks.json must define 7 perk lanes, found {len(perk_lanes)}")
+if len(perk_lanes) != 6:
+    fail(f"perks.json must define 6 Path lanes, found {len(perk_lanes)}")
+tier_gates = perks.get("tier_gates") or {}
+for tk in ["1", "2", "3", "capstone"]:
+    if tk not in tier_gates:
+        fail(f"perks.json tier_gates missing tier '{tk}'")
+VALID_TIERS = {"1", "2", "3", 1, 2, 3, "capstone"}
+VALID_SUPPORT = {"live", "partial", "deferred"}
 PERK_FIELDS = ["id", "display_name", "description", "effect_key", "effect_value",
-               "cost", "position", "prerequisites", "xp_type_gate"]
+               "cost", "tier", "prerequisites", "support"]
+# The Callings and the Paths each owns, from character_data.json.
+callings = {c.get("id"): c for c in character_data.get("roles", [])}
 seen_perk_ids = set()
+lane_ids = {lane.get("id") for lane in perk_lanes}
 for lane in perk_lanes:
-    for field in ["id", "display_name", "theme", "perks"]:
+    for field in ["id", "display_name", "theme", "calling", "perks"]:
         if field not in lane:
             fail(f"perks.json lane {lane.get('id', '?')} missing field: {field}")
+    if lane["calling"] not in callings:
+        fail(f"perks.json lane {lane['id']} names unknown Calling '{lane['calling']}'")
+    if lane["id"] not in callings[lane["calling"]].get("paths", []):
+        fail(f"perks.json lane {lane['id']} not listed in Calling {lane['calling']}.paths")
     if not isinstance(lane["perks"], list):
         fail(f"perks.json lane {lane.get('id', '?')} perks must be a list")
+    if len(lane["perks"]) != 12:
+        fail(f"perks.json lane {lane['id']} must have 12 skills, found {len(lane['perks'])}")
     lane_perk_ids = {p.get("id") for p in lane["perks"]}
+    capstones = 0
     for perk in lane["perks"]:
         for field in PERK_FIELDS:
             if field not in perk:
@@ -1237,14 +1254,25 @@ for lane in perk_lanes:
             fail(f"perks.json perk {perk['id']} cost is not an integer: {perk['cost']!r}")
         if perk_cost < 1:
             fail(f"perks.json perk {perk['id']} cost must be >= 1")
-        if not (isinstance(perk["position"], list) and len(perk["position"]) == 2):
-            fail(f"perks.json perk {perk['id']} position must be [x, y]")
+        if perk["tier"] not in VALID_TIERS:
+            fail(f"perks.json perk {perk['id']} invalid tier {perk['tier']!r}")
+        if str(perk["tier"]) == "capstone":
+            capstones += 1
+        if perk["support"] not in VALID_SUPPORT:
+            fail(f"perks.json perk {perk['id']} invalid support {perk['support']!r}")
         for prereq in perk["prerequisites"]:
             if prereq not in lane_perk_ids:
                 fail(f"perks.json perk {perk['id']} prerequisite '{prereq}' not in its lane")
-if "stone_recovery" not in seen_perk_ids:
-    fail("perks.json missing the live miner perk: stone_recovery")
-print("PASS perks data")
+    if capstones != 1:
+        fail(f"perks.json lane {lane['id']} must have exactly 1 capstone, found {capstones}")
+# Every Calling's declared Paths must resolve to real lanes.
+for cid, cdef in callings.items():
+    for pid in cdef.get("paths", []):
+        if pid not in lane_ids:
+            fail(f"character_data.json Calling {cid} path '{pid}' has no perks.json lane")
+if callings.get(character_data.get("default_calling")) is None:
+    fail("character_data.json default_calling must name a real Calling")
+print("PASS perks + calling data")
 
 # Settlement Coherence (M1): the bounded settlement rectangle + starting crew.
 # Bounds are positive tile-cell counts; the starting crew is a non-empty roster of

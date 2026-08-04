@@ -378,12 +378,15 @@ func _add_character_row(list: VBoxContainer, character: Dictionary) -> void:
 	var char_name: String = str(character.get("name", "Nameless"))
 	_label(info, char_name, 16)
 	var species_name: String = _display_name_of("species", str(character.get("species", "human")))
-	var role_name: String = _display_name_of("roles", str(character.get("role", "homesteader")))
+	# Calling system: the serialized key stays `role`; resolve legacy/unknown
+	# values to the mapped Calling so the label always names a real Calling.
+	var calling_name: String = _display_name_of("roles",
+		BlockRegistry.calling_of(str(character.get("role", ""))))
 	var trait_names: Array[String] = []
 	var trait_ids: Array = character.get("traits", [])
 	for trait_id in trait_ids:
 		trait_names.append(_display_name_of("traits", str(trait_id)))
-	var detail: String = "%s · %s" % [species_name, role_name]
+	var detail: String = "%s · %s" % [species_name, calling_name]
 	if not trait_names.is_empty():
 		detail += " · " + ", ".join(trait_names)
 	var detail_label := _label(info, detail, 13)
@@ -528,7 +531,7 @@ func _show_char_create() -> void:
 	look_note.add_theme_color_override("font_color", DIM_COLOR)
 
 	var carried_note := _label(form,
-		"Character rules: backpack, tools, equipment, ancestry, role, and traits follow this character between worlds. Role starter items are granted once. Collapse loses a fraction of carried stacks.",
+		"Character rules: backpack, tools, equipment, ancestry, Calling, and traits follow this character between worlds. Your Calling is a permanent identity choice. Collapse loses a fraction of carried stacks.",
 		12)
 	carried_note.add_theme_color_override("font_color", DIM_COLOR)
 	carried_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -548,7 +551,9 @@ func _show_char_create() -> void:
 	appearance_row.add_child(_appearance_swatch)
 	_update_swatch(0)
 
-	var role_row := _form_row(form, "Role")
+	# Calling system: the permanent identity selector. Options are the Callings
+	# (stored under the legacy `roles` data key for save-compat).
+	var role_row := _form_row(form, "Calling")
 	_role_option = OptionButton.new()
 	_role_ids.clear()
 	var role_list: Array = data.get("roles", [])
@@ -678,7 +683,7 @@ func _create_character() -> void:
 			_body_variant_option, _body_variant_ids, "masculine"),
 		"visual_variant": int(_visual_variant_spin.value) if _visual_variant_spin != null else 0,
 		"appearance": _option_id(_appearance_option, _appearance_ids, "tan"),
-		"role": _option_id(_role_option, _role_ids, "homesteader"),
+		"role": _option_id(_role_option, _role_ids, BlockRegistry.default_calling()),
 		"traits": trait_ids,
 	})
 	_selected_char_id = str(character.get("id", ""))

@@ -2521,7 +2521,8 @@ func _build_npc_panel() -> void:
 	_npc_meta_label = _label(box, "")
 	_npc_role_label = _label(box, "")
 	var role_btn := Button.new()
-	role_btn.text = "Change role"
+	# Citizen jobs (Defender/Repairer/…) stay "jobs" — distinct from the player's Calling.
+	role_btn.text = "Change job"
 	role_btn.pressed.connect(func() -> void:
 		if _npc_subject != null and not _npc_subject.is_queued_for_deletion():
 			subject_job_cycle_requested.emit(str(_npc_subject.subject_id)))
@@ -2588,7 +2589,7 @@ func refresh_npc_panel() -> void:
 	var days := int(_npc_subject.days_alive(_current_day))
 	_npc_meta_label.text = "%s %s · %d day%s in the settlement" % [
 		variant, species_name, days, "" if days == 1 else "s"]
-	_npc_role_label.text = "Role: %s" % str(_npc_subject.job).capitalize()
+	_npc_role_label.text = "Job: %s" % str(_npc_subject.job).capitalize()
 	var parts: Array[String] = []
 	for stat_id in BlockRegistry.citizen_stat_ids():
 		parts.append("%s %d" % [str(stat_id).capitalize(),
@@ -2907,7 +2908,9 @@ func _refresh_character_panel() -> void:
 		str(player.body_variant if player != null else character.get("body_variant", "masculine")))
 	var look := int(player.visual_variant if player != null else character.get("visual_variant", 0))
 	var appearance := str(character.get("appearance", "tan"))
-	var role := str(character.get("role", "homesteader"))
+	# Calling system: `role` is the serialized key; show the mapped Calling's name.
+	var calling_id := BlockRegistry.calling_of(str(character.get("role", "")))
+	var calling_name := str(BlockRegistry.calling_def(calling_id).get("display_name", calling_id))
 	var equipped: Dictionary = player.equipped_dict() if player != null else {}
 
 	# Top row: composed figure (shared render path, live gear) beside identity.
@@ -2930,7 +2933,9 @@ func _refresh_character_panel() -> void:
 	var look_text := "Default look" if look <= 0 else "Look %d" % look
 	_label(identity, "%s  ·  %s" % [species.capitalize(), body.capitalize()])
 	_label(identity, "%s  ·  %s" % [appearance.capitalize(), look_text])
-	_label(identity, "Role: %s" % role.capitalize())
+	var innate_name := str(BlockRegistry.calling_def(calling_id).get("innate", {}).get("name", ""))
+	_label(identity, "Calling: %s%s" % [calling_name,
+		"  ·  %s" % innate_name if innate_name != "" else ""])
 	var trait_ids: Array = character.get("traits", [])
 	var trait_names: Array[String] = []
 	for trait_id in trait_ids:

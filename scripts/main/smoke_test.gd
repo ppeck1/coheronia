@@ -143,15 +143,21 @@ func _run() -> void:
 			unbound += action + " "
 	_check("input_actions_bound", unbound == "",
 		("unbound: " + unbound) if unbound != "" else "all actions have device events")
-	_check("role_items_granted", player.inventory.count("dirt") >= 10,
-		"dirt=%d (homesteader start)" % player.inventory.count("dirt"))
+	# Calling system: Callings are a permanent identity, not a starter kit — none
+	# may grant a starting-item windfall (handoff constraint 6).
+	var _callings_no_windfall := true
+	for _c in BlockRegistry.callings():
+		if not (_c.get("starting_items", {}) as Dictionary).is_empty():
+			_callings_no_windfall = false
+	_check("callings_grant_no_starter_items", _callings_no_windfall,
+		"Callings grant no starting-item windfall")
 
 	# --- Shell persistence: characters + worlds as simulation containers ---
 	# PR-01: the character is created with the LEGACY id "female" to prove a
 	# legacy value is accepted and re-saved as the canonical id "feminine".
 	var test_char: Dictionary = GameState.create_character({
 		"name": "Smoke Tester", "species": "dwarf", "body_variant": "female",
-		"role": "prospector", "traits": ["hardy"], "appearance": "ash"})
+		"role": "wayfarer", "traits": ["hardy"], "appearance": "ash"})
 	var df_config: Dictionary = WorldConfig.from_preset("dark_frontier")
 	df_config["name"] = "Smoke Frontier"
 	df_config["seed"] = 777
@@ -161,7 +167,7 @@ func _run() -> void:
 	var reloaded_char: Dictionary = GameState.get_character(str(test_char["id"]))
 	var reloaded_cfg := WorldConfig.new(GameState.load_world_file(test_world_id).get("config", {}))
 	_check("shell_persists_characters", not reloaded_char.is_empty()
-		and str(reloaded_char.get("role", "")) == "prospector"
+		and str(reloaded_char.get("role", "")) == "wayfarer"
 		and "hardy" in reloaded_char.get("traits", [])
 		and str(reloaded_char.get("body_variant", "")) == "feminine")
 	_check("player_visual_body_variant_roundtrip",
@@ -1304,10 +1310,12 @@ func _run() -> void:
 	player.breath = _br_prev_breath
 	player.modulate = Color(1, 1, 1)
 
-	# --- Character traits/roles affect the player ---
+	# --- Character traits + Calling affect the player ---
+	# Callings no longer grant a static health bonus (their innate effects are
+	# conditional), so the baseline here is base 100 + Hardy trait 25 = 125.
 	var default_speed: float = player.effective_mine_speed()
-	player.apply_character({"appearance": "umber", "traits": ["hardy", "miner"], "role": "warden"})
-	_check("character_traits_apply", absf(player.max_health - 140.0) < 0.01
+	player.apply_character({"appearance": "umber", "traits": ["hardy", "miner"], "role": "oathbound"})
+	_check("character_traits_apply", absf(player.max_health - 125.0) < 0.01
 		and player.effective_mine_speed() > default_speed * 1.19,
 		"max_health=%.0f speed %.2f→%.2f" % [player.max_health, default_speed, player.effective_mine_speed()])
 	player.apply_character(GameState.current_character)
@@ -1717,14 +1725,14 @@ func _run() -> void:
 	var _m15_toggled: bool = hud.toggle_map()
 	var _m15_open1: bool = hud.map_open()
 	hud.toggle_map()
-	var _m15_had_perk: bool = "biome_reveal" in root.purchased_perks
+	var _m15_had_perk: bool = "broad_horizon" in root.purchased_perks
 	if _m15_had_perk:
-		root.purchased_perks.erase("biome_reveal")
+		root.purchased_perks.erase("broad_horizon")
 	var _m15_r0: int = root._scout_reveal_radius()
-	root.purchased_perks.append("biome_reveal")
+	root.purchased_perks.append("broad_horizon")
 	var _m15_r1: int = root._scout_reveal_radius()
 	if not _m15_had_perk:
-		root.purchased_perks.erase("biome_reveal")
+		root.purchased_perks.erase("broad_horizon")
 	_check("fq15_map_toggle_and_scout_hook",
 		not _m15_open0 and _m15_toggled and _m15_open1 and not hud.map_open()
 		and _m15_r0 == 1 and _m15_r1 == 2,
@@ -3479,19 +3487,27 @@ func _run() -> void:
 	player.attunement = player.max_attunement()
 	root.save_manager.save_game()   # persist the amulet removal for later sections
 
-	# --- FQ-06: visual skill tree — perk points, states, purchase, persistence ---
+	# --- Calling system: Callings, Paths, tier gates, purchase, persistence ---
+	# Drive gating with a known Calling (Wayfarer → Prospector + Trailseeker).
+	var _cal_prev_role: String = str(GameState.current_character.get("role", ""))
+	GameState.current_character["role"] = "wayfarer"
 
-	# (a) perk data loads through the registry: 7 lanes, miner nodes indexed.
+	# (a) perk data loads through the registry: 6 Path lanes, skills indexed to
+	# their Path, and the spec tier gates (2 / 6 / 9) are present.
 	var _fq06_reg = root._progression_registry
 	_check("fq06_perks_json_loads",
-		_fq06_reg.perk_lanes().size() == 7
-		and str(_fq06_reg.get_perk("stone_recovery").get("lane", "")) == "miner"
-		and _fq06_reg.get_perk("stone_recovery").get("prerequisites", [null]).is_empty()
-		and "stone_recovery" in _fq06_reg.get_perk("deep_sense").get("prerequisites", []),
-		"lanes=%d stone_recovery_lane=%s" % [_fq06_reg.perk_lanes().size(),
-			str(_fq06_reg.get_perk("stone_recovery").get("lane", "?"))])
+		_fq06_reg.perk_lanes().size() == 6
+		and str(_fq06_reg.get_perk("stonewise").get("lane", "")) == "prospector"
+		and str(_fq06_reg.get_perk("tempered_frame").get("lane", "")) == "warden"
+		and _fq06_reg.tier_gate("2") == 2 and _fq06_reg.tier_gate("3") == 6
+		and _fq06_reg.tier_gate("capstone") == 9,
+		"lanes=%d stonewise_lane=%s gates=%d/%d/%d" % [_fq06_reg.perk_lanes().size(),
+			str(_fq06_reg.get_perk("stonewise").get("lane", "?")),
+			_fq06_reg.tier_gate("2"), _fq06_reg.tier_gate("3"), _fq06_reg.tier_gate("capstone")])
 
-	# (b) states at level 1 with nothing purchased: root available, child locked.
+	# (b) states at level 1 with nothing purchased: a Tier-I skill of the Calling's
+	# Path is available; a Tier-II skill is tier-locked; a skill of another
+	# Calling's Path is Calling-locked; and zero points blocks purchase.
 	var _fq06_saved_level: int = root.player_level
 	var _fq06_saved_perks: Array = root.purchased_perks.duplicate()
 	root.purchased_perks = []
@@ -3499,76 +3515,141 @@ func _run() -> void:
 	root.player_level = 1
 	_check("fq06_states_and_zero_points",
 		root.perk_points_total() == 0
-		and root.perk_state("stone_recovery") == "available"
-		and root.perk_state("deep_sense") == "locked"
-		and not root.try_purchase_perk("stone_recovery"),
-		"points=%d root=%s child=%s" % [root.perk_points_total(),
-			root.perk_state("stone_recovery"), root.perk_state("deep_sense")])
+		and root.perk_state("stonewise") == "available"
+		and root.perk_state("clean_extraction") == "locked"
+		and root.perk_state("tempered_frame") == "locked"
+		and not root.try_purchase_perk("stonewise"),
+		"points=%d t1=%s t2=%s cross=%s" % [root.perk_points_total(),
+			root.perk_state("stonewise"), root.perk_state("clean_extraction"),
+			root.perk_state("tempered_frame")])
 
-	# (c) a real level grants points; purchase applies the live mining effect.
-	root.player_level = 3   # 2 points
+	# (c) a real level grants points; purchasing a Path skill applies the live
+	# mining-speed effect through the same join point as before.
+	root.player_level = 4   # 3 points
 	var _fq06_speed_before: float = player.effective_mine_speed()
-	var _fq06_bought: bool = root.try_purchase_perk("stone_recovery")
+	var _fq06_bought: bool = root.try_purchase_perk("stonewise")
 	_check("fq06_purchase_applies_effect",
 		_fq06_bought
-		and root.perk_state("stone_recovery") == "purchased"
-		and root.perk_points_available() == 1
+		and root.perk_state("stonewise") == "purchased"
+		and root.perk_points_available() == 2
 		and absf(player.perk_mine_speed_mult - 1.15) < 0.001
 		and absf(player.effective_mine_speed() - _fq06_speed_before * 1.15) < 0.001,
 		"bought=%s points_left=%d mult=%.2f speed %.2f→%.2f" % [str(_fq06_bought),
 			root.perk_points_available(), player.perk_mine_speed_mult,
 			_fq06_speed_before, player.effective_mine_speed()])
 
-	# (d) prerequisites unlock; cost still gates (tunnel_safety costs 2 > 1 left).
-	_check("fq06_prereqs_and_cost_gate",
-		root.perk_state("deep_sense") == "available"
-		and root.perk_state("tunnel_safety") == "available"
-		and not root.try_purchase_perk("tunnel_safety")
-		and not root.try_purchase_perk("stone_recovery"),
-		"deep_sense=%s tunnel_safety=%s (2-cost blocked at 1 point)" % [
-			root.perk_state("deep_sense"), root.perk_state("tunnel_safety")])
+	# (d) tier gate + Calling gate: Tier II stays locked at 1 skill in the Path,
+	# opens once a 2nd Path skill is bought, while a cross-Calling skill stays locked.
+	var _fq06_t2_before: String = root.perk_state("clean_extraction")
+	var _fq06_bought2: bool = root.try_purchase_perk("practiced_swing")
+	_check("fq06_tier_and_calling_gates",
+		_fq06_t2_before == "locked"
+		and _fq06_bought2
+		and root.skills_purchased_in_path("prospector") == 2
+		and root.perk_state("clean_extraction") == "available"
+		and root.perk_state("tempered_frame") == "locked",
+		"t2 before=%s after=%s in_path=%d cross=%s" % [_fq06_t2_before,
+			root.perk_state("clean_extraction"),
+			root.skills_purchased_in_path("prospector"),
+			root.perk_state("tempered_frame")])
 
-	# (e) purchased perks persist through the world save round-trip.
+	# (e) purchased skills persist through the world save round-trip (stonewise +
+	# practiced_swing both feed mining_speed → 1.15 * 1.10 = 1.265).
 	root.save_manager.save_game()
 	root.purchased_perks = []
 	root._apply_purchased_perk_effects()
 	root.player_level = 1
 	root.load_game()
 	_check("fq06_perks_persist",
-		"stone_recovery" in root.purchased_perks
-		and absf(player.perk_mine_speed_mult - 1.15) < 0.001
-		and root.player_level == 3,
-		"purchased=%s mult=%.2f level=%d" % [str(root.purchased_perks),
+		"stonewise" in root.purchased_perks
+		and "practiced_swing" in root.purchased_perks
+		and absf(player.perk_mine_speed_mult - 1.265) < 0.001
+		and root.player_level == 4,
+		"purchased=%s mult=%.3f level=%d" % [str(root.purchased_perks),
 			player.perk_mine_speed_mult, root.player_level])
 
-	# (f) the panel opens, a node can be selected/inspected, states render.
+	# (f) the panel rebuilds for the Calling, opens, and inspects nodes with
+	# tier/state rendered (purchased Tier-I skill and a tier-locked Tier-III skill).
+	hud.skill_panel().setup(root)
 	hud.toggle_skill_panel()
 	var _fq06_open: bool = hud.skill_panel_open()
-	hud.skill_panel().select_node("stone_recovery")
+	hud.skill_panel().select_node("stonewise")
 	var _fq06_info: String = hud.skill_panel().info_text()
-	hud.skill_panel().select_node("deep_sense")
+	hud.skill_panel().select_node("tunnel_hardened")
 	var _fq06_info2: String = hud.skill_panel().info_text()
 	hud.toggle_skill_panel()
 	_check("fq06_panel_opens_and_inspects",
 		_fq06_open and not hud.skill_panel_open()
-		and "Stone Recovery" in _fq06_info and "PURCHASED" in _fq06_info
-		and "15%" in _fq06_info
-		and "Deep Sense" in _fq06_info2 and "AVAILABLE" in _fq06_info2
-		and "Stone Recovery" in _fq06_info2,
+		and "Stonewise" in _fq06_info and "PURCHASED" in _fq06_info
+		and "mining_speed" in _fq06_info
+		and "Tunnel Hardened" in _fq06_info2 and "LOCKED" in _fq06_info2,
 		"info=%s" % _fq06_info.left(90))
 
-	# (g) FQ-09S: the star-map canvas draws one constellation link per
-	# prerequisite pair in the live lane — derived from the same perk data
-	# the buttons use, so presentation can never invent or drop an edge.
-	var _fq09s_expected_links := 0
-	for _fq09s_lane: Dictionary in root.perk_lanes():
-		if str(_fq09s_lane.get("id", "")) == "miner":
-			for _fq09s_perk: Dictionary in _fq09s_lane.get("perks", []):
-				_fq09s_expected_links += (_fq09s_perk.get("prerequisites", []) as Array).size()
-	_check("fq09s_constellation_links_match_prereqs",
-		_fq09s_expected_links > 0
-		and hud.skill_panel().link_count() == _fq09s_expected_links,
-		"links=%d expected=%d" % [hud.skill_panel().link_count(), _fq09s_expected_links])
+	# (g) the panel shows exactly the Calling's two Paths (2 × 12 = 24 nodes) and
+	# no skills belonging to another Calling.
+	_check("fq06_panel_shows_only_calling_paths",
+		hud.skill_panel().node_count() == 24
+		and hud.skill_panel().has_skill_node("stonewise")
+		and hud.skill_panel().has_skill_node("familiar_ground")
+		and not hud.skill_panel().has_skill_node("tempered_frame"),
+		"nodes=%d" % hud.skill_panel().node_count())
+
+	# --- Calling system Stage 2: wired-effect behavior ---
+	# Clear any lingering test threats so threat-state context is deterministic.
+	for _cs_t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_cs_t):
+			_cs_t.queue_free()
+	await get_tree().process_frame
+
+	# (i) static skill effects reach the player: Tempered Frame (+20 max health,
+	# idempotent delta), Armored Bearing (armor x1.15), Deep Reservoir (+15 attun).
+	root.purchased_perks = []
+	root._apply_purchased_perk_effects()
+	var _cs_hp0: float = player.max_health
+	var _cs_att0: float = player.perk_attunement_bonus
+	root.purchased_perks = ["tempered_frame", "armored_bearing", "deep_reservoir"]
+	root._apply_purchased_perk_effects()
+	root._apply_purchased_perk_effects()   # twice: proves the health delta is idempotent
+	_check("calling_static_effects_apply",
+		absf(player.perk_max_health_bonus - 20.0) < 0.01
+		and absf(player.max_health - (_cs_hp0 + 20.0)) < 0.01
+		and absf(player.perk_armor_mult - 1.15) < 0.001
+		and absf(player.perk_attunement_bonus - 15.0) < 0.01,
+		"hp %.0f->%.0f armor_mult=%.2f attun_bonus=%.0f" % [_cs_hp0, player.max_health,
+			player.perk_armor_mult, player.perk_attunement_bonus])
+
+	# (j) take_damage source scoping: Oathbound Resolve reduces ENEMY damage only
+	# (0.9 with no active threat); hazard/generic are unaffected without a skill;
+	# a non-Oathbound Calling gets no Resolve reduction.
+	root.purchased_perks = []
+	var _dm_prev_role: String = str(GameState.current_character.get("role", ""))
+	GameState.current_character["role"] = "oathbound"
+	var _dm_enemy: float = root.calling_incoming_damage_mult("enemy")
+	var _dm_hazard: float = root.calling_incoming_damage_mult("hazard")
+	var _dm_generic: float = root.calling_incoming_damage_mult("generic")
+	GameState.current_character["role"] = "wayfarer"
+	var _dm_way_enemy: float = root.calling_incoming_damage_mult("enemy")
+	GameState.current_character["role"] = _dm_prev_role
+	_check("calling_damage_source_scoping",
+		absf(_dm_enemy - 0.9) < 0.001 and absf(_dm_hazard - 1.0) < 0.001
+		and absf(_dm_generic - 1.0) < 0.001 and absf(_dm_way_enemy - 1.0) < 0.001,
+		"enemy=%.2f hazard=%.2f generic=%.2f wayfarer_enemy=%.2f" % [
+			_dm_enemy, _dm_hazard, _dm_generic, _dm_way_enemy])
+
+	# (k) Vanguard on-defeat restores: Relentless (+6 heal per XP kill) and
+	# Victory's Breath (+25 health & Attunement on threat end) resolve from the
+	# purchased set, and player.heal clamps correctly.
+	root.purchased_perks = ["relentless", "victorys_breath"]
+	player.health = 10.0
+	player.heal(7.0)
+	_check("calling_defeat_rewards_and_heal",
+		absf(root._purchased_skill_additive("heal_on_xp_kill") - 6.0) < 0.01
+		and absf(root._purchased_skill_additive("threat_end_restore") - 25.0) < 0.01
+		and absf(player.health - 17.0) < 0.01,
+		"heal_kill=%.0f threat_end=%.0f health=%.0f" % [
+			root._purchased_skill_additive("heal_on_xp_kill"),
+			root._purchased_skill_additive("threat_end_restore"), player.health])
+	player.health = player.max_health
 
 	# (h) PR-08: the skill panel is viewport-relative -- it fits cleanly (with a
 	# margin) at both 640x360 and 1280x720, is roomier than the old fixed 540x420
@@ -3788,10 +3869,12 @@ func _run() -> void:
 			str(_r03_isolated), str(_r03_reroute), str(_r03_reporting),
 			str(_suites.keys())])
 
-	# Restore progression so later sections see the pre-FQ-06 world.
+	# Restore progression + Calling so later sections see the pre-FQ-06 world.
+	GameState.current_character["role"] = _cal_prev_role
 	root.purchased_perks = _fq06_saved_perks.duplicate()
 	root._apply_purchased_perk_effects()
 	root.player_level = _fq06_saved_level
+	hud.skill_panel().setup(root)
 	root.save_manager.save_game()
 
 	# --- FQ-07: visual asset pipeline with color fallback ---

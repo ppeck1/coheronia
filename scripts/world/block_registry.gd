@@ -97,6 +97,38 @@ func role_def(role_id: String) -> Dictionary:
 	return {}
 
 
+## Calling system: the serialized character key stays `role` (save-compat), but
+## its values are the three Callings (oathbound/wayfarer/runewright). These are
+## thin, clearly named aliases over the same `roles` data so new code reads as
+## "Calling" while old readers and saves keep working.
+func callings() -> Array:
+	return character_data.get("roles", [])
+
+
+func calling_def(calling_id: String) -> Dictionary:
+	return role_def(calling_id)
+
+
+## The data-driven fallback Calling. Legacy characters whose stored `role` is not
+## one of the three Callings are auto-mapped to this (permanent) on load.
+func default_calling() -> String:
+	return str(character_data.get("default_calling", "oathbound"))
+
+
+## Normalizes a stored `role` value to a valid Calling id: returns it unchanged
+## when it names a real Calling, else the default Calling. This is the single
+## chokepoint the migration and all Calling gating read through.
+func calling_of(role_id: String) -> String:
+	if not calling_def(role_id).is_empty():
+		return role_id
+	return default_calling()
+
+
+## The Path ids owned by a Calling (["warden", "vanguard"], etc.), or [] .
+func calling_paths(calling_id: String) -> Array:
+	return calling_def(calling_of(calling_id)).get("paths", [])
+
+
 func appearance_def(appearance_id: String) -> Dictionary:
 	for appearance in character_data.get("appearances", []):
 		if appearance.get("id", "") == appearance_id:

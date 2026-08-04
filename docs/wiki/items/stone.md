@@ -28,7 +28,6 @@ Stone is a live item with both acquisition and active use in the current build.
 |---|---|---|---|
 | Block drop | [Stone](../blocks/stone.md) | 1x | Current block harvest result. |
 | Block drop | [Deepstone](../blocks/deepstone.md) | 1x | Current block harvest result. |
-| Starting role | [Prospector](../characters/roles/prospector.md) | 2x | Granted during character setup. |
 
 ## Current Uses
 

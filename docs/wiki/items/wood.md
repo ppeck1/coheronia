@@ -28,7 +28,6 @@ Wood is a live item with both acquisition and active use in the current build.
 |---|---|---|---|
 | Block drop | [Wood](../blocks/wood.md) | 1x | Current block harvest result. |
 | Block drop | [Tree Trunk](../blocks/tree_trunk.md) | 1x | Current block harvest result. |
-| Starting role | [Homesteader](../characters/roles/homesteader.md) | 5x | Granted during character setup. |
 
 ## Current Uses
 

@@ -151,7 +151,7 @@ func _physics_process(delta: float) -> void:
 	if not is_inside_tree():
 		return                          # died in lava this frame; skip the rest
 	if player != null and global_position.distance_to(player.global_position) < 18.0:
-		player.take_damage(contact_damage)
+		player.take_damage(contact_damage, "enemy")   # Calling system: hostile source
 	if emits_bubbles:
 		_tick_bubbles(delta)   # M4-B: capped molten-bubble field
 	queue_redraw()

@@ -29,7 +29,6 @@ Dirt is a live item with both acquisition and active use in the current build.
 | Block drop | [Dirt](../blocks/dirt.md) | 1x | Current block harvest result. |
 | Block drop | [Grass](../blocks/grass.md) | 1x | Current block harvest result. |
 | Block drop | [Tilled Soil](../blocks/farm_soil.md) | 1x | Current block harvest result. |
-| Starting role | [Homesteader](../characters/roles/homesteader.md) | 10x | Granted during character setup. |
 
 ## Current Uses
 
