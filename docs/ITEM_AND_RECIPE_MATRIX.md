@@ -1,10 +1,99 @@
 # Coheronia Item And Recipe Matrix
 
-Generated: 2026-07-15 · Item-Wiring Closure pass: 2026-07-29
+Generated: 2026-07-15 · Item-Wiring Closure pass: 2026-07-29 · Metal Ladder pass: 2026-08-04
+
+---
+
+# Metal Ladder Pass (2026-08-04)
+
+This section is the authoritative record of the Metal Ladder pass and **supersedes**
+the prior Item-Wiring Closure pass's deferral of `bronze_ingot` and bronze gear.
+Where this section disagrees with any table below (including that pass's "Live
+items intentionally marked `future_use`" list), this section wins for the affected
+ids. Authority doc: `docs/WORK_ORDER_METAL_LADDER.md`.
+
+## What this supersedes
+
+The Item-Wiring Closure pass explicitly deferred `bronze_ingot`: it named
+`bronze_ingot` in its "Live items intentionally marked `future_use`" section and
+argued "Bronze's natural sink is a bronze tool/gear tier, which is out of scope
+this pass. Deferred over a functionally pointless recipe."
+
+**That deferral is now closed.** `bronze_ingot` is **no longer `future_use`** — it
+feeds a full bronze gear tier at the anvil (`anvil_bronze_sword`,
+`anvil_bronze_armor`). Silver, the two deep blocks, crystal, and the ring slots
+also gained the sinks the prior pass left open. Every smelted metal and both deep
+blocks now lead to real gear.
+
+## New equipment
+
+| Item id | Display name | Slot | Effect(s) | Live source |
+|---|---|---|---|---|
+| sword_bronze | Bronze Sword | weapon | attack_damage 4 | Craft result: Bronze Sword (anvil) |
+| helmet_bronze | Bronze Helm | helmet | armor 2 | Craft result: Bronze Armor Set (anvil) |
+| torso_bronze | Bronze Cuirass | torso | armor 3 | Craft result: Bronze Armor Set (anvil) |
+| feet_bronze | Bronze Boots | feet | armor 2 | Craft result: Bronze Armor Set (anvil) |
+| sword_obsidian | Obsidian Blade | weapon | attack_damage 7 | Craft result: Obsidian Blade (anvil) |
+| helmet_hellstone | Hellstone Helm | helmet | armor 3 | Craft result: Hellstone Armor Set (anvil) |
+| torso_hellstone | Hellstone Cuirass | torso | armor 6 | Craft result: Hellstone Armor Set (anvil) |
+| feet_hellstone | Hellstone Boots | feet | armor 3 | Craft result: Hellstone Armor Set (anvil) |
+| ring_silver | Silver Ring | ring | attunement_bonus 5 | Craft result: Silver Ring (workbench) |
+| ring_crystal | Attuned Ring | ring | attunement_bonus 8 | Craft result: Attuned Ring (workbench) |
+| amulet_ember | Ember Amulet | amulet | attunement_bonus 12, armor 2 | Craft result: Ember Amulet (workbench) |
+| ring_band | Plain Band | ring | none (unchanged) | Stays inert — no recipe, unobtainable in play (equipped only by the fq03 round-trip smoke), so an effect would only perturb the armor baseline |
+
+## New recipes and the material sinks they open
+
+| Recipe id | Where crafted | Inputs | Result | Sink it closes |
+|---|---|---|---|---|
+| anvil_bronze_sword | Anvil | bronze_ingot 3 | weapon → sword_bronze | `bronze_ingot` (was `future_use`, now live gear) |
+| anvil_bronze_armor | Anvil | bronze_ingot 5 | helmet/torso/feet → bronze set | `bronze_ingot` |
+| anvil_obsidian_sword | Anvil | obsidian 4, iron_ingot 1 | weapon → sword_obsidian | `obsidian` (was build-only → now dual-use build/forge) |
+| anvil_hellstone_armor | Anvil | hellstone 6, iron_ingot 2 | helmet/torso/feet → hellstone set | `hellstone` (was build-only → now dual-use build/forge) |
+| craft_ember_amulet | **Workbench** | hellstone 2, obsidian 2, crystal 2 | amulet → amulet_ember | `hellstone` + `obsidian` + `crystal` capstone (workbench-hosted: crystal is in `ORE_IDS`, so keeping it off the anvil preserves the raw-ore gate) |
+| craft_silver_ring | **Workbench** | silver_ingot 2 | ring → ring_silver | `silver_ingot` (beyond the Focus Amulet) |
+| craft_attuned_ring | **Workbench** | silver_ingot 1, crystal 1 | ring → ring_crystal | `silver_ingot` + `crystal` |
+
+## Balance ladder
+
+- **Weapons (attack_damage):** crude 3 < **bronze 4** < iron 5 < **obsidian 7**.
+- **Armor set totals (helm+torso+feet):** crude 4 < **bronze 7** < iron 8 < **hellstone 12**.
+- **Attunement:** ring_silver +5 < ring_crystal +8; amulet_ember (+12 attunement,
+  +2 armor) is the amulet capstone, above Focus Amulet (+10).
+
+## Design invariants preserved
+
+- **Anvil no-raw-ore gate intact.** `hellstone`/`obsidian` are **refined blocks**
+  (NOT in the validator's `ORE_IDS`), so forging them at the anvil consumes no raw
+  ore — the gate holds and no validator carve-out was added. The blocks become
+  **dual-use** (place as structure/defense OR forge as gear).
+- **Rings and the Ember Amulet hosted at the workbench** (mirroring
+  `craft_focus_amulet`), so the anvil's smelted-ingot invariant is never touched.
+  This is deliberate for the Ember Amulet: it consumes `crystal`, which *is* in
+  `ORE_IDS`, so anvil-hosting it would have required the exact gate carve-out a
+  prior pass reverted. Rule: rings + amulets at the workbench, weapons + armor at
+  the anvil.
+- **Ring cascade (engine).** `town_hall._resolve_equip_slots()` cascades an
+  occupied `ring_1` to the next free ring slot (`RING_SLOTS = ring_1..ring_4`, new
+  `_first_free_ring_slot` helper), mirroring the weapon → offhand_weapon cascade,
+  so both ring recipes (each naming `ring_1`) fill all four ring slots.
+
+## Out of scope (unchanged from prior pass)
+
+- New **tool tiers** (bronze/obsidian/hellstone pick or axe) — inert fields today.
+- Enemy-loot / **textile / alchemy** lines — the remaining `future_use` loot ids
+  stay parked.
+- **Authored gear art** — the new gear ships on procedural fallback; authored PNGs
+  are a fast-follow.
 
 ---
 
 # Item-Wiring Closure Pass (2026-07-29)
+
+> **Superseded in part (2026-08-04):** the Metal Ladder pass above closes this
+> pass's deferral of `bronze_ingot` — it is no longer `future_use` and now feeds
+> bronze gear. Silver/obsidian/hellstone/crystal/ring sinks were added there too.
+> This section remains accurate for everything else.
 
 This section is the authoritative record of the item-wiring closure pass. The
 tables further below are the prior full audit baseline; where they disagree with

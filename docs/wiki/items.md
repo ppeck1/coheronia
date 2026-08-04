@@ -29,7 +29,7 @@ This page is the item landing page for the current Coheronia wiki tree. It is me
 | [Tin Ingot](items/tin_ingot.md) | complete | stockpile | Recipe: smelt_tin | recipe input |
 | [Iron Ingot](items/iron_ingot.md) | complete | stockpile | Recipe: smelt_iron | recipe input |
 | [Silver Ingot](items/silver_ingot.md) | complete | stockpile | Recipe: smelt_silver | recipe input |
-| [Bronze Ingot](items/bronze_ingot.md) | source-only | stockpile | Recipe: alloy_bronze | No live sink |
+| [Bronze Ingot](items/bronze_ingot.md) | complete | stockpile | Recipe: alloy_bronze | recipe input |
 
 ### Farming, Food, And Light
 

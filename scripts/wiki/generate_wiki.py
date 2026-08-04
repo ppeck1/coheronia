@@ -166,9 +166,6 @@ ITEM_BUCKETS = {
 }
 
 ITEM_PROPOSED_SINKS = {
-    "crystal": "Proposed future sink: amulet, beacon, or pulse catalyst.",
-    "silver_ingot": "Proposed future sink: amulet, coinage, or ritual civic item.",
-    "bronze_ingot": "Proposed future sink: ring, tools, or civic-material branch.",
     "slime_gel": "Proposed future sink: adhesive, torch gel, or weak healing.",
     "wet_fiber": "Proposed future sink: rope, bandage, or thatch mix.",
     "tiny_core": "Proposed future sink: Focus Amulet or attunement reagent.",

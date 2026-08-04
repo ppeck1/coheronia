@@ -14,6 +14,9 @@ const SWORD_RECIPE_ID := "craft_sword"
 const ARMOR_RECIPE_ID := "craft_armor_set"
 const ART_RECT := Rect2(-28, -48, 56, 48)
 const WALL_RECT := Rect2(-24, -32, 48, 32)
+# Metal-ladder: ring recipes name ring_1 but cascade to the next free ring slot
+# (mirrors the weapon -> offhand_weapon cascade), so all four slots are craftable.
+const RING_SLOTS := ["ring_1", "ring_2", "ring_3", "ring_4"]
 
 var stockpile: Dictionary = {}
 var damage := 0.0            # 0 (intact) .. 100 (ruined)
@@ -258,8 +261,25 @@ func _resolve_equip_slots(equip_slots: Dictionary, player: CharacterBody2D) -> D
 					or not BlockRegistry.item_fits_slot(item_id, "offhand_weapon"):
 				return {}
 			slot = "offhand_weapon"
+		elif slot.begins_with("ring_") \
+				and (str(equipped.get(slot, "")) != "" or resolved.has(slot)):
+			slot = _first_free_ring_slot(item_id, equipped, resolved)
+			if slot == "":
+				return {}
 		resolved[slot] = item_id
 	return resolved
+
+
+## Metal-ladder: finds the first empty ring slot the item fits, checking both the
+## live loadout and slots already claimed earlier in this same resolve pass.
+## Returns "" when every ring slot is full (craft fails without consuming inputs).
+func _first_free_ring_slot(item_id: String, equipped: Dictionary, resolved: Dictionary) -> String:
+	for slot in RING_SLOTS:
+		if not BlockRegistry.item_fits_slot(item_id, slot):
+			continue
+		if str(equipped.get(slot, "")) == "" and not resolved.has(slot):
+			return slot
+	return ""
 
 
 ## Spends stockpile per the town_hall-station recipe to upgrade the

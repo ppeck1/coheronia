@@ -35,6 +35,8 @@ Iron Ingot is a live item with both acquisition and active use in the current bu
 |---|---|---|---|
 | Recipe input | Iron Sword | 3x at [Anvil](../stations/anvil.md) | Live crafting dependency. |
 | Recipe input | Iron Armor Set | 5x at [Anvil](../stations/anvil.md) | Live crafting dependency. |
+| Recipe input | Obsidian Blade | 1x at [Anvil](../stations/anvil.md) | Live crafting dependency. |
+| Recipe input | Hellstone Armor Set | 2x at [Anvil](../stations/anvil.md) | Live crafting dependency. |
 | Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
 ## Related Pages

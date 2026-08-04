@@ -165,6 +165,76 @@
       "station": "anvil"
     },
     {
+      "recipe_id": "anvil_bronze_sword",
+      "display_name": "Bronze Sword",
+      "note": "Metal-ladder: bronze weapon tier, between crude and iron. Forged from the copper+tin alloy (bronze_ingot), which previously dead-ended.",
+      "inputs": { "bronze_ingot": 3 },
+      "outputs": {},
+      "equip_slots": { "weapon": "sword_bronze" },
+      "icon": "sword_bronze",
+      "station": "anvil"
+    },
+    {
+      "recipe_id": "anvil_bronze_armor",
+      "display_name": "Bronze Armor Set",
+      "note": "Metal-ladder: bronze armor tier (helm/torso/boots), between crude and iron.",
+      "inputs": { "bronze_ingot": 5 },
+      "outputs": {},
+      "equip_slots": { "helmet": "helmet_bronze", "torso": "torso_bronze", "feet": "feet_bronze" },
+      "icon": "torso_bronze",
+      "station": "anvil"
+    },
+    {
+      "recipe_id": "anvil_obsidian_sword",
+      "display_name": "Obsidian Blade",
+      "note": "Metal-ladder: apex weapon. Obsidian is a refined block (not in ORE_IDS), so the anvil's no-raw-ore gate is untouched; an iron tang binds the edge. Makes the obsidian block dual-use (build or forge).",
+      "inputs": { "obsidian": 4, "iron_ingot": 1 },
+      "outputs": {},
+      "equip_slots": { "weapon": "sword_obsidian" },
+      "icon": "sword_obsidian",
+      "station": "anvil"
+    },
+    {
+      "recipe_id": "anvil_hellstone_armor",
+      "display_name": "Hellstone Armor Set",
+      "note": "Metal-ladder: apex armor. Hellstone is a refined block (not in ORE_IDS); iron binds the plates. Makes the hellstone block dual-use (build or forge).",
+      "inputs": { "hellstone": 6, "iron_ingot": 2 },
+      "outputs": {},
+      "equip_slots": { "helmet": "helmet_hellstone", "torso": "torso_hellstone", "feet": "feet_hellstone" },
+      "icon": "torso_hellstone",
+      "station": "anvil"
+    },
+    {
+      "recipe_id": "craft_ember_amulet",
+      "display_name": "Ember Amulet",
+      "note": "Metal-ladder capstone: requires both deep materials (hellstone + obsidian) plus crystal, tying the two hardest-won blocks together. Hosted at the workbench (like craft_focus_amulet), which already accepts crystal — so the anvil's raw-ore gate stays strict and untouched. Rule: rings + amulets at the workbench, weapons + armor at the anvil.",
+      "inputs": { "hellstone": 2, "obsidian": 2, "crystal": 2 },
+      "outputs": {},
+      "equip_slots": { "amulet": "amulet_ember" },
+      "icon": "crystal",
+      "station": "workbench"
+    },
+    {
+      "recipe_id": "craft_silver_ring",
+      "display_name": "Silver Ring",
+      "note": "Metal-ladder: gives silver_ingot a gear sink beyond the amulet. Hosted at the workbench (mirrors craft_focus_amulet), leaving the anvil's smelted-ingot invariant intact. Cascades to the next free ring slot.",
+      "inputs": { "silver_ingot": 2 },
+      "outputs": {},
+      "equip_slots": { "ring_1": "ring_silver" },
+      "icon": "ring_silver",
+      "station": "workbench"
+    },
+    {
+      "recipe_id": "craft_attuned_ring",
+      "display_name": "Attuned Ring",
+      "note": "Metal-ladder: silver + crystal ring, stronger attunement. Workbench-hosted; cascades to the next free ring slot.",
+      "inputs": { "silver_ingot": 1, "crystal": 1 },
+      "outputs": {},
+      "equip_slots": { "ring_1": "ring_crystal" },
+      "icon": "ring_crystal",
+      "station": "workbench"
+    },
+    {
       "recipe_id": "craft_bucket",
       "display_name": "Bucket",
       "inputs": { "copper_ingot": 3 },

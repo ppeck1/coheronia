@@ -2,7 +2,7 @@
 
 Generated: 2026-08-04
 
-> `Item` page. Current status: `source-only`.
+> `Item` page. Current status: `complete`.
 
 ![Bronze Ingot](../../../art/generated/items/bronze_ingot.png)
 
@@ -10,17 +10,17 @@ Generated: 2026-08-04
 |---|---|
 | ID | `bronze_ingot` |
 | Page type | Item |
-| Current status | source-only |
+| Current status | complete |
 | Storage | stockpile |
 | Player-facing? | Yes |
-| Description | Alloyed from copper and tin at the furnace. |
-| Status explanation | A live source exists, but the current game still lacks a meaningful downstream sink. |
+| Description | Alloyed from copper and tin at the furnace. Forged into bronze gear at the anvil. |
+| Status explanation | A live source and a live downstream use both exist. |
 | Image path | `art/generated/items/bronze_ingot.png` |
 | Fallback / placeholder | Generated 16x16 swatch via `BlockRegistry.item_icon()` if the canonical item icon is absent. |
 
 ## Summary
 
-Bronze Ingot is live and obtainable, but it still ends in a source-only branch.
+Bronze Ingot is a live item with both acquisition and active use in the current build.
 
 ## Acquisition
 
@@ -32,6 +32,8 @@ Bronze Ingot is live and obtainable, but it still ends in a source-only branch.
 
 | Use type | Use | Quantity | Notes |
 |---|---|---|---|
+| Recipe input | Bronze Sword | 3x at [Anvil](../stations/anvil.md) | Live crafting dependency. |
+| Recipe input | Bronze Armor Set | 5x at [Anvil](../stations/anvil.md) | Live crafting dependency. |
 | Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
 ## Related Pages
@@ -41,4 +43,4 @@ Bronze Ingot is live and obtainable, but it still ends in a source-only branch.
 
 ## Notes
 
-- Proposed future sink: ring, tools, or civic-material branch.
+- No additional manual notes.

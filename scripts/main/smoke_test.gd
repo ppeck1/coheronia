@@ -3193,6 +3193,97 @@ func _run() -> void:
 		"bronze=%d copper=%d tin=%d" % [int(hall.stockpile.get("bronze_ingot", 0)),
 			int(hall.stockpile.get("copper_ingot", 0)), int(hall.stockpile.get("tin_ingot", 0))])
 
+	# (h) metal ladder: the anvil/workbench expansion forges the bronze/obsidian/
+	# hellstone tiers, the ember amulet capstone, and cascades rings across slots.
+	# All three stations are already built here and the weapon slot is clear.
+	# ml_bronze_sword: 3 bronze_ingot -> sword_bronze (attack 4).
+	player.equip_item("weapon", "")
+	hall.stockpile["bronze_ingot"] = 20
+	var _ml_bsword: bool = hall.craft_station("anvil_bronze_sword", player)
+	_check("ml_bronze_sword",
+		_ml_bsword and str(player.equipped_dict().get("weapon", "")) == "sword_bronze"
+		and player.attack_damage() == 4,
+		"forge=%s weapon=%s atk=%d" % [str(_ml_bsword),
+			str(player.equipped_dict().get("weapon", "")), player.attack_damage()])
+
+	# ml_bronze_armor: 5 bronze_ingot -> full bronze set (armor 2+3+2 = 7).
+	player.equip_item("weapon", "")
+	hall.stockpile["bronze_ingot"] = 20
+	var _ml_barmor: bool = hall.craft_station("anvil_bronze_armor", player)
+	_check("ml_bronze_armor",
+		_ml_barmor
+		and str(player.equipped_dict().get("helmet", "")) == "helmet_bronze"
+		and str(player.equipped_dict().get("torso", "")) == "torso_bronze"
+		and str(player.equipped_dict().get("feet", "")) == "feet_bronze"
+		and int(player.armor_total()) == 7,
+		"forge=%s h=%s t=%s f=%s armor=%d" % [str(_ml_barmor),
+			str(player.equipped_dict().get("helmet", "")),
+			str(player.equipped_dict().get("torso", "")),
+			str(player.equipped_dict().get("feet", "")), int(player.armor_total())])
+
+	# ml_obsidian_sword: obsidian + iron_ingot -> sword_obsidian (attack 7).
+	player.equip_item("weapon", "")
+	hall.stockpile["obsidian"] = 20
+	hall.stockpile["iron_ingot"] = 20
+	var _ml_osword: bool = hall.craft_station("anvil_obsidian_sword", player)
+	_check("ml_obsidian_sword",
+		_ml_osword and str(player.equipped_dict().get("weapon", "")) == "sword_obsidian"
+		and player.attack_damage() == 7,
+		"forge=%s weapon=%s atk=%d" % [str(_ml_osword),
+			str(player.equipped_dict().get("weapon", "")), player.attack_damage()])
+
+	# ml_hellstone_armor: hellstone + iron_ingot -> apex armor set (3+6+3 = 12).
+	player.equip_item("helmet", "")
+	player.equip_item("torso", "")
+	player.equip_item("feet", "")
+	hall.stockpile["hellstone"] = 20
+	hall.stockpile["iron_ingot"] = 20
+	var _ml_harmor: bool = hall.craft_station("anvil_hellstone_armor", player)
+	_check("ml_hellstone_armor",
+		_ml_harmor and int(player.armor_total()) == 12,
+		"forge=%s armor=%d" % [str(_ml_harmor), int(player.armor_total())])
+
+	# ml_ember_amulet_capstone: hellstone + obsidian + crystal -> amulet_ember at
+	# the workbench (rings + amulets host there; keeps the anvil's raw-ore gate
+	# strict). Its attunement_bonus (12) lifts the gear attunement total.
+	player.equip_item("amulet", "")
+	var _ml_att0: float = player.attunement_bonus_from_gear()
+	hall.stockpile["hellstone"] = 20
+	hall.stockpile["obsidian"] = 20
+	hall.stockpile["crystal"] = 20
+	var _ml_amulet: bool = hall.craft_station("craft_ember_amulet", player)
+	_check("ml_ember_amulet_capstone",
+		_ml_amulet and str(player.equipped_dict().get("amulet", "")) == "amulet_ember"
+		and player.attunement_bonus_from_gear() - _ml_att0 >= 12.0,
+		"forge=%s amulet=%s att %.1f->%.1f" % [str(_ml_amulet),
+			str(player.equipped_dict().get("amulet", "")),
+			_ml_att0, player.attunement_bonus_from_gear()])
+
+	# ml_ring_slot_cascade: two workbench ring recipes both target ring_1, but
+	# town_hall cascades an occupied ring into the next free slot (ring_1..ring_4),
+	# so three crafts fill ring_1, ring_2, ring_3 with silver/crystal rings.
+	player.equip_item("ring_1", "")
+	player.equip_item("ring_2", "")
+	player.equip_item("ring_3", "")
+	player.equip_item("ring_4", "")
+	hall.stockpile["silver_ingot"] = 20
+	hall.stockpile["crystal"] = 20
+	var _ml_r1: bool = hall.craft_station("craft_silver_ring", player)
+	var _ml_r2: bool = hall.craft_station("craft_silver_ring", player)
+	var _ml_r3: bool = hall.craft_station("craft_attuned_ring", player)
+	var _ml_rd: Dictionary = player.equipped_dict()
+	var _ml_ring_ids := ["ring_silver", "ring_crystal"]
+	_check("ml_ring_slot_cascade",
+		_ml_r1 and _ml_r2 and _ml_r3
+		and str(_ml_rd.get("ring_1", "")) != "" and str(_ml_rd.get("ring_2", "")) != ""
+		and str(_ml_rd.get("ring_3", "")) != ""
+		and _ml_ring_ids.has(str(_ml_rd.get("ring_1", "")))
+		and _ml_ring_ids.has(str(_ml_rd.get("ring_2", "")))
+		and _ml_ring_ids.has(str(_ml_rd.get("ring_3", ""))),
+		"r1=%s r2=%s r3=%s slots=[%s,%s,%s]" % [str(_ml_r1), str(_ml_r2), str(_ml_r3),
+			str(_ml_rd.get("ring_1", "")), str(_ml_rd.get("ring_2", "")),
+			str(_ml_rd.get("ring_3", ""))])
+
 	# (g) built stations round-trip through save/load (pre-FQ-11 saves default
 	# to nothing built).
 	root.save_manager.save_game()
@@ -3206,9 +3297,16 @@ func _run() -> void:
 
 	# Clear any forged gear so later FQ-01/FQ-05 checks see an unarmored player.
 	player.equip_item("weapon", "")
+	player.equip_item("offhand_weapon", "")
 	player.equip_item("helmet", "")
 	player.equip_item("torso", "")
 	player.equip_item("feet", "")
+	player.equip_item("ring_1", "")
+	player.equip_item("ring_2", "")
+	player.equip_item("ring_3", "")
+	player.equip_item("ring_4", "")
+	player.equip_item("amulet", "")
+	player.equip_item("accessory", "")
 	player.health = player.max_health
 
 	# --- FQ-12: farming (till, plant, grow, harvest, no-float, save/load) ---

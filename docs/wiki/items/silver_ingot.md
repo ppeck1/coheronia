@@ -32,6 +32,8 @@ Silver Ingot is a live item with both acquisition and active use in the current 
 
 | Use type | Use | Quantity | Notes |
 |---|---|---|---|
+| Recipe input | Silver Ring | 2x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
+| Recipe input | Attuned Ring | 1x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
 | Recipe input | Focus Amulet | 1x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
 | Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
@@ -42,4 +44,4 @@ Silver Ingot is a live item with both acquisition and active use in the current 
 
 ## Notes
 
-- Proposed future sink: amulet, coinage, or ritual civic item.
+- No additional manual notes.

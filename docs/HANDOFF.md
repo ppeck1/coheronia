@@ -1,5 +1,48 @@
 # Coheronia - Handoff
 
+## Next State (2026-08-04: Metal Ladder — data + engine cascade, docs/wiki refreshed)
+
+**NEXT INSTANCE — start here.** The **Metal Ladder** pass makes every smelted
+metal and both deep blocks lead to real gear. Authority:
+`docs/WORK_ORDER_METAL_LADDER.md`. Data: `data/equipment.json` adds bronze
+sword+armor set, obsidian blade, hellstone armor set, silver + attuned rings, and
+an ember amulet capstone (`ring_band` intentionally stays inert — it has no
+recipe and is unobtainable in play, so an effect would only perturb the fq03 smoke
+baseline);
+`data/recipes.json` adds `anvil_bronze_sword`/`anvil_bronze_armor`/
+`anvil_obsidian_sword`/`anvil_hellstone_armor` (anvil) + `craft_silver_ring`/
+`craft_attuned_ring`/`craft_ember_amulet` (workbench). `bronze_ingot` is no longer
+`future_use`. Engine: `town_hall.gd` `RING_SLOTS` const + `_first_free_ring_slot`
+so `_resolve_equip_slots()` cascades rings across all four ring slots. Invariants
+held: hellstone/obsidian are refined (not `ORE_IDS`) so the anvil no-raw-ore gate
+stays intact and the blocks are dual-use; rings + amulets are workbench-hosted
+(the Ember Amulet uses crystal, which is in `ORE_IDS`, so hosting it off the anvil
+keeps that gate strict — rule: rings/amulets at the workbench, weapons/armor at
+the anvil).
+
+Docs refreshed this pass: `docs/WORK_ORDER_METAL_LADDER.md` (new),
+`docs/ITEM_AND_RECIPE_MATRIX.md` (new dated section superseding the bronze_ingot
+deferral), `docs/VARIABLE_MATRIX.md` (Metal ladder row + audit line), `README.md`
+(gear-ladder feature line), regenerated wiki (`docs/wiki`, new equipment/recipe
+pages for the ladder), `check_links.py` PASS.
+
+Smoke count: **515 checks** total (509 prior + 6 new `ml_*`: bronze sword/armor,
+obsidian sword, hellstone armor, ember-amulet capstone, ring-slot cascade). Waited-
+GUI run: **514/515**, the only red being `hud_npc_panel_editable` — a pre-existing
+HUD grip-rect render-timing flake (`grip=(0.0,0.0)`: the panel's layout wasn't
+computed within the 3 awaited frames; `moved`/`resized` both pass). It is NOT a
+metal-ladder regression: this pass touches zero HUD/UI code (`git diff --name-only`
+= data/*.json, smoke_test.gd, town_hall.gd, validate_repo.py, generate_wiki.py,
+docs), and the check passed in an earlier run this session. All 6 `ml_*` checks
+pass. Smoke lineage tail: … → 437 → 509 (prior tail) → **515** (metal ladder).
+`validate_repo.py` PASS, `verify_gear_alignment.py` PASS, `check_links.py` PASS.
+`asset_audit --strict` / `capsule_doctor` / exported-build smoke: not yet re-run
+this pass. Not committed, not pushed (operator gate). Independent review agent hit
+the session limit (resets 12:10pm) before returning; the ring-cascade logic was
+self-reviewed — relaunch the reviewer after reset for the full diff pass.
+
+---
+
 ## Current State (2026-07-29: depth-block art, lava bubbles, drops — docs/wiki refreshed, PUSHED)
 
 **NEXT INSTANCE — start here.** A run of art/polish work on top of the pushed

@@ -22,7 +22,7 @@
     "tin_ingot": { "display_name": "Tin Ingot", "color": "c9ccbe", "description": "Smelted at the furnace. Alloys into bronze." },
     "iron_ingot": { "display_name": "Iron Ingot", "color": "b0968a", "description": "Smelted at the furnace. Anvil stock for iron gear." },
     "silver_ingot": { "display_name": "Silver Ingot", "color": "e2e6ef", "description": "Smelted at the furnace." },
-    "bronze_ingot": { "display_name": "Bronze Ingot", "color": "c98a3f", "description": "Alloyed from copper and tin at the furnace.", "future_use": true },
+    "bronze_ingot": { "display_name": "Bronze Ingot", "color": "c98a3f", "description": "Alloyed from copper and tin at the furnace. Forged into bronze gear at the anvil." },
     "crop_seeds": { "display_name": "Crop Seeds", "color": "b7c96a", "description": "Plant on tilled soil (G) to grow food." },
     "tree_seed": { "display_name": "Tree Seed", "color": "7a5a2e", "description": "Plant on dirt or grass (Place) to grow a new tree. Dropped now and then when clearing leaves." },
     "door": { "display_name": "Door", "color": "8a5a2c", "description": "A wooden door. Place it in a wall; Place again on it to open or close it. Houses need at least one." },

@@ -18,6 +18,9 @@ Generated: 2026-08-04
 | Recipe | Inputs | Result | Result route |
 |---|---|---|---|
 | Torch Bundle | wood x2, coal x1 | torch x6 | inventory |
+| Ember Amulet | hellstone x2, obsidian x2, crystal x2 | amulet: amulet_ember | inventory |
+| Silver Ring | silver_ingot x2 | ring_1: ring_silver | inventory |
+| Attuned Ring | silver_ingot x1, crystal x1 | ring_1: ring_crystal | inventory |
 | Bucket | copper_ingot x3 | bucket x1 | inventory |
 | Raid Torches | torch_heads x2, oil_rags x1, wood x1 | torch x6 | inventory |
 | Focus Amulet | silver_ingot x1, crystal x1, tiny_core x1 | amulet: amulet_focus | inventory |

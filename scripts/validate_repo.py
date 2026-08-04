@@ -634,7 +634,10 @@ for r in all_recipes:
         furnace_ingots.update(r.get("outputs", {}).keys())
 if not furnace_ingots:
     fail("recipes.json defines no furnace ingot outputs")
-# Anvil recipes create gear from ingots only — never from raw ore (the FQ-11 gate).
+# Anvil recipes create gear from ingots only — never from raw ore (the FQ-11
+# gate). Metal ladder note: hellstone/obsidian are refined blocks (not in
+# ORE_IDS) so they forge at the anvil; crystal (an ORE_IDS reagent) is confined
+# to the workbench amulets, keeping this gate strict and unchanged.
 anvil_recipes = [r for r in all_recipes if r.get("station") == "anvil"]
 if not anvil_recipes:
     fail("recipes.json defines no anvil recipes")
@@ -656,6 +659,57 @@ if int(items["sword_iron"]["effects"].get("attack_damage", 0)) \
         <= int(items["sword_crude"]["effects"].get("attack_damage", 0)):
     fail("equipment.json sword_iron must hit harder than sword_crude")
 print("PASS station chain and metal gate")
+
+# Metal ladder gear expansion: new bronze/obsidian/hellstone/ring/amulet tier.
+# (1) Every new gear id exists with the correct slot_type.
+_ladder_gear = {
+    "sword_bronze": "weapon", "sword_obsidian": "weapon",
+    "helmet_bronze": "helmet", "torso_bronze": "torso", "feet_bronze": "feet",
+    "helmet_hellstone": "helmet", "torso_hellstone": "torso", "feet_hellstone": "feet",
+    "ring_silver": "ring", "ring_crystal": "ring", "amulet_ember": "amulet",
+}
+for gear_id, expect_slot in _ladder_gear.items():
+    if gear_id not in items:
+        fail(f"equipment.json missing metal ladder gear: {gear_id}")
+    if items[gear_id].get("slot_type") != expect_slot:
+        fail(f"equipment.json {gear_id} slot_type must be {expect_slot}")
+# (2) Weapon damage ladder: crude < bronze < iron < obsidian.
+_dmg_crude = int(items["sword_crude"]["effects"].get("attack_damage", 0))
+_dmg_bronze = int(items["sword_bronze"]["effects"].get("attack_damage", 0))
+_dmg_iron = int(items["sword_iron"]["effects"].get("attack_damage", 0))
+_dmg_obsidian = int(items["sword_obsidian"]["effects"].get("attack_damage", 0))
+if not (_dmg_crude < _dmg_bronze < _dmg_iron):
+    fail("equipment.json sword_bronze must sit between sword_crude and sword_iron in attack_damage")
+if _dmg_obsidian <= _dmg_iron:
+    fail("equipment.json sword_obsidian must hit harder than sword_iron")
+# (3) Armor apex: hellstone set total armor > iron set total armor.
+_hellstone_armor = sum(int(items[p]["effects"].get("armor", 0))
+                       for p in ["helmet_hellstone", "torso_hellstone", "feet_hellstone"])
+_iron_armor = sum(int(items[p]["effects"].get("armor", 0))
+                  for p in ["helmet_iron", "torso_iron", "feet_iron"])
+if _hellstone_armor <= _iron_armor:
+    fail("equipment.json hellstone armor set total must exceed the iron armor set total")
+# (4) Rings carry attunement; the ember amulet carries both attunement and armor.
+for ring_id in ["ring_silver", "ring_crystal"]:
+    if int(items[ring_id]["effects"].get("attunement_bonus", 0)) <= 0:
+        fail(f"equipment.json {ring_id} must carry a positive attunement_bonus")
+if int(items["amulet_ember"]["effects"].get("attunement_bonus", 0)) <= 0 \
+        or int(items["amulet_ember"]["effects"].get("armor", 0)) <= 0:
+    fail("equipment.json amulet_ember must carry both attunement_bonus and armor")
+# (5) The new anvil and workbench recipes exist with their expected stations.
+_recipe_station = {r.get("recipe_id"): r.get("station") for r in all_recipes}
+_ladder_recipes = {
+    "anvil_bronze_sword": "anvil", "anvil_bronze_armor": "anvil",
+    "anvil_obsidian_sword": "anvil", "anvil_hellstone_armor": "anvil",
+    "craft_ember_amulet": "workbench",
+    "craft_silver_ring": "workbench", "craft_attuned_ring": "workbench",
+}
+for rid, expect_station in _ladder_recipes.items():
+    if rid not in _recipe_station:
+        fail(f"recipes.json missing metal ladder recipe: {rid}")
+    if _recipe_station[rid] != expect_station:
+        fail(f"recipes.json recipe {rid} must be crafted at the {expect_station}")
+print("PASS metal ladder gear")
 
 # FQ-12: farming — tilled soil, crops, and the seed bootstrap.
 for farm_block in ["farm_soil", "crop_seedling", "crop_ripe"]:

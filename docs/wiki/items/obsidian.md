@@ -2,7 +2,7 @@
 
 Generated: 2026-08-04
 
-> `Item` page. Current status: `source-only`.
+> `Item` page. Current status: `complete`.
 
 ![Obsidian](../../../art/generated/items/obsidian.png)
 
@@ -10,17 +10,17 @@ Generated: 2026-08-04
 |---|---|
 | ID | `obsidian` |
 | Page type | Item |
-| Current status | source-only |
+| Current status | complete |
 | Storage | inventory; stockpile input |
 | Player-facing? | Yes |
 | Description | Glassy volcanic stone, forged where lava meets water. Needs a tier-2 pick. |
-| Status explanation | A live source exists, but the current game still lacks a meaningful downstream sink. |
+| Status explanation | A live source and a live downstream use both exist. |
 | Image path | `art/generated/items/obsidian.png` |
 | Fallback / placeholder | Generated 16x16 swatch via `BlockRegistry.item_icon()` if the canonical item icon is absent. |
 
 ## Summary
 
-Obsidian is live and obtainable, but it still ends in a source-only branch.
+Obsidian is a live item with both acquisition and active use in the current build.
 
 ## Acquisition
 
@@ -33,6 +33,8 @@ Obsidian is live and obtainable, but it still ends in a source-only branch.
 
 | Use type | Use | Quantity | Notes |
 |---|---|---|---|
+| Recipe input | Obsidian Blade | 4x at [Anvil](../stations/anvil.md) | Live crafting dependency. |
+| Recipe input | Ember Amulet | 2x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
 | Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
 ## Related Pages

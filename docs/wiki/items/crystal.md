@@ -32,6 +32,8 @@ Raw Crystal is a live item with both acquisition and active use in the current b
 
 | Use type | Use | Quantity | Notes |
 |---|---|---|---|
+| Recipe input | Ember Amulet | 2x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
+| Recipe input | Attuned Ring | 1x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
 | Recipe input | Focus Amulet | 1x at [Workbench](../stations/workbench.md) | Live crafting dependency. |
 | Stockpile | Town Hall deposit | - | Depositable into the Town Hall stockpile. |
 
@@ -43,4 +45,4 @@ Raw Crystal is a live item with both acquisition and active use in the current b
 
 ## Notes
 
-- Proposed future sink: amulet, beacon, or pulse catalyst.
+- No additional manual notes.

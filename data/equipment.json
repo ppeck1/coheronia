@@ -104,6 +104,74 @@
       "slot_type": "feet",
       "description": "Anvil-forged iron greaves.",
       "effects": { "armor": 2 }
+    },
+    "sword_bronze": {
+      "display_name": "Bronze Sword",
+      "slot_type": "weapon",
+      "description": "Anvil-forged from bronze. Keener than crude, a step below iron.",
+      "effects": { "attack_damage": 4 },
+      "action_profile": { "windup": 0.3, "impact": 0.2, "recovery": 0.5, "arc_deg": 95, "direction_mode": "target" }
+    },
+    "helmet_bronze": {
+      "display_name": "Bronze Helm",
+      "slot_type": "helmet",
+      "description": "Anvil-forged bronze plate for the head.",
+      "effects": { "armor": 2 }
+    },
+    "torso_bronze": {
+      "display_name": "Bronze Cuirass",
+      "slot_type": "torso",
+      "description": "Anvil-forged bronze chestplate.",
+      "effects": { "armor": 3 }
+    },
+    "feet_bronze": {
+      "display_name": "Bronze Boots",
+      "slot_type": "feet",
+      "description": "Anvil-forged bronze greaves.",
+      "effects": { "armor": 2 }
+    },
+    "sword_obsidian": {
+      "display_name": "Obsidian Blade",
+      "slot_type": "weapon",
+      "description": "A glass-sharp edge knapped from obsidian over an iron tang. The keenest weapon a settlement can forge.",
+      "effects": { "attack_damage": 7 },
+      "action_profile": { "windup": 0.28, "impact": 0.2, "recovery": 0.48, "arc_deg": 95, "direction_mode": "target" }
+    },
+    "helmet_hellstone": {
+      "display_name": "Hellstone Helm",
+      "slot_type": "helmet",
+      "description": "Ember-veined plate hammered from hellstone. Runs hot; turns aside nearly any blow.",
+      "effects": { "armor": 3 }
+    },
+    "torso_hellstone": {
+      "display_name": "Hellstone Cuirass",
+      "slot_type": "torso",
+      "description": "A breastplate of hellstone bound over iron. The stoutest armor a forge can make.",
+      "effects": { "armor": 6 }
+    },
+    "feet_hellstone": {
+      "display_name": "Hellstone Boots",
+      "slot_type": "feet",
+      "description": "Ember-veined hellstone greaves.",
+      "effects": { "armor": 3 }
+    },
+    "ring_silver": {
+      "display_name": "Silver Ring",
+      "slot_type": "ring",
+      "description": "A worked silver band. It hums faintly and deepens attunement.",
+      "effects": { "attunement_bonus": 5 }
+    },
+    "ring_crystal": {
+      "display_name": "Attuned Ring",
+      "slot_type": "ring",
+      "description": "A silver ring set with a raw crystal. It draws attunement strongly.",
+      "effects": { "attunement_bonus": 8 }
+    },
+    "amulet_ember": {
+      "display_name": "Ember Amulet",
+      "slot_type": "amulet",
+      "description": "A capstone talisman of hellstone and obsidian around a living crystal. Wards the wearer and deepens attunement far.",
+      "effects": { "attunement_bonus": 12, "armor": 2 }
     }
   }
 }
