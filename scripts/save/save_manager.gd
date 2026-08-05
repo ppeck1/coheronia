@@ -54,6 +54,10 @@ func save_game() -> bool:
 			player.equipped_dict(),
 			player.inventory.layout_to_array(),
 			player.dock_assignments_to_array())
+		# Calling system: progression is character-owned — persist it to shell.json
+		# so it carries between worlds. (Still mirrored into the world save below
+		# for backward compatibility with older single-world reads.)
+		GameState.save_character_progression(char_id, game_root.progression_state())
 	return GameState.save_current_world_state(collect_state(), game_root.summary())
 
 
@@ -110,7 +114,11 @@ func apply_state(state: Dictionary) -> bool:
 
 	# Fix 10: restore progression BEFORE town_hall.from_dict so _check_base_level
 	# sees the correct saved base_level when stockpile_changed fires during from_dict.
-	game_root.apply_progression_state(state.get("progression", {}))
+	# Calling system: the CHARACTER is the progression authority; fall back to the
+	# world save's copy only for legacy worlds whose character has none yet.
+	var char_prog: Dictionary = GameState.current_character.get("progression", {})
+	var prog: Dictionary = char_prog if not char_prog.is_empty() else state.get("progression", {})
+	game_root.apply_progression_state(prog)
 
 	# FQ-05: pre-attunement saves lack the key; default to a full reserve.
 	# Review fixes (FQ-05 + FQ-06): restore attunement AFTER progression —

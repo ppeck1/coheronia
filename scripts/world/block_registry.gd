@@ -115,12 +115,19 @@ func default_calling() -> String:
 	return str(character_data.get("default_calling", "oathbound"))
 
 
-## Normalizes a stored `role` value to a valid Calling id: returns it unchanged
-## when it names a real Calling, else the default Calling. This is the single
-## chokepoint the migration and all Calling gating read through.
+## Normalizes a stored `role` value to a valid Calling id. Returns it unchanged
+## when it already names a Calling; otherwise maps the three legacy roles by their
+## closest identity (Warden→Oathbound defender, Prospector→Wayfarer explorer,
+## Homesteader→Runewright hearth-keeper) so an old character keeps a meaningful
+## choice rather than all collapsing to the default. Anything else → default.
+## Read-time and non-destructive (the stored value is never rewritten).
 func calling_of(role_id: String) -> String:
 	if not calling_def(role_id).is_empty():
 		return role_id
+	match role_id:
+		"warden": return "oathbound"
+		"prospector": return "wayfarer"
+		"homesteader": return "runewright"
 	return default_calling()
 
 

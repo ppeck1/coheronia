@@ -147,7 +147,10 @@ func can_repair() -> bool:
 
 
 ## Spends stockpile stone to reduce damage. Returns true if repair happened.
-func repair() -> bool:
+## `amount_mult` scales how much structure health one repair restores (Calling:
+## Runewright Measured Hand / Practiced Repairs / Emergency Repairs). Cost is
+## unchanged — the same stone restores more.
+func repair(amount_mult: float = 1.0) -> bool:
 	if damage <= 0.0:
 		return false
 	for item_id in REPAIR_COST:
@@ -155,7 +158,7 @@ func repair() -> bool:
 			return false
 	for item_id in REPAIR_COST:
 		stockpile[item_id] = int(stockpile[item_id]) - int(REPAIR_COST[item_id])
-	damage = maxf(0.0, damage - REPAIR_AMOUNT)
+	damage = maxf(0.0, damage - REPAIR_AMOUNT * maxf(1.0, amount_mult))
 	queue_redraw()
 	stockpile_changed.emit()
 	return true

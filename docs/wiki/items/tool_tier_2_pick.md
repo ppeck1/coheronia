@@ -1,6 +1,6 @@
 # Tool Tier 2 Pick
 
-Generated: 2026-08-04
+Generated: 2026-08-05
 
 > `Item` page. Current status: `internal`.
 

@@ -1,6 +1,6 @@
 # Character Types
 
-Generated: 2026-08-04
+Generated: 2026-08-05
 
 This page groups the current character-facing data into species, Callings, traits, and planned ancestries.
 
@@ -16,11 +16,11 @@ This page groups the current character-facing data into species, Callings, trait
 
 ## Callings
 
-| Calling | Starting items | Effects |
+| Calling | Paths | Innate effect |
 |---|---|---|
-| [Oathbound](characters/roles/oathbound.md) | none | No active stat effect. |
-| [Wayfarer](characters/roles/wayfarer.md) | none | No active stat effect. |
-| [Runewright](characters/roles/runewright.md) | none | No active stat effect. |
+| [Oathbound](characters/roles/oathbound.md) | Warden, Vanguard | Resolve: Damage received from hostile creatures is reduced. This protection becomes stronger during an active settlement threat. |
+| [Wayfarer](characters/roles/wayfarer.md) | Prospector, Trailseeker | Trailcraft: Movement is faster outside settlement bounds, and map-reveal radius is permanently increased. |
+| [Runewright](characters/roles/runewright.md) | Hearthwright, Resonant | Measured Hand: Player-performed structure repairs restore more structure health, and positive maximum-Attunement bonuses supplied by equipment are amplified. |
 
 ## Traits
 

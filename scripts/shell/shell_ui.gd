@@ -631,7 +631,17 @@ func _refresh_look_range(_index: int = -1) -> void:
 func _update_role_desc(index: int) -> void:
 	var role_list: Array = BlockRegistry.character_data.get("roles", [])
 	if index >= 0 and index < role_list.size():
-		_role_desc.text = str(role_list[index].get("description", ""))
+		# Calling selection is permanent — surface the innate reward and both Paths
+		# so the choice can be compared before it's locked in.
+		var c: Dictionary = role_list[index]
+		var innate: Dictionary = c.get("innate", {})
+		var paths: Array = c.get("paths", [])
+		var path_names: Array[String] = []
+		for pid in paths:
+			path_names.append(str(pid).capitalize())
+		_role_desc.text = "%s\nInnate — %s: %s\nPaths: %s  ·  Permanent choice." % [
+			str(c.get("description", "")), str(innate.get("name", "—")),
+			str(innate.get("description", "")), ", ".join(path_names)]
 
 
 func _update_species_detail(index: int) -> void:

@@ -1,6 +1,6 @@
 # Oathbound
 
-Generated: 2026-08-04
+Generated: 2026-08-05
 
 > `Calling` page — a permanent, character-owned identity (serialized under the legacy `role` key).
 

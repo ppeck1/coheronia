@@ -18,17 +18,18 @@ extends PanelContainer
 
 signal purchase_requested(perk_id: String)
 
-## Calling system: the panel shows the character's Calling and its two Paths,
-## laid out as tier rows (I / II / III / Capstone) per Path column. Tier and
-## Calling gating come from game_root.perk_state, so locked tiers read as LOCKED.
-const NODE_SIZE := Vector2(150, 46)
-const SPACING := Vector2(180, 76)
-## Horizontal gap between the two Path columns (each Path is a stack of tier rows).
-const PATH_GAP := 150.0
-const CANVAS_MARGIN := Vector2(20, 26)
+## Calling system: the panel shows the character's Calling as two readable Path
+## CARDS side by side. Each card is a vertical list of its skills grouped by tier
+## (I / II / III / Capstone), one skill per row — no horizontal scrolling, nothing
+## truncated. Tier/Calling gating come from game_root.perk_state.
+const NODE_SIZE := Vector2(250, 34)
+const ROW_STEP := 38.0            # vertical step between skill rows
+const TIER_HEADER_H := 22.0       # height of a tier header row
+const COLUMN_GAP := 24.0          # gap between the two Path cards
+const CANVAS_MARGIN := Vector2(14, 14)
 ## Tier rows top-to-bottom.
 const TIER_ORDER := ["1", "2", "3", "capstone"]
-const TIER_LABELS := {"1": "I", "2": "II", "3": "III", "capstone": "Capstone"}
+const TIER_LABELS := {"1": "TIER I", "2": "TIER II", "3": "TIER III", "capstone": "CAPSTONE"}
 
 ## PR-08: the panel is sized as a fraction of the logical viewport (clamped)
 ## and re-centred whenever the viewport resizes, so it stays roomy at 1280x720
@@ -46,6 +47,7 @@ const STATE_COLORS := {
 	"purchased": Color(0.55, 0.95, 0.55),
 	"available": Color(1.0, 1.0, 1.0),
 	"locked": Color(0.55, 0.55, 0.62),
+	"coming_soon": Color(0.70, 0.60, 0.90),
 }
 
 ## FQ-09S palette: deep night sky, parchment-ish text, faint links.
@@ -82,6 +84,8 @@ func _ready() -> void:
 	anchor_right = 0.5
 	anchor_top = 0.5
 	anchor_bottom = 0.5
+	# Draw above sibling HUD modules (events banner, crest) so nothing obscures it.
+	z_index = 60
 	visible = false
 	get_viewport().size_changed.connect(_apply_layout)
 	_apply_layout()
@@ -185,9 +189,10 @@ func setup(root: Node) -> void:
 	refresh()
 
 
-## Calling system: lay out the character's Calling as two Path columns, each a
-## vertical stack of tier rows (I / II / III / Capstone) with the skills of that
-## tier spread horizontally. Path/tier gating comes from game_root.perk_state.
+## Calling system: lay out the character's Calling as two Path CARDS side by
+## side. Each card is a vertical list: a Path header, then each tier's header
+## followed by that tier's skills one per row. No horizontal scroll, no
+## truncation. Path/tier gating comes from game_root.perk_state.
 func _build_nodes() -> void:
 	for existing in _node_buttons.values():
 		existing.queue_free()
@@ -205,64 +210,57 @@ func _build_nodes() -> void:
 		else:
 			other.append(str(lane.get("display_name", "?")))
 	_planned_label.text = "Other Callings' Paths: %s" % ", ".join(other)
-	var col_width := 0.0
-	for lane: Dictionary in my_lanes:
-		var tiered: Dictionary = {}
-		for perk: Dictionary in lane.get("perks", []):
-			var tk: String = game_root.tier_key_of(perk)
-			if not tiered.has(tk):
-				tiered[tk] = []
-			tiered[tk].append(perk)
-		var widest := 1
-		for tk in tiered:
-			widest = maxi(widest, (tiered[tk] as Array).size())
-		col_width = maxf(col_width, float(widest) * SPACING.x + PATH_GAP)
-	var max_x := 0.0
+	var col_w := NODE_SIZE.x
 	var max_y := 0.0
 	for li in range(my_lanes.size()):
 		var lane: Dictionary = my_lanes[li]
-		var base_x := CANVAS_MARGIN.x + float(li) * col_width
-		var header := Label.new()
-		header.text = str(lane.get("display_name", "?")).to_upper()
-		header.position = Vector2(base_x, 0.0)
-		header.add_theme_font_size_override("font_size", 13)
-		header.add_theme_color_override("font_color", TEXT_WARM)
-		_canvas.add_child(header)
-		_aux_labels.append(header)
+		var x := CANVAS_MARGIN.x + float(li) * (col_w + COLUMN_GAP)
+		var y := CANVAS_MARGIN.y
+		var header := _make_label(str(lane.get("display_name", "?")).to_upper(), 14, TEXT_WARM)
+		header.position = Vector2(x, y)
+		header.custom_minimum_size = Vector2(col_w, 0)
+		y += TIER_HEADER_H + 2.0
 		var tiered: Dictionary = {}
 		for perk: Dictionary in lane.get("perks", []):
 			var tk: String = game_root.tier_key_of(perk)
 			if not tiered.has(tk):
 				tiered[tk] = []
 			tiered[tk].append(perk)
-		for ti in range(TIER_ORDER.size()):
-			var tier_key: String = TIER_ORDER[ti]
+		for tier_key: String in TIER_ORDER:
 			var perks: Array = tiered.get(tier_key, [])
 			if perks.is_empty():
 				continue
-			var row_y := CANVAS_MARGIN.y + float(ti) * SPACING.y
-			var tlabel := Label.new()
-			tlabel.text = str(TIER_LABELS.get(tier_key, tier_key))
-			tlabel.position = Vector2(base_x - 4.0, row_y - 2.0)
-			tlabel.add_theme_font_size_override("font_size", 11)
-			tlabel.add_theme_color_override("font_color", TEXT_DIM)
-			_canvas.add_child(tlabel)
-			_aux_labels.append(tlabel)
-			for pi in range(perks.size()):
-				var perk: Dictionary = perks[pi]
+			var tlabel := _make_label(str(TIER_LABELS.get(tier_key, tier_key)), 11, TEXT_DIM)
+			tlabel.position = Vector2(x, y)
+			y += TIER_HEADER_H
+			for perk: Dictionary in perks:
 				var perk_id := str(perk.get("id", ""))
-				var at := Vector2(base_x + float(pi) * SPACING.x, row_y + 14.0)
 				var btn := Button.new()
 				btn.custom_minimum_size = NODE_SIZE
-				btn.position = at
+				btn.position = Vector2(x, y)
+				btn.clip_text = true
+				btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+				btn.add_theme_font_size_override("font_size", 12)
 				btn.pressed.connect(_on_node_pressed.bind(perk_id))
 				_canvas.add_child(btn)
 				_node_buttons[perk_id] = btn
-				max_x = maxf(max_x, at.x + NODE_SIZE.x)
-				max_y = maxf(max_y, at.y + NODE_SIZE.y)
-				for prereq in perk.get("prerequisites", []):
-					_links.append([str(prereq), perk_id])
-	_canvas.custom_minimum_size = Vector2(max_x + CANVAS_MARGIN.x, max_y + CANVAS_MARGIN.y)
+				y += ROW_STEP
+			y += 4.0
+		max_y = maxf(max_y, y)
+	_canvas.custom_minimum_size = Vector2(
+		CANVAS_MARGIN.x * 2.0 + float(maxi(1, my_lanes.size())) * (col_w + COLUMN_GAP),
+		max_y + CANVAS_MARGIN.y)
+
+
+## Small helper: a canvas label tracked for cleanup on the next rebuild.
+func _make_label(text: String, size: int, color: Color) -> Label:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", size)
+	lbl.add_theme_color_override("font_color", color)
+	_canvas.add_child(lbl)
+	_aux_labels.append(lbl)
+	return lbl
 
 
 func refresh() -> void:
@@ -289,20 +287,18 @@ func refresh() -> void:
 				"font_pressed_color", "font_focus_color"]:
 			btn.add_theme_color_override(color_name, state_color)
 		var marker := ""
-		if state == "purchased":
-			marker = "[OWNED] "
-		elif state == "locked":
-			marker = "[LOCKED] "
-		btn.text = "%s%s (%d)" % [marker, str(perk.get("display_name", perk_id)),
-			int(perk.get("cost", 1))]
+		match state:
+			"purchased": marker = "✓ "
+			"available": marker = "● "
+			"coming_soon": marker = "◇ "
+			_: marker = "🔒 "
+		btn.text = "%s%s" % [marker, str(perk.get("display_name", perk_id))]
+		btn.tooltip_text = str(perk.get("description", ""))
 	_canvas.queue_redraw()
 	_refresh_inspector()
 
 
-## FQ-09S: night-sky canvas — deterministic starfield, faint constellation
-## links between prerequisite nodes, and a star glyph above each plaque.
-## Presentation only: everything drawn here derives from the same perk data
-## and perk_state the buttons already use.
+## A faint deterministic starfield behind the Path cards (presentation only).
 func _draw_canvas() -> void:
 	var area: Vector2 = _canvas.custom_minimum_size.max(_canvas.size)
 	var rng := RandomNumberGenerator.new()
@@ -310,36 +306,8 @@ func _draw_canvas() -> void:
 	for _i in range(STARFIELD_COUNT):
 		var at := Vector2(rng.randf() * area.x, rng.randf() * area.y)
 		var bright := rng.randf()
-		var dot := Color(0.75, 0.80, 0.95, 0.10 + 0.25 * bright)
+		var dot := Color(0.75, 0.80, 0.95, 0.08 + 0.18 * bright)
 		_canvas.draw_rect(Rect2(at, Vector2.ONE * (2.0 if bright > 0.9 else 1.0)), dot)
-	for link: Array in _links:
-		var from_btn: Button = _node_buttons.get(link[0])
-		var to_btn: Button = _node_buttons.get(link[1])
-		if from_btn == null or to_btn == null:
-			continue
-		var from_state: String = _node_states.get(link[0], "locked")
-		var to_state: String = _node_states.get(link[1], "locked")
-		var color := LINK_LOCKED
-		if from_state == "purchased" and to_state == "purchased":
-			color = LINK_OWNED
-		elif to_state == "available":
-			color = LINK_OPEN
-		_canvas.draw_line(from_btn.position + NODE_SIZE / 2.0,
-			to_btn.position + NODE_SIZE / 2.0, color, 1.0)
-	for perk_id in _node_buttons:
-		var btn: Button = _node_buttons[perk_id]
-		var state: String = _node_states.get(perk_id, "locked")
-		var star_color: Color = STATE_COLORS.get(state, Color.WHITE)
-		if state == "locked":
-			star_color.a = 0.5
-		var center: Vector2 = btn.position + Vector2(NODE_SIZE.x / 2.0, -8.0)
-		var arm := 4.0 if state == "purchased" else 3.0
-		_canvas.draw_line(center + Vector2(-arm, 0), center + Vector2(arm, 0), star_color, 1.0)
-		_canvas.draw_line(center + Vector2(0, -arm), center + Vector2(0, arm), star_color, 1.0)
-		if state == "purchased":
-			var d := arm * 0.5
-			_canvas.draw_line(center + Vector2(-d, -d), center + Vector2(d, d), star_color, 1.0)
-			_canvas.draw_line(center + Vector2(-d, d), center + Vector2(d, -d), star_color, 1.0)
 
 
 func _refresh_inspector() -> void:
@@ -351,18 +319,30 @@ func _refresh_inspector() -> void:
 	var state: String = game_root.perk_state(_selected_id)
 	var path := str(perk.get("lane", ""))
 	var tier_key: String = game_root.tier_key_of(perk)
-	var tier_label := str(TIER_LABELS.get(tier_key, tier_key))
-	var gate: int = game_root.tier_gate(tier_key)
-	var in_path: int = game_root.skills_purchased_in_path(path)
-	var gate_note := "open" if in_path >= gate else "needs %d in Path (have %d)" % [gate, in_path]
-	var support := str(perk.get("support", "live"))
-	_info_label.text = "%s — %s · Tier %s (%s)\nCost: %d point%s · Effect: %s x%.2f · Support: %s\n%s" % [
-		str(perk.get("display_name", _selected_id)), state.to_upper(), tier_label, gate_note,
-		int(perk.get("cost", 1)), "" if int(perk.get("cost", 1)) == 1 else "s",
-		str(perk.get("effect_key", "?")), float(perk.get("effect_value", 0.0)), support,
-		str(perk.get("description", ""))]
+	var tier_label := str(TIER_LABELS.get(tier_key, tier_key)).capitalize()
+	var cost: int = int(perk.get("cost", 1))
+	# Player-language status line — no effect keys or support flags.
+	var status := ""
+	match state:
+		"purchased": status = "Learned"
+		"available": status = "Ready to learn"
+		"coming_soon": status = "Coming soon"
+		_:
+			var gate: int = game_root.effective_tier_gate(path, tier_key)
+			var in_path: int = game_root.skills_purchased_in_path(path)
+			if path not in BlockRegistry.calling_paths(game_root.current_calling()):
+				status = "Locked — a different Calling's Path"
+			elif in_path < gate:
+				status = "Locked — learn %d more skill%s in this Path first" % [
+					gate - in_path, "" if gate - in_path == 1 else "s"]
+			else:
+				status = "Locked"
+	_info_label.text = "%s  ·  %s  ·  %s\n%s\nCost: %d perk point%s" % [
+		str(perk.get("display_name", _selected_id)), tier_label, status,
+		str(perk.get("description", "")), cost, "" if cost == 1 else "s"]
 	_buy_button.disabled = not (state == "available"
-		and int(perk.get("cost", 1)) <= game_root.perk_points_available())
+		and cost <= game_root.perk_points_available())
+	_buy_button.text = "Learn skill" if state != "coming_soon" else "Coming soon"
 
 
 ## Smoke/test hooks.

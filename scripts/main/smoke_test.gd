@@ -1725,6 +1725,11 @@ func _run() -> void:
 	var _m15_toggled: bool = hud.toggle_map()
 	var _m15_open1: bool = hud.map_open()
 	hud.toggle_map()
+	# Broad Horizon is a SURFACE reveal skill, so place the player clearly above
+	# the sky line for a deterministic check of the context-scoped hook.
+	var _m15_sx: int = world.width / 2
+	var _m15_prev_pos: Vector2 = player.global_position
+	player.global_position = world.cell_center(Vector2i(_m15_sx, world.sky_line(_m15_sx) - 3))
 	var _m15_had_perk: bool = "broad_horizon" in root.purchased_perks
 	if _m15_had_perk:
 		root.purchased_perks.erase("broad_horizon")
@@ -1733,6 +1738,7 @@ func _run() -> void:
 	var _m15_r1: int = root._scout_reveal_radius()
 	if not _m15_had_perk:
 		root.purchased_perks.erase("broad_horizon")
+	player.global_position = _m15_prev_pos
 	_check("fq15_map_toggle_and_scout_hook",
 		not _m15_open0 and _m15_toggled and _m15_open1 and not hud.map_open()
 		and _m15_r0 == 1 and _m15_r1 == 2,
@@ -3578,11 +3584,13 @@ func _run() -> void:
 	hud.skill_panel().select_node("tunnel_hardened")
 	var _fq06_info2: String = hud.skill_panel().info_text()
 	hud.toggle_skill_panel()
+	# Player-language inspector only — no effect keys / support flags leak through.
 	_check("fq06_panel_opens_and_inspects",
 		_fq06_open and not hud.skill_panel_open()
-		and "Stonewise" in _fq06_info and "PURCHASED" in _fq06_info
-		and "mining_speed" in _fq06_info
-		and "Tunnel Hardened" in _fq06_info2 and "LOCKED" in _fq06_info2,
+		and "Stonewise" in _fq06_info and "Learned" in _fq06_info
+		and "mined faster" in _fq06_info
+		and "mining_speed" not in _fq06_info and "Support" not in _fq06_info
+		and "Tunnel Hardened" in _fq06_info2 and "Locked" in _fq06_info2,
 		"info=%s" % _fq06_info.left(90))
 
 	# (g) the panel shows exactly the Calling's two Paths (2 × 12 = 24 nodes) and
@@ -3649,6 +3657,61 @@ func _run() -> void:
 		"heal_kill=%.0f threat_end=%.0f health=%.0f" % [
 			root._purchased_skill_additive("heal_on_xp_kill"),
 			root._purchased_skill_additive("threat_end_restore"), player.health])
+	player.health = player.max_health
+
+	# (l) Legacy roles map to the closest Calling (semantic migration), and any
+	# unknown value falls back to the default Calling — read-time, non-destructive.
+	_check("calling_legacy_role_migration",
+		BlockRegistry.calling_of("warden") == "oathbound"
+		and BlockRegistry.calling_of("prospector") == "wayfarer"
+		and BlockRegistry.calling_of("homesteader") == "runewright"
+		and BlockRegistry.calling_of("nonsense_role") == BlockRegistry.default_calling()
+		and BlockRegistry.calling_of("oathbound") == "oathbound",
+		"warden=%s prospector=%s homesteader=%s unknown=%s" % [
+			BlockRegistry.calling_of("warden"), BlockRegistry.calling_of("prospector"),
+			BlockRegistry.calling_of("homesteader"), BlockRegistry.calling_of("nonsense_role")])
+
+	# (m) Real damage path: Oathbound Resolve actually reduces ENEMY damage through
+	# take_damage (vs. a generic hit of the same size), while hazard/generic are
+	# unreduced by Resolve. Uses the live take_damage, resetting the hurt cooldown.
+	GameState.current_character["role"] = "oathbound"
+	root.purchased_perks = []
+	root._apply_purchased_perk_effects()
+	player._hurt_cooldown = 0.0
+	player.health = 100.0
+	player.take_damage(20.0, "enemy")
+	var _cd_enemy_loss: float = 100.0 - player.health
+	player._hurt_cooldown = 0.0
+	player.health = 100.0
+	player.take_damage(20.0, "generic")
+	var _cd_generic_loss: float = 100.0 - player.health
+	GameState.current_character["role"] = _dm_prev_role
+	_check("calling_take_damage_reduces_enemy",
+		_cd_enemy_loss < _cd_generic_loss - 0.5 and _cd_generic_loss >= 19.0,
+		"enemy_loss=%.1f generic_loss=%.1f" % [_cd_enemy_loss, _cd_generic_loss])
+
+	# (n) Contextual reveal: Deep Surveying widens the scout radius only underground;
+	# Broad Horizon only on the surface. Each is inert in the other context.
+	var _rv_prev_role2: String = str(GameState.current_character.get("role", ""))
+	GameState.current_character["role"] = "wayfarer"
+	root.purchased_perks = ["deep_surveying", "broad_horizon"]
+	var _rv_sx: int = world.width / 2
+	var _rv_prev_pos: Vector2 = player.global_position
+	player.global_position = world.cell_center(Vector2i(_rv_sx, world.sky_line(_rv_sx) - 3))
+	var _rv_surface: int = root._scout_reveal_radius()   # Broad Horizon applies (+1)
+	player.global_position = world.cell_center(Vector2i(_rv_sx, world.sky_line(_rv_sx) + 12))
+	var _rv_underground: int = root._scout_reveal_radius()   # Deep Surveying applies (+1)
+	player.global_position = _rv_prev_pos
+	GameState.current_character["role"] = _rv_prev_role2
+	root.purchased_perks = []
+	root._apply_purchased_perk_effects()
+	# Wayfarer Trailcraft innate adds +1 everywhere, so surface = 1 base +1 innate
+	# +1 Broad Horizon = 3; underground = 1 +1 innate +1 Deep Surveying = 3; and each
+	# reveal skill is inert in the wrong context (proven by the equality holding only
+	# because exactly one context skill fires in each place).
+	_check("calling_reveal_context_scoped",
+		_rv_surface == 3 and _rv_underground == 3,
+		"surface=%d underground=%d" % [_rv_surface, _rv_underground])
 	player.health = player.max_health
 
 	# (h) PR-08: the skill panel is viewport-relative -- it fits cleanly (with a

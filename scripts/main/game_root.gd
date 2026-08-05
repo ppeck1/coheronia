@@ -131,6 +131,9 @@ func _ready() -> void:
 	var saved_state: Dictionary = GameState.get_current_state()
 	if saved_state.is_empty():
 		world.setup(config().seed_value())
+		# Calling system: a fresh world still restores the CHARACTER's progression
+		# (XP/level/purchased skills) so it carries in from other worlds.
+		apply_progression_state(GameState.current_character.get("progression", {}))
 	else:
 		save_manager.apply_state(saved_state)
 	# Wave B: load character-owned carried state (with legacy migration when needed).
@@ -496,11 +499,20 @@ func _revealed_threat_cells() -> Array:
 ## Wayfarer innate reveal bonus are layered in during the effect-wiring stage.
 func _scout_reveal_radius() -> int:
 	var r := 1
+	# Wayfarer Trailcraft innate: permanent reveal-radius bonus.
+	r += int(_calling_innate_effects().get("reveal_radius_bonus", 0))
+	# Reveal skills are context-scoped: Deep Surveying only underground, Broad
+	# Horizon only on the surface (matching their descriptions).
 	if _progression_registry != null:
+		var underground := _player_underground()
 		for pid in purchased_perks:
 			var perk: Dictionary = _progression_registry.get_perk(str(pid))
+			if not _is_live_perk(perk):
+				continue
 			var ek := str(perk.get("effect_key", ""))
-			if ek == "reveal_radius_surface" or ek == "reveal_radius_underground":
+			if ek == "reveal_radius_underground" and underground:
+				r += int(perk.get("effect_value", 0))
+			elif ek == "reveal_radius_surface" and not underground:
 				r += int(perk.get("effect_value", 0))
 	return r
 
@@ -748,6 +760,9 @@ func _advance_time(delta: float) -> void:
 	if _clock_refresh_accum >= 1.0:
 		_clock_refresh_accum = 0.0
 		hud.update_time(day_count, is_night, _live_threat_count(), time_of_day)
+		# Calling system: track the settlement-assault edge once per second so
+		# Victory's Breath fires when an assault is repelled (incl. single-threat).
+		_update_calling_assault_state()
 	_advance_storm(delta)
 	# Smooth tint transition near the day/night/storm boundaries and across
 	# cave mouths (FQ-09W: the target itself is depth-aware).
@@ -1224,18 +1239,25 @@ func _on_threat_died() -> void:
 	call_deferred("_refresh_threat_display")
 
 
-## Calling system: Vanguard on-defeat restores. Relentless heals on every
-## XP-granting defeat; Victory's Breath restores health + Attunement when this
-## defeat ends the settlement threat (the dying threat is still counted here
-## because its queue_free() is deferred, so count == 1 means it was the last).
+## Calling system: Vanguard Relentless heals on every XP-granting defeat.
 func _apply_calling_defeat_rewards() -> void:
 	if player == null:
 		return
 	player.heal(_purchased_skill_additive("heal_on_xp_kill"))
-	if _live_threat_count() <= 1:
+
+
+## Calling system: track when a settlement assault begins/ends so Victory's Breath
+## fires exactly when an assault is repelled (not when any stray creature dies).
+## Called from the per-frame tick and after each threat death.
+func _update_calling_assault_state() -> void:
+	var now_active := calling_threat_active()
+	if _calling_assault_active and not now_active and player != null:
 		var restore := _purchased_skill_additive("threat_end_restore")
-		player.heal(restore)
-		player.restore_attunement(restore)
+		if restore > 0.0:
+			player.heal(restore)
+			player.restore_attunement(restore)
+			log_event("The assault is repelled — you catch your breath.")
+	_calling_assault_active = now_active
 
 
 func _live_threat_count() -> int:
@@ -1249,6 +1271,7 @@ func _live_threat_count() -> int:
 ## Deferred so a dying threat's queue_free() is visible to the count.
 func _refresh_threat_display() -> void:
 	hud.update_time(day_count, is_night, _live_threat_count(), time_of_day)
+	_update_calling_assault_state()
 
 
 ## Total severity of active pressure, consumed by the settlement model.
@@ -1320,7 +1343,7 @@ func _on_withdraw_all_requested() -> void:
 
 
 func _on_repair_requested() -> void:
-	if town_hall.repair():
+	if town_hall.repair(calling_repair_mult()):
 		log_event("Town Hall repaired.")
 		town_hall.queue_redraw()
 	else:
@@ -2151,25 +2174,33 @@ func current_calling() -> String:
 	return BlockRegistry.calling_of(str(GameState.current_character.get("role", "")))
 
 
-## Calling system: how many skills the character has already purchased in a Path
-## (lane). Drives the tier gates. Counts every purchased skill whose lane matches;
-## the lone capstone is unpurchasable until the gate is met, so this equals the
-## non-capstone count while any tier gate is still being evaluated.
+## A skill is purchasable only when its effect is actually wired ("live"). Skills
+## still marked staged/deferred are presented as "coming soon" and can never be
+## bought, so a perk point is never spent on an inert effect (truthfulness pass).
+func _is_live_perk(perk: Dictionary) -> bool:
+	return str(perk.get("support", "deferred")) == "live"
+
+
+## Calling system: how many LIVE skills the character has purchased in a Path
+## (lane). Drives the tier gates. Only live skills count — so a live higher-tier
+## skill is never gated behind buying an inert lower-tier one.
 func skills_purchased_in_path(path_id: String) -> int:
 	if _progression_registry == null:
 		return 0
 	var count := 0
 	for pid in purchased_perks:
-		if str(_progression_registry.get_perk(str(pid)).get("lane", "")) == path_id:
+		var perk: Dictionary = _progression_registry.get_perk(str(pid))
+		if str(perk.get("lane", "")) == path_id and _is_live_perk(perk):
 			count += 1
 	return count
 
 
-## "purchased" | "available" | "locked".
+## "purchased" | "available" | "coming_soon" | "locked".
 ## Calling system gates, evaluated in order:
+##   - a non-live (staged/deferred) skill is "coming_soon" — never purchasable;
 ##   - the skill's Path must belong to the character's Calling;
 ##   - all explicit prerequisites (rare — tiers carry the progression) purchased;
-##   - the skill's tier must be open (>= tier_gate skills already bought in Path).
+##   - the skill's tier must be open (>= tier_gate LIVE skills bought in Path).
 ## Affordability is a separate purchase-time gate, not a display state.
 func perk_state(perk_id: String) -> String:
 	if perk_id in purchased_perks:
@@ -2178,6 +2209,8 @@ func perk_state(perk_id: String) -> String:
 		if _progression_registry != null else {}
 	if perk.is_empty():
 		return "locked"
+	if not _is_live_perk(perk):
+		return "coming_soon"
 	var path := str(perk.get("lane", ""))
 	if path not in BlockRegistry.calling_paths(current_calling()):
 		return "locked"
@@ -2185,18 +2218,41 @@ func perk_state(perk_id: String) -> String:
 		if not (str(prereq) in purchased_perks):
 			return "locked"
 	var tier_key: String = _progression_registry.tier_key_of(perk)
-	if skills_purchased_in_path(path) < _progression_registry.tier_gate(tier_key):
+	if skills_purchased_in_path(path) < _effective_tier_gate(path, tier_key):
 		return "locked"
 	return "available"
 
 
+## The tier gate a skill must clear, in LIVE skills purchased in its Path. It is
+## the design gate (II @2, III @6, capstone @9) capped by how many live skills
+## actually exist in strictly-lower tiers — so a live higher-tier skill is always
+## reachable by buying the live skills beneath it, and the cap collapses to the
+## exact design gate once a Path is fully live. This is what stops tier gates from
+## ever forcing a purchase of an inert skill.
+func _effective_tier_gate(path: String, tier_key: String) -> int:
+	if _progression_registry == null:
+		return 0
+	var design: int = _progression_registry.tier_gate(tier_key)
+	const RANK := {"1": 1, "2": 2, "3": 3, "capstone": 4}
+	var this_rank: int = int(RANK.get(tier_key, 1))
+	var live_below := 0
+	for lane: Dictionary in _progression_registry.perk_lanes():
+		if str(lane.get("id", "")) != path:
+			continue
+		for perk: Dictionary in lane.get("perks", []):
+			if _is_live_perk(perk) \
+					and int(RANK.get(_progression_registry.tier_key_of(perk), 1)) < this_rank:
+				live_below += 1
+	return mini(design, live_below)
+
+
 ## Buys a perk with real level-derived points. Returns false when unknown,
-## already purchased, prerequisite-locked, or unaffordable.
+## not live, already purchased, prerequisite/tier-locked, or unaffordable.
 func try_purchase_perk(perk_id: String) -> bool:
 	if _progression_registry == null:
 		return false
 	var perk: Dictionary = _progression_registry.get_perk(perk_id)
-	if perk.is_empty():
+	if perk.is_empty() or not _is_live_perk(perk):
 		return false
 	if perk_state(perk_id) != "available":
 		return false
@@ -2218,15 +2274,19 @@ func _apply_purchased_perk_effects() -> void:
 	# they are resolved live at their hooks via calling_* query methods.
 	var combined := {
 		"mining_speed": 1.0, "attunement_bonus": 0.0,
-		"armor_mult": 1.0, "max_health_bonus": 0.0,
+		"armor_mult": 1.0, "max_health_bonus": 0.0, "harvest_speed": 1.0,
 	}
 	if _progression_registry != null:
 		for pid in purchased_perks:
 			var perk: Dictionary = _progression_registry.get_perk(str(pid))
+			if not _is_live_perk(perk):
+				continue
 			var value := float(perk.get("effect_value", 0.0))
 			match str(perk.get("effect_key", "")):
 				"mining_speed":
 					combined["mining_speed"] = float(combined["mining_speed"]) * value
+				"harvest_speed":
+					combined["harvest_speed"] = float(combined["harvest_speed"]) * value
 				"attunement_bonus":
 					combined["attunement_bonus"] = float(combined["attunement_bonus"]) + value
 				"armor_mult":
@@ -2257,6 +2317,11 @@ func tier_key_of(perk: Dictionary) -> String:
 	return _progression_registry.tier_key_of(perk) if _progression_registry != null else "1"
 
 
+## Public accessor for the reachability-adjusted tier gate (see _effective_tier_gate).
+func effective_tier_gate(path: String, tier_key: String) -> int:
+	return _effective_tier_gate(path, tier_key)
+
+
 # ---------------------------------------------------------------------------
 # Calling system: context-aware effect resolution (Stage 2 wiring).
 # Static effects are baked in _apply_purchased_perk_effects; the conditional
@@ -2265,14 +2330,19 @@ func tier_key_of(perk: Dictionary) -> String:
 
 ## Below this health fraction, Last Watch's low-health protection engages.
 const CALLING_LOW_HEALTH_FRACTION := 0.35
+## A settlement "assault" counts threats this many pixels beyond the bounds.
+const CALLING_ASSAULT_MARGIN_PX := 64.0
+## Tracks the assault edge so Victory's Breath fires once when it's repelled.
+var _calling_assault_active := false
 
 ## The current Calling's innate effect magnitudes (data-driven), or {}.
 func _calling_innate_effects() -> Dictionary:
 	return BlockRegistry.calling_def(current_calling()).get("innate", {}).get("effects", {})
 
 
-## Aggregated value of an effect_key across the character's PURCHASED skills
-## (multiplied). Returns default_val when no purchased skill carries the key.
+## Aggregated value of an effect_key across the character's PURCHASED, LIVE skills
+## (multiplied). Returns default_val when no such skill carries the key. Non-live
+## perks (e.g. inherited from an older save) never contribute.
 func _purchased_skill_value(effect_key: String, default_val: float) -> float:
 	if _progression_registry == null:
 		return default_val
@@ -2280,21 +2350,21 @@ func _purchased_skill_value(effect_key: String, default_val: float) -> float:
 	var found := false
 	for pid in purchased_perks:
 		var perk: Dictionary = _progression_registry.get_perk(str(pid))
-		if str(perk.get("effect_key", "")) == effect_key:
+		if _is_live_perk(perk) and str(perk.get("effect_key", "")) == effect_key:
 			v *= float(perk.get("effect_value", 1.0))
 			found = true
 	return v if found else default_val
 
 
-## Summed value of an effect_key across the character's PURCHASED skills (for
-## additive effects like heal-on-kill and threat-end restore). 0.0 if none.
+## Summed value of an effect_key across the character's PURCHASED, LIVE skills
+## (for additive effects like heal-on-kill and reach). 0.0 if none.
 func _purchased_skill_additive(effect_key: String) -> float:
 	if _progression_registry == null:
 		return 0.0
 	var s := 0.0
 	for pid in purchased_perks:
 		var perk: Dictionary = _progression_registry.get_perk(str(pid))
-		if str(perk.get("effect_key", "")) == effect_key:
+		if _is_live_perk(perk) and str(perk.get("effect_key", "")) == effect_key:
 			s += float(perk.get("effect_value", 0.0))
 	return s
 
@@ -2327,9 +2397,140 @@ func _player_in_settlement() -> bool:
 	return p.x >= c.x - hw and p.x <= c.x + hw and p.y >= c.y - up and p.y <= c.y + down
 
 
-## Whether a settlement threat is currently active.
+## Whether a settlement ASSAULT is currently active — at least one live threat
+## stands inside (or just outside) the settlement bounds. A far-off cave creature
+## no longer counts, so settlement-scoped Calling effects only engage during a
+## real attack on the settlement.
 func calling_threat_active() -> bool:
-	return _live_threat_count() > 0
+	if town_hall == null:
+		return false
+	var t := float(BlockRegistry.tile_size)
+	var c: Vector2 = town_hall.global_position
+	var hw := float(BlockRegistry.settlement_bound_cells("half_width_cells", 12)) * t + CALLING_ASSAULT_MARGIN_PX
+	var up := float(BlockRegistry.settlement_bound_cells("up_cells", 8)) * t + CALLING_ASSAULT_MARGIN_PX
+	var down := float(BlockRegistry.settlement_bound_cells("down_cells", 8)) * t + CALLING_ASSAULT_MARGIN_PX
+	for threat in get_tree().get_nodes_in_group("threats"):
+		if not is_instance_valid(threat) or threat.is_queued_for_deletion():
+			continue
+		var p: Vector2 = threat.global_position
+		if p.x >= c.x - hw and p.x <= c.x + hw and p.y >= c.y - up and p.y <= c.y + down:
+			return true
+	return false
+
+
+# --- Calling effect channels (resolved live at each computation site). Each
+# aggregates the character's purchased LIVE skills + innate for one channel. ---
+
+## Movement multiplier from Trailcraft innate + movement skills, by context.
+## outside-settlement (wild), underground-wild, and previously-revealed-wild.
+func calling_move_speed_mult() -> float:
+	var m := 1.0
+	var in_settle := _player_in_settlement()
+	if not in_settle:
+		m *= float(_calling_innate_effects().get("move_speed_mult_wild", 1.0))
+		m *= _purchased_skill_value("move_speed_mult_wild", 1.0)
+		if _player_underground():
+			m *= _purchased_skill_value("move_speed_mult_underground_wild", 1.0)
+		elif player != null and world != null \
+				and _map_state != null and _map_state.cell_revealed(world.cell_of(player.global_position)):
+			m *= _purchased_skill_value("move_speed_mult_revealed_wild", 1.0)
+	return m
+
+
+## Weapon-vs-hostile damage multiplier (Vanguard), stronger against a settlement
+## assault. Mining/harvesting/block damage never consult this.
+func calling_weapon_damage_mult() -> float:
+	var m := _purchased_skill_value("weapon_damage_mult", 1.0)
+	if calling_threat_active():
+		m *= _purchased_skill_value("weapon_damage_mult_threat", 1.0)
+	return m
+
+
+## Attunement-pulse channel multipliers (Resonant + Prospector deep variants).
+func calling_pulse_radius_mult() -> float:
+	var m := _purchased_skill_value("pulse_radius_mult", 1.0)
+	if _player_underground():
+		m *= _purchased_skill_value("pulse_radius_mult_underground", 1.0)
+	return m
+
+
+func calling_pulse_duration_mult() -> float:
+	var m := _purchased_skill_value("pulse_duration_mult", 1.0)
+	if _player_underground():
+		m *= _purchased_skill_value("pulse_duration_mult_underground", 1.0)
+	return m
+
+
+func calling_pulse_cost_mult() -> float:
+	var m := _purchased_skill_value("pulse_cost_mult", 1.0)
+	if _player_underground():
+		m *= _purchased_skill_value("pulse_cost_mult_underground", 1.0)
+	return m
+
+
+## Player-performed structure repair amount (Hearthwright + Measured Hand innate),
+## stronger during a settlement assault (Emergency Repairs).
+func calling_repair_mult() -> float:
+	var m := float(_calling_innate_effects().get("repair_amount_mult", 1.0))
+	m *= _purchased_skill_value("repair_amount_mult", 1.0)
+	if calling_threat_active():
+		m *= _purchased_skill_value("repair_amount_mult_threat", 1.0)
+	return m
+
+
+## Settlement-structure recipe cost multiplier (Economical Construction), < 1.0.
+func calling_structure_recipe_cost_mult() -> float:
+	return _purchased_skill_value("structure_recipe_cost_mult", 1.0)
+
+
+## Dismantle/salvage return multiplier (Salvager), >= 1.0 (capped at spend elsewhere).
+func calling_salvage_mult() -> float:
+	return _purchased_skill_value("dismantle_return_mult", 1.0)
+
+
+## Food/consumable heal multiplier (Field Sustenance in the wild, Guarded
+## Recovery in settlement or during an assault).
+func calling_food_heal_mult() -> float:
+	var m := 1.0
+	if not _player_in_settlement():
+		m *= _purchased_skill_value("heal_mult_food_wild", 1.0)
+	if _player_in_settlement() or calling_threat_active():
+		m *= _purchased_skill_value("heal_mult_settlement_or_threat", 1.0)
+	return m
+
+
+## Extra-yield chance for a harvest/mining category ("ore"/"stone"/"wood"/"plant").
+func calling_extra_drop_chance(kind: String) -> float:
+	match kind:
+		"ore": return _purchased_skill_additive("ore_extra_drop_chance")
+		"stone": return _purchased_skill_additive("stone_extra_drop_chance")
+		"wood": return _purchased_skill_additive("wood_extra_drop_chance")
+		"plant": return _purchased_skill_additive("plant_extra_drop_chance")
+	return 0.0
+
+
+## Seed-return chance multiplier (Seedkeeper).
+func calling_seed_return_mult() -> float:
+	return _purchased_skill_value("seed_return_chance_mult", 1.0)
+
+
+## Additive reach bonus (tiles) for a scoped interaction ("mining"/"build").
+## Mirrors the split so a weapon/pickup reach never changes.
+func calling_reach_bonus(kind: String) -> float:
+	if kind == "mining":
+		return _purchased_skill_additive("mining_reach_bonus")
+	if kind == "build":
+		return _purchased_skill_additive("build_repair_reach_bonus")
+	return 0.0
+
+
+## Amplifier applied to max-Attunement bonuses supplied by equipped rings/amulets
+## (Measured Hand innate × Inscribed Conduit / Harmonic Equipment).
+func calling_equip_attunement_amp() -> float:
+	var m := float(_calling_innate_effects().get("equip_attunement_amp", 1.0))
+	m *= _purchased_skill_value("equip_attunement_amp", 1.0)
+	m *= _purchased_skill_value("attunement_equipment_effect_amp", 1.0)
+	return m
 
 
 ## Calling system: context-aware incoming-damage multiplier for a damage source.
@@ -2395,13 +2596,15 @@ func apply_progression_state(data: Dictionary) -> void:
 	base_xp = int(data.get("base_xp", 0))
 	base_level = int(data.get("base_level", 1))
 	_depth_hwm = int(data.get("depth_hwm", 0))
-	# FQ-06: restore purchased perks, dropping ids that no longer exist in
-	# data (a renamed/removed perk quietly refunds its points). A null
-	# registry (impossible in the normal boot order) leaves the previous
-	# list untouched rather than silently wiping purchases.
+	# FQ-06: restore purchased perks, dropping ids that no longer exist in data
+	# (a renamed/removed perk quietly refunds its points). Calling system: also
+	# drop any perk NOT belonging to this character's Calling — so progression
+	# loaded for one Calling can never leak another Calling's purchased effects.
 	if _progression_registry != null:
 		purchased_perks = []
+		var my_paths: Array = BlockRegistry.calling_paths(current_calling())
 		for pid in data.get("purchased_perks", []):
-			if not _progression_registry.get_perk(str(pid)).is_empty():
+			var perk: Dictionary = _progression_registry.get_perk(str(pid))
+			if not perk.is_empty() and str(perk.get("lane", "")) in my_paths:
 				purchased_perks.append(str(pid))
 		_apply_purchased_perk_effects()

@@ -126,9 +126,11 @@ var _drown_accum := 0.0
 # perks by game_root._apply_purchased_perk_effects — never set directly).
 var perk_mine_speed_mult := 1.0
 var perk_attunement_bonus := 0.0
-# Calling system static skill effects (Warden Tempered Frame / Armored Bearing).
+# Calling system static skill effects (Warden Tempered Frame / Armored Bearing;
+# Trailseeker Wildhand harvest speed for non-pick blocks — trees/plants).
 var perk_max_health_bonus := 0.0
 var perk_armor_mult := 1.0
+var perk_harvest_mult := 1.0
 ## Calling system: back-reference to game_root, set in _wire_references. Lets the
 ## damage/heal hooks query context-aware Calling multipliers (nil-safe).
 var game_root: Node = null
@@ -169,6 +171,8 @@ var _attunement_pulse_duration_sec := DEFAULT_ATTUNEMENT_PULSE_DURATION_SEC
 
 var _pulse_cooldown := 0.0
 var _pulse_time_left := 0.0
+## The actual (Calling-scaled) duration of the current pulse, for the fade math.
+var _pulse_cast_duration := DEFAULT_ATTUNEMENT_PULSE_DURATION_SEC
 var _pulse_light: PointLight2D
 
 var _eat_cooldown := 0.0
@@ -331,6 +335,8 @@ func _physics_process(delta: float) -> void:
 		submerged = world.liquid_covering(global_position)
 	var in_liquid := submerged != ""
 	var move_mult := ancestry_move_mult
+	if game_root != null:
+		move_mult *= game_root.calling_move_speed_mult()   # Trailcraft + movement skills
 	var gravity_scale := 1.0
 	if in_liquid:
 		move_mult *= minf(1.0, BlockRegistry.liquid_move_mult(submerged) * ancestry_swim_speed_mult)
@@ -401,7 +407,10 @@ func _try_eat_food() -> void:
 		return
 	inventory.remove("food")
 	_eat_cooldown = _eat_cooldown_sec
-	health = minf(max_health, health + _food_heal_amount)
+	var heal_amt := _food_heal_amount
+	if game_root != null:
+		heal_amt *= game_root.calling_food_heal_mult()   # Field Sustenance / Guarded Recovery
+	health = minf(max_health, health + heal_amt)
 	inventory_changed.emit()
 	health_changed.emit(health, max_health)
 	_check_low_health()
@@ -473,7 +482,7 @@ func _try_inspect_npc(at: Vector2) -> bool:
 ## Shared mining path used by live input and the smoke test.
 ## Returns true when a block finished breaking this call.
 func process_mining(cell: Vector2i, delta: float) -> bool:
-	if not _in_reach(cell) or not world.can_mine(cell, tool_tier):
+	if not _in_reach(cell, "mining") or not world.can_mine(cell, tool_tier):
 		_reset_mining()
 		return false
 	if cell != mine_target:
@@ -498,10 +507,43 @@ func process_mining(cell: Vector2i, delta: float) -> bool:
 		world.spawn_item_drop(world.cell_center(cell), str(item_id), int(drops[item_id]))
 	if block_id == "berry_bush" and bush_bonus_food > 0:
 		world.spawn_item_drop(world.cell_center(cell), "food", bush_bonus_food)
+	_apply_calling_harvest_bonuses(cell, block_id, drops)
 	_reset_mining()
 	collect_ground_drops()
 	mined.emit(block_id, drops)
 	return true
+
+
+## Calling: Prospector/Trailseeker extra-yield (Clean Extraction, Stone Economy,
+## Woodwise, Forager's Share) and Trailseeker Seedkeeper seed return. Rolls a
+## chance to spawn one extra of the block's yield / its seed at the mined cell;
+## the drops are swept up by the pickup pass right after. Category is derived from
+## the block id + preferred tool so ore/stone/wood/plant stay independent.
+func _apply_calling_harvest_bonuses(cell: Vector2i, block_id: String, drops: Dictionary) -> void:
+	if game_root == null or drops.is_empty():
+		return
+	var pref := BlockRegistry.preferred_tool(block_id)
+	var kind := ""
+	if block_id == "ore" or block_id.ends_with("_ore"):
+		kind = "ore"
+	elif block_id == "stone" or block_id == "deepstone":
+		kind = "stone"
+	elif pref == "axe" or block_id.begins_with("tree"):
+		kind = "wood"
+	elif pref != "pick":
+		kind = "plant"
+	if kind != "" and randf() < game_root.calling_extra_drop_chance(kind):
+		var primary: String = str(drops.keys()[0])
+		world.spawn_item_drop(world.cell_center(cell), primary, 1)
+	# Seedkeeper: any seed already in the yield gets a boosted chance for one more.
+	var seed_mult: float = game_root.calling_seed_return_mult()
+	if seed_mult > 1.0:
+		for item_id in drops:
+			var s := str(item_id)
+			if s.ends_with("_seed") or s == "crop_seeds":
+				if randf() < (seed_mult - 1.0):
+					world.spawn_item_drop(world.cell_center(cell), s, 1)
+				break
 
 
 ## R-08 slice 3: absorb every loose ground item within PICKUP_RADIUS into the
@@ -535,7 +577,7 @@ func place_reason(cell: Vector2i, block_id: String) -> String:
 		return "You can't place that."
 	if inventory.count(block_id) <= 0:
 		return "No %s left to place." % BlockRegistry.display_name(block_id)
-	if not _in_reach(cell):
+	if not _in_reach(cell, "build"):
 		return "That spot is out of reach."
 	if world.block_at(cell) != "air":
 		return "Something is already there."
@@ -805,8 +847,13 @@ func swap_weapon() -> bool:
 ## bonus + the attunement_bonus effect summed over equipped gear. Perk lanes
 ## should add their modifier here when FQ-06 wires them.
 func max_attunement() -> float:
+	# Runewright Measured Hand / Inscribed Conduit / Harmonic Equipment amplify the
+	# max-Attunement contribution of equipped rings & amulets only.
+	var gear_amp := 1.0
+	if game_root != null:
+		gear_amp = game_root.calling_equip_attunement_amp()
 	return maxf(1.0, _base_max_attunement + ancestry_attunement_bonus \
-		+ attunement_bonus_from_gear() + perk_attunement_bonus)
+		+ attunement_bonus_from_gear() * gear_amp + perk_attunement_bonus)
 
 
 ## Live maximum breath — base pool scaled by the ancestry capacity multiplier.
@@ -897,19 +944,28 @@ func _update_attunement_regen(delta: float) -> void:
 func _try_attune_pulse() -> bool:
 	if _pulse_cooldown > 0.0:
 		return false
-	if attunement < _attunement_pulse_cost:
+	# Calling: Resonant/Prospector scale pulse cost, duration, and radius.
+	var cost := _attunement_pulse_cost
+	var dur := _attunement_pulse_duration_sec
+	var radius_mult := 1.0
+	if game_root != null:
+		cost *= game_root.calling_pulse_cost_mult()
+		dur *= game_root.calling_pulse_duration_mult()
+		radius_mult = game_root.calling_pulse_radius_mult()
+	if attunement < cost:
 		player_event.emit("You reach for attunement, but it slips away. (Not enough attunement.)")
 		return false
-	attunement -= _attunement_pulse_cost
+	attunement -= cost
 	_pulse_cooldown = _attunement_pulse_cooldown_sec
-	_pulse_time_left = _attunement_pulse_duration_sec
+	_pulse_time_left = dur
+	_pulse_cast_duration = dur
 	if _pulse_light == null:
 		_pulse_light = PointLight2D.new()
 		_pulse_light.name = "AttunePulse"
 		_pulse_light.texture = _make_pulse_texture()
-		_pulse_light.texture_scale = 1.4
 		_pulse_light.color = Color(0.65, 0.75, 1.0)
 		add_child(_pulse_light)
+	_pulse_light.texture_scale = 1.4 * radius_mult
 	_pulse_light.enabled = true
 	_pulse_light.energy = 1.5
 	# FQ-09M: a stepped star-white ring makes the cast moment itself readable
@@ -931,7 +987,7 @@ func _tick_pulse(delta: float) -> void:
 	if _pulse_time_left <= 0.0:
 		_pulse_light.enabled = false
 	else:
-		_pulse_light.energy = 1.5 * (_pulse_time_left / maxf(0.01, _attunement_pulse_duration_sec))
+		_pulse_light.energy = 1.5 * (_pulse_time_left / maxf(0.01, _pulse_cast_duration))
 
 
 func _make_pulse_texture() -> GradientTexture2D:
@@ -984,6 +1040,7 @@ func apply_perk_effects(effects: Dictionary) -> void:
 	# Frame (additive max health, applied as an idempotent delta so repeated
 	# recomputes per purchase never drift).
 	perk_armor_mult = float(effects.get("armor_mult", 1.0))
+	perk_harvest_mult = float(effects.get("harvest_speed", 1.0))
 	var new_health_bonus := float(effects.get("max_health_bonus", 0.0))
 	max_health += new_health_bonus - perk_max_health_bonus
 	perk_max_health_bonus = new_health_bonus
@@ -1020,8 +1077,13 @@ func effective_mine_speed() -> float:
 ## Stone/ore and other pick-preferred blocks are unaffected by axe_tier.
 func _effective_mine_speed_for(block_id: String) -> float:
 	var speed := effective_mine_speed()
-	if axe_tier > 0 and BlockRegistry.preferred_tool(block_id) == "axe":
+	var pref := BlockRegistry.preferred_tool(block_id)
+	if axe_tier > 0 and pref == "axe":
 		speed *= 1.4
+	# Wildhand: faster gathering of non-pick resources (trees, plants); stone/ore
+	# (pick-preferred) are never sped up by the harvest skill.
+	if pref != "pick":
+		speed *= perk_harvest_mult
 	return speed
 
 
@@ -1181,9 +1243,14 @@ func swing_phase() -> int:
 	return int(mine_progress * 6.0) % 3
 
 
-func _in_reach(cell: Vector2i) -> bool:
+## `kind` scopes Calling reach skills: "mining" (Long Pick) and "build" (Long
+## Measure) add reach only to their own interaction; weapon/pickup/other pass "".
+func _in_reach(cell: Vector2i, kind: String = "") -> bool:
 	var t: float = float(world.tile_size())
-	return global_position.distance_to(world.cell_center(cell)) <= (REACH_TILES + reach_bonus) * t
+	var bonus := reach_bonus
+	if game_root != null and kind != "":
+		bonus += game_root.calling_reach_bonus(kind)
+	return global_position.distance_to(world.cell_center(cell)) <= (REACH_TILES + bonus) * t
 
 
 func _cell_overlaps_body(cell: Vector2i) -> bool:
@@ -1199,7 +1266,12 @@ func _try_hit_threat(at: Vector2) -> bool:
 	for threat in get_tree().get_nodes_in_group("threats"):
 		if threat.global_position.distance_to(at) < 14.0:
 			# FQ-04: hits carry the equipped weapon's damage (1 bare-handed).
-			threat.take_hit(attack_damage())
+			# Calling: Vanguard weapon-vs-hostile multiplier (never affects
+			# mining/chopping/harvesting/block damage — only this threat-hit path).
+			var wdmg := attack_damage()
+			if game_root != null:
+				wdmg *= game_root.calling_weapon_damage_mult()
+			threat.take_hit(wdmg)
 			# PR-04: fire the presentation-only weapon swing toward the target.
 			start_attack_swing(threat.global_position - global_position)
 			return true

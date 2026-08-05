@@ -247,6 +247,10 @@ func create_character(char_data: Dictionary) -> Dictionary:
 		# FQ-03: gear slots (slot_id -> item_id, "" = empty). Every character
 		# starts with the basic pick equipped; everything else is empty.
 		"equipment": default_equipment(),
+		# Calling system: progression (XP, level, purchased skills) is CHARACTER-
+		# owned so it follows the character between worlds and never mixes with
+		# another character's Calling. Filled by save_character_progression.
+		"progression": {},
 	}
 	characters.append(character)
 	save_shell()
@@ -324,6 +328,20 @@ func save_character_carried(char_id: String, inv_dict: Dictionary,
 				if not equipment.is_empty():
 					current_character["equipment"] = equipment
 			break
+	save_shell()
+
+
+## Calling system: persist a character's progression dict (XP/level/purchased
+## skills) into the characters array and shell.json, keeping current_character in
+## sync. This is the authority that carries progression between worlds.
+func save_character_progression(char_id: String, progression: Dictionary) -> void:
+	for i in range(characters.size()):
+		if str(characters[i].get("id", "")) == char_id:
+			characters[i]["progression"] = progression.duplicate(true)
+			break
+	# Always keep the live character in sync, even if it isn't in the array yet.
+	if str(current_character.get("id", "")) == char_id:
+		current_character["progression"] = progression.duplicate(true)
 	save_shell()
 
 

@@ -2260,11 +2260,14 @@ def render_character_indexes(data: dict) -> None:
         )
     role_rows = []
     for role in data["character_data"]["roles"]:
+        innate = role.get("innate", {})
+        paths = ", ".join(title_from_id(p) for p in role.get("paths", [])) or "—"
+        innate_txt = f"{innate.get('name', '—')}: {innate.get('description', '')}" if innate else "—"
         role_rows.append(
             [
                 rel_link(page_path, role_page_path(role["id"]), role.get("display_name", title_from_id(role["id"]))),
-                ", ".join(f"{item_id} x{qty}" for item_id, qty in role.get("starting_items", {}).items()) or "none",
-                effect_summary(role.get("effects", {})),
+                paths,
+                innate_txt,
             ]
         )
     trait_rows = []
@@ -2300,7 +2303,7 @@ def render_character_indexes(data: dict) -> None:
         "",
         "## Callings",
         "",
-        md_matrix(["Calling", "Starting items", "Effects"], role_rows),
+        md_matrix(["Calling", "Paths", "Innate effect"], role_rows),
         "",
         "## Traits",
         "",

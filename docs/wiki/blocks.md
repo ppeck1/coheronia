@@ -1,6 +1,6 @@
 # Blocks
 
-Generated: 2026-08-04
+Generated: 2026-08-05
 
 This page groups the current block definitions into browseable families.
 

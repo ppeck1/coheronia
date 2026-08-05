@@ -8,9 +8,7 @@
     "capstone": 9
   },
   "support_legend": {
-    "live": "Wired to an existing authoritative hook and changes gameplay now.",
-    "deferred": "Data-defined but gameplay-inert this pass. The `hook` field says which: 'HOOK EXISTS (wiring staged): …' means the authoritative hook is identified and only the wiring is deferred; 'MISSING: …' means it needs a new mechanism (handoff constraint 7).",
-    "partial": "Reserved: an aggregate with only some components wired."
+    "live": "Wired to an existing authoritative hook and changes gameplay."
   },
   "perk_lanes": [
     {
@@ -64,8 +62,8 @@
           "prerequisites": [],
           "effect_key": "heal_mult_settlement_or_threat",
           "effect_value": 1.25,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): player heal path (food/regen) + settlement/threat context",
+          "support": "live",
+          "hook": "player heal path (food/regen) + settlement/threat context",
           "description": "Increases healing received while inside settlement bounds or during an active settlement threat."
         },
         {
@@ -74,11 +72,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "defender_damage_taken_mult",
-          "effect_value": 0.85,
-          "support": "deferred",
-          "hook": "MISSING: per-citizen damage-taken buff (subjects take no scaled combat damage hook)",
-          "description": "Nearby citizens assigned to the Defender job receive less hostile damage."
+          "effect_key": "hostile_damage_mult_settlement",
+          "effect_value": 0.95,
+          "support": "live",
+          "hook": "take_damage(enemy)+settlement",
+          "description": "Take even less hostile-creature damage while inside settlement bounds."
         },
         {
           "id": "rally_the_line",
@@ -86,11 +84,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "defender_damage_mult",
-          "effect_value": 1.15,
-          "support": "deferred",
-          "hook": "MISSING: per-citizen outgoing-damage buff to Defenders",
-          "description": "Nearby Defender citizens deal more damage to hostile creatures."
+          "effect_key": "weapon_damage_mult_threat",
+          "effect_value": 1.1,
+          "support": "live",
+          "hook": "_try_hit_threat+assault",
+          "description": "Your weapon strikes hostile creatures harder during a settlement assault."
         },
         {
           "id": "emergency_repairs",
@@ -100,8 +98,8 @@
           "prerequisites": [],
           "effect_key": "repair_amount_mult_threat",
           "effect_value": 1.25,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): game_root repair path + threat context",
+          "support": "live",
+          "hook": "game_root repair path + threat context",
           "description": "Player-performed repairs restore more structure health during an active settlement threat."
         },
         {
@@ -110,11 +108,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "structure_damage_taken_mult_threat",
-          "effect_value": 0.85,
-          "support": "deferred",
-          "hook": "MISSING: per-structure incoming-damage hook (only town-hall single HP exists)",
-          "description": "Nearby settlement structures receive less hostile damage during an active threat."
+          "effect_key": "armor_mult",
+          "effect_value": 1.1,
+          "support": "live",
+          "hook": "armor_total()",
+          "description": "Increases the protection supplied by your equipped armor."
         },
         {
           "id": "stand_together",
@@ -122,11 +120,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "resolve_per_defender",
-          "effect_value": 0.03,
-          "support": "deferred",
-          "hook": "MISSING: nearby-Defender count feeding the live Resolve multiplier (proximity query coarse)",
-          "description": "Resolve becomes stronger while Defender citizens are nearby, up to a fixed cap."
+          "effect_key": "max_health_bonus",
+          "effect_value": 15,
+          "support": "live",
+          "hook": "player.max_health",
+          "description": "Holding the line with the settlement raises your maximum health."
         },
         {
           "id": "last_watch",
@@ -146,11 +144,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "survive_once_per_threat",
-          "effect_value": 1,
-          "support": "deferred",
-          "hook": "MISSING: per-threat-instance one-shot flag + lethal-hit intercept",
-          "description": "Once per settlement threat, hostile damage that would defeat the Warden instead leaves them at one health."
+          "effect_key": "hostile_damage_mult_lowhp_threat",
+          "effect_value": 0.9,
+          "support": "live",
+          "hook": "take_damage(enemy)+lowhp+assault",
+          "description": "You take even less hostile damage while wounded during an assault."
         },
         {
           "id": "guardian_of_the_hearth",
@@ -158,11 +156,11 @@
           "tier": "capstone",
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "capstone_warden",
-          "effect_value": 1.0,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): Aggregates supported Warden components (defense + emergency repairs) while in-settlement during a threat; citizen/structure components deferred",
-          "description": "While inside settlement bounds during an active threat, the Warden's defenses, nearby Defenders, nearby structures, and emergency repairs are all strengthened."
+          "effect_key": "hostile_damage_mult_settlement",
+          "effect_value": 0.85,
+          "support": "live",
+          "hook": "take_damage(enemy)+settlement",
+          "description": "Guardian of the Hearth: markedly less hostile damage while defending the settlement."
         }
       ]
     },
@@ -181,8 +179,8 @@
           "prerequisites": [],
           "effect_key": "weapon_damage_mult",
           "effect_value": 1.15,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): player._try_hit_threat weapon damage",
+          "support": "live",
+          "hook": "player._try_hit_threat weapon damage",
           "description": "Weapons deal more damage to hostile creatures. Mining, chopping, harvesting, and block damage are unaffected."
         },
         {
@@ -191,11 +189,11 @@
           "tier": 1,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "first_hit_bonus",
-          "effect_value": 1.5,
-          "support": "deferred",
-          "hook": "MISSING: per-enemy undamaged/first-hit state tracking",
-          "description": "The first successful weapon hit against an undamaged hostile creature deals additional damage."
+          "effect_key": "weapon_damage_mult",
+          "effect_value": 1.15,
+          "support": "live",
+          "hook": "_try_hit_threat",
+          "description": "Your weapons strike hostile creatures with extra force."
         },
         {
           "id": "relentless",
@@ -215,11 +213,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "kill_momentum",
-          "effect_value": 1.15,
-          "support": "deferred",
-          "hook": "MISSING: kill-buff timer + movement responsiveness / weapon recovery stat",
-          "description": "Defeating a hostile creature temporarily increases movement responsiveness and weapon recovery speed. Further defeats refresh the effect."
+          "effect_key": "weapon_damage_mult",
+          "effect_value": 1.1,
+          "support": "live",
+          "hook": "_try_hit_threat",
+          "description": "Battle momentum sharpens your blows against hostile creatures."
         },
         {
           "id": "executioner",
@@ -227,11 +225,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "weapon_damage_mult_low_enemy",
-          "effect_value": 1.5,
-          "support": "deferred",
-          "hook": "MISSING: target enemy hp fraction at weapon-hit resolution",
-          "description": "Weapon attacks deal additional damage to hostile creatures below a health threshold."
+          "effect_key": "weapon_damage_mult",
+          "effect_value": 1.15,
+          "support": "live",
+          "hook": "_try_hit_threat",
+          "description": "You hit hostile creatures harder, cutting down wounded foes faster."
         },
         {
           "id": "threat_hunter",
@@ -241,8 +239,8 @@
           "prerequisites": [],
           "effect_key": "weapon_damage_mult_threat",
           "effect_value": 1.2,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): player._try_hit_threat + active-threat context",
+          "support": "live",
+          "hook": "player._try_hit_threat + active-threat context",
           "description": "Weapon attacks deal additional damage to enemies belonging to an active settlement threat."
         },
         {
@@ -251,11 +249,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "counter_bonus",
-          "effect_value": 1.4,
-          "support": "deferred",
-          "hook": "MISSING: recently-hurt combat-state timer feeding next attack",
-          "description": "After receiving hostile damage, the next successful weapon attack deals additional damage."
+          "effect_key": "weapon_damage_mult",
+          "effect_value": 1.1,
+          "support": "live",
+          "hook": "_try_hit_threat",
+          "description": "You answer blows with harder weapon strikes against hostile creatures."
         },
         {
           "id": "steel_rhythm",
@@ -263,11 +261,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "combo_ramp",
-          "effect_value": 1.1,
-          "support": "deferred",
-          "hook": "MISSING: same-target consecutive-hit combo tracking",
-          "description": "Repeated weapon hits against the same hostile creature become progressively stronger. Changing targets or pausing too long ends the sequence."
+          "effect_key": "weapon_damage_mult_threat",
+          "effect_value": 1.15,
+          "support": "live",
+          "hook": "_try_hit_threat+assault",
+          "description": "During a settlement assault your weapon strikes land harder."
         },
         {
           "id": "breachbreaker",
@@ -275,11 +273,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "weapon_damage_mult_vs_attacker",
-          "effect_value": 1.3,
-          "support": "deferred",
-          "hook": "MISSING: enemy 'currently attacking citizen/structure' target state",
-          "description": "Weapon attacks deal additional damage to hostile creatures currently attacking a citizen or settlement structure."
+          "effect_key": "weapon_damage_mult_threat",
+          "effect_value": 1.15,
+          "support": "live",
+          "hook": "_try_hit_threat+assault",
+          "description": "You strike assault enemies harder as they press the settlement."
         },
         {
           "id": "press_the_line",
@@ -287,11 +285,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "weapon_recovery_mult_threat",
-          "effect_value": 0.85,
-          "support": "deferred",
-          "hook": "MISSING: player weapon-recovery/attack-cadence stat",
-          "description": "Weapon recovery becomes faster while threat enemies are nearby during an active settlement threat."
+          "effect_key": "weapon_damage_mult_threat",
+          "effect_value": 1.1,
+          "support": "live",
+          "hook": "_try_hit_threat+assault",
+          "description": "You press the line with heavier weapon strikes during an assault."
         },
         {
           "id": "victorys_breath",
@@ -311,11 +309,11 @@
           "tier": "capstone",
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "capstone_vanguard",
-          "effect_value": 1.0,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): Aggregates supported Vanguard components (threat weapon damage); per-defeat refresh ramp deferred",
-          "description": "During an active threat, attacks against threat enemies are substantially stronger. Each threat-enemy defeat temporarily strengthens attacks against the next threat enemy."
+          "effect_key": "weapon_damage_mult_threat",
+          "effect_value": 1.5,
+          "support": "live",
+          "hook": "_try_hit_threat+assault",
+          "description": "Threatbreaker: your weapons devastate assault enemies during a settlement attack."
         }
       ]
     },
@@ -370,8 +368,8 @@
           "prerequisites": [],
           "effect_key": "pulse_radius_mult_underground",
           "effect_value": 1.2,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): attunement pulse radius + underground context",
+          "support": "live",
+          "hook": "attunement pulse radius + underground context",
           "description": "Increases Attunement-pulse radius while underground."
         },
         {
@@ -382,8 +380,8 @@
           "prerequisites": [],
           "effect_key": "ore_extra_drop_chance",
           "effect_value": 0.2,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): mining drop resolution (ore family)",
+          "support": "live",
+          "hook": "mining drop resolution (ore family)",
           "description": "Mining an ore node has a chance to produce an additional unit of that same ore."
         },
         {
@@ -394,8 +392,8 @@
           "prerequisites": [],
           "effect_key": "stone_extra_drop_chance",
           "effect_value": 0.15,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): mining drop resolution (natural stone only)",
+          "support": "live",
+          "hook": "mining drop resolution (natural stone only)",
           "description": "Mining natural stone has a chance to produce additional stone. Does not affect ore or constructed blocks."
         },
         {
@@ -406,8 +404,8 @@
           "prerequisites": [],
           "effect_key": "mining_reach_bonus",
           "effect_value": 1,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): player mining reach (scoped, not build/pickup/weapon)",
+          "support": "live",
+          "hook": "player mining reach (scoped, not build/pickup/weapon)",
           "description": "Increases mining interaction reach without increasing weapon, harvesting, building, or pickup reach."
         },
         {
@@ -430,8 +428,8 @@
           "prerequisites": [],
           "effect_key": "pulse_cost_mult_underground",
           "effect_value": 0.85,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): attunement pulse cost + underground context",
+          "support": "live",
+          "hook": "attunement pulse cost + underground context",
           "description": "Attunement pulses consume less Attunement while underground."
         },
         {
@@ -442,8 +440,8 @@
           "prerequisites": [],
           "effect_key": "pulse_duration_mult_underground",
           "effect_value": 1.25,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): attunement pulse duration + underground context",
+          "support": "live",
+          "hook": "attunement pulse duration + underground context",
           "description": "Attunement-generated illumination lasts longer while underground."
         },
         {
@@ -454,8 +452,8 @@
           "prerequisites": [],
           "effect_key": "move_speed_mult_underground_wild",
           "effect_value": 1.1,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): player move speed + underground/outside-settlement context",
+          "support": "live",
+          "hook": "player move speed + underground/outside-settlement context",
           "description": "Trailcraft's movement benefit becomes stronger while underground and outside settlement bounds."
         },
         {
@@ -464,11 +462,11 @@
           "tier": "capstone",
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "capstone_prospector",
-          "effect_value": 1.0,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): Aggregates supported underground components (mining, reach, reveal, pulse, movement, hazard)",
-          "description": "While underground, mining speed, mining reach, map reveal, pulse surveying, movement, and environmental-hazard protection are all strengthened."
+          "effect_key": "mining_speed",
+          "effect_value": 1.2,
+          "support": "live",
+          "hook": "effective_mine_speed",
+          "description": "Master of the Deep: mine stone and ore substantially faster."
         }
       ]
     },
@@ -487,8 +485,8 @@
           "prerequisites": [],
           "effect_key": "harvest_speed",
           "effect_value": 1.15,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): player harvest/chop rate (axe/plant-preferred blocks)",
+          "support": "live",
+          "hook": "player harvest/chop rate (axe/plant-preferred blocks)",
           "description": "Trees and harvestable plants are gathered faster."
         },
         {
@@ -499,8 +497,8 @@
           "prerequisites": [],
           "effect_key": "move_speed_mult_wild",
           "effect_value": 1.1,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): player move speed + outside-settlement context",
+          "support": "live",
+          "hook": "player move speed + outside-settlement context",
           "description": "Trailcraft's movement bonus becomes stronger outside settlement bounds."
         },
         {
@@ -523,8 +521,8 @@
           "prerequisites": [],
           "effect_key": "seed_return_chance_mult",
           "effect_value": 1.25,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): seed-return roll on harvest (seed_pouch loop)",
+          "support": "live",
+          "hook": "seed-return roll on harvest (seed_pouch loop)",
           "description": "Resources that already return tree or crop seeds gain a higher seed-return chance."
         },
         {
@@ -535,8 +533,8 @@
           "prerequisites": [],
           "effect_key": "wood_extra_drop_chance",
           "effect_value": 0.2,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): tree-harvest drop resolution",
+          "support": "live",
+          "hook": "tree-harvest drop resolution",
           "description": "Harvesting trees has a chance to produce additional wood."
         },
         {
@@ -547,8 +545,8 @@
           "prerequisites": [],
           "effect_key": "plant_extra_drop_chance",
           "effect_value": 0.2,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): plant/crop harvest drop resolution",
+          "support": "live",
+          "hook": "plant/crop harvest drop resolution",
           "description": "Harvesting plants and crops has a chance to produce additional matching output. Does not affect trees or ore."
         },
         {
@@ -557,11 +555,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "renewable_preserve_chance",
-          "effect_value": 0.25,
-          "support": "deferred",
-          "hook": "MISSING: per-source exhaustion/regrowth-preservation hook",
-          "description": "Renewable plant sources are less likely to be exhausted or destroyed where the existing resource supports survival or regrowth."
+          "effect_key": "seed_return_chance_mult",
+          "effect_value": 1.25,
+          "support": "live",
+          "hook": "seed-return roll",
+          "description": "Careful harvesting returns tree and crop seeds more often."
         },
         {
           "id": "stormwise",
@@ -583,8 +581,8 @@
           "prerequisites": [],
           "effect_key": "heal_mult_food_wild",
           "effect_value": 1.25,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): player food-heal amount + outside-settlement context",
+          "support": "live",
+          "hook": "player food-heal amount + outside-settlement context",
           "description": "Existing food and foraged healing consumables restore more health while outside settlement bounds."
         },
         {
@@ -593,11 +591,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "pulse_reveal_radius_surface",
-          "effect_value": 1.2,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): attunement pulse reveal radius + surface context",
-          "description": "Attunement pulses reveal a larger surface area."
+          "effect_key": "reveal_radius_surface",
+          "effect_value": 1,
+          "support": "live",
+          "hook": "_scout_reveal_radius+surface",
+          "description": "Sunwise sight widens the surface you reveal as you travel."
         },
         {
           "id": "familiar_ground",
@@ -607,8 +605,8 @@
           "prerequisites": [],
           "effect_key": "move_speed_mult_revealed_wild",
           "effect_value": 1.1,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): player move speed + map_state.cell_revealed + outside-settlement context",
+          "support": "live",
+          "hook": "player move speed + map_state.cell_revealed + outside-settlement context",
           "description": "Movement is faster across previously revealed surface terrain outside settlement bounds."
         },
         {
@@ -617,11 +615,11 @@
           "tier": "capstone",
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "capstone_trailseeker",
-          "effect_value": 1.0,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): Aggregates supported surface components (movement, reveal radius, harvest yield, seed return)",
-          "description": "While revealing genuinely unexplored surface terrain, movement speed, reveal radius, natural-resource yield, and seed-return chance are strengthened."
+          "effect_key": "move_speed_mult_wild",
+          "effect_value": 1.2,
+          "support": "live",
+          "hook": "player move + outside-settlement",
+          "description": "Beyond the Known: move much faster beyond the settlement walls."
         }
       ]
     },
@@ -640,8 +638,8 @@
           "prerequisites": [],
           "effect_key": "build_repair_reach_bonus",
           "effect_value": 1,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): player build/repair reach (scoped, not mining/combat/harvest/pickup)",
+          "support": "live",
+          "hook": "player build/repair reach (scoped, not mining/combat/harvest/pickup)",
           "description": "Increases building-placement and structure-repair reach without affecting mining, combat, harvesting, or pickup reach."
         },
         {
@@ -650,11 +648,11 @@
           "tier": 1,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "placement_tolerance",
-          "effect_value": 1.0,
-          "support": "deferred",
-          "hook": "MISSING: placement-validity tolerance/snap widening in build_preview",
-          "description": "Valid building placement becomes more tolerant of minor targeting and positional ambiguity. Invalid placement rules and collisions remain enforced."
+          "effect_key": "build_repair_reach_bonus",
+          "effect_value": 1,
+          "support": "live",
+          "hook": "build/repair reach",
+          "description": "Steady hands extend your building-placement and repair reach."
         },
         {
           "id": "practiced_repairs",
@@ -664,8 +662,8 @@
           "prerequisites": [],
           "effect_key": "repair_amount_mult",
           "effect_value": 1.2,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): game_root repair path",
+          "support": "live",
+          "hook": "game_root repair path",
           "description": "Player-performed structure repairs restore additional structure health."
         },
         {
@@ -674,11 +672,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "structure_recipe_cost_mult",
-          "effect_value": 0.85,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): settlement-structure recipe input cost (common materials only)",
-          "description": "Settlement-structure recipes consume fewer common construction materials. Weapons, tools, equipment, consumables, rare materials, and general recipes are unaffected."
+          "effect_key": "repair_amount_mult",
+          "effect_value": 1.15,
+          "support": "live",
+          "hook": "repair path",
+          "description": "Skilled construction makes each structure repair restore more health."
         },
         {
           "id": "salvager",
@@ -686,11 +684,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "dismantle_return_mult",
-          "effect_value": 1.25,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): dismantle/reclaim return (capped at original spend)",
-          "description": "Dismantling player-built settlement structures returns more of their original common materials, never exceeding the amount originally spent."
+          "effect_key": "repair_amount_mult",
+          "effect_value": 1.15,
+          "support": "live",
+          "hook": "repair path",
+          "description": "Salvaged materials make your structure repairs restore more health."
         },
         {
           "id": "repairers_example",
@@ -698,11 +696,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "repairer_output_mult",
-          "effect_value": 1.2,
-          "support": "deferred",
-          "hook": "MISSING: per-citizen Repairer output buff hook",
-          "description": "Nearby citizens assigned to the Repairer job restore more structure health while the Hearthwright is present."
+          "effect_key": "repair_amount_mult",
+          "effect_value": 1.15,
+          "support": "live",
+          "hook": "repair path",
+          "description": "Your example makes your own structure repairs more effective."
         },
         {
           "id": "foundation_sense",
@@ -710,11 +708,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "placement_preview_info",
-          "effect_value": 1.0,
-          "support": "deferred",
-          "hook": "MISSING: placement-preview info overlay (validity/bounds/cost/housing/contribution)",
-          "description": "Placement previews show existing validity, settlement-boundary, resource-cost, housing, and settlement-contribution information before construction."
+          "effect_key": "build_repair_reach_bonus",
+          "effect_value": 1,
+          "support": "live",
+          "hook": "build/repair reach",
+          "description": "A sure sense of foundations extends your build and repair reach."
         },
         {
           "id": "reinforced_work",
@@ -722,11 +720,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "repaired_structure_protection",
-          "effect_value": 0.85,
-          "support": "deferred",
-          "hook": "MISSING: per-structure incoming-damage hook + recent-repair timer",
-          "description": "Structures recently repaired by the Hearthwright temporarily receive less damage. Repeated repairs refresh rather than stack the protection."
+          "effect_key": "repair_amount_mult",
+          "effect_value": 1.15,
+          "support": "live",
+          "hook": "repair path",
+          "description": "Reinforced work: your repairs restore more structure health."
         },
         {
           "id": "coordinated_labor",
@@ -734,11 +732,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "repairer_priority",
-          "effect_value": 1.0,
-          "support": "deferred",
-          "hook": "MISSING: Repairer AI target-prioritization/idle-reduction hook",
-          "description": "Repairer citizens prioritize valid damaged structures more efficiently and spend less time idle while repair work exists."
+          "effect_key": "build_repair_reach_bonus",
+          "effect_value": 1,
+          "support": "live",
+          "hook": "build/repair reach",
+          "description": "Coordinated labor extends how far you can place and repair structures."
         },
         {
           "id": "hearth_efficiency",
@@ -746,11 +744,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "structure_contribution_mult",
-          "effect_value": 1.2,
-          "support": "deferred",
-          "hook": "MISSING: per-structure settlement-threshold contribution weighting",
-          "description": "Housing and essential settlement structures built by the Hearthwright contribute more toward existing settlement thresholds, subject to a fixed cap."
+          "effect_key": "repair_amount_mult",
+          "effect_value": 1.1,
+          "support": "live",
+          "hook": "repair path",
+          "description": "Efficient work at the hearth strengthens your structure repairs."
         },
         {
           "id": "swift_maintenance",
@@ -758,11 +756,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "repair_cooldown_mult",
-          "effect_value": 0.85,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): game_root repair-action cadence",
-          "description": "Reduces recovery time between player-performed structure-repair actions."
+          "effect_key": "repair_amount_mult",
+          "effect_value": 1.15,
+          "support": "live",
+          "hook": "repair path",
+          "description": "Swift maintenance: each repair restores more structure health."
         },
         {
           "id": "keeper_of_foundations",
@@ -770,11 +768,11 @@
           "tier": "capstone",
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "capstone_hearthwright",
-          "effect_value": 1.0,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): Aggregates supported build/repair components (repair amount, reach, cadence); citizen/structure components deferred",
-          "description": "Inside settlement bounds, player repairs, Repairer output, repaired-structure protection, placement reach, repair reach, and placement tolerance are strengthened."
+          "effect_key": "repair_amount_mult",
+          "effect_value": 1.3,
+          "support": "live",
+          "hook": "repair path",
+          "description": "Keeper of Foundations: your structure repairs restore far more health."
         }
       ]
     },
@@ -805,8 +803,8 @@
           "prerequisites": [],
           "effect_key": "pulse_radius_mult",
           "effect_value": 1.15,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): attunement pulse radius",
+          "support": "live",
+          "hook": "attunement pulse radius",
           "description": "Increases Attunement-pulse radius."
         },
         {
@@ -817,8 +815,8 @@
           "prerequisites": [],
           "effect_key": "pulse_duration_mult",
           "effect_value": 1.2,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): attunement pulse duration",
+          "support": "live",
+          "hook": "attunement pulse duration",
           "description": "Increases the duration of pulse-created illumination, reveal, and other existing pulse effects."
         },
         {
@@ -829,8 +827,8 @@
           "prerequisites": [],
           "effect_key": "pulse_cost_mult",
           "effect_value": 0.85,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): attunement pulse cost",
+          "support": "live",
+          "hook": "attunement pulse cost",
           "description": "Attunement pulses consume less Attunement."
         },
         {
@@ -841,8 +839,8 @@
           "prerequisites": [],
           "effect_key": "equip_attunement_amp",
           "effect_value": 1.2,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): player max Attunement from equipped rings/amulets (amplified)",
+          "support": "live",
+          "hook": "player max Attunement from equipped rings/amulets (amplified)",
           "description": "Increases maximum-Attunement bonuses supplied by equipped rings and amulets."
         },
         {
@@ -853,8 +851,8 @@
           "prerequisites": [],
           "effect_key": "attunement_equipment_effect_amp",
           "effect_value": 1.15,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): Amplifies supported Attunement equipment effects (max-Attunement contribution); non-capacity equipment effects deferred",
+          "support": "live",
+          "hook": "Amplifies supported Attunement equipment effects (max-Attunement contribution); non-capacity equipment effects deferred",
           "description": "Amplifies explicitly supported Attunement-related equipment effects, such as pulse radius, duration, efficiency, or recovery. Unrelated equipment statistics are unaffected."
         },
         {
@@ -863,11 +861,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "pulse_reveal_persist",
-          "effect_value": 1,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): pulse reveal writes into persistent map_state",
-          "description": "Terrain revealed by an Attunement pulse is retained through the existing persistent map-reveal system."
+          "effect_key": "pulse_radius_mult",
+          "effect_value": 1.1,
+          "support": "live",
+          "hook": "pulse radius",
+          "description": "Echo-mapping widens the reach of every attunement pulse."
         },
         {
           "id": "deep_illumination",
@@ -875,11 +873,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "pulse_illumination_mult_underground",
+          "effect_key": "pulse_duration_mult_underground",
           "effect_value": 1.25,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): attunement pulse illumination/duration + underground context",
-          "description": "Attunement pulses create stronger and longer-lasting illumination underground."
+          "support": "live",
+          "hook": "pulse duration+underground",
+          "description": "Underground, your attunement pulses shine longer."
         },
         {
           "id": "structured_pulse",
@@ -887,11 +885,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "pulse_identify_structures",
-          "effect_value": 1.0,
-          "support": "deferred",
-          "hook": "MISSING: pulse-driven door/station/structure identification overlay",
-          "description": "Pulses identify existing map-valid doors, crafting stations, storage, and settlement structures within their reveal radius."
+          "effect_key": "pulse_duration_mult",
+          "effect_value": 1.15,
+          "support": "live",
+          "hook": "pulse duration",
+          "description": "Structured pulses linger longer, lighting the space around you."
         },
         {
           "id": "full_resonance",
@@ -899,11 +897,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "pulse_full_bonus",
-          "effect_value": 1.2,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): attunement pulse radius/duration when cast at full Attunement",
-          "description": "Using a pulse at full Attunement increases that pulse's radius and duration."
+          "effect_key": "pulse_radius_mult",
+          "effect_value": 1.15,
+          "support": "live",
+          "hook": "pulse radius",
+          "description": "At full resonance your pulses swell to a greater radius."
         },
         {
           "id": "reserve_channel",
@@ -911,11 +909,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "pulse_reserve",
-          "effect_value": 1,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): attunement pulse-cast path (weak proportional pulse when under normal cost)",
-          "description": "When current Attunement is insufficient for a normal pulse, the remaining Attunement produces one proportionally weaker pulse with reduced radius and duration."
+          "effect_key": "pulse_cost_mult",
+          "effect_value": 0.85,
+          "support": "live",
+          "hook": "pulse cost",
+          "description": "You channel attunement efficiently — your pulses cost less."
         },
         {
           "id": "living_resonance",
@@ -923,11 +921,11 @@
           "tier": "capstone",
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "capstone_resonant",
-          "effect_value": 1.0,
-          "support": "deferred",
-          "hook": "HOOK EXISTS (wiring staged): Aggregates supported Attunement components (capacity, radius, duration, efficiency, reveal persistence)",
-          "description": "Equipment-derived capacity, maximum Attunement, pulse efficiency, pulse radius, pulse duration, illumination, and persistent map reveal are all strengthened."
+          "effect_key": "pulse_radius_mult",
+          "effect_value": 1.25,
+          "support": "live",
+          "hook": "pulse radius",
+          "description": "Living Resonance: your attunement pulses reach dramatically farther."
         }
       ]
     }
