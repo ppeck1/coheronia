@@ -66,6 +66,18 @@ func _check(name: String, ok: bool, detail: String = "") -> void:
 	_suite_bucket(_suite_for(name))["passed" if ok else "failed"] += 1
 
 
+## Depth-first search for a Button with the given text under `node` (or null).
+## Lets a check press a real in-panel button so the actual handler is exercised.
+func _find_button_with_text(node: Node, text: String) -> Button:
+	if node is Button and (node as Button).text == text:
+		return node as Button
+	for child in node.get_children():
+		var found: Button = _find_button_with_text(child, text)
+		if found != null:
+			return found
+	return null
+
+
 ## R-03: record a check intentionally not run in this environment (never counted
 ## as pass or fail). Used for fixtures that cannot run under an exported build.
 func _skip(name: String, reason: String) -> void:
@@ -2060,6 +2072,29 @@ func _run() -> void:
 		_npce_registered and _npce_grip.size.x > 0.0 and _npce_moved and _npce_resized,
 		"reg=%s grip=%s moved=%s resized=%s" % [str(_npce_registered),
 			str(_npce_grip.size), str(_npce_moved), str(_npce_resized)])
+
+	# Work-zone button: pressing "Set work zone" must actually BEGIN work-zone mode
+	# for the clicked settler and close the panel. Regression: the handler called
+	# close_npc_panel() (which nulls _npc_subject) BEFORE reading the id, so the
+	# emit hit Nil, the signal never fired, and the panel closed with the action
+	# dead. Presses the real in-panel button so the actual handler is exercised.
+	if _npce_subj != null and not GameState.workzone_mode:
+		hud.open_npc_panel(_npce_subj)
+		var _wz_btn: Button = _find_button_with_text(hud._npc_panel, "Set work zone")
+		if _wz_btn != null:
+			_wz_btn.pressed.emit()
+		var _wz_mode: bool = GameState.workzone_mode
+		var _wz_target_ok: bool = str(root._workzone_target) == str(_npce_subj.subject_id)
+		var _wz_panel_closed: bool = not hud.npc_panel_open()
+		root._end_work_zone()   # cleanup so later sections aren't left in work-zone mode
+		hud._npc_panel.visible = false
+		_check("hud_workzone_button_begins_assignment",
+			_wz_btn != null and _wz_mode and _wz_target_ok and _wz_panel_closed,
+			"btn=%s mode=%s target_ok=%s panel_closed=%s" % [str(_wz_btn != null),
+				str(_wz_mode), str(_wz_target_ok), str(_wz_panel_closed)])
+	else:
+		_check("hud_workzone_button_begins_assignment", false,
+			"no settler available to exercise the work-zone button")
 
 	# R-06.3 seam: vessel/chrome texture prep now builds in HudChrome; hud.gd
 	# keeps the caches + source lookup. Textures are freshly built (not

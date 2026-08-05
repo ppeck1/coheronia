@@ -16,7 +16,7 @@ This page separates confirmed presentation defects from intentional scope limits
 
 ## Intentional Current Limits
 
-- Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The full-smoke drag/sort assertion (`fq09_inventory_board_drag_and_sort`) and the HUD edit-mode assertion (`fq17_hud_edit_direct_manipulation`) were briefly red at 332/334 when the inventory-board work landed; both were repaired in `scripts/ui/hud.gd`. The in-engine smoke suite has grown since and now stands at **528/528** (2026-08-05), clean under a windowed run.
+- Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The full-smoke drag/sort assertion (`fq09_inventory_board_drag_and_sort`) and the HUD edit-mode assertion (`fq17_hud_edit_direct_manipulation`) were briefly red at 332/334 when the inventory-board work landed; both were repaired in `scripts/ui/hud.gd`. The in-engine smoke suite has grown since and now stands at **529/529** (2026-08-05), clean under a windowed run.
 - Settlers are now individual, persistent NPC workers (farmhand/hauler/repairer/defender) with jobs, stats, ancestry identity, and per-settler work zones, layered over the abstract population authority; deeper social simulation is still planned.
 - Enemies use direct walk-and-hop behavior without pathfinding.
 - The adaptive score is one authored suite and remains balance-in-progress.

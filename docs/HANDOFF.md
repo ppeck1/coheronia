@@ -32,7 +32,7 @@ What is true now:
   leaf roll (incl. trunk collapse).
 - **UI:** skill panel = two vertical Path cards, player-language inspector only.
 
-Smoke: **528 checks**, windowed GUI run **528/528 clean** (the old
+Smoke: **529 checks**, windowed GUI run **529/529 clean** (the old
 `hud_npc_panel_editable` grip flake was fixed by populating the panel before
 reading its rect). `validate_repo.py` PASS. **COMMITTED + PUSHED** — see the
 git log for the latest Calling commits (`41b83b5` initial → `8e42440` all-live →

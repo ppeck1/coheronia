@@ -2532,8 +2532,12 @@ func _build_npc_panel() -> void:
 	zone_btn.tooltip_text = "Click, then drag out the area in the world where this settler should work."
 	zone_btn.pressed.connect(func() -> void:
 		if _npc_subject != null and not _npc_subject.is_queued_for_deletion():
+			# Capture the id BEFORE closing — close_npc_panel() nulls _npc_subject,
+			# so reading it afterward would hit Nil and the signal (and thus work-zone
+			# mode) would never fire, leaving the panel closed but the action dead.
+			var sid := str(_npc_subject.subject_id)
 			close_npc_panel()   # get the panel out of the way of the world drag
-			subject_workzone_requested.emit(str(_npc_subject.subject_id)))
+			subject_workzone_requested.emit(sid))
 	box.add_child(zone_btn)
 	_label(box, "Stats:")
 	_npc_stats_label = _label(box, "")
