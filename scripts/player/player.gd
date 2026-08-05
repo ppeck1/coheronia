@@ -535,17 +535,20 @@ func _apply_calling_harvest_bonuses(cell: Vector2i, block_id: String, drops: Dic
 	# placed wood, dirt, torches, lanterns, etc.).
 	if BlockRegistry.is_placeable(block_id):
 		return
+	# Category + the EXPLICIT item the bonus yields, so a stray drop (e.g. a leaf's
+	# tree_seed) is never duplicated as "wood".
 	var kind := ""
+	var out_item := ""
 	if block_id == "ore" or block_id.ends_with("_ore"):
-		kind = "ore"                          # natural ore veins
+		kind = "ore"; out_item = str(drops.keys()[0])   # the natural ore vein's drop
 	elif block_id == "deepstone":
-		kind = "stone"                        # the only unambiguously natural, non-placeable stone
-	elif block_id == "tree_trunk" or block_id == "tree_leaves":
-		kind = "wood"                         # tree parts only (never the placeable "wood" block)
+		kind = "stone"; out_item = str(drops.keys()[0]) # the only natural, non-placeable stone
+	elif block_id == "tree_trunk":
+		kind = "wood"; out_item = "wood"                # trunks only; explicitly wood (leaves excluded)
 	elif block_id == "berry_bush" or block_id == "crop_ripe":
-		kind = "plant"                        # foraged/grown plants only
-	if kind != "" and randf() < game_root.calling_extra_drop_chance(kind):
-		world.spawn_item_drop(world.cell_center(cell), str(drops.keys()[0]), 1)
+		kind = "plant"; out_item = str(drops.keys()[0]) # foraged/grown plants only
+	if kind != "" and out_item != "" and randf() < game_root.calling_extra_drop_chance(kind):
+		world.spawn_item_drop(world.cell_center(cell), out_item, 1)
 
 
 ## R-08 slice 3: absorb every loose ground item within PICKUP_RADIUS into the

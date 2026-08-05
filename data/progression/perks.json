@@ -64,7 +64,7 @@
           "effect_value": 1.25,
           "support": "live",
           "hook": "player heal path (food/regen) + settlement/threat context",
-          "description": "Increases all healing you receive (food and passive recovery) while inside settlement bounds or during a settlement assault."
+          "description": "Food and passive recovery restore more health inside settlement bounds or during a settlement assault."
         },
         {
           "id": "defensive_presence",

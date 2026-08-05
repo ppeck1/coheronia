@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Coheronia constellation mark</title>
+  <desc id="desc">Seven connected stars with one warm hearth star, without a background.</desc>
+  <defs>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M284 666 374 424 520 286 652 560 792 382" stroke="#e9fbff" stroke-width="44" opacity="0.22"/>
+    <path d="M374 424 652 560 558 752 284 666" stroke="#d7f7ff" stroke-width="38" opacity="0.18"/>
+    <path d="M284 666 374 424 520 286 652 560 792 382" stroke="#e9fbff" stroke-width="18"/>
+    <path d="M374 424 652 560 558 752 284 666" stroke="#bdefff" stroke-width="14" opacity="0.9"/>
+  </g>
+  <g filter="url(#glow)">
+    <g fill="#f4fdff">
+      <path d="M520 222 538 268 584 286 538 304 520 350 502 304 456 286 502 268Z"/>
+      <path d="M374 368 390 408 430 424 390 440 374 480 358 440 318 424 358 408Z"/>
+      <path d="M284 616 298 652 334 666 298 680 284 716 270 680 234 666 270 652Z"/>
+      <path d="M792 334 806 368 840 382 806 396 792 430 778 396 744 382 778 368Z"/>
+      <path d="M558 708 571 739 602 752 571 765 558 796 545 765 514 752 545 739Z"/>
+      <path d="M446 536 456 560 480 570 456 580 446 604 436 580 412 570 436 560Z"/>
+    </g>
+    <path d="M652 488 672 540 724 560 672 580 652 632 632 580 580 560 632 540Z" fill="#ffd06d"/>
+    <path d="M652 518 664 548 694 560 664 572 652 602 640 572 610 560 640 548Z" fill="#fff6cf"/>
+  </g>
+</svg>

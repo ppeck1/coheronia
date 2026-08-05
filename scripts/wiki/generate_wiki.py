@@ -807,6 +807,7 @@ def render_html_page(md_path: Path, out_path: Path, title_hint: str | None = Non
     if match:
         page_title = match.group(1).strip()
     css_rel = Path(shutil.os.path.relpath(THEME_CSS, out_path.parent)).as_posix()
+    icons_rel = Path(shutil.os.path.relpath(ROOT / "docs" / "icons", out_path.parent)).as_posix()
     index_rel = Path(shutil.os.path.relpath(WIKI_DIR / "index.html", out_path.parent)).as_posix()
     article_rel = Path(shutil.os.path.relpath(md_path, out_path.parent)).as_posix()
     breadcrumbs = breadcrumbs_for(md_path, out_path)
@@ -817,6 +818,13 @@ def render_html_page(md_path: Path, out_path: Path, title_hint: str | None = Non
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{escape(page_title)} | Coheronia Wiki</title>
+  <link rel="icon" href="{icons_rel}/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="{icons_rel}/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="{icons_rel}/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="{icons_rel}/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="{icons_rel}/apple-touch-icon.png">
+  <link rel="manifest" href="{icons_rel}/site.webmanifest">
+  <meta name="theme-color" content="#0b2639">
   <link rel="stylesheet" href="{escape(css_rel, quote=True)}">
 </head>
 <body>

@@ -503,6 +503,24 @@ func _show_char_create() -> void:
 	form.add_child(_species_detail)
 	_update_species_detail(0)
 
+	# Calling system: the PERMANENT identity selector, placed high in the form so
+	# its innate reward, two Paths, and permanence read above the fold before the
+	# player commits. Options are the Callings (stored under the legacy `roles`
+	# data key for save-compat).
+	var role_row := _form_row(form, "Calling (permanent)")
+	_role_option = OptionButton.new()
+	_role_ids.clear()
+	var role_list: Array = data.get("roles", [])
+	for role_def in role_list:
+		_role_ids.append(str(role_def.get("id", "")))
+		_role_option.add_item(str(role_def.get("display_name", "?")))
+	_role_option.item_selected.connect(_update_role_desc)
+	role_row.add_child(_role_option)
+	_role_desc = _label(form, "", 13)
+	_role_desc.add_theme_color_override("font_color", DIM_COLOR)
+	_role_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_update_role_desc(0)
+
 	var body_variant_row := _form_row(form, "Body")
 	_body_variant_option = OptionButton.new()
 	_body_variant_ids.clear()
@@ -550,21 +568,6 @@ func _show_char_create() -> void:
 	_appearance_swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	appearance_row.add_child(_appearance_swatch)
 	_update_swatch(0)
-
-	# Calling system: the permanent identity selector. Options are the Callings
-	# (stored under the legacy `roles` data key for save-compat).
-	var role_row := _form_row(form, "Calling")
-	_role_option = OptionButton.new()
-	_role_ids.clear()
-	var role_list: Array = data.get("roles", [])
-	for role_def in role_list:
-		_role_ids.append(str(role_def.get("id", "")))
-		_role_option.add_item(str(role_def.get("display_name", "?")))
-	_role_option.item_selected.connect(_update_role_desc)
-	role_row.add_child(_role_option)
-	_role_desc = _label(form, "", 13)
-	_role_desc.add_theme_color_override("font_color", DIM_COLOR)
-	_update_role_desc(0)
 
 	_gap(form, 4)
 	_label(form, "Traits (choose up to %d)" % _max_traits(), 16)

@@ -470,7 +470,7 @@ func break_block(cell: Vector2i, seed_return_mult: float = 1.0) -> Dictionary:
 	# mining under stone/dirt costs nothing here.
 	for n in [Vector2i(cell.x, cell.y - 1), Vector2i(cell.x, cell.y + 1),
 			Vector2i(cell.x - 1, cell.y), Vector2i(cell.x + 1, cell.y)]:
-		_collapse_if_floating(n)
+		_collapse_if_floating(n, seed_return_mult)
 	return block_drops
 
 
@@ -507,7 +507,10 @@ func _component_grounded(comp: Array) -> bool:
 
 ## If the gravity cluster at `start` has lost its footing, collapse it: remove every
 ## cell and drop its items as falling ground drops (leaves keep their tree_seed roll).
-func _collapse_if_floating(start: Vector2i) -> void:
+## `seed_return_mult` (Calling: Seedkeeper / Careful Harvest) scales the collapsing-
+## leaf seed roll the same way as a directly-broken leaf, since cutting a trunk and
+## letting its canopy fall is ordinary tree harvesting.
+func _collapse_if_floating(start: Vector2i, seed_return_mult: float = 1.0) -> void:
 	if not BlockRegistry.has_gravity(block_at(start)):
 		return
 	var comp := _gravity_component(start)
@@ -516,7 +519,8 @@ func _collapse_if_floating(start: Vector2i) -> void:
 	for c in comp:
 		var here := block_at(c)
 		var drops := BlockRegistry.drops(here)
-		var seed_roll := here == "tree_leaves" and randf() < LEAF_SEED_DROP_CHANCE
+		var seed_roll := here == "tree_leaves" \
+			and randf() < LEAF_SEED_DROP_CHANCE * maxf(1.0, seed_return_mult)
 		cells.erase(c)
 		deltas[c] = "air"
 		tree_growth.erase(c)

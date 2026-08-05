@@ -63,6 +63,22 @@ func save_game() -> bool:
 	return GameState.save_current_world_state(collect_state(), game_root.summary())
 
 
+## Which dict to load as the active character's progression from a world save.
+## - If the character already has its own progression, always use that.
+## - Else (empty), adopt the world's stored progression ONLY when the world was
+##   last played by THIS SAME character (legacy pre-split saves stored it there);
+##   a new/different character gets fresh progression ({}) so it can never inherit
+##   another player's XP/level/skills. The world's base level loads separately.
+## Pure and side-effect free so the smoke can assert every branch.
+func character_progression_source(state: Dictionary, char_prog: Dictionary, char_id: String) -> Dictionary:
+	if not char_prog.is_empty():
+		return char_prog
+	var saved_id: String = str(state.get("character_id", ""))
+	if saved_id != "" and saved_id == char_id:
+		return state.get("progression", {})
+	return {}
+
+
 ## Returns legacy player inventory/slot/tier from an old-format world state dict.
 ## Old saves stored these under state["player"]; new saves do not. Used for
 ## one-time migration of characters that lack a carried_inventory field.
@@ -116,14 +132,19 @@ func apply_state(state: Dictionary) -> bool:
 
 	# Fix 10: restore progression BEFORE town_hall.from_dict so _check_base_level
 	# sees the correct saved base_level when stockpile_changed fires during from_dict.
-	# Calling system ownership split: the WORLD save owns base (settlement) XP/level;
-	# the CHARACTER owns personal XP/level/skills/depth. Legacy worlds stored both
-	# together, so the world dict is also the character fallback when the character
-	# has no progression of its own yet.
+	# Calling system ownership split: the WORLD save owns base (settlement) XP/level
+	# (always loaded, regardless of who is entering); the CHARACTER owns personal
+	# XP/level/skills/depth.
 	var world_prog: Dictionary = state.get("progression", {})
 	game_root.apply_world_progression(world_prog)
+	# Legacy worlds (pre-split) stored the character's progression inside the world
+	# dict. Adopt it as the character fallback ONLY when this world was last played
+	# by THIS SAME character — otherwise a new character entering another player's
+	# old world would inherit that player's XP/level/skills. A non-matching (or
+	# absent) id gets fresh character progression; the world's base level still loads.
 	var char_prog: Dictionary = GameState.current_character.get("progression", {})
-	game_root.apply_character_progression(char_prog if not char_prog.is_empty() else world_prog)
+	game_root.apply_character_progression(character_progression_source(
+		state, char_prog, str(GameState.current_character.get("id", ""))))
 
 	# FQ-05: pre-attunement saves lack the key; default to a full reserve.
 	# Review fixes (FQ-05 + FQ-06): restore attunement AFTER progression —

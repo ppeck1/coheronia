@@ -331,8 +331,8 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 | `xp_totals` | dictionary (float) | `game_root.gd` / **character** (`character.progression`) | CHARACTER-owned personal XP; per-type fractional accrual; int() at read points |
 | `player_level` | int | `game_root.gd` / **character** (`character.progression`) | CHARACTER-owned; carries between worlds; 100 * 1.35^(n-1) curve from `player_xp.json` |
 | `base_level` | int | `game_root.gd` / **world save** (`progression.base_level`) | WORLD-owned settlement level (gates population); never travels with the character; ratchet 1-3 (MVP cap) |
-| `base_xp` | int | `game_root.gd` / save | informational only |
-| `_depth_hwm` | int | `game_root.gd` / save | 10-tile depth bands for exploration XP |
+| `base_xp` | int | `game_root.gd` / **world save** (`progression.base_xp`) | WORLD-owned; informational only |
+| `_depth_hwm` | int | `game_root.gd` / **character** (`character.progression`) | CHARACTER-owned; 10-tile depth bands for exploration XP |
 | `effective_population_cap()` | func | `game_root.gd` | base level's unlocks.population_cap clamped to POPULATION_MAX (camp 4, hamlet 6, village 8) |
 | `xp_events` | data | `data/progression/player_xp.json` | 9 events wired: enemy_defeated, block_mined, block_placed, resource_deposited, storm_survived, night_survived, subject_fed, tool_crafted, new_depth_reached |
 
@@ -535,7 +535,7 @@ root node is available, its child locked, points 0, and purchase refused; at
 level 3 (2 points) purchasing stone_recovery succeeds, leaves 1 point, and
 multiplies effective_mine_speed by exactly 1.15; prerequisites unlock children
 while the 2-cost node stays unaffordable and re-purchase is refused; purchased
-perks + level persist through the world save round-trip with the effect
+perks + level persist through the character save round-trip with the effect
 re-applied; and the panel opens, selects/inspects nodes (PURCHASED/AVAILABLE
 states, prerequisite names, description), and closes. The `toggle_skills`
 binding joined input_actions_bound; `validate_repo.py` enforces the perk node

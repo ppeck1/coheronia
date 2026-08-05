@@ -136,5 +136,5 @@ This keeps names and flavor while guaranteeing every skill is real. The wired ch
 ## Save compatibility
 
 - Serialized character key stays `role`; its values are Callings. Legacy values map semantically (above); the stored value is never rewritten.
-- Progression is authored on the character and mirrored into the world save for backward compatibility; on load the character copy wins, with the world copy as a fallback for pre-existing worlds.
+- Character progression (XP, level, purchased skills, depth) is saved **only** to the character (shell.json `character.progression`); the world save carries just the settlement's own base XP/level. It is **not** mirrored into world saves. Legacy pre-split worlds that stored combined progression are adopted as the character fallback **only** when re-entered by the same `character_id`; a different character gets fresh progression while the world's base level still loads.
 - Callings grant no starting-item windfall.

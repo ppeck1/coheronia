@@ -210,7 +210,12 @@ func _build_nodes() -> void:
 		else:
 			other.append(str(lane.get("display_name", "?")))
 	_planned_label.text = "Other Callings' Paths: %s" % ", ".join(other)
-	var col_w := NODE_SIZE.x
+	# Widen the two Path cards to fill the panel so they're balanced (not a narrow
+	# pair against an empty right half). Derived from the live panel width, minus
+	# margins, the column gap, and room for the scrollbar; floored for tiny views.
+	var lanes_n: int = maxi(1, my_lanes.size())
+	var avail := maxf(panel_size().x - 2.0 * CANVAS_MARGIN.x - 22.0, MIN_PANEL.x - 40.0)
+	var col_w := maxf(200.0, (avail - float(lanes_n - 1) * COLUMN_GAP) / float(lanes_n))
 	var max_y := 0.0
 	for li in range(my_lanes.size()):
 		var lane: Dictionary = my_lanes[li]
@@ -236,7 +241,7 @@ func _build_nodes() -> void:
 			for perk: Dictionary in perks:
 				var perk_id := str(perk.get("id", ""))
 				var btn := Button.new()
-				btn.custom_minimum_size = NODE_SIZE
+				btn.custom_minimum_size = Vector2(col_w, NODE_SIZE.y)
 				btn.position = Vector2(x, y)
 				btn.clip_text = true
 				btn.alignment = HORIZONTAL_ALIGNMENT_LEFT

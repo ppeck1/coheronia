@@ -3745,6 +3745,24 @@ func _run() -> void:
 		"fresh_base=%d fresh_lvl=%d world_base=%d lvl_after_world=%d" % [
 			_sp_fresh_base, _sp_fresh_lvl, root.base_level, _sp_villagelvl])
 
+	# (o2) Legacy migration is guarded by character_id: a legacy world (combined
+	# progression) last played by "charA" must NOT hand its level to a different
+	# character with empty progression — only the SAME character adopts it, and a
+	# character with its own progression always keeps it. (World base level, which
+	# is applied separately, is unaffected either way.)
+	var _mig_state := {"character_id": "charA",
+		"progression": {"player_level": 7, "base_level": 2, "xp_totals": {}, "purchased_perks": []}}
+	var _mig_same: Dictionary = root.save_manager.character_progression_source(_mig_state, {}, "charA")
+	var _mig_diff: Dictionary = root.save_manager.character_progression_source(_mig_state, {}, "charB")
+	var _mig_own: Dictionary = root.save_manager.character_progression_source(
+		_mig_state, {"player_level": 3}, "charB")
+	_check("calling_legacy_migration_guarded_by_character_id",
+		int(_mig_same.get("player_level", 0)) == 7
+		and _mig_diff.is_empty()
+		and int(_mig_own.get("player_level", 0)) == 3,
+		"same_lvl=%d diff_empty=%s own_lvl=%d" % [int(_mig_same.get("player_level", 0)),
+			str(_mig_diff.is_empty()), int(_mig_own.get("player_level", 0))])
+
 	# (p) Yield perks never fire on placeable blocks (no place-and-break dupe), and
 	# only unambiguously natural resources qualify.
 	root.purchased_perks = ["stone_economy", "clean_extraction", "woodwise", "foragers_share"]
