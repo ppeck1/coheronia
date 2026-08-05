@@ -29,9 +29,6 @@ This page lists wiki surfaces that represent current live behavior or currently 
 
 | Item | Current source | Current live limitation |
 |---|---|---|
-| [Raw Crystal](items/crystal.md) | Raw crystal block | No downstream sink yet. |
-| [Silver Ingot](items/silver_ingot.md) | `smelt_silver` | No downstream sink yet. |
-| [Bronze Ingot](items/bronze_ingot.md) | `alloy_bronze` | No downstream sink yet. |
 | [Slime Gel](items/slime_gel.md), [Wet Fiber](items/wet_fiber.md), [Tiny Core](items/tiny_core.md) | Surface Slime | Live drops with no sinks yet. |
 | [Raw Meat](items/meat.md), [Thorn Quill](items/thorn_quill.md), [Hide Scrap](items/hide_scrap.md) | Thornrat | Live drops with no sinks yet. |
 | [Crawler Chitin](items/chitin.md), [Cave Silk](items/silk.md), [Crawler Eyes](items/eyes.md) | Cave Crawler | Live drops with no sinks yet. |

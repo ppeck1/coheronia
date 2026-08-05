@@ -1,5 +1,13 @@
 # Coheronia Fable Task Queue
 
+> **STATUS (2026-08-05) — historical queue.** This queue predates the **Calling**
+> arc and does not describe current work. The Calling player-identity system is
+> implemented, corrected, and reviewed (authorities:
+> [`docs/HANDOFF.md`](HANDOFF.md), [`docs/CALLING_EFFECT_MATRIX.md`](CALLING_EFFECT_MATRIX.md)).
+> The project is now in **stabilization / playtesting**, not active queue-driven
+> feature development — see the reviewer sequence in `HANDOFF.md`. Kept for
+> historical planning context.
+
 Status: planning queue for future Fable / Claude Code increments.
 
 This queue starts from the signed v0.6 state. Fable should take one queue item

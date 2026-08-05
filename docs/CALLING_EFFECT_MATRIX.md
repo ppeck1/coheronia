@@ -26,7 +26,7 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 | I | **Tempered Frame** | Permanently increases maximum health. | `player.max_health via effects merge (player.gd:264)` |
 | I | **Armored Bearing** | Increases the protection supplied by equipped armor. Does not amplify weapons, tools, or unrelated effects. | `player.armor_total() scale` |
 | I | **Holdfast** | Reduces hostile-creature damage further while inside settlement bounds. | `player.take_damage(source=enemy) + settlement_bounds` |
-| II | **Guarded Recovery** | Increases all healing you receive (food and passive recovery) while inside settlement bounds or during a settlement assault. | `player heal path (food/regen) + settlement/threat context` |
+| II | **Guarded Recovery** | Food and passive recovery restore more health inside settlement bounds or during a settlement assault. | `player heal path (food/regen) + settlement/threat context` |
 | II | **Defensive Presence** | Take even less hostile-creature damage while inside settlement bounds. | `take_damage(enemy)+settlement` |
 | II | **Rally the Line** | Your weapon strikes assault enemies (those attacking the settlement) harder. | `_try_hit_threat+assault` |
 | II | **Emergency Repairs** | Player-performed structure repairs restore more health during a settlement assault. | `game_root repair path + threat context` |

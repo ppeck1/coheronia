@@ -1,5 +1,14 @@
 # Coheronia Presentation Recovery Matrix
 
+> **SUPERSEDED — historical (2026-08-05).** The presentation-recovery arc
+> (PR-00–08) shipped. The status notes below are obsolete: the skill/progression
+> surface is no longer a single "Miner lane" — it is the full **Calling system**
+> (three Callings, six Paths, all 72 skills live), the panel is the two-Path-card
+> layout, and the in-engine smoke suite is at **528 checks** (not 334). For
+> current state see [`README.md`](README.md),
+> [`docs/CALLING_EFFECT_MATRIX.md`](CALLING_EFFECT_MATRIX.md), and
+> [`docs/HANDOFF.md`](HANDOFF.md). Kept only as a historical planning record.
+
 Status: planning authority for the presentation recovery arc (PR-00 opened
 2026-07-20). `docs/FABLE_TASK_QUEUE.md` and `docs/HANDOFF.md` point here for
 the current work; this file owns the row-level scope, lanes, and acceptance
