@@ -11,7 +11,6 @@ Generated: 2026-08-05
 | Description | Sworn defender of the settlement. Endures hostile blows and turns threats aside. Paths: Warden and Vanguard. |
 | Paths | Warden, Vanguard |
 | Innate | Resolve — Damage received from hostile creatures is reduced. This protection becomes stronger during an active settlement threat. |
-| Effects | No active stat effect. |
 
 ## Summary
 

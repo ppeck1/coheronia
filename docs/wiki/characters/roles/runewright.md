@@ -11,7 +11,6 @@ Generated: 2026-08-05
 | Description | Keeper of hearth and resonance. Mends what breaks and channels Attunement. Paths: Hearthwright and Resonant. |
 | Paths | Hearthwright, Resonant |
 | Innate | Measured Hand — Player-performed structure repairs restore more structure health, and positive maximum-Attunement bonuses supplied by equipment are amplified. |
-| Effects | No active stat effect. |
 
 ## Summary
 

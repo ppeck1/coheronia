@@ -1,6 +1,6 @@
 {
   "schema_version": "0.7",
-  "point_rule": "One perk point per player level above 1 (points_total = player_level - 1). Purchased skills and their spent points live in the world save's progression state. Calling gates which Paths are purchasable; tier gates open by count of skills already purchased in that Path.",
+  "point_rule": "One perk point per player level above 1 (points_total = player_level - 1). A character's Calling, XP, level, and purchased skills are CHARACTER-owned (they live in shell.json and follow the character between worlds). Calling gates which two Paths are purchasable; tier gates open by count of live skills already purchased in that Path.",
   "tier_gates": {
     "1": 0,
     "2": 2,
@@ -64,7 +64,7 @@
           "effect_value": 1.25,
           "support": "live",
           "hook": "player heal path (food/regen) + settlement/threat context",
-          "description": "Increases healing received while inside settlement bounds or during an active settlement threat."
+          "description": "Increases all healing you receive (food and passive recovery) while inside settlement bounds or during a settlement assault."
         },
         {
           "id": "defensive_presence",
@@ -88,7 +88,7 @@
           "effect_value": 1.1,
           "support": "live",
           "hook": "_try_hit_threat+assault",
-          "description": "Your weapon strikes hostile creatures harder during a settlement assault."
+          "description": "Your weapon strikes assault enemies (those attacking the settlement) harder."
         },
         {
           "id": "emergency_repairs",
@@ -100,7 +100,7 @@
           "effect_value": 1.25,
           "support": "live",
           "hook": "game_root repair path + threat context",
-          "description": "Player-performed repairs restore more structure health during an active settlement threat."
+          "description": "Player-performed structure repairs restore more health during a settlement assault."
         },
         {
           "id": "reinforced_position",
@@ -265,7 +265,7 @@
           "effect_value": 1.15,
           "support": "live",
           "hook": "_try_hit_threat+assault",
-          "description": "During a settlement assault your weapon strikes land harder."
+          "description": "You strike assault enemies harder while the settlement is under attack."
         },
         {
           "id": "breachbreaker",
@@ -277,7 +277,7 @@
           "effect_value": 1.15,
           "support": "live",
           "hook": "_try_hit_threat+assault",
-          "description": "You strike assault enemies harder as they press the settlement."
+          "description": "You hit assault enemies (those at the settlement) with extra force."
         },
         {
           "id": "press_the_line",
@@ -289,7 +289,7 @@
           "effect_value": 1.1,
           "support": "live",
           "hook": "_try_hit_threat+assault",
-          "description": "You press the line with heavier weapon strikes during an assault."
+          "description": "You press assault enemies with heavier weapon strikes."
         },
         {
           "id": "victorys_breath",
@@ -313,7 +313,7 @@
           "effect_value": 1.5,
           "support": "live",
           "hook": "_try_hit_threat+assault",
-          "description": "Threatbreaker: your weapons devastate assault enemies during a settlement attack."
+          "description": "Threatbreaker: your weapons devastate assault enemies attacking the settlement."
         }
       ]
     },
@@ -382,7 +382,7 @@
           "effect_value": 0.2,
           "support": "live",
           "hook": "mining drop resolution (ore family)",
-          "description": "Mining an ore node has a chance to produce an additional unit of that same ore."
+          "description": "Mining a natural ore vein has a chance to yield an additional unit of that ore."
         },
         {
           "id": "stone_economy",
@@ -394,7 +394,7 @@
           "effect_value": 0.15,
           "support": "live",
           "hook": "mining drop resolution (natural stone only)",
-          "description": "Mining natural stone has a chance to produce additional stone. Does not affect ore or constructed blocks."
+          "description": "Mining deepstone (natural deep rock) has a chance to yield an extra unit. Placed or constructed blocks are unaffected."
         },
         {
           "id": "long_pick",
@@ -523,7 +523,7 @@
           "effect_value": 1.25,
           "support": "live",
           "hook": "seed-return roll on harvest (seed_pouch loop)",
-          "description": "Resources that already return tree or crop seeds gain a higher seed-return chance."
+          "description": "Clearing tree leaves is more likely to return a tree seed."
         },
         {
           "id": "woodwise",
@@ -535,7 +535,7 @@
           "effect_value": 0.2,
           "support": "live",
           "hook": "tree-harvest drop resolution",
-          "description": "Harvesting trees has a chance to produce additional wood."
+          "description": "Chopping natural trees has a chance to yield extra wood. Placed wood blocks are unaffected."
         },
         {
           "id": "foragers_share",
@@ -547,7 +547,7 @@
           "effect_value": 0.2,
           "support": "live",
           "hook": "plant/crop harvest drop resolution",
-          "description": "Harvesting plants and crops has a chance to produce additional matching output. Does not affect trees or ore."
+          "description": "Harvesting wild berry bushes and ripe crops has a chance to yield extra. Placed blocks, trees, and ore are unaffected."
         },
         {
           "id": "careful_harvest",
@@ -559,7 +559,7 @@
           "effect_value": 1.25,
           "support": "live",
           "hook": "seed-return roll",
-          "description": "Careful harvesting returns tree and crop seeds more often."
+          "description": "Careful harvesting makes tree leaves more likely to return a tree seed."
         },
         {
           "id": "stormwise",
@@ -640,7 +640,7 @@
           "effect_value": 1,
           "support": "live",
           "hook": "player build/repair reach (scoped, not mining/combat/harvest/pickup)",
-          "description": "Increases building-placement and structure-repair reach without affecting mining, combat, harvesting, or pickup reach."
+          "description": "Increases building-placement reach without affecting mining, combat, harvesting, or pickup reach."
         },
         {
           "id": "steady_placement",
@@ -652,7 +652,7 @@
           "effect_value": 1,
           "support": "live",
           "hook": "build/repair reach",
-          "description": "Steady hands extend your building-placement and repair reach."
+          "description": "Steady hands extend your building-placement reach."
         },
         {
           "id": "practiced_repairs",
@@ -712,7 +712,7 @@
           "effect_value": 1,
           "support": "live",
           "hook": "build/repair reach",
-          "description": "A sure sense of foundations extends your build and repair reach."
+          "description": "A sure sense of foundations extends your building-placement reach."
         },
         {
           "id": "reinforced_work",
@@ -736,7 +736,7 @@
           "effect_value": 1,
           "support": "live",
           "hook": "build/repair reach",
-          "description": "Coordinated labor extends how far you can place and repair structures."
+          "description": "Coordinated labor extends how far you can place settlement structures."
         },
         {
           "id": "hearth_efficiency",
@@ -817,7 +817,7 @@
           "effect_value": 1.2,
           "support": "live",
           "hook": "attunement pulse duration",
-          "description": "Increases the duration of pulse-created illumination, reveal, and other existing pulse effects."
+          "description": "Increases the duration of pulse-created illumination."
         },
         {
           "id": "efficient_resonance",
@@ -841,7 +841,7 @@
           "effect_value": 1.2,
           "support": "live",
           "hook": "player max Attunement from equipped rings/amulets (amplified)",
-          "description": "Increases maximum-Attunement bonuses supplied by equipped rings and amulets."
+          "description": "Increases the maximum-Attunement bonus supplied by equipped rings, amulets, and other Attunement-bearing gear."
         },
         {
           "id": "harmonic_equipment",
@@ -853,7 +853,7 @@
           "effect_value": 1.15,
           "support": "live",
           "hook": "Amplifies supported Attunement equipment effects (max-Attunement contribution); non-capacity equipment effects deferred",
-          "description": "Amplifies explicitly supported Attunement-related equipment effects, such as pulse radius, duration, efficiency, or recovery. Unrelated equipment statistics are unaffected."
+          "description": "Amplifies the maximum-Attunement bonus supplied by equipped rings and amulets."
         },
         {
           "id": "echo_mapping",
@@ -901,7 +901,7 @@
           "effect_value": 1.15,
           "support": "live",
           "hook": "pulse radius",
-          "description": "At full resonance your pulses swell to a greater radius."
+          "description": "Your attunement pulses reach a greater radius."
         },
         {
           "id": "reserve_channel",

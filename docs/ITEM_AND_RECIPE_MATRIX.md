@@ -258,7 +258,7 @@ harmless — the authoritative station pages regenerate correctly). Removal is s
 | crop_seedling | Sprouting Crop | Block-state metadata only | No | none | none | none | World/block state exists live, but inventory version is not currently granted |  |
 | crop_seeds | Crop Seeds | Farming input | Yes | Block drop: Sprouting Crop x1; Block drop: Ripe Crop x1; Recipe: Crop Seeds (hand) | Crop Seeds [craft_seeds] | none | Planted on tilled soil with G |  |
 | crystal | Raw Crystal | Ore-family resource | Yes | Block drop: Raw Crystal x1 | none | none | Mine gate: tool tier 2; Preferred tool: pick; Deposit-able to Town Hall stockpile |  |
-| dirt | Dirt | Block-backed resource | Yes | Role start: Homesteader x10; Block drop: Dirt x1; Block drop: Grass x1; Block drop: Tilled Soil x1 | none | none | Placeable block; Deposit-able to Town Hall stockpile |  |
+| dirt | Dirt | Block-backed resource | Yes | Block drop: Dirt x1; Block drop: Grass x1; Block drop: Tilled Soil x1 | none | none | Placeable block; Deposit-able to Town Hall stockpile |  |
 | eyes | Crawler Eyes | Enemy drop | Yes | Enemy drop: Cave Crawler (5%) | none | none | A glossy alchemical reagent from a cave crawler. |  |
 | farm_soil | Tilled Soil | Block-state metadata only | No | none | none | none | World/block state exists live, but inventory version is not currently granted |  |
 | food | Food | Consumable food | Yes | Block drop: Ripe Crop x3; Block drop: Berry Bush x2 | none | Crop Seeds [craft_seeds] | Eaten with H; heals 25 health; Deposit-able to Town Hall stockpile |  |
@@ -278,16 +278,16 @@ harmless — the authoritative station pages regenerate correctly). Removal is s
 | silver_ingot | Silver Ingot | Processed metal | Yes | Recipe: Smelt Silver (furnace) | Smelt Silver [smelt_silver] | none | Smelted at the furnace. |  |
 | silver_ore | Silver Ore | Ore-family resource | Yes | Block drop: Silver Ore x1 | none | Smelt Silver [smelt_silver] | Mine gate: tool tier 2; Preferred tool: pick; Deposit-able to Town Hall stockpile |  |
 | slime_gel | Slime Gel | Enemy drop | Yes | Enemy drop: Surface Slime (70%) | none | none | Sticky residue from slimes. |  |
-| stone | Stone | Block-backed resource | Yes | Role start: Prospector x2; Block drop: Stone x1; Recipe: Stone Block (hand) | Stone Block [craft_stone_block] | Torch [craft_torch]; Stone Block [craft_stone_block]; Basic Pick Upgrade [basic_pick_upgrade]; Axe [craft_axe]; Crude Sword [craft_sword]; Crude Armor Set [craft_armor_set]; Build station: Workbench; Build station: Furnace; Build station: Anvil | Placeable block; Mine gate: tool tier 1; Preferred tool: pick; Deposit-able to Town Hall stockpile |  |
+| stone | Stone | Block-backed resource | Yes | Block drop: Stone x1; Recipe: Stone Block (hand) | Stone Block [craft_stone_block] | Torch [craft_torch]; Stone Block [craft_stone_block]; Basic Pick Upgrade [basic_pick_upgrade]; Axe [craft_axe]; Crude Sword [craft_sword]; Crude Armor Set [craft_armor_set]; Build station: Workbench; Build station: Furnace; Build station: Anvil | Placeable block; Mine gate: tool tier 1; Preferred tool: pick; Deposit-able to Town Hall stockpile |  |
 | sword | Sword | Generic forge-icon metadata | No | none | none | none | Generic icon/meta entry, not the actual equipment item id |  |
 | thorn_quill | Thorn Quill | Enemy drop | Yes | Enemy drop: Thornrat (30%) | none | none | A barbed quill from a thornrat. |  |
 | tin_ingot | Tin Ingot | Processed metal | Yes | Recipe: Smelt Tin (furnace) | Smelt Tin [smelt_tin] | Alloy Bronze [alloy_bronze] | Smelted at the furnace. Alloys into bronze. |  |
 | tin_ore | Tin Ore | Ore-family resource | Yes | Block drop: Tin Ore x1 | none | Smelt Tin [smelt_tin] | Mine gate: tool tier 1; Preferred tool: pick; Deposit-able to Town Hall stockpile |  |
 | tiny_core | Tiny Core | Enemy drop | Yes | Enemy drop: Surface Slime (5%) | none | none | A faintly humming mote. |  |
-| torch | Torch | Placeable light | Yes | Role start: Prospector x3; Block drop: Torch x1; Recipe: Torch (hand); Recipe: Torch Bundle (workbench) | Torch [craft_torch]; Torch Bundle [workbench_torch_bundle] | none | Placeable block; Light radius 96 |  |
+| torch | Torch | Placeable light | Yes | Block drop: Torch x1; Recipe: Torch (hand); Recipe: Torch Bundle (workbench) | Torch [craft_torch]; Torch Bundle [workbench_torch_bundle] | none | Placeable block; Light radius 96 |  |
 | torch_heads | Torch Heads | Enemy drop | Yes | Enemy drop: Raider Torchbearer (40%) | none | none | Pitch-soaked torch heads. |  |
 | wet_fiber | Wet Fiber | Enemy drop | Yes | Enemy drop: Surface Slime (25%) | none | none | Damp plant strands. |  |
-| wood | Wood | Block-backed resource | Yes | Role start: Homesteader x5; Block drop: Wood x1; Block drop: Tree Trunk x1; Recipe: Wood Block (hand) | Wood Block [craft_wood_block] | Torch [craft_torch]; Wood Block [craft_wood_block]; Lantern [craft_lantern]; Basic Pick Upgrade [basic_pick_upgrade]; Axe [craft_axe]; Crude Sword [craft_sword]; Crude Armor Set [craft_armor_set]; Torch Bundle [workbench_torch_bundle]; Build station: Workbench | Placeable block; Preferred tool: axe; Deposit-able to Town Hall stockpile |  |
+| wood | Wood | Block-backed resource | Yes | Block drop: Wood x1; Block drop: Tree Trunk x1; Recipe: Wood Block (hand) | Wood Block [craft_wood_block] | Torch [craft_torch]; Wood Block [craft_wood_block]; Lantern [craft_lantern]; Basic Pick Upgrade [basic_pick_upgrade]; Axe [craft_axe]; Crude Sword [craft_sword]; Crude Armor Set [craft_armor_set]; Torch Bundle [workbench_torch_bundle]; Build station: Workbench | Placeable block; Preferred tool: axe; Deposit-able to Town Hall stockpile |  |
 
 ## Equipment / Gear Matrix
 

@@ -17,7 +17,6 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 | **Oathbound** | Warden, Vanguard | Resolve | Reduces hostile-creature damage (stronger during a settlement assault). |
 | **Wayfarer** | Prospector, Trailseeker | Trailcraft | Faster movement outside the settlement + permanently wider scout radius. |
 | **Runewright** | Hearthwright, Resonant | Measured Hand | Player structure repairs restore more; equipped ring/amulet Attunement is amplified. |
-
 ## Skills by Path
 
 ### Warden — Oathbound
@@ -27,10 +26,10 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 | I | **Tempered Frame** | Permanently increases maximum health. | `player.max_health via effects merge (player.gd:264)` |
 | I | **Armored Bearing** | Increases the protection supplied by equipped armor. Does not amplify weapons, tools, or unrelated effects. | `player.armor_total() scale` |
 | I | **Holdfast** | Reduces hostile-creature damage further while inside settlement bounds. | `player.take_damage(source=enemy) + settlement_bounds` |
-| II | **Guarded Recovery** | Increases healing received while inside settlement bounds or during an active settlement threat. | `player heal path (food/regen) + settlement/threat context` |
+| II | **Guarded Recovery** | Increases all healing you receive (food and passive recovery) while inside settlement bounds or during a settlement assault. | `player heal path (food/regen) + settlement/threat context` |
 | II | **Defensive Presence** | Take even less hostile-creature damage while inside settlement bounds. | `take_damage(enemy)+settlement` |
-| II | **Rally the Line** | Your weapon strikes hostile creatures harder during a settlement assault. | `_try_hit_threat+assault` |
-| II | **Emergency Repairs** | Player-performed repairs restore more structure health during an active settlement threat. | `game_root repair path + threat context` |
+| II | **Rally the Line** | Your weapon strikes assault enemies (those attacking the settlement) harder. | `_try_hit_threat+assault` |
+| II | **Emergency Repairs** | Player-performed structure repairs restore more health during a settlement assault. | `game_root repair path + threat context` |
 | III | **Reinforced Position** | Increases the protection supplied by your equipped armor. | `armor_total()` |
 | III | **Stand Together** | Holding the line with the settlement raises your maximum health. | `player.max_health` |
 | III | **Last Watch** | Personal defensive effects strengthen while below a health threshold during an active settlement threat. | `player.take_damage(source=enemy) + health fraction + threat context` |
@@ -48,11 +47,11 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 | II | **Executioner** | You hit hostile creatures harder, cutting down wounded foes faster. | `_try_hit_threat` |
 | II | **Threat Hunter** | Weapon attacks deal additional damage to enemies belonging to an active settlement threat. | `player._try_hit_threat + active-threat context` |
 | II | **Counterforce** | You answer blows with harder weapon strikes against hostile creatures. | `_try_hit_threat` |
-| III | **Steel Rhythm** | During a settlement assault your weapon strikes land harder. | `_try_hit_threat+assault` |
-| III | **Breachbreaker** | You strike assault enemies harder as they press the settlement. | `_try_hit_threat+assault` |
-| III | **Press the Line** | You press the line with heavier weapon strikes during an assault. | `_try_hit_threat+assault` |
+| III | **Steel Rhythm** | You strike assault enemies harder while the settlement is under attack. | `_try_hit_threat+assault` |
+| III | **Breachbreaker** | You hit assault enemies (those at the settlement) with extra force. | `_try_hit_threat+assault` |
+| III | **Press the Line** | You press assault enemies with heavier weapon strikes. | `_try_hit_threat+assault` |
 | III | **Victory's Breath** | Successfully ending a settlement threat restores health and Attunement. | `threat-cleared hook restores health + Attunement` |
-| Cap | **Threatbreaker** | Threatbreaker: your weapons devastate assault enemies during a settlement attack. | `_try_hit_threat+assault` |
+| Cap | **Threatbreaker** | Threatbreaker: your weapons devastate assault enemies attacking the settlement. | `_try_hit_threat+assault` |
 
 ### Prospector — Wayfarer
 
@@ -62,8 +61,8 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 | I | **Practiced Swing** | Reduces the recovery time between mining actions. | `player.effective_mine_speed (recovery folds into mine rate)` |
 | I | **Deep Surveying** | Increases map-reveal radius while underground. | `game_root._scout_reveal_radius + underground context` |
 | II | **Resonant Survey** | Increases Attunement-pulse radius while underground. | `attunement pulse radius + underground context` |
-| II | **Clean Extraction** | Mining an ore node has a chance to produce an additional unit of that same ore. | `mining drop resolution (ore family)` |
-| II | **Stone Economy** | Mining natural stone has a chance to produce additional stone. Does not affect ore or constructed blocks. | `mining drop resolution (natural stone only)` |
+| II | **Clean Extraction** | Mining a natural ore vein has a chance to yield an additional unit of that ore. | `mining drop resolution (ore family)` |
+| II | **Stone Economy** | Mining deepstone (natural deep rock) has a chance to yield an extra unit. Placed or constructed blocks are unaffected. | `mining drop resolution (natural stone only)` |
 | II | **Long Pick** | Increases mining interaction reach without increasing weapon, harvesting, building, or pickup reach. | `player mining reach (scoped, not build/pickup/weapon)` |
 | III | **Tunnel Hardened** | Reduces lava and other environmental hazard damage while underground. Hostile-creature damage is unaffected. | `player.take_damage(source=hazard) + underground context` |
 | III | **Deep Reserves** | Attunement pulses consume less Attunement while underground. | `attunement pulse cost + underground context` |
@@ -78,10 +77,10 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 | I | **Wildhand** | Trees and harvestable plants are gathered faster. | `player harvest/chop rate (axe/plant-preferred blocks)` |
 | I | **Farwalker** | Trailcraft's movement bonus becomes stronger outside settlement bounds. | `player move speed + outside-settlement context` |
 | I | **Broad Horizon** | Increases map-reveal radius while on the surface. | `game_root._scout_reveal_radius + surface context` |
-| II | **Seedkeeper** | Resources that already return tree or crop seeds gain a higher seed-return chance. | `seed-return roll on harvest (seed_pouch loop)` |
-| II | **Woodwise** | Harvesting trees has a chance to produce additional wood. | `tree-harvest drop resolution` |
-| II | **Forager's Share** | Harvesting plants and crops has a chance to produce additional matching output. Does not affect trees or ore. | `plant/crop harvest drop resolution` |
-| II | **Careful Harvest** | Careful harvesting returns tree and crop seeds more often. | `seed-return roll` |
+| II | **Seedkeeper** | Clearing tree leaves is more likely to return a tree seed. | `seed-return roll on harvest (seed_pouch loop)` |
+| II | **Woodwise** | Chopping natural trees has a chance to yield extra wood. Placed wood blocks are unaffected. | `tree-harvest drop resolution` |
+| II | **Forager's Share** | Harvesting wild berry bushes and ripe crops has a chance to yield extra. Placed blocks, trees, and ore are unaffected. | `plant/crop harvest drop resolution` |
+| II | **Careful Harvest** | Careful harvesting makes tree leaves more likely to return a tree seed. | `seed-return roll` |
 | III | **Stormwise** | Reduces storm and environmental hazard damage while on the surface outside settlement bounds. | `player.take_damage(source=hazard) + surface/outside-settlement context` |
 | III | **Field Sustenance** | Existing food and foraged healing consumables restore more health while outside settlement bounds. | `player food-heal amount + outside-settlement context` |
 | III | **Sunwise** | Sunwise sight widens the surface you reveal as you travel. | `_scout_reveal_radius+surface` |
@@ -92,15 +91,15 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 
 | Tier | Skill | Live effect | Hook |
 |:--:|---|---|---|
-| I | **Long Measure** | Increases building-placement and structure-repair reach without affecting mining, combat, harvesting, or pickup reach. | `player build/repair reach (scoped, not mining/combat/harvest/pickup)` |
-| I | **Steady Placement** | Steady hands extend your building-placement and repair reach. | `build/repair reach` |
+| I | **Long Measure** | Increases building-placement reach without affecting mining, combat, harvesting, or pickup reach. | `player build/repair reach (scoped, not mining/combat/harvest/pickup)` |
+| I | **Steady Placement** | Steady hands extend your building-placement reach. | `build/repair reach` |
 | I | **Practiced Repairs** | Player-performed structure repairs restore additional structure health. | `game_root repair path` |
 | II | **Economical Construction** | Skilled construction makes each structure repair restore more health. | `repair path` |
 | II | **Salvager** | Salvaged materials make your structure repairs restore more health. | `repair path` |
 | II | **Repairer's Example** | Your example makes your own structure repairs more effective. | `repair path` |
-| II | **Foundation Sense** | A sure sense of foundations extends your build and repair reach. | `build/repair reach` |
+| II | **Foundation Sense** | A sure sense of foundations extends your building-placement reach. | `build/repair reach` |
 | III | **Reinforced Work** | Reinforced work: your repairs restore more structure health. | `repair path` |
-| III | **Coordinated Labor** | Coordinated labor extends how far you can place and repair structures. | `build/repair reach` |
+| III | **Coordinated Labor** | Coordinated labor extends how far you can place settlement structures. | `build/repair reach` |
 | III | **Hearth Efficiency** | Efficient work at the hearth strengthens your structure repairs. | `repair path` |
 | III | **Swift Maintenance** | Swift maintenance: each repair restores more structure health. | `repair path` |
 | Cap | **Keeper of Foundations** | Keeper of Foundations: your structure repairs restore far more health. | `repair path` |
@@ -111,14 +110,14 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 |:--:|---|---|---|
 | I | **Deep Reservoir** | Permanently increases base maximum Attunement. | `player.perk_attunement_bonus (additive max Attunement)` |
 | I | **Far Echo** | Increases Attunement-pulse radius. | `attunement pulse radius` |
-| I | **Lingering Echo** | Increases the duration of pulse-created illumination, reveal, and other existing pulse effects. | `attunement pulse duration` |
+| I | **Lingering Echo** | Increases the duration of pulse-created illumination. | `attunement pulse duration` |
 | II | **Efficient Resonance** | Attunement pulses consume less Attunement. | `attunement pulse cost` |
-| II | **Inscribed Conduit** | Increases maximum-Attunement bonuses supplied by equipped rings and amulets. | `player max Attunement from equipped rings/amulets (amplified)` |
-| II | **Harmonic Equipment** | Amplifies explicitly supported Attunement-related equipment effects, such as pulse radius, duration, efficiency, or recovery. Unrelated equipment statistics are unaffected. | `Amplifies supported Attunement equipment effects (max-Attunement contribution); non-capacity equipment effects deferred` |
+| II | **Inscribed Conduit** | Increases the maximum-Attunement bonus supplied by equipped rings, amulets, and other Attunement-bearing gear. | `player max Attunement from equipped rings/amulets (amplified)` |
+| II | **Harmonic Equipment** | Amplifies the maximum-Attunement bonus supplied by equipped rings and amulets. | `Amplifies supported Attunement equipment effects (max-Attunement contribution); non-capacity equipment effects deferred` |
 | II | **Echo Mapping** | Echo-mapping widens the reach of every attunement pulse. | `pulse radius` |
 | III | **Deep Illumination** | Underground, your attunement pulses shine longer. | `pulse duration+underground` |
 | III | **Structured Pulse** | Structured pulses linger longer, lighting the space around you. | `pulse duration` |
-| III | **Full Resonance** | At full resonance your pulses swell to a greater radius. | `pulse radius` |
+| III | **Full Resonance** | Your attunement pulses reach a greater radius. | `pulse radius` |
 | III | **Reserve Channel** | You channel attunement efficiently — your pulses cost less. | `pulse cost` |
 | Cap | **Living Resonance** | Living Resonance: your attunement pulses reach dramatically farther. | `pulse radius` |
 

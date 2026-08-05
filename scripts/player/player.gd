@@ -438,7 +438,10 @@ func _update_passive_regen(delta: float) -> void:
 				_regen_active = false
 				return
 	var before := int(round(health))
-	health = minf(max_health, health + _passive_regen_per_sec * delta)
+	var regen := _passive_regen_per_sec
+	if game_root != null:
+		regen *= game_root.calling_regen_heal_mult()   # Guarded Recovery
+	health = minf(max_health, health + regen * delta)
 	if int(round(health)) != before:
 		health_changed.emit(health, max_health)
 		_check_low_health()
@@ -498,7 +501,12 @@ func process_mining(cell: Vector2i, delta: float) -> bool:
 	if mine_progress < mine_required:
 		return false
 	var block_id: String = world.block_at(cell)
-	var drops: Dictionary = world.break_block(cell)
+	# Calling: Seedkeeper / Careful Harvest raise the leaf seed-return chance at the
+	# actual roll inside break_block (not a post-hoc add).
+	var seed_mult := 1.0
+	if game_root != null:
+		seed_mult = game_root.calling_seed_return_mult()
+	var drops: Dictionary = world.break_block(cell, seed_mult)
 	# R-08 slice 3: the yield now lands as loose ground items at the mined cell.
 	# The player is standing at the block, so collect_ground_drops() below sweeps
 	# it straight into the backpack (their own mining is unchanged from the pack's
@@ -515,35 +523,29 @@ func process_mining(cell: Vector2i, delta: float) -> bool:
 
 
 ## Calling: Prospector/Trailseeker extra-yield (Clean Extraction, Stone Economy,
-## Woodwise, Forager's Share) and Trailseeker Seedkeeper seed return. Rolls a
-## chance to spawn one extra of the block's yield / its seed at the mined cell;
-## the drops are swept up by the pickup pass right after. Category is derived from
-## the block id + preferred tool so ore/stone/wood/plant stay independent.
+## Woodwise, Forager's Share). Rolls a chance to spawn one extra of the block's
+## yield; the drop is swept up by the pickup pass right after. Only unambiguously
+## NATURAL, non-placeable resources qualify — a placed block never yields extra,
+## so there is no place-and-break duplication. Families are explicit allowlists so
+## dirt / torches / lanterns and other constructed blocks are excluded.
 func _apply_calling_harvest_bonuses(cell: Vector2i, block_id: String, drops: Dictionary) -> void:
 	if game_root == null or drops.is_empty():
 		return
-	var pref := BlockRegistry.preferred_tool(block_id)
+	# Hard guard: anything the player can place is excluded outright (placed stone,
+	# placed wood, dirt, torches, lanterns, etc.).
+	if BlockRegistry.is_placeable(block_id):
+		return
 	var kind := ""
 	if block_id == "ore" or block_id.ends_with("_ore"):
-		kind = "ore"
-	elif block_id == "stone" or block_id == "deepstone":
-		kind = "stone"
-	elif pref == "axe" or block_id.begins_with("tree"):
-		kind = "wood"
-	elif pref != "pick":
-		kind = "plant"
+		kind = "ore"                          # natural ore veins
+	elif block_id == "deepstone":
+		kind = "stone"                        # the only unambiguously natural, non-placeable stone
+	elif block_id == "tree_trunk" or block_id == "tree_leaves":
+		kind = "wood"                         # tree parts only (never the placeable "wood" block)
+	elif block_id == "berry_bush" or block_id == "crop_ripe":
+		kind = "plant"                        # foraged/grown plants only
 	if kind != "" and randf() < game_root.calling_extra_drop_chance(kind):
-		var primary: String = str(drops.keys()[0])
-		world.spawn_item_drop(world.cell_center(cell), primary, 1)
-	# Seedkeeper: any seed already in the yield gets a boosted chance for one more.
-	var seed_mult: float = game_root.calling_seed_return_mult()
-	if seed_mult > 1.0:
-		for item_id in drops:
-			var s := str(item_id)
-			if s.ends_with("_seed") or s == "crop_seeds":
-				if randf() < (seed_mult - 1.0):
-					world.spawn_item_drop(world.cell_center(cell), s, 1)
-				break
+		world.spawn_item_drop(world.cell_center(cell), str(drops.keys()[0]), 1)
 
 
 ## R-08 slice 3: absorb every loose ground item within PICKUP_RADIUS into the
@@ -1266,11 +1268,11 @@ func _try_hit_threat(at: Vector2) -> bool:
 	for threat in get_tree().get_nodes_in_group("threats"):
 		if threat.global_position.distance_to(at) < 14.0:
 			# FQ-04: hits carry the equipped weapon's damage (1 bare-handed).
-			# Calling: Vanguard weapon-vs-hostile multiplier (never affects
-			# mining/chopping/harvesting/block damage — only this threat-hit path).
+			# Calling: Vanguard weapon-vs-hostile multiplier for THIS target (never
+			# affects mining/chopping/harvesting/block damage — only this hit path).
 			var wdmg := attack_damage()
 			if game_root != null:
-				wdmg *= game_root.calling_weapon_damage_mult()
+				wdmg *= game_root.calling_weapon_damage_mult(threat)
 			threat.take_hit(wdmg)
 			# PR-04: fire the presentation-only weapon swing toward the target.
 			start_attack_swing(threat.global_position - global_position)

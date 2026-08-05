@@ -411,7 +411,10 @@ func _is_supported(cell: Vector2i) -> bool:
 ## Removes the block and returns its drops. Caller adds drops to inventory.
 ## Wave E: if the block directly above requires solid support, it is also broken,
 ## its drops are merged in, and its regrowth is scheduled.
-func break_block(cell: Vector2i) -> Dictionary:
+## `seed_return_mult` (Calling: Seedkeeper / Careful Harvest) scales the chance
+## that clearing leaves returns a tree seed — it modifies the actual roll below,
+## not a post-hoc duplication. 1.0 = unchanged.
+func break_block(cell: Vector2i, seed_return_mult: float = 1.0) -> Dictionary:
 	var block_id := block_at(cell)
 	if block_id == "air":
 		return {}
@@ -438,7 +441,7 @@ func break_block(cell: Vector2i) -> Dictionary:
 	tree_growth.erase(cell)   # Item-wiring: removing a sapling clears its growth timer
 	# Item-wiring (Phase 3): clearing leaves has a chance to drop one tree_seed,
 	# closing the finite-tree loop. block_drops is a fresh copy from the registry.
-	if block_id == "tree_leaves" and randf() < LEAF_SEED_DROP_CHANCE:
+	if block_id == "tree_leaves" and randf() < LEAF_SEED_DROP_CHANCE * maxf(1.0, seed_return_mult):
 		block_drops = block_drops.duplicate()
 		block_drops["tree_seed"] = int(block_drops.get("tree_seed", 0)) + 1
 	block_changed.emit(cell, "air")

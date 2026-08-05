@@ -11,7 +11,6 @@ Generated: 2026-08-05
 | Description | Ranging explorer of the deep and the wild. Swift beyond the walls and far-sighted. Paths: Prospector and Trailseeker. |
 | Paths | Prospector, Trailseeker |
 | Innate | Trailcraft — Movement is faster outside settlement bounds, and map-reveal radius is permanently increased. |
-| Effects | No active stat effect. |
 
 ## Summary
 

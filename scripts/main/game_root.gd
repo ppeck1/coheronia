@@ -131,9 +131,11 @@ func _ready() -> void:
 	var saved_state: Dictionary = GameState.get_current_state()
 	if saved_state.is_empty():
 		world.setup(config().seed_value())
-		# Calling system: a fresh world still restores the CHARACTER's progression
-		# (XP/level/purchased skills) so it carries in from other worlds.
-		apply_progression_state(GameState.current_character.get("progression", {}))
+		# Calling system: a fresh world starts its OWN settlement progression at
+		# level 1, but the CHARACTER's personal XP/level/skills carry in from other
+		# worlds — so a Village-tier character never imports that base level here.
+		apply_world_progression({})
+		apply_character_progression(GameState.current_character.get("progression", {}))
 	else:
 		save_manager.apply_state(saved_state)
 	# Wave B: load character-owned carried state (with legacy migration when needed).
@@ -760,9 +762,6 @@ func _advance_time(delta: float) -> void:
 	if _clock_refresh_accum >= 1.0:
 		_clock_refresh_accum = 0.0
 		hud.update_time(day_count, is_night, _live_threat_count(), time_of_day)
-		# Calling system: track the settlement-assault edge once per second so
-		# Victory's Breath fires when an assault is repelled (incl. single-threat).
-		_update_calling_assault_state()
 	_advance_storm(delta)
 	# Smooth tint transition near the day/night/storm boundaries and across
 	# cave mouths (FQ-09W: the target itself is depth-aware).
@@ -1233,6 +1232,10 @@ func spawn_enemy_for_test(enemy_id: String) -> Node:
 func _on_threat_died() -> void:
 	log_event("A threat was destroyed.")
 	award_xp("enemy_defeated")
+	# Snapshot the assault state WITH this dying threat still counted, so the
+	# deferred refresh (after its queue_free) can tell whether this defeat is the
+	# one that clears the settlement assault.
+	_assault_before_death = calling_threat_active()
 	_apply_calling_defeat_rewards()
 	contracts.note_event("defeat_enemies")
 	settlement.compute()
@@ -1246,20 +1249,6 @@ func _apply_calling_defeat_rewards() -> void:
 	player.heal(_purchased_skill_additive("heal_on_xp_kill"))
 
 
-## Calling system: track when a settlement assault begins/ends so Victory's Breath
-## fires exactly when an assault is repelled (not when any stray creature dies).
-## Called from the per-frame tick and after each threat death.
-func _update_calling_assault_state() -> void:
-	var now_active := calling_threat_active()
-	if _calling_assault_active and not now_active and player != null:
-		var restore := _purchased_skill_additive("threat_end_restore")
-		if restore > 0.0:
-			player.heal(restore)
-			player.restore_attunement(restore)
-			log_event("The assault is repelled — you catch your breath.")
-	_calling_assault_active = now_active
-
-
 func _live_threat_count() -> int:
 	var count := 0
 	for threat in get_tree().get_nodes_in_group("threats"):
@@ -1271,7 +1260,15 @@ func _live_threat_count() -> int:
 ## Deferred so a dying threat's queue_free() is visible to the count.
 func _refresh_threat_display() -> void:
 	hud.update_time(day_count, is_night, _live_threat_count(), time_of_day)
-	_update_calling_assault_state()
+	# Victory's Breath: an assault was active with the just-defeated threat, and now
+	# no assault enemies remain — the assault has been repelled by a real defeat.
+	if _assault_before_death and player != null and not calling_threat_active():
+		var restore := _purchased_skill_additive("threat_end_restore")
+		if restore > 0.0:
+			player.heal(restore)
+			player.restore_attunement(restore)
+			log_event("The assault is repelled — you catch your breath.")
+	_assault_before_death = false
 
 
 ## Total severity of active pressure, consumed by the settlement model.
@@ -2332,8 +2329,10 @@ func effective_tier_gate(path: String, tier_key: String) -> int:
 const CALLING_LOW_HEALTH_FRACTION := 0.35
 ## A settlement "assault" counts threats this many pixels beyond the bounds.
 const CALLING_ASSAULT_MARGIN_PX := 64.0
-## Tracks the assault edge so Victory's Breath fires once when it's repelled.
-var _calling_assault_active := false
+## Captured at each threat death (assault active WITH the dying threat still
+## counted); the deferred display refresh fires Victory's Breath when that death
+## leaves no assault enemies. Ensures the restore comes from an actual defeat.
+var _assault_before_death := false
 
 ## The current Calling's innate effect magnitudes (data-driven), or {}.
 func _calling_innate_effects() -> Dictionary:
@@ -2397,11 +2396,9 @@ func _player_in_settlement() -> bool:
 	return p.x >= c.x - hw and p.x <= c.x + hw and p.y >= c.y - up and p.y <= c.y + down
 
 
-## Whether a settlement ASSAULT is currently active — at least one live threat
-## stands inside (or just outside) the settlement bounds. A far-off cave creature
-## no longer counts, so settlement-scoped Calling effects only engage during a
-## real attack on the settlement.
-func calling_threat_active() -> bool:
+## Whether a world position sits inside the settlement bounds (expanded by the
+## assault margin). The one authority for "is this an assault-zone position".
+func _pos_in_assault_zone(p: Vector2) -> bool:
 	if town_hall == null:
 		return false
 	var t := float(BlockRegistry.tile_size)
@@ -2409,11 +2406,22 @@ func calling_threat_active() -> bool:
 	var hw := float(BlockRegistry.settlement_bound_cells("half_width_cells", 12)) * t + CALLING_ASSAULT_MARGIN_PX
 	var up := float(BlockRegistry.settlement_bound_cells("up_cells", 8)) * t + CALLING_ASSAULT_MARGIN_PX
 	var down := float(BlockRegistry.settlement_bound_cells("down_cells", 8)) * t + CALLING_ASSAULT_MARGIN_PX
+	return p.x >= c.x - hw and p.x <= c.x + hw and p.y >= c.y - up and p.y <= c.y + down
+
+
+## True when a specific threat is an assault enemy (standing in the assault zone).
+func _threat_is_assault(threat) -> bool:
+	return is_instance_valid(threat) and not threat.is_queued_for_deletion() \
+		and _pos_in_assault_zone(threat.global_position)
+
+
+## Whether a settlement ASSAULT is currently active — at least one live threat
+## stands inside (or just outside) the settlement bounds. A far-off cave creature
+## no longer counts, so settlement-scoped Calling effects only engage during a
+## real attack on the settlement.
+func calling_threat_active() -> bool:
 	for threat in get_tree().get_nodes_in_group("threats"):
-		if not is_instance_valid(threat) or threat.is_queued_for_deletion():
-			continue
-		var p: Vector2 = threat.global_position
-		if p.x >= c.x - hw and p.x <= c.x + hw and p.y >= c.y - up and p.y <= c.y + down:
+		if _threat_is_assault(threat):
 			return true
 	return false
 
@@ -2437,11 +2445,13 @@ func calling_move_speed_mult() -> float:
 	return m
 
 
-## Weapon-vs-hostile damage multiplier (Vanguard), stronger against a settlement
-## assault. Mining/harvesting/block damage never consult this.
-func calling_weapon_damage_mult() -> float:
+## Weapon-vs-hostile damage multiplier (Vanguard) for a specific attacked threat.
+## The flat bonus always applies; the assault bonus applies only when THAT target
+## is itself an assault enemy (in the settlement zone) — not merely because some
+## other enemy is near town. Mining/harvesting/block damage never consult this.
+func calling_weapon_damage_mult(target = null) -> float:
 	var m := _purchased_skill_value("weapon_damage_mult", 1.0)
-	if calling_threat_active():
+	if target != null and _threat_is_assault(target):
 		m *= _purchased_skill_value("weapon_damage_mult_threat", 1.0)
 	return m
 
@@ -2488,8 +2498,8 @@ func calling_salvage_mult() -> float:
 	return _purchased_skill_value("dismantle_return_mult", 1.0)
 
 
-## Food/consumable heal multiplier (Field Sustenance in the wild, Guarded
-## Recovery in settlement or during an assault).
+## Food/consumable heal multiplier: Field Sustenance in the wild (food only) and
+## Guarded Recovery in settlement or during an assault (all healing).
 func calling_food_heal_mult() -> float:
 	var m := 1.0
 	if not _player_in_settlement():
@@ -2497,6 +2507,15 @@ func calling_food_heal_mult() -> float:
 	if _player_in_settlement() or calling_threat_active():
 		m *= _purchased_skill_value("heal_mult_settlement_or_threat", 1.0)
 	return m
+
+
+## Guarded Recovery also boosts non-food healing (passive regen) while in the
+## settlement or during an assault, so it reads as "all healing received", not
+## just food. Field Sustenance (food/wild) is deliberately excluded here.
+func calling_regen_heal_mult() -> float:
+	if _player_in_settlement() or calling_threat_active():
+		return _purchased_skill_value("heal_mult_settlement_or_threat", 1.0)
+	return 1.0
 
 
 ## Extra-yield chance for a harvest/mining category ("ore"/"stone"/"wood"/"plant").
@@ -2569,21 +2588,42 @@ func _on_perk_purchase_requested(perk_id: String) -> void:
 # Progression save / load
 # ---------------------------------------------------------------------------
 
-func progression_state() -> Dictionary:
+## Calling system: progression ownership is split.
+##  - CHARACTER-owned (follows the character between worlds): personal XP totals,
+##    player level, purchased Calling skills, and the depth high-water mark.
+##  - WORLD-owned (belongs to the settlement/world): base (settlement) XP + level,
+##    which drive population caps and must NOT travel with the character.
+func character_progression_state() -> Dictionary:
 	return {
 		"xp_totals": xp_totals.duplicate(),
 		"player_level": player_level,
-		"base_xp": base_xp,
-		"base_level": base_level,
 		"depth_hwm": _depth_hwm,
 		"purchased_perks": purchased_perks.duplicate(),
 	}
 
 
-## Restore progression from a saved state dict.
+func world_progression_state() -> Dictionary:
+	return {"base_xp": base_xp, "base_level": base_level}
+
+
+## Combined view, kept only so the world save can still carry a legacy mirror and
+## so older combined saves round-trip. New code uses the split pair above.
+func progression_state() -> Dictionary:
+	var d := character_progression_state()
+	d.merge(world_progression_state())
+	return d
+
+
+## Restore the WORLD-owned settlement progression (base XP + level). Missing keys
+## default to a fresh settlement (level 1 Camp).
+func apply_world_progression(data: Dictionary) -> void:
+	base_xp = int(data.get("base_xp", 0))
+	base_level = int(data.get("base_level", 1))
+
+
+## Restore the CHARACTER-owned progression (personal XP, level, skills, depth).
 ## Fix 11: loads xp_totals as float to preserve fractional accumulation.
-## Missing keys default cleanly (level 1 Camp, zero XP).
-func apply_progression_state(data: Dictionary) -> void:
+func apply_character_progression(data: Dictionary) -> void:
 	# Re-seed to 0.0 (float) for all known types first.
 	xp_totals = {}
 	if _progression_registry != null:
@@ -2593,8 +2633,6 @@ func apply_progression_state(data: Dictionary) -> void:
 	for k in raw:
 		xp_totals[str(k)] = float(raw[k])
 	player_level = int(data.get("player_level", 1))
-	base_xp = int(data.get("base_xp", 0))
-	base_level = int(data.get("base_level", 1))
 	_depth_hwm = int(data.get("depth_hwm", 0))
 	# FQ-06: restore purchased perks, dropping ids that no longer exist in data
 	# (a renamed/removed perk quietly refunds its points). Calling system: also
@@ -2608,3 +2646,10 @@ func apply_progression_state(data: Dictionary) -> void:
 			if not perk.is_empty() and str(perk.get("lane", "")) in my_paths:
 				purchased_perks.append(str(pid))
 		_apply_purchased_perk_effects()
+
+
+## Legacy combined applier (older world saves stored everything together). Splits
+## the dict across the two owners. New saves call the split pair directly.
+func apply_progression_state(data: Dictionary) -> void:
+	apply_world_progression(data)
+	apply_character_progression(data)

@@ -2132,7 +2132,6 @@ def render_role_page(role: dict) -> None:
         ("Description", role.get("description", "")),
         ("Paths", ", ".join(title_from_id(p) for p in role.get("paths", [])) or "—"),
         ("Innate", f"{innate.get('name', '—')} — {innate.get('description', '')}" if innate else "—"),
-        ("Effects", effect_summary(role.get("effects", {}))),
     ]
     lines = [
         f"# {role.get('display_name', title_from_id(role['id']))}",

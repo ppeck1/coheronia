@@ -2030,10 +2030,20 @@ func _run() -> void:
 	# be moved and resized through the same edit path as the crest/goal/events.
 	var _npce_registered: bool = hud._hud_widgets.get("npc") == hud._npc_panel \
 		and hud._editable_hud_widget_ids().has("npc")
-	# Reset the widget to its default geometry first so a layout persisted by an
-	# earlier run cannot leave the panel off-screen / unsized when we read the grip.
+	# Populate the panel with a real settler so it has actual content (and thus a
+	# non-zero laid-out size) — an empty panel could read a zero rect. Then reset
+	# to default geometry so a persisted layout can't leave it off-screen/unsized.
+	var _npce_subj = null
+	for _npce_s in get_tree().get_nodes_in_group("subjects"):
+		if is_instance_valid(_npce_s):
+			_npce_subj = _npce_s
+			break
+	if _npce_subj != null:
+		hud.open_npc_panel(_npce_subj)   # sets subject + refresh → real content/size
+	else:
+		hud._npc_panel.visible = true
 	hud._npc_panel.position = hud._hud_default_positions.get("npc", hud._npc_panel.position)
-	hud._npc_panel.visible = true
+	hud._npc_panel.reset_size()          # force the container to its content size now
 	for _npce_f in range(3):
 		await get_tree().process_frame       # let the container compute its size
 	var _npce_grip: Rect2 = hud._hud_grip_rect("npc")   # non-empty only when visible
@@ -3712,6 +3722,118 @@ func _run() -> void:
 	_check("calling_reveal_context_scoped",
 		_rv_surface == 3 and _rv_underground == 3,
 		"surface=%d underground=%d" % [_rv_surface, _rv_underground])
+	player.health = player.max_health
+
+	# (o) Ownership split: the CHARACTER carries personal level; the WORLD owns
+	# base (settlement) level. Entering a fresh world must NOT import base level,
+	# and a world's base level must NOT overwrite the character's player level.
+	var _sp_prev_role: String = str(GameState.current_character.get("role", ""))
+	var _sp_prev_prog: Dictionary = GameState.current_character.get("progression", {}).duplicate(true)
+	GameState.current_character["role"] = "oathbound"
+	GameState.current_character["progression"] = {
+		"player_level": 5, "xp_totals": {}, "purchased_perks": [], "depth_hwm": 0}
+	root.apply_world_progression({})   # fresh world: settlement starts at level 1
+	root.apply_character_progression(GameState.current_character["progression"])
+	var _sp_fresh_base: int = root.base_level
+	var _sp_fresh_lvl: int = root.player_level
+	root.apply_world_progression({"base_level": 3, "base_xp": 0})   # a Village-tier world
+	var _sp_villagelvl: int = root.player_level   # must be unchanged by the world
+	GameState.current_character["role"] = _sp_prev_role
+	GameState.current_character["progression"] = _sp_prev_prog
+	_check("calling_progression_ownership_split",
+		_sp_fresh_base == 1 and _sp_fresh_lvl == 5 and root.base_level == 3 and _sp_villagelvl == 5,
+		"fresh_base=%d fresh_lvl=%d world_base=%d lvl_after_world=%d" % [
+			_sp_fresh_base, _sp_fresh_lvl, root.base_level, _sp_villagelvl])
+
+	# (p) Yield perks never fire on placeable blocks (no place-and-break dupe), and
+	# only unambiguously natural resources qualify.
+	root.purchased_perks = ["stone_economy", "clean_extraction", "woodwise", "foragers_share"]
+	var _yd_before: int = get_tree().get_nodes_in_group("item_drops").size()
+	player._apply_calling_harvest_bonuses(Vector2i(0, 0), "stone", {"stone": 1})   # placed/craftable
+	player._apply_calling_harvest_bonuses(Vector2i(0, 0), "dirt", {"dirt": 1})     # constructed
+	player._apply_calling_harvest_bonuses(Vector2i(0, 0), "torch", {"torch": 1})   # constructed
+	var _yd_after: int = get_tree().get_nodes_in_group("item_drops").size()
+	_check("calling_yield_excludes_placeable_blocks",
+		_yd_after == _yd_before
+		and BlockRegistry.is_placeable("stone") and BlockRegistry.is_placeable("dirt")
+		and not BlockRegistry.is_placeable("deepstone")
+		and root.calling_extra_drop_chance("ore") > 0.0,
+		"drops %d->%d stone_place=%s deepstone_place=%s" % [_yd_before, _yd_after,
+			str(BlockRegistry.is_placeable("stone")), str(BlockRegistry.is_placeable("deepstone"))])
+
+	# (q) Seedkeeper raises the actual leaf seed-return roll inside break_block: a
+	# large multiplier guarantees a seed from an isolated tree_leaves cell.
+	var _sk_cell := Vector2i(4, 4)
+	world.cells[_sk_cell] = "tree_leaves"
+	world._set_tile(_sk_cell, "tree_leaves")
+	var _sk_drops: Dictionary = world.break_block(_sk_cell, 1000.0)
+	_check("calling_seedkeeper_boosts_leaf_seed_roll",
+		int(_sk_drops.get("tree_seed", 0)) >= 1,
+		"leaf drops=%s" % str(_sk_drops))
+
+	# (r) Threat-scoped weapon damage is per-TARGET: only an enemy in the assault
+	# zone gets the bonus, not every enemy because one is near town.
+	for _tg in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_tg):
+			_tg.queue_free()
+	await get_tree().process_frame
+	GameState.current_character["role"] = "oathbound"
+	root.purchased_perks = ["threat_hunter"]
+	var _tg_in = root.spawn_enemy_for_test("surface_slime")
+	_tg_in.global_position = root.town_hall.global_position + Vector2(16, 0)
+	var _tg_out = root.spawn_enemy_for_test("surface_slime")
+	_tg_out.global_position = root.town_hall.global_position + Vector2(6000, 0)
+	var _tg_din: float = root.calling_weapon_damage_mult(_tg_in)
+	var _tg_dout: float = root.calling_weapon_damage_mult(_tg_out)
+	_check("calling_threat_damage_is_per_target",
+		_tg_din > _tg_dout + 0.05 and absf(_tg_dout - 1.0) < 0.001,
+		"in=%.2f out=%.2f" % [_tg_din, _tg_dout])
+
+	# (s) Victory's Breath fires from an ACTUAL defeat that ends the assault: kill
+	# the last assault enemy and the deferred refresh restores health + Attunement.
+	root.purchased_perks = ["victorys_breath"]
+	if is_instance_valid(_tg_out):
+		_tg_out.queue_free()   # remove the far one so only the in-zone enemy remains
+	await get_tree().process_frame
+	player.health = 40.0
+	player.attunement = 5.0
+	var _vb_hp0: float = player.health
+	var _vb_at0: float = player.attunement
+	if is_instance_valid(_tg_in):
+		_tg_in.take_hit(999999)   # defeat the last assault enemy → _on_threat_died
+	for _vbf in range(4):
+		await get_tree().process_frame
+	_check("calling_victorys_breath_on_assault_end",
+		player.health > _vb_hp0 + 1.0 and player.attunement > _vb_at0 + 1.0,
+		"hp %.0f->%.0f attn %.0f->%.0f" % [_vb_hp0, player.health, _vb_at0, player.attunement])
+
+	# (t) Resolver channels reflect purchased skills at their sites: movement
+	# (outside settlement), pulse cost, build-vs-mining reach, repair output, and
+	# equipment amplification.
+	GameState.current_character["role"] = "wayfarer"
+	root.purchased_perks = ["farwalker", "deep_reserves"]
+	var _ch_prev_pos: Vector2 = player.global_position
+	player.global_position = root.town_hall.global_position + Vector2(6000, 0)   # outside settlement
+	var _ch_move: float = root.calling_move_speed_mult()
+	player.global_position = _ch_prev_pos
+	GameState.current_character["role"] = "runewright"
+	root.purchased_perks = ["far_echo", "efficient_resonance", "inscribed_conduit",
+		"long_measure", "practiced_repairs"]
+	var _ch_reach_build: float = root.calling_reach_bonus("build")
+	var _ch_reach_mine: float = root.calling_reach_bonus("mining")
+	var _ch_equip_amp: float = root.calling_equip_attunement_amp()
+	var _ch_repair: float = root.calling_repair_mult()
+	GameState.current_character["role"] = "wayfarer"
+	root.purchased_perks = ["far_echo", "efficient_resonance"]
+	var _ch_pulse_r: float = root.calling_pulse_radius_mult()
+	GameState.current_character["role"] = _sp_prev_role
+	root.purchased_perks = []
+	root._apply_purchased_perk_effects()
+	_check("calling_resolver_channels_reflect_skills",
+		_ch_move > 1.0 and _ch_reach_build >= 1.0 and _ch_reach_mine == 0.0
+		and _ch_equip_amp > 1.0 and _ch_repair > 1.0 and _ch_pulse_r > 1.0,
+		"move=%.2f reachB=%.0f reachM=%.0f equip=%.2f repair=%.2f pulseR=%.2f" % [
+			_ch_move, _ch_reach_build, _ch_reach_mine, _ch_equip_amp, _ch_repair, _ch_pulse_r])
 	player.health = player.max_health
 
 	# (h) PR-08: the skill panel is viewport-relative -- it fits cleanly (with a

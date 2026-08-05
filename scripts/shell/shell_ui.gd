@@ -816,7 +816,7 @@ func _show_world_create() -> void:
 	_update_preset_desc()
 
 	var world_rule_note := _label(form,
-		"World rules: terrain, stockpile, threats, storms, base level, player level, position, and current health belong to the world. Entering with another character uses that character's carried gear and inventory.",
+		"World rules: terrain, stockpile, threats, storms, the settlement's base level, position, and current health belong to the world. Your character keeps its Calling, XP, player level, and purchased skills, and carries them between worlds. Entering with another character uses that character's carried gear, inventory, and progression.",
 		12)
 	world_rule_note.add_theme_color_override("font_color", DIM_COLOR)
 	world_rule_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

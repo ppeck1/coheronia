@@ -161,7 +161,7 @@ require a later explicit save ownership and migration decision.
 |---|---|---|
 | Inventory counts, hotbar slot, tool tiers {pick, axe} | character (`user://shell.json`) | `carried_inventory`, `carried_slot`, `carried_tool_tiers`, legacy `carried_tool_tier` alias |
 | Gear slots (FQ-03/FQ-04/FQ-11) | character (`user://shell.json`) | `equipment` dict (12 slot_id -> item_id, "" = empty); pickaxe/axe slots derive from live tool tiers at save time; weapon and crude/iron armor acquisition and effects are live; rings, amulet, and accessory persist even where gameplay effects or authored presentation remain limited; pre-FQ-03 characters gain the dict on migration |
-| Role starter items | character | `items_granted` flag; granted once per character |
+| Character progression (Calling) | character (`user://shell.json` `character.progression`) | XP totals, player level, purchased Calling skills, and depth high-water mark; carries between worlds. Callings grant **no** starter items (the legacy `items_granted` flag persists but no Calling defines `starting_items`) |
 | Terrain, hall stockpile, time, threats, storms, settlement | world file | unchanged |
 | Player position, health | world file | entering character inherits world position/health |
 | XP totals, player level, base level/XP | world file | explicit v0.6 decision; revisit for cross-world leveling |
@@ -204,7 +204,7 @@ require a later explicit save ownership and migration decision.
 | `species` | `character_data.json` + `ancestries.json` | shell create form, `game_root.apply_ancestry_for_species` | live phase B ancestries: human, dwarf, elf, goblin, orc; effects re-derived from data at world entry |
 | `appearance` | `character_data.json` | `player.apply_character` | body/trim draw colors |
 | `traits` | `character_data.json` | `player.apply_character` | max health, mining speed, reach, food bonus, growth delta |
-| `role` | `character_data.json` | role grant and `player.apply_character` | starting items and role effects |
+| `role` | `character_data.json` | the character's permanent **Calling** (legacy key name, kept for save-compat) | selects the Calling's innate effect + which two Paths are purchasable; no starter items |
 
 ## FQ-01 Player Defaults (Health, Healing, Collapse)
 
@@ -316,22 +316,21 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 
 | Variable | Type | Authority | Notes |
 |---|---|---|---|
-| perk node schema | data | `data/progression/perks.json` | 7 lanes x 3 nodes; each node: id, display_name (title), description, effect_key, effect_value, cost, position [x,y], prerequisites (same-lane ids), xp_type_gate; validator-enforced |
-| `purchased_perks` | Array[String] | `game_root.gd` / world save (`progression.purchased_perks`) | world-owned like XP/levels; unknown ids dropped on load (silent refund) |
+| Calling / Path / skill schema (2026-08-05) | data | `data/progression/perks.json` + `data/character_data.json` | 6 Path lanes × 12 skills; each lane carries `calling`; each skill: id, display_name, description, effect_key, effect_value, cost, `tier` (1/2/3/capstone), `support` (all `live`); `tier_gates` {2,6,9}. The character's Calling is the `role` value in `character_data.json` `roles` (three Callings, each with `paths` + `innate.effects`); validator-enforced |
+| `purchased_perks` | Array[String] | `game_root.gd` / **character** (`character.progression.purchased_perks` in shell.json) | **CHARACTER-owned** (carries between worlds); filtered to the character's Calling paths on load (no cross-Calling leak); unknown ids dropped (silent refund) |
 | perk points | derived | `game_root.perk_points_total/spent/available` | one point per player level above 1; spent = sum of purchased costs |
-| `perk_state(id)` | func | `game_root.gd` | "purchased" / "available" (prereqs owned) / "locked"; affordability gates only purchase |
-| `player.perk_mine_speed_mult` | float | `game_root._apply_purchased_perk_effects` -> `player.apply_perk_effects` | live effect_key `mining_speed` (Miner lane); multiplies `effective_mine_speed` |
-| `player.perk_attunement_bonus` | float | same | live effect_key `attunement_bonus`; the FQ-05 join point inside `max_attunement()` (no node carries it yet) |
-| planning effect keys | data-only | `data/progression/perks.json` | detect_ore_range, cave_safety, and all non-miner lane keys stay inert until their systems ship |
-| skill tree panel | UI | `scripts/ui/skill_tree_panel.gd` (K, `toggle_skills`) | scrollable node canvas from data positions; locked/available/purchased colors + [OWNED]/[LOCKED] markers; inspector + learn button; joins the Esc close chain ahead of inventory. FQ-09S: night-sky backdrop, deterministic starfield, constellation link lines per prerequisite pair (`link_count()` hook), star glyphs, state-colored plaques — presentation only, inspector format and purchase path unchanged |
+| `perk_state(id)` | func | `game_root.gd` | "purchased" / "available" / "coming_soon" (non-live, never purchasable) / "locked"; `try_purchase_perk` also refuses non-live; affordability gates purchase |
+| tier gate | derived | `game_root._effective_tier_gate(path, tier)` | `min(design 2/6/9, live skills in lower tiers)`, counting only **live** purchases — a live skill is never gated behind an inert one; collapses to 2/6/9 when a Path is fully live |
+| Calling effect channels | func | `game_root.calling_*` + `player.gd` sites | damage-source resolver, weapon-vs-target, movement, mining/harvest speed, pulse radius/duration/cost, food/regen heal, mining vs build reach, natural extra-yield, leaf seed-return, structure repair, equip-Attunement amp; every one of the 72 skills is wired |
+| skill tree panel | UI | `scripts/ui/skill_tree_panel.gd` (K, `toggle_skills`) | two vertical Path CARDS grouped by tier; ✓/●/🔒 state markers; player-language inspector only (no effect keys/support); z-index above HUD modules |
 
 ## v0.5 Progression Variables
 
 | Variable | Type | Authority | Notes |
 |---|---|---|---|
-| `xp_totals` | dictionary (float) | `game_root.gd` / save | per-type fractional accrual; int() at read points |
-| `player_level` | int | `game_root.gd` / save | 100 * 1.35^(n-1) curve from `player_xp.json` |
-| `base_level` | int | `game_root.gd` / save | ratchet 1-3 (MVP cap); one tier per check; fail-closed requires |
+| `xp_totals` | dictionary (float) | `game_root.gd` / **character** (`character.progression`) | CHARACTER-owned personal XP; per-type fractional accrual; int() at read points |
+| `player_level` | int | `game_root.gd` / **character** (`character.progression`) | CHARACTER-owned; carries between worlds; 100 * 1.35^(n-1) curve from `player_xp.json` |
+| `base_level` | int | `game_root.gd` / **world save** (`progression.base_level`) | WORLD-owned settlement level (gates population); never travels with the character; ratchet 1-3 (MVP cap) |
 | `base_xp` | int | `game_root.gd` / save | informational only |
 | `_depth_hwm` | int | `game_root.gd` / save | 10-tile depth bands for exploration XP |
 | `effective_population_cap()` | func | `game_root.gd` | base level's unlocks.population_cap clamped to POPULATION_MAX (camp 4, hamlet 6, village 8) |
