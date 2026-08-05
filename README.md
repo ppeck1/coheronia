@@ -30,7 +30,7 @@ It is also a **portfolio project in AI-orchestrated software engineering**: ever
 
 ## Screenshots
 
-*Captured from the live build (gameplay shots 2026-07-24; World Depths shots 2026-07-28; Liquid Physics + depth-block art shots 2026-07-29; underground-lighting before/after 2026-08-04).*
+*Captured from the live build (gameplay, settlement, Calling, and character/UI shots refreshed 2026-08-05 with current settler sprites; World Depths shots 2026-07-28; Liquid Physics + depth-block art shots 2026-07-29; underground-lighting before/after 2026-08-04).*
 
 ![Deep underground in the hell biome — the player on a hellstone ledge beside a glowing lava lake, torch-lit under an ember tint](docs/screenshots/19_hell_biome.png)
 *New in the **World Depths** arc: every world is now a deep vertical descent. Dig down through stone into **deepstone**, then into a **hell biome** of hellstone and obsidian pooled with **lava** — a non-solid, light-emitting block that burns anything standing in it (routed through the same `take_damage` authority as combat). Mixed **caverns and winding tunnels** riddle the depths, and an unmineable **bedrock floor** bounds the world. The deepest band drives an ember ambient tint; lava now reads as a continuous molten body with a soft, level-scaled glow. **The depth blocks — deepstone, hellstone, and obsidian — are authored pixel art** (a finely mottled rock base with scattered mineral cracks/flecks, six per-cell variants each so the walls never tile into a repeating grid), and **hellstone and obsidian now drop their own item** when mined rather than generic stone.*
