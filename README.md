@@ -6,7 +6,13 @@ Dig, build, and light a side-view frontier settlement — then keep it alive as 
 
 `Godot 4.6 · GDScript · data-driven design · procedural world depths · leveled liquid physics · adaptive music · 532-check in-engine smoke suite`
 
-> **New here?** Start with **[🎮 For players](#players)** below — the core loop, the controls, and what everything does.
+### Watch it
+
+**📖 Prologue** — the opening cinematic and story intro:
+
+[![Coheronia Prologue](https://img.youtube.com/vi/QQ2BuoXqErk/maxresdefault.jpg)](https://youtu.be/QQ2BuoXqErk)
+
+**🎮 Gameplay** — the latest gameplay demonstration: [youtu.be/ydgF0356CXw](https://youtu.be/ydgF0356CXw)
 
 Pick the section that fits you:
 
@@ -93,14 +99,6 @@ The in-game **Goals** panel (**O**) walks you through it from real progress — 
 - **Craft a full gear ladder** — crude → bronze → iron → deep obsidian/hellstone weapons and armor, plus silver/crystal rings and an ember amulet — by smelting depth-banded ores at the furnace and forging at the anvil and workbench.
 - **Farm** a renewable food supply (till soil, sow seeds, harvest, replant) and a **renewable forest** (plant tree seeds that grow back).
 - **Grow your character** across a permanent **Calling** (Oathbound, Wayfarer, or Runewright) with two Paths of tiered skills, plus scouting, an attunement light-pulse, and directed **Contracts**.
-
-### Watch it
-
-**📖 Prologue** — the opening cinematic and story intro:
-
-[![Coheronia Prologue](https://img.youtube.com/vi/QQ2BuoXqErk/maxresdefault.jpg)](https://youtu.be/QQ2BuoXqErk)
-
-**🎮 Gameplay** — the latest gameplay demonstration: [youtu.be/ydgF0356CXw](https://youtu.be/ydgF0356CXw)
 
 </details>
 
