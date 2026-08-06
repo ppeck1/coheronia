@@ -17,6 +17,7 @@
     "start_frac": 0.68,
     "lava_frequency": 0.07,
     "lava_threshold": 0.0,
+    "lava_pool_depth": 5,
     "lava_seed_offset": 1021,
     "obsidian_frequency": 0.06,
     "obsidian_threshold": 0.5,
@@ -47,6 +48,10 @@
     "surface_lake_max_w": 14,
     "surface_lake_min_depth": 4,
     "surface_lake_max_depth": 8
+  },
+  "_liquids_note": "v4 (gen_version >= 4): after lava/water are placed, any connected same-liquid pocket smaller than min_pool_volume cells is dropped back to air, so the underground keeps only real pools instead of scattered single blocks.",
+  "liquids": {
+    "min_pool_volume": 5
   },
   "defaults": {
     "name": "New World",

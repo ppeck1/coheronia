@@ -1,5 +1,36 @@
 # Coheronia - Handoff
 
+## Next State (2026-08-06: perf + underground gen + view settings)
+
+**NEXT INSTANCE — start here.** Three operator-driven fixes landed on top of the
+Calling arc (below), all verified at **windowed smoke 532/532 clean** (headless is
+531/532 — `r06_texture_prep_delegates` is a headless-only texture-scaling flake that
+passes windowed; not caused by this work). Authority: `docs/VARIABLE_MATRIX.md`
+(rows *Settler/threat target search (perf)*, *Liquid pool volume + cave spawn gating
+(gen_version 4)*, *Display settings (view zoom + fullscreen)*).
+
+- **Perf (framerate):** `world.nearest_ripe_crop_in`/`nearest_plantable_soil_in`/
+  `nearest_crop` scanned the whole `cells` grid every physics frame per settler/
+  threat — the dominant drain, scaling with world size. They now iterate the bounded
+  work-zone rect / radius box only. Behaviour identical; pure cost cut.
+- **Underground gen (`WorldGen.CURRENT_GEN_VERSION = 4`):** lava pools to a depth in
+  coherent hell-cavity lakes (`hell.lava_pool_depth`) instead of scattering single
+  cells; `_prune_small_liquid_pools` drops pockets below `liquids.min_pool_volume`;
+  cave spawns require a `CAVE_MIN_OPEN_CELLS` connected open-air region. Legacy v≤3
+  terrain is byte-identical; only new (v4) worlds change (base terrain regenerates
+  from seed on load, so an existing v4 test world picks up the pooled lava too).
+- **View settings:** `scripts/shell/display_settings.gd` owns `view_zoom` (camera
+  magnification 1.0–3.0, default 1.25) + `fullscreen` as `user://shell.json` profile
+  prefs. Pause-menu Settings adds a View Zoom slider + Fullscreen toggle; in-game
+  mouse-wheel / `+` / `-` zoom and `F11` fullscreen. Applied at boot (window) and in
+  `_position_actors` (camera).
+
+Screenshots were **not** regenerated: the lava-gen fix isn't visible in the
+screenshot tour (its hell/lava shots hand-place lava rather than generate it), and a
+full re-shoot would only reflect the wider default zoom — an opinion-driven whole-set
+change left to a deliberate media pass. `validate_repo.py` PASS. **COMMITTED** (see
+git log); confirm before treating as pushed.
+
 ## Next State (2026-08-05: Calling system — implemented, corrected, closed out)
 
 **NEXT INSTANCE — start here.** The current arc is the **Calling** player-identity

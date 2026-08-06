@@ -19,7 +19,15 @@ const LIQUID_BLOCK_IDS := ["lava", "water"]
 ##   v2 = World Depths (data-driven strata, deepstone, unmineable bedrock floor;
 ##        caves + hell land under this same version as WD-2/WD-3 add them)
 ##   v3 = Liquid Physics (LQ-3): surface + underground water lakes
-const CURRENT_GEN_VERSION := 3
+##   v4 = Liquid pool pruning: generated lava/water pockets below a minimum
+##        connected volume are dropped, so the underground no longer speckles
+##        with lone single-cell lava/water blocks.
+const CURRENT_GEN_VERSION := 4
+
+## v4: a generated liquid pocket (lava or water) smaller than this many connected
+## same-liquid cells is removed at gen time, so the caves keep only real pools
+## instead of scattered single blocks. Overridable via world_settings `liquids`.
+const DEFAULT_MIN_LIQUID_POOL := 5
 
 ## v2 only: unmineable floor rows at the very bottom so a deep world (and, later,
 ## caves) can never expose the world's lower edge.
@@ -103,7 +111,7 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 		# WD-3: pool lava on the floors of hell cavities (after carving). Reuses
 		# hell_cfg from the strata setup above.
 		if not hell_cfg.is_empty():
-			_place_hell_lava(cells, surface, width, height, world_seed, hell_cfg)
+			_place_hell_lava(cells, surface, width, height, world_seed, hell_cfg, gen_version)
 		# Developer cheat: carve a switchback staircase from the surface down to a
 		# safe hellstone landing in the hell biome (opt-in via the dev_descent preset).
 		if config.gen_flag("dev_staircase"):
@@ -140,6 +148,12 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 		var water_cfg: Dictionary = WorldConfig.settings().get("water", {})
 		if not water_cfg.is_empty():
 			_place_underground_water(cells, surface, width, height, world_seed, water_cfg)
+		# v4: drop tiny generated liquid pockets (lone single-cell lava/water) so only
+		# real pools survive. Runs before encapsulation so pruned cells aren't sealed.
+		if gen_version >= 4:
+			var min_pool: int = int(WorldConfig.settings().get("liquids", {})
+				.get("min_pool_volume", DEFAULT_MIN_LIQUID_POOL))
+			_prune_small_liquid_pools(cells, min_pool)
 		# Seal every generated liquid (lava + underground water) inside solid rock,
 		# so it sits inert until the player MINES into it — a nearby edit no longer
 		# merely wakes an already-exposed pool. Runs before surface ponds so ponds
@@ -258,23 +272,48 @@ static func _carve_caves(cells: Dictionary, surface: Dictionary, width: int,
 				cells.erase(pos)
 
 
-## World Depths (v2, WD-3): pool lava on the floors of hell cavities. A carved
-## (air) cell in the hell band that sits directly on solid rock becomes lava
-## where a lava-noise channel clears its threshold. Lava is stored (non-solid,
-## light-emitting, contact-damage). Deterministic from seed.
+## World Depths (v2, WD-3): pool lava in hell cavities. Deterministic from seed.
+##
+## Legacy (gen_version < 4): a carved (air) cell in the hell band sitting directly
+## on solid rock becomes lava where a lava-noise channel clears its threshold. This
+## per-cell sampling scatters thin, mostly single-cell lava across the floor.
+##
+## v4: instead, one noise decision PER COLUMN (a constant y sample) picks lava
+## columns — so lava forms coherent horizontal lakes — and each qualifying column
+## fills its cavity floor bottom-up to `lava_pool_depth`, giving pools real volume.
+## This is what stops the "lone single lava block everywhere" look; the later prune
+## then only sweeps up genuine stragglers. Lava is stored (non-solid, light-emitting,
+## contact-damage).
 static func _place_hell_lava(cells: Dictionary, surface: Dictionary, width: int,
-		height: int, world_seed: int, hell_cfg: Dictionary) -> void:
+		height: int, world_seed: int, hell_cfg: Dictionary, gen_version: int) -> void:
 	var start_frac := float(hell_cfg.get("start_frac", 0.68))
 	var lava := FastNoiseLite.new()
 	lava.seed = world_seed + int(hell_cfg.get("lava_seed_offset", 0))
 	lava.frequency = float(hell_cfg.get("lava_frequency", 0.07))
 	var lava_thr := float(hell_cfg.get("lava_threshold", 0.0))
+	var pool_depth := int(hell_cfg.get("lava_pool_depth", 5))
 	var bedrock_top := height - BEDROCK_THICKNESS
 	for x in range(width):
 		var surf_y: int = int(surface.get(x, 0))
 		# WD-4: hell begins at start_frac of this column's usable depth.
 		var col_depth := maxi(1, bedrock_top - surf_y)
 		var hell_start_y := surf_y + int(start_frac * float(col_depth))
+		if gen_version >= 4:
+			# One lake decision per column (constant y sample) → coherent lava lakes.
+			if lava.get_noise_2d(float(x), float(hell_start_y)) <= lava_thr:
+				continue
+			var filled := 0
+			for y in range(bedrock_top - 1, hell_start_y - 1, -1):   # bottom-up
+				var pos := Vector2i(x, y)
+				if cells.has(pos):
+					filled = 0
+					continue
+				# Fill air resting on a solid/lava cell, capped at pool_depth.
+				if filled < pool_depth and cells.has(Vector2i(x, y + 1)):
+					cells[pos] = "lava"
+					filled += 1
+			continue
+		# Legacy per-cell scatter (v2/v3): unchanged for save-compat.
 		for y in range(hell_start_y, bedrock_top):
 			var pos := Vector2i(x, y)
 			if cells.has(pos):
@@ -319,6 +358,42 @@ static func _place_underground_water(cells: Dictionary, surface: Dictionary, wid
 			if filled < pool_depth and cells.has(Vector2i(x, y + 1)):
 				cells[pos] = "water"
 				filled += 1
+
+
+## v4: removes generated liquid pockets smaller than `min_volume` connected
+## same-liquid cells, so the underground keeps only real pools instead of the
+## lone single blocks the per-cell noise placement scattered. Connectivity is
+## orthogonal (matching the fluid sim's flow) and per-liquid (lava and water are
+## never merged into one pocket). Pruned cells become air (the carved cavity they
+## pooled in), so this only ever REMOVES liquid — it never adds or moves rock.
+## Runs before _encapsulate_liquids so a pruned pocket is not sealed in.
+static func _prune_small_liquid_pools(cells: Dictionary, min_volume: int) -> void:
+	if min_volume <= 1:
+		return
+	var visited: Dictionary = {}
+	var to_clear: Array[Vector2i] = []
+	for start: Vector2i in cells:
+		if visited.has(start) or not (str(cells[start]) in LIQUID_BLOCK_IDS):
+			continue
+		var kind: String = str(cells[start])
+		# Flood-fill this pocket (same liquid, orthogonally connected).
+		var component: Array[Vector2i] = []
+		var stack: Array[Vector2i] = [start]
+		visited[start] = true
+		while not stack.is_empty():
+			var c: Vector2i = stack.pop_back()
+			component.append(c)
+			for nb: Vector2i in [c + Vector2i(0, 1), c + Vector2i(0, -1),
+					c + Vector2i(1, 0), c + Vector2i(-1, 0)]:
+				if visited.has(nb):
+					continue
+				if str(cells.get(nb, "air")) == kind:
+					visited[nb] = true
+					stack.append(nb)
+		if component.size() < min_volume:
+			to_clear.append_array(component)
+	for c: Vector2i in to_clear:
+		cells.erase(c)   # back to air — the cavity these cells pooled in
 
 
 ## Liquid Physics (v3, LQ-3): seals every generated liquid pocket (lava +

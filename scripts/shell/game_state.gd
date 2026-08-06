@@ -8,6 +8,7 @@ extends Node
 ## isolated location and never read or write the player's real profile. Set the
 ## `COHERONIA_PERSIST_ROOT` environment variable (e.g. "user://smoke_root/") to
 ## redirect all shell/world files; unset means the normal "user://" profile.
+const DisplaySettings := preload("res://scripts/shell/display_settings.gd")
 const DEFAULT_PERSISTENCE_ROOT := "user://"
 ## R-03: isolated root used by automated test/capture runs (COHERONIA_SMOKE etc.).
 const SMOKE_PERSISTENCE_ROOT := "user://smoke_root/"
@@ -49,6 +50,9 @@ func _ready() -> void:
 		persistence_root = SMOKE_PERSISTENCE_ROOT
 	DirAccess.make_dir_recursive_absolute(worlds_dir())
 	load_shell()
+	# Apply the saved window mode (fullscreen/windowed) as early as the profile is
+	# known, so a relaunch honours the player's choice before any scene appears.
+	DisplaySettings.apply_window(profile)
 
 
 ## R-03: true when an automated test or capture flag is set — these runs isolate

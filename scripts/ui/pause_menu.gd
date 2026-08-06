@@ -13,6 +13,7 @@ extends CanvasLayer
 
 const AudioSettings := preload("res://scripts/audio/audio_settings.gd")
 const InputSettings := preload("res://scripts/shell/input_settings.gd")
+const DisplaySettings := preload("res://scripts/shell/display_settings.gd")
 
 const PANEL_BG := Color(0.06, 0.07, 0.09, 0.97)
 const DIM := Color(0.0, 0.0, 0.0, 0.55)
@@ -205,6 +206,13 @@ func _build_settings() -> Control:
 	vb.add_child(_slider_row("SFX Volume",
 		AudioSettings.sfx_volume(GameState.profile),
 		func(v): _on_volume("sfx", v)))
+	# Display: how much of the world is on screen (lower zoom = wider view), and
+	# fullscreen. Both persist to the profile and apply live.
+	vb.add_child(_range_slider_row("View Zoom",
+		DisplaySettings.MIN_ZOOM, DisplaySettings.MAX_ZOOM, DisplaySettings.ZOOM_STEP,
+		DisplaySettings.view_zoom(GameState.profile), _on_view_zoom))
+	vb.add_child(_check_row("Fullscreen",
+		DisplaySettings.fullscreen(GameState.profile), _on_fullscreen))
 
 	var kb := Label.new()
 	kb.text = "Key Bindings"
@@ -286,6 +294,21 @@ func _on_volume(which: String, value: float) -> void:
 	else:
 		AudioSettings.set_sfx_volume(GameState.profile, value)
 	AudioSettings.apply(GameState.profile)
+	GameState.save_shell()
+
+
+## Settings "View Zoom" slider: store the zoom and apply it to the active camera
+## live (the pause menu freezes the sim but the camera node still exists).
+func _on_view_zoom(value: float) -> void:
+	DisplaySettings.set_view_zoom(GameState.profile, value)
+	DisplaySettings.apply_zoom(GameState.profile, get_viewport().get_camera_2d())
+	GameState.save_shell()
+
+
+## Settings "Fullscreen" toggle: store, apply the window mode, and persist.
+func _on_fullscreen(on: bool) -> void:
+	DisplaySettings.set_fullscreen(GameState.profile, on)
+	DisplaySettings.apply_window(GameState.profile)
 	GameState.save_shell()
 
 
@@ -399,4 +422,42 @@ func _slider_row(text: String, value: float, cb: Callable) -> Control:
 	slider.custom_minimum_size = Vector2(160, 0)
 	slider.value_changed.connect(cb)
 	row.add_child(slider)
+	return row
+
+
+## Like _slider_row but with an explicit numeric range (used for View Zoom, whose
+## values are camera magnifications, not a 0..1 fraction).
+func _range_slider_row(text: String, min_v: float, max_v: float, step: float,
+		value: float, cb: Callable) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.custom_minimum_size = Vector2(150, 0)
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(lbl)
+	var slider := HSlider.new()
+	slider.min_value = min_v
+	slider.max_value = max_v
+	slider.step = step
+	slider.value = value
+	slider.custom_minimum_size = Vector2(160, 0)
+	slider.value_changed.connect(cb)
+	row.add_child(slider)
+	return row
+
+
+## A labelled on/off toggle row (CheckButton), matching the slider rows' layout.
+func _check_row(text: String, value: bool, cb: Callable) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.custom_minimum_size = Vector2(150, 0)
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(lbl)
+	var toggle := CheckButton.new()
+	toggle.button_pressed = value
+	toggle.toggled.connect(cb)
+	row.add_child(toggle)
 	return row

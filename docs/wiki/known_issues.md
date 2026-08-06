@@ -1,6 +1,6 @@
 # Known Issues
 
-Updated: 2026-08-04
+Updated: 2026-08-06
 
 This page separates confirmed presentation defects from intentional scope limits. It is the public status surface for problems that are visible in the current build but do not invalidate the gameplay-state smoke suite.
 
@@ -16,7 +16,7 @@ This page separates confirmed presentation defects from intentional scope limits
 
 ## Intentional Current Limits
 
-- Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The full-smoke drag/sort assertion (`fq09_inventory_board_drag_and_sort`) and the HUD edit-mode assertion (`fq17_hud_edit_direct_manipulation`) were briefly red at 332/334 when the inventory-board work landed; both were repaired in `scripts/ui/hud.gd`. The in-engine smoke suite has grown since and now stands at **529/529** (2026-08-05), clean under a windowed run.
+- Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The full-smoke drag/sort assertion (`fq09_inventory_board_drag_and_sort`) and the HUD edit-mode assertion (`fq17_hud_edit_direct_manipulation`) were briefly red at 332/334 when the inventory-board work landed; both were repaired in `scripts/ui/hud.gd`. The in-engine smoke suite has grown since and now stands at **532/532** (2026-08-06), clean under a windowed run. (One check, `r06_texture_prep_delegates`, fails only under the *headless* display server — a texture-scaling detail with no window — and passes windowed; treat a headless 531/532 as expected.)
 - Settlers are now individual, persistent NPC workers (farmhand/hauler/repairer/defender) with jobs, stats, ancestry identity, and per-settler work zones, layered over the abstract population authority; deeper social simulation is still planned.
 - Enemies use direct walk-and-hop behavior without pathfinding.
 - The adaptive score is one authored suite and remains balance-in-progress.

@@ -78,6 +78,61 @@ func _find_button_with_text(node: Node, text: String) -> Button:
 	return null
 
 
+## Smallest connected same-liquid pocket (orthogonal flood fill) among UNDERGROUND
+## liquid cells of `cells`, ignoring open surface ponds (depth <= 4). Returns a large
+## sentinel when there is no underground liquid. Used by the v4 pool-prune check.
+func _smallest_liquid_pocket(cells: Dictionary, surface: Dictionary) -> int:
+	var liquids := ["lava", "water"]
+	var visited: Dictionary = {}
+	var smallest := 1 << 30
+	for start: Vector2i in cells:
+		if visited.has(start) or not (str(cells[start]) in liquids):
+			continue
+		var kind: String = str(cells[start])
+		var comp: Array[Vector2i] = []
+		var stack: Array[Vector2i] = [start]
+		visited[start] = true
+		var underground := false
+		while not stack.is_empty():
+			var c: Vector2i = stack.pop_back()
+			comp.append(c)
+			if c.y - int(surface.get(c.x, 0)) > 4:
+				underground = true
+			for nb: Vector2i in [c + Vector2i(0, 1), c + Vector2i(0, -1),
+					c + Vector2i(1, 0), c + Vector2i(-1, 0)]:
+				if visited.has(nb):
+					continue
+				if str(cells.get(nb, "air")) == kind:
+					visited[nb] = true
+					stack.append(nb)
+		if underground:
+			smallest = mini(smallest, comp.size())
+	return smallest
+
+
+## Smallest connected pocket of a single block `kind` (orthogonal flood fill), or a
+## large sentinel when none exists. Lava is always underground, so no surface filter.
+func _smallest_pocket_of(cells: Dictionary, kind: String) -> int:
+	var visited: Dictionary = {}
+	var smallest := 1 << 30
+	for start: Vector2i in cells:
+		if visited.has(start) or str(cells[start]) != kind:
+			continue
+		var n := 0
+		var stack: Array[Vector2i] = [start]
+		visited[start] = true
+		while not stack.is_empty():
+			var c: Vector2i = stack.pop_back()
+			n += 1
+			for nb: Vector2i in [c + Vector2i(0, 1), c + Vector2i(0, -1),
+					c + Vector2i(1, 0), c + Vector2i(-1, 0)]:
+				if not visited.has(nb) and str(cells.get(nb, "air")) == kind:
+					visited[nb] = true
+					stack.append(nb)
+		smallest = mini(smallest, n)
+	return smallest
+
+
 ## R-03: record a check intentionally not run in this environment (never counted
 ## as pass or fail). Used for fixtures that cannot run under an exported build.
 func _skip(name: String, reason: String) -> void:
@@ -1159,6 +1214,35 @@ func _run() -> void:
 				break
 	_check("lq_generated_liquid_encapsulated", _enc_violations == 0,
 		"underground liquid cells touching open air: %d (must be 0)" % _enc_violations)
+
+	# v4: liquid pool pruning drops sub-minimum pockets, so a v4 world has no lone
+	# single-cell (or otherwise below-threshold) lava/water pocket, while the older
+	# v3 world (no pruning) keeps them — proving both the prune and the version gate.
+	var _min_pool: int = int(WorldConfig.settings().get("liquids", {}).get("min_pool_volume", 5))
+	var _wg4: Dictionary = WorldGen.generate(2024, WorldConfig.new({"size": "medium", "gen_version": 4}))
+	var _wg4_cells: Dictionary = _wg4["cells"]
+	# Smallest connected same-liquid pocket in each world (orthogonal flood fill),
+	# but ignore the open SURFACE ponds — pruning targets underground pockets only.
+	var _wg4_surf: Dictionary = _wg4["surface"]
+	var _v4_min_pocket: int = _smallest_liquid_pocket(_wg4_cells, _wg4_surf)
+	var _v3_min_pocket: int = _smallest_liquid_pocket(_wg3["cells"], _wg3_surf)
+	_check("wg4_prunes_small_liquid_pools",
+		_v4_min_pocket >= _min_pool and _v3_min_pocket < _min_pool,
+		"v4 smallest pocket=%d (>= %d) vs v3 smallest=%d (< %d)"
+			% [_v4_min_pocket, _min_pool, _v3_min_pocket, _min_pool])
+
+	# v4 lava must still POOL (with volume), not be pruned away: the prune-only
+	# approach wiped the thin per-cell v3 lava, so v4 pools lava to a depth. Assert
+	# v4 has real lava and its smallest lava pocket clears the prune floor.
+	var _v4_lava_cells := 0
+	for _lc: Vector2i in _wg4_cells:
+		if str(_wg4_cells[_lc]) == "lava":
+			_v4_lava_cells += 1
+	var _v4_lava_min: int = _smallest_pocket_of(_wg4_cells, "lava")
+	_check("wg4_lava_pools_survive",
+		_v4_lava_cells > 0 and _v4_lava_min >= _min_pool,
+		"v4 lava cells=%d smallest lava pocket=%d (>= %d)"
+			% [_v4_lava_cells, _v4_lava_min, _min_pool])
 
 	# LQ-3: trees don't dam liquid — a non-solid tree in the flow path is flooded
 	# (background prop, not a wall), so lava/water pass through rather than stop.
@@ -5223,6 +5307,26 @@ func _run() -> void:
 	_r07_pm._show_main()
 	_check("r07_settings_fits_640x360", _r07_fit_h > 0.0 and _r07_fit_h <= 360.0,
 		"content_min_height=%.1f (<=360)" % _r07_fit_h)
+
+	# Display settings: view-zoom default/clamp/nudge + fullscreen round-trip, all on
+	# an isolated profile dict so the real profile is never touched. A null camera in
+	# nudge_zoom must be safe (headless has no camera).
+	var _ds = GameState.DisplaySettings
+	var _ds_p: Dictionary = {}
+	var _ds_default: float = _ds.view_zoom(_ds_p)                 # unset -> DEFAULT_ZOOM
+	var _ds_hi: float = _ds.set_view_zoom(_ds_p, 99.0)           # clamps to MAX_ZOOM
+	var _ds_lo: float = _ds.set_view_zoom(_ds_p, -5.0)           # clamps to MIN_ZOOM
+	_ds.set_view_zoom(_ds_p, 1.5)
+	var _ds_nudged: float = _ds.nudge_zoom(_ds_p, null, 1.0)     # +1 step, null cam safe
+	var _ds_fs0: bool = _ds.fullscreen(_ds_p)
+	_ds.set_fullscreen(_ds_p, true)
+	var _ds_fs1: bool = _ds.fullscreen(_ds_p)
+	_check("display_settings_zoom_and_fullscreen",
+		_ds_default == _ds.DEFAULT_ZOOM and _ds_hi == _ds.MAX_ZOOM and _ds_lo == _ds.MIN_ZOOM
+			and absf(_ds_nudged - (1.5 + _ds.ZOOM_STEP)) < 0.0001
+			and _ds_fs0 == false and _ds_fs1 == true,
+		"default=%.3f hi=%.3f lo=%.3f nudged=%.3f fs=%s->%s"
+			% [_ds_default, _ds_hi, _ds_lo, _ds_nudged, str(_ds_fs0), str(_ds_fs1)])
 
 	# (g) InputSettings honors the REBINDABLE contract: rebind() ignores an action
 	# outside the set, and apply() ignores a stored override for one.

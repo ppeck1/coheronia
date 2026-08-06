@@ -1,6 +1,6 @@
 # Ore Tick
 
-Generated: 2026-08-05
+Generated: 2026-08-06
 
 > `Enemy` page. Current status: `live`.
 

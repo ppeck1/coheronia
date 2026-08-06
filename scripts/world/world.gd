@@ -680,13 +680,17 @@ func farm_tile_count() -> int:
 func nearest_crop(from: Vector2i, radius: int) -> Vector2i:
 	var best := Vector2i(-1, -1)
 	var best_d := radius + 1
-	for cell in cells:
-		if not (cells[cell] in CROP_IDS):
-			continue
-		var d: int = maxi(absi(cell.x - from.x), absi(cell.y - from.y))
-		if d <= radius and d < best_d:
-			best_d = d
-			best = cell
+	# Perf: scan only the Chebyshev radius box around `from` (bounded), not the whole
+	# grid — this runs every physics frame for each crop-eating threat.
+	for cy in range(from.y - radius, from.y + radius + 1):
+		for cx in range(from.x - radius, from.x + radius + 1):
+			var cell := Vector2i(cx, cy)
+			if not (cells.get(cell, "air") in CROP_IDS):
+				continue
+			var d: int = maxi(absi(cx - from.x), absi(cy - from.y))
+			if d < best_d:
+				best_d = d
+				best = cell
 	return best
 
 
@@ -723,32 +727,42 @@ func nearest_ripe_crop(from: Vector2i, radius: int) -> Vector2i:
 ## Work-zone variants: the nearest ripe crop / plantable soil INSIDE a cell rect
 ## (the settler's work_bounds), tie-broken by distance to `from` (home). Empty rect
 ## → nothing found. Used so a per-NPC work zone can steer where each settler works.
+## Perf: iterate the (small, bounded) work rect rather than the whole cell grid.
+## A settler runs this every physics frame; scanning all ~10^5 world cells to keep
+## the handful inside its ~44x44 zone was the dominant per-frame cost. The rect is a
+## strict subset of the world, so this is always cheaper and never larger. Fixed
+## (y, then x) scan order keeps the equidistant tie-break deterministic.
 func nearest_ripe_crop_in(rect: Rect2i, from: Vector2i) -> Vector2i:
 	var best := Vector2i(-1, -1)
 	var best_d := 1 << 30
-	for cell in cells:
-		if cells[cell] != "crop_ripe" or not rect.has_point(cell):
-			continue
-		var d: int = maxi(absi(cell.x - from.x), absi(cell.y - from.y))
-		if d < best_d:
-			best_d = d
-			best = cell
+	for cy in range(rect.position.y, rect.position.y + rect.size.y):
+		for cx in range(rect.position.x, rect.position.x + rect.size.x):
+			var cell := Vector2i(cx, cy)
+			if cells.get(cell, "air") != "crop_ripe":
+				continue
+			var d: int = maxi(absi(cx - from.x), absi(cy - from.y))
+			if d < best_d:
+				best_d = d
+				best = cell
 	return best
 
 
 func nearest_plantable_soil_in(rect: Rect2i, from: Vector2i) -> Vector2i:
 	var best := Vector2i(-1, -1)
 	var best_d := 1 << 30
-	for cell in cells:
-		if cells[cell] != "farm_soil":
-			continue
-		var above := Vector2i(cell.x, cell.y - 1)
-		if not rect.has_point(above) or block_at(above) != "air":
-			continue
-		var d: int = maxi(absi(above.x - from.x), absi(above.y - from.y))
-		if d < best_d:
-			best_d = d
-			best = above
+	# `above` (the air planting cell) must lie in the rect, so scan the rect for the
+	# air cell and test the farm_soil directly beneath it.
+	for cy in range(rect.position.y, rect.position.y + rect.size.y):
+		for cx in range(rect.position.x, rect.position.x + rect.size.x):
+			var above := Vector2i(cx, cy)
+			if cells.get(above, "air") != "air":
+				continue
+			if cells.get(Vector2i(cx, cy + 1), "air") != "farm_soil":
+				continue
+			var d: int = maxi(absi(cx - from.x), absi(cy - from.y))
+			if d < best_d:
+				best_d = d
+				best = above
 	return best
 
 

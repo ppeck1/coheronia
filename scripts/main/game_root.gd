@@ -18,6 +18,7 @@ const ProgressionRegistryClass := preload("res://scripts/data/progression_regist
 const AncestryRegistryClass := preload("res://scripts/data/ancestry_registry.gd")
 const GoalTrackerScript := preload("res://scripts/main/goal_tracker.gd")
 const MapStateScript := preload("res://scripts/world/map_state.gd")
+const DisplaySettings := preload("res://scripts/shell/display_settings.gd")
 const PauseMenuScript := preload("res://scripts/ui/pause_menu.gd")   # R-07
 const InputSettings := preload("res://scripts/shell/input_settings.gd")   # R-07
 const BuildPreviewScript := preload("res://scripts/world/build_preview.gd")   # R-07
@@ -54,6 +55,9 @@ const STORM_MAX_DPS := 3.0
 ## Cave crawler spawning: checks every N seconds when player is underground.
 const CAVE_SPAWN_INTERVAL := 30.0
 const CAVE_CRAWLER_CAP := 2
+## Minimum connected open-air cells a cave spawn point must sit in, so underground
+## enemies only appear in real chambers/tunnels, never in a 1-2 cell rock pocket.
+const CAVE_MIN_OPEN_CELLS := 6
 
 @onready var world: Node2D = $World
 @onready var player: CharacterBody2D = $Player
@@ -596,6 +600,8 @@ func _position_actors() -> void:
 	camera.limit_right = int(bounds.end.x)
 	camera.limit_bottom = int(bounds.end.y)
 	camera.limit_top = -200
+	# Apply the player's saved view zoom (how much of the world is on screen).
+	DisplaySettings.apply_zoom(GameState.profile, camera)
 
 
 const _DEPTH_CHECK_INTERVAL := 3.0
@@ -626,6 +632,10 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# View controls (zoom wheel / +/- keys, F11 fullscreen) work in any world mode.
+	# These only reach here when no GUI panel consumed the event first.
+	if _handle_view_input(event):
+		return
 	if GameState.workzone_mode:
 		_handle_workzone_input(event)
 		return
@@ -701,6 +711,46 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.toggle_town_panel()
 		elif _pause_menu != null:
 			_pause_menu.open()
+
+
+## Live view controls: mouse wheel or +/- keys zoom the camera (how much of the
+## world is on screen), F11 toggles fullscreen. Zoom/fullscreen persist to the
+## profile so the choice survives a relaunch. Returns true when the event is a view
+## control (so _unhandled_input stops). Only fires for events no GUI panel consumed.
+func _handle_view_input(event: InputEvent) -> bool:
+	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		match (event as InputEventMouseButton).button_index:
+			MOUSE_BUTTON_WHEEL_UP:
+				_zoom_by(1.0)   # scroll up = zoom in (see less, larger)
+				return true
+			MOUSE_BUTTON_WHEEL_DOWN:
+				_zoom_by(-1.0)  # scroll down = zoom out (see more, smaller)
+				return true
+	elif event is InputEventKey and (event as InputEventKey).pressed \
+			and not (event as InputEventKey).echo:
+		match (event as InputEventKey).keycode:
+			KEY_EQUAL, KEY_KP_ADD:
+				_zoom_by(1.0)
+				return true
+			KEY_MINUS, KEY_KP_SUBTRACT:
+				_zoom_by(-1.0)
+				return true
+			KEY_F11:
+				var on: bool = DisplaySettings.toggle_fullscreen(GameState.profile)
+				GameState.save_shell()
+				log_event("Fullscreen enabled." if on else "Fullscreen disabled.")
+				return true
+	return false
+
+
+## Nudge the view zoom by `steps` increments, apply it to the live camera, and
+## persist. Shared by the wheel and +/- key paths.
+func _zoom_by(steps: float) -> void:
+	var camera := player.get_node_or_null("Camera2D") as Camera2D
+	if camera == null:
+		return
+	DisplaySettings.nudge_zoom(GameState.profile, camera, steps)
+	GameState.save_shell()
 
 
 ## R-07: pause-menu "Save" -- persist without leaving; report the outcome.
@@ -1155,6 +1205,12 @@ func _advance_cave_spawns(delta: float) -> void:
 		tries += 1
 	if world.block_at(spawn_cell) != "air":
 		return
+	# Only populate a real open space: an enemy needs somewhere to move, so a 1-2
+	# cell air pocket in solid rock is not a valid home. Require a connected open-air
+	# region of at least CAVE_MIN_OPEN_CELLS around the spawn; otherwise skip this
+	# cycle (the timer already reset, so it retries next interval).
+	if _open_air_count(spawn_cell, CAVE_MIN_OPEN_CELLS) < CAVE_MIN_OPEN_CELLS:
+		return
 	# FQ-13/M4-B: near lava the underground spawn is a lava slime (molten dweller);
 	# near an ore vein it is an ore tick; otherwise the usual cave crawler.
 	var eid := "cave_crawler"
@@ -1170,6 +1226,28 @@ func _advance_cave_spawns(delta: float) -> void:
 		return
 	_spawn_enemy_at(def, world.cell_center(spawn_cell))
 	log_event(event)
+
+
+## Counts connected open-air cells reachable from `start` (orthogonal flood fill),
+## stopping once `cap` is reached so the cost is bounded (~cap cells). Used to gate
+## cave spawns to genuinely open areas — a lone pocket returns a small count.
+func _open_air_count(start: Vector2i, cap: int) -> int:
+	if world.block_at(start) != "air":
+		return 0
+	var seen := {start: true}
+	var stack: Array[Vector2i] = [start]
+	var count := 0
+	while not stack.is_empty() and count < cap:
+		var c: Vector2i = stack.pop_back()
+		count += 1
+		for nb: Vector2i in [c + Vector2i(1, 0), c + Vector2i(-1, 0),
+				c + Vector2i(0, 1), c + Vector2i(0, -1)]:
+			if seen.has(nb):
+				continue
+			if world.block_at(nb) == "air":
+				seen[nb] = true
+				stack.append(nb)
+	return count
 
 
 ## M4-B: true when a lava cell sits within `radius` (Chebyshev) of `cell` — the
