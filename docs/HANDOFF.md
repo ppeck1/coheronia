@@ -25,11 +25,11 @@ passes windowed; not caused by this work). Authority: `docs/VARIABLE_MATRIX.md`
   mouse-wheel / `+` / `-` zoom and `F11` fullscreen. Applied at boot (window) and in
   `_position_actors` (camera).
 
-Screenshots were **not** regenerated: the lava-gen fix isn't visible in the
-screenshot tour (its hell/lava shots hand-place lava rather than generate it), and a
-full re-shoot would only reflect the wider default zoom — an opinion-driven whole-set
-change left to a deliberate media pass. `validate_repo.py` PASS. **COMMITTED** (see
-git log); confirm before treating as pushed.
+Screenshots **were** regenerated afterward: `10cafef` refreshed the tour to the
+wider default zoom (32 shots) and restructured the README. The lava-gen fix still
+isn't reflected in the hell/lava shots (they hand-place lava rather than generate
+it), so those specific frames remain a deliberate media-pass item. `validate_repo.py`
+PASS. **COMMITTED + PUSHED** — `HEAD == origin/main == 10cafef`.
 
 ## Next State (2026-08-05: Calling system — implemented, corrected, closed out)
 
