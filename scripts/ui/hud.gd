@@ -2791,7 +2791,7 @@ func toggle_inventory_panel() -> void:
 	if opening:
 		_close_open_modal_panels("inventory")
 	_inv_panel.visible = opening
-	_set_dock_visible(not _any_modal_panel_open())
+	_refresh_modal_presentation()
 	if opening:
 		_refresh_inventory_panel()
 
@@ -2810,6 +2810,18 @@ func _any_modal_panel_open() -> bool:
 		or (_character_panel != null and _character_panel.visible) \
 		or (_skill_panel != null and _skill_panel.visible) \
 		or (_town_panel != null and _town_panel.visible)
+
+
+## S-07.1 (F6/D2): single source of truth for modal presentation. Publishes the
+## global modal flag — read by the player input freeze (player.gd) and the
+## build-preview ghost (build_preview.suppressed()) so gameplay input and the
+## placement square are suppressed — and hides the bottom dock while any
+## full-screen panel is open. The dim scrim / panel-density polish lands in the
+## visual-review batch (S-07.1b).
+func _refresh_modal_presentation() -> void:
+	var modal_open := _any_modal_panel_open()
+	GameState.modal_panel_open = modal_open
+	_set_dock_visible(not modal_open)
 
 
 func _close_open_modal_panels(except_id: String) -> void:
@@ -2861,7 +2873,7 @@ func toggle_character_panel() -> void:
 	if opening:
 		_close_open_modal_panels("character")
 	_character_panel.visible = opening
-	_set_dock_visible(not _any_modal_panel_open())
+	_refresh_modal_presentation()
 	if opening:
 		_refresh_character_panel()
 
@@ -2987,7 +2999,7 @@ func toggle_skill_panel() -> void:
 	if opening:
 		_close_open_modal_panels("skills")
 	_skill_panel.visible = opening
-	_set_dock_visible(not _any_modal_panel_open())
+	_refresh_modal_presentation()
 	if opening:
 		_skill_panel.refresh()
 
@@ -4155,7 +4167,7 @@ func toggle_town_panel() -> void:
 	if opening:
 		_close_open_modal_panels("town")
 	_town_panel.visible = opening
-	_set_dock_visible(not _any_modal_panel_open())
+	_refresh_modal_presentation()
 	if opening:
 		refresh_town_panel()
 

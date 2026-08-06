@@ -324,7 +324,7 @@ func apply_ancestry_effects(effects: Dictionary) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if GameState.hud_edit_mode or GameState.craft_panel_open:
+	if GameState.hud_edit_mode or GameState.craft_panel_open or GameState.modal_panel_open:
 		velocity = Vector2.ZERO
 		return
 	# Liquid physics: while the body centre is below a liquid's TRUE surface (its

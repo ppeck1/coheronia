@@ -35,7 +35,15 @@ func active_item() -> String:
 	return item if BlockRegistry.is_placeable(item) else ""
 
 
+## S-07.1: the ghost is hidden while a full-screen modal panel is open, so the
+## placement square never floats over the inventory/character/skills/town UI.
+func suppressed() -> bool:
+	return GameState.modal_panel_open
+
+
 func _draw() -> void:
+	if suppressed():
+		return
 	var item := active_item()
 	if item == "":
 		return

@@ -7245,6 +7245,23 @@ func _run() -> void:
 		"nav=%s character=%s skills=%s town=%s close=%s" % [str(_fq18_nav_ok),
 			str(_fq18_character_ok), str(_fq18_skills_ok), str(_fq18_town_ok), str(_fq18_modal_close_ok)])
 
+	# S-07.1 (F6/D2): modal occlusion — a full-screen panel sets one global flag
+	# (GameState.modal_panel_open) that BOTH the player input freeze
+	# (player.gd _physics_process) and the build-preview ghost
+	# (build_preview.suppressed()) read, so gameplay input and the placement
+	# square are suppressed while a modal is open. Authority: WORK_ORDER_S07.
+	var _s07_modal_rest: bool = not GameState.modal_panel_open \
+		and root._build_preview != null and not root._build_preview.suppressed()
+	hud.toggle_skill_panel()
+	var _s07_modal_open: bool = GameState.modal_panel_open and hud._any_modal_panel_open() \
+		and root._build_preview.suppressed()
+	hud.toggle_skill_panel()
+	var _s07_modal_closed: bool = not GameState.modal_panel_open \
+		and not root._build_preview.suppressed()
+	_check("s07_modal_occludes_hud",
+		_s07_modal_rest and _s07_modal_open and _s07_modal_closed,
+		"rest=%s open=%s closed=%s" % [str(_s07_modal_rest), str(_s07_modal_open), str(_s07_modal_closed)])
+
 	# --- PR-06: Character HUD rebuilt on runtime children through the shared path ---
 	# The panel composes the live character through the same PlayerVisual the world
 	# draws (apply_preview_character), lists all 13 equipment slots from runtime
