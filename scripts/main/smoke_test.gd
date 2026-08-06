@@ -2196,9 +2196,19 @@ func _run() -> void:
 		and hud._scaled_texture("slot_normal", 0.5) != null \
 		and hud._scaled_texture("slot_normal", 0.5).get_size() == _r06t_scaled.get_size() \
 		and HudChrome.scaled_texture_from(null, 0.5) == null
-	_check("r06_texture_prep_delegates",
-		_r06t_mask_ok and _r06t_scaled_ok,
-		"mask=%s scaled=%s" % [str(_r06t_mask_ok), str(_r06t_scaled_ok)])
+	# S-07.0 (D1): this seam asserts pixel-exact scaled-texture dimensions, which
+	# the headless dummy display server rounds differently than a real surface —
+	# a renderer-dependent detail, not a regression. Windowed is the canonical run
+	# (532/532); under --headless we record it as skipped (never a pass/fail)
+	# rather than report a non-regression as a hard failure.
+	# Authority: docs/WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md §3 D1.
+	if DisplayServer.get_name() == "headless":
+		_skip("r06_texture_prep_delegates",
+			"renderer-dependent texture scaling under the headless dummy display server; windowed is canonical (see WORK_ORDER_S07 D1)")
+	else:
+		_check("r06_texture_prep_delegates",
+			_r06t_mask_ok and _r06t_scaled_ok,
+			"mask=%s scaled=%s" % [str(_r06t_mask_ok), str(_r06t_scaled_ok)])
 
 	# HUD v4: a legacy dock transform can never move/scale the anchored band.
 	var _fq21_layout_before: Variant = GameState.profile.get("hud_layout", {}).duplicate(true)
