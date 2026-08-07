@@ -298,9 +298,11 @@ work. It is a seams-first sequence, not a rewrite.
     state is therefore a **read** of settlement food availability (an empty food
     stockpile), not a charge: harvesting only ADDS food (production), and nothing
     in the actor SUBTRACTS food. The abstract population/food model is unchanged.
-  - **World hooks.** `world.nearest_ripe_crop(from, radius)` and
+  - **World hooks.** `world.nearest_ripe_crop_in(rect, from)` and
     `world.harvest_crop(cell)` (removes the `crop_ripe` block and returns its
-    `drops` = `{food:3, crop_seeds:1}`).
+    `drops` = `{food:3, crop_seeds:1}`). *(The original unbounded
+    `nearest_ripe_crop(from, radius)` was removed as dead in S-07.5; live callers
+    use the bounded work-zone `*_in` variant.)*
   - **Slice 2 — repairer job, a starting crew, and job assignment.** A second job
     `repairer` shares the movement/hunger/persistence machinery: when the hall
     `can_repair()` (damaged AND the stockpile holds the stone cost) it walks to the

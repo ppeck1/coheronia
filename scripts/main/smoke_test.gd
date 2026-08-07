@@ -195,6 +195,14 @@ func _run() -> void:
 	_check("town_hall_exists", not world.hall_info.is_empty()
 		and world.block_at(world.hall_info["core_cells"][0]) == "town_hall_core")
 	_check("town_hall_core_protected", not world.can_mine(world.hall_info["core_cells"][0], 99))
+	# S-07.5 (F5): the unbounded full-`cells`-scan crop/soil finders were dead
+	# (only the bounded work-zone `*_in` variants have live callers) and were
+	# removed. This guards against a regression re-introducing a whole-grid scan
+	# in the per-frame settler search path.
+	_check("s07_no_unbounded_cell_scan",
+		not world.has_method("nearest_ripe_crop") and not world.has_method("nearest_plantable_soil")
+			and world.has_method("nearest_ripe_crop_in") and world.has_method("nearest_plantable_soil_in"),
+		"unbounded removed; bounded *_in retained")
 	if OS.get_environment("COHERONIA_SMOKE_FOCUS") == "inventory":
 		await _run_inventory_focus(player, hud)
 		return

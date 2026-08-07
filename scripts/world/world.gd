@@ -709,21 +709,6 @@ func eat_crop(cell: Vector2i) -> bool:
 	return true
 
 
-## R-08: the nearest RIPE crop within `radius` (Chebyshev), or (-1,-1). Unlike
-## nearest_crop this ignores seedlings -- a farmhand only harvests ripe crops.
-func nearest_ripe_crop(from: Vector2i, radius: int) -> Vector2i:
-	var best := Vector2i(-1, -1)
-	var best_d := radius + 1
-	for cell in cells:
-		if cells[cell] != "crop_ripe":
-			continue
-		var d: int = maxi(absi(cell.x - from.x), absi(cell.y - from.y))
-		if d <= radius and d < best_d:
-			best_d = d
-			best = cell
-	return best
-
-
 ## Work-zone variants: the nearest ripe crop / plantable soil INSIDE a cell rect
 ## (the settler's work_bounds), tie-broken by distance to `from` (home). Empty rect
 ## → nothing found. Used so a per-NPC work zone can steer where each settler works.
@@ -763,25 +748,6 @@ func nearest_plantable_soil_in(rect: Rect2i, from: Vector2i) -> Vector2i:
 			if d < best_d:
 				best_d = d
 				best = above
-	return best
-
-
-## The nearest empty planting spot within `radius` (Chebyshev) of `from`: the AIR
-## cell directly above a tilled `farm_soil` cell (where plant_crop can sow). Used by
-## the farmhand's replant loop. Returns (-1,-1) when none is in range.
-func nearest_plantable_soil(from: Vector2i, radius: int) -> Vector2i:
-	var best := Vector2i(-1, -1)
-	var best_d := radius + 1
-	for cell in cells:
-		if cells[cell] != "farm_soil":
-			continue
-		var above := Vector2i(cell.x, cell.y - 1)
-		if block_at(above) != "air":
-			continue
-		var d: int = maxi(absi(above.x - from.x), absi(above.y - from.y))
-		if d <= radius and d < best_d:
-			best_d = d
-			best = above
 	return best
 
 
