@@ -2668,6 +2668,16 @@ func _build_town_panel() -> void:
 	var title := _label(box, "TOWN HALL")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_town_info = _label(box, "")
+	# S-07.1b (F8): the settler roster reads directly under the hall status, ABOVE
+	# the stockpile and action buttons — "who's here" before "what you can do" — so
+	# it is never starved at the bottom of the scroll. Rows are (re)built in
+	# refresh_town_panel from the live "subjects" group (R-08 slice 2).
+	var _settlers_header := _label(box, "Settlers")
+	_settlers_header.add_theme_font_size_override("font_size", 15)
+	_settler_box = VBoxContainer.new()
+	_settler_box.custom_minimum_size = Vector2(0, 108)
+	_settler_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(_settler_box)
 	# FQ-09 / drag grid: the stockpile is a drag-and-drop grid like the player
 	# inventory — drag a tile into your pack to withdraw, drag a backpack item onto
 	# it to deposit. Clicking a tile withdraws by quantity: L=all, R=half,
@@ -2705,16 +2715,6 @@ func _build_town_panel() -> void:
 	# R-07: crafting and station building moved to the unified Crafting panel (C);
 	# the Town Hall panel keeps deposit, status, and Repair.
 	_refresh_station_icons()
-	# R-08 slice 2: settler roster with a per-settler job-cycle button. Rows are
-	# (re)built in refresh_town_panel from the live "subjects" group.
-	var _settlers_header := _label(box, "Settlers")
-	_settlers_header.add_theme_font_size_override("font_size", 15)
-	_settler_box = VBoxContainer.new()
-	# S-07.1b (F8): reserve vertical space + let it expand, so the roster gets room
-	# instead of being starved at the bottom of the scroll.
-	_settler_box.custom_minimum_size = Vector2(0, 108)
-	_settler_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(_settler_box)
 	var _town_close := _label(box, "Press E to close")
 	_town_close.add_theme_font_size_override("font_size", 12)
 	_town_close.add_theme_color_override("font_color", Color(0.6, 0.58, 0.54))
