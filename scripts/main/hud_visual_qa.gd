@@ -90,6 +90,20 @@ func _run() -> void:
 	for i in range(12):
 		await get_tree().process_frame
 
+	# S-07.1b: Town Hall panel (density pass) with a populated roster. Opening it
+	# also shows the dim modal scrim behind the panel.
+	hud.toggle_town_panel()
+	await _shot("12_town_hall",
+		"Town Hall (S-07.1b): trimmed stockpile instruction, reserved settler-roster space, dim modal scrim behind.", hud)
+	DisplayServer.window_set_size(Vector2i(640, 360))
+	for i in range(12):
+		await get_tree().process_frame
+	await _shot("13_town_hall_small", "Town Hall at 640x360 (legibility check).", hud)
+	hud.toggle_town_panel()
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	for i in range(12):
+		await get_tree().process_frame
+
 	_write_manifest(hud)
 	print("HUD_QA complete -> %s" % QA_DIR)
 	get_tree().quit(0)
@@ -117,6 +131,9 @@ func _stage_settlement(root: Node2D, world: Node2D, player: CharacterBody2D, hal
 	root.time_of_day = 0.3
 	root.is_night = false
 	root.canvas_modulate.color = root.DAY_TINT
+	# S-07.1b: populate the settler roster so the Town Hall density shot is real.
+	if root.has_method("_spawn_starting_crew"):
+		root._spawn_starting_crew()
 	if root._map_state != null:
 		root._map_state.reveal_around(world.cell_of(player.global_position), root._scout_reveal_radius())
 

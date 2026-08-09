@@ -107,6 +107,9 @@ var _goal_visible := true
 # Wave C: openable full inventory panel.
 var _inv_panel: PanelContainer
 var _inv_content: Label
+# S-07.1b: full-viewport dim scrim shown behind an open modal panel so the rest
+# of the HUD reads as inactive. Absorbs clicks (reinforcing the input freeze).
+var _modal_scrim: ColorRect
 var _character_panel: PanelContainer
 # PR-06: the Character panel is rebuilt on runtime children each open. The body
 # host is cleared+repopulated by _refresh_character_panel; the figure is the
@@ -217,6 +220,7 @@ func _ready() -> void:
 	add_child(_skill_panel)
 	_build_goal_panel()
 	_build_map_panel()
+	_build_modal_scrim()
 	_build_debug_overlay()
 	_register_hud_widgets()
 	_build_hud_edit_panel()
@@ -2647,9 +2651,9 @@ func _build_town_panel() -> void:
 	_town_panel.anchor_right = 0.5
 	_town_panel.anchor_top = 0.5
 	_town_panel.anchor_bottom = 0.5
-	_town_panel.offset_left = -160
-	_town_panel.offset_top = -180
-	_town_panel.custom_minimum_size = Vector2(320, 360)
+	_town_panel.offset_left = -165
+	_town_panel.offset_top = -200
+	_town_panel.custom_minimum_size = Vector2(330, 400)
 	_town_panel.visible = false
 	add_child(_town_panel)
 	var town_content := _module_content_host(_town_panel, "ornate")
@@ -2668,7 +2672,11 @@ func _build_town_panel() -> void:
 	# inventory — drag a tile into your pack to withdraw, drag a backpack item onto
 	# it to deposit. Clicking a tile withdraws by quantity: L=all, R=half,
 	# Shift+L=choose. The Town Hall stockpile stays the single authority throughout.
-	_label(box, "Stockpile — drag to/from your pack · click: L=all · R=half · Shift+L=amount")
+	# S-07.1b (F8): trim the stockpile instruction to the two core affordances and
+	# de-emphasize it (small/dim) so the roster and actions read first.
+	var _stock_hint := _label(box, "Stockpile — drag to move · click to withdraw")
+	_stock_hint.add_theme_font_size_override("font_size", 12)
+	_stock_hint.add_theme_color_override("font_color", Color(0.74, 0.71, 0.64))
 	_stock_empty_label = _label(box, "  (empty — drag an item here to deposit)")
 	_stock_grid = GridContainer.new()
 	_stock_grid.columns = 6
@@ -2687,7 +2695,7 @@ func _build_town_panel() -> void:
 	deposit.pressed.connect(func() -> void: deposit_requested.emit())
 	box.add_child(deposit)
 	_repair_button = Button.new()
-	_repair_button.text = "Repair (2 stone → -25 damage)"
+	_repair_button.text = "Repair (2 stone)"
 	_repair_button.pressed.connect(func() -> void: repair_requested.emit())
 	box.add_child(_repair_button)
 	var contracts := Button.new()
@@ -2699,10 +2707,17 @@ func _build_town_panel() -> void:
 	_refresh_station_icons()
 	# R-08 slice 2: settler roster with a per-settler job-cycle button. Rows are
 	# (re)built in refresh_town_panel from the live "subjects" group.
-	_label(box, "Settlers:")
+	var _settlers_header := _label(box, "Settlers")
+	_settlers_header.add_theme_font_size_override("font_size", 15)
 	_settler_box = VBoxContainer.new()
+	# S-07.1b (F8): reserve vertical space + let it expand, so the roster gets room
+	# instead of being starved at the bottom of the scroll.
+	_settler_box.custom_minimum_size = Vector2(0, 108)
+	_settler_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(_settler_box)
-	_label(box, "Press E to close")
+	var _town_close := _label(box, "Press E to close")
+	_town_close.add_theme_font_size_override("font_size", 12)
+	_town_close.add_theme_color_override("font_color", Color(0.6, 0.58, 0.54))
 
 
 ## FQ-09: station icons resolve through item_icon so cleared caches / new
@@ -2815,13 +2830,48 @@ func _any_modal_panel_open() -> bool:
 ## S-07.1 (F6/D2): single source of truth for modal presentation. Publishes the
 ## global modal flag — read by the player input freeze (player.gd) and the
 ## build-preview ghost (build_preview.suppressed()) so gameplay input and the
-## placement square are suppressed — and hides the bottom dock while any
-## full-screen panel is open. The dim scrim / panel-density polish lands in the
-## visual-review batch (S-07.1b).
+## placement square are suppressed — hides the bottom dock while any full-screen
+## panel is open, and (S-07.1b) shows a dim scrim behind the active modal.
 func _refresh_modal_presentation() -> void:
 	var modal_open := _any_modal_panel_open()
 	GameState.modal_panel_open = modal_open
 	_set_dock_visible(not modal_open)
+	# S-07.1b: dim the rest of the HUD behind whichever modal is open. Order the
+	# scrim just under the active panel so it covers every other module but leaves
+	# the panel crisp and interactive on top.
+	if _modal_scrim != null:
+		_modal_scrim.visible = modal_open
+		if modal_open:
+			var panel: Control = _active_modal_panel()
+			move_child(_modal_scrim, get_child_count() - 1)
+			if panel != null:
+				move_child(panel, get_child_count() - 1)
+
+
+## S-07.1b: the single modal panel currently open (inventory/character/skills/
+## town), or null. Mirrors the mutual-exclusion in _close_open_modal_panels.
+func _active_modal_panel() -> Control:
+	if _inv_panel != null and _inv_panel.visible:
+		return _inv_panel
+	if _character_panel != null and _character_panel.visible:
+		return _character_panel
+	if _skill_panel != null and _skill_panel.visible:
+		return _skill_panel
+	if _town_panel != null and _town_panel.visible:
+		return _town_panel
+	return null
+
+
+## S-07.1b: full-viewport dim overlay, hidden until a modal opens. mouse_filter
+## STOP absorbs clicks that miss the panel, so the dimmed HUD stays inert.
+func _build_modal_scrim() -> void:
+	_modal_scrim = ColorRect.new()
+	_modal_scrim.name = "ModalScrim"
+	_modal_scrim.color = Color(0.02, 0.02, 0.04, 0.58)
+	_modal_scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_modal_scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_modal_scrim.visible = false
+	add_child(_modal_scrim)
 
 
 func _close_open_modal_panels(except_id: String) -> void:

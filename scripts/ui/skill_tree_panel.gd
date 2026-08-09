@@ -118,6 +118,10 @@ func _ready() -> void:
 	# PR-08: the graph fills the panel width and expands to take the space left
 	# after the fixed header/inspector rows, so it grows with the viewport and
 	# stays usable as lanes are added; the ScrollContainer pans the larger canvas.
+	# S-07.1b (F7): the two Path cards are sized to fit the width, so the panel
+	# must never show a horizontal scrollbar — disable it (vertical stays for tall
+	# tiers). Removes the h-scrollbar that appeared at 640x360.
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.custom_minimum_size = Vector2(0, MIN_GRAPH_HEIGHT)
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -252,8 +256,11 @@ func _build_nodes() -> void:
 				y += ROW_STEP
 			y += 4.0
 		max_y = maxf(max_y, y)
+	# S-07.1b (F7): exact content extent — N columns + (N-1) gaps + both margins.
+	# The old formula added one trailing COLUMN_GAP (N*(col_w+gap)), making the
+	# canvas ~one gap wider than the panel and tripping the horizontal scrollbar.
 	_canvas.custom_minimum_size = Vector2(
-		CANVAS_MARGIN.x * 2.0 + float(maxi(1, my_lanes.size())) * (col_w + COLUMN_GAP),
+		CANVAS_MARGIN.x * 2.0 + float(lanes_n) * col_w + float(lanes_n - 1) * COLUMN_GAP,
 		max_y + CANVAS_MARGIN.y)
 
 
