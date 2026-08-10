@@ -5,9 +5,30 @@ Runs the static validation gate (documentation/data validators, strict asset
 audit, HUD-kit runtime hashes, gear alignment, Capsule Doctor, wiki links) and,
 when a Godot binary is supplied, the in-engine source smoke and (with --export)
 a real export whose artifact is then *launched* in smoke mode. Source and
-exported results are written to separate files; the exported run must skip
-exactly the read-only res:// fixture allowlist and fail on anything else.
-Exits non-zero on any failure so CI can block the workflow.
+exported results are written to separate files.
+
+S-07 fail-closed contract (why this file is careful about "success"):
+  A smoke run that crashes, fails to compile, or exits nonzero can still leave a
+  PASS-shaped `smoke_results.json` on disk (from a previous run, or a garbage
+  write during a compile error). Trusting `result == "PASS"` alone therefore
+  *masks* real Godot failures. This verifier instead fails closed:
+    * it captures and TEES the child's combined stdout/stderr so the full output
+      stays visible in CI and can be scanned for fatal markers;
+    * it fails on any nonzero return code;
+    * it fails on confirmed fatal output markers (SCRIPT ERROR / Compile Error /
+      Parse Error / Nonexistent function) even when the JSON says PASS;
+    * it DELETES the prior result before launch and requires the file to exist
+      afterward (proving *this* invocation wrote it), and cross-checks the
+      result's embedded commit against COHERONIA_COMMIT / HEAD;
+    * it validates the result schema and internal arithmetic (passed + failed ==
+      total, skipped == len(skipped_names), unique check names, reconciled suite
+      tallies) rather than trusting the top-level PASS flag;
+    * source must skip nothing; the exported build must skip exactly the
+      read-only res:// fixture allowlist (no more, no less).
+
+The pure validators (`scan_fatal_markers`, `validate_result`, `evaluate_run`,
+`prepare_results`) hold no Godot dependency and are covered by
+`scripts/ci/test_verify.py`.
 
 Usage:
   python scripts/ci/verify.py                      # static gate only
@@ -38,9 +59,27 @@ EXPORT_SKIP_ALLOWLIST = {
     "fq21_hud_theme_asset_fallback",
 }
 
+# Confirmed-fatal substrings Godot prints when a script fails to compile or a
+# call resolves to nothing. Any of these means the run did not truly succeed,
+# regardless of what the results JSON claims. Benign "WARNING"/"ERROR" lines are
+# deliberately NOT listed here (we must not reject benign Godot warnings).
+FATAL_MARKERS = (
+    "SCRIPT ERROR",
+    "Compile Error",
+    "Parse Error",
+    "Nonexistent function",
+)
+
+# Keys the smoke result writer (smoke_test.gd:_write_result_file) always emits.
+REQUIRED_RESULT_KEYS = (
+    "result", "passed", "total", "failed", "skipped",
+    "skipped_names", "suites", "commit", "details",
+)
+
 # Static steps are (label, argv-after-interpreter). The interpreter is prepended
 # at run time so the same list works with any Python.
 STATIC_STEPS = [
+    ("verify_self_test", ["scripts/ci/test_verify.py"]),
     ("validate_repo", ["scripts/validate_repo.py"]),
     ("asset_audit", ["scripts/asset_audit.py", "--strict"]),
     ("hud_kit_runtime", ["scripts/art/sync_hud_kit.py", "--verify-runtime"]),
@@ -52,9 +91,224 @@ STATIC_STEPS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Pure, Godot-free validators (unit-tested in scripts/ci/test_verify.py)
+# ---------------------------------------------------------------------------
+
+def scan_fatal_markers(output: str) -> list[str]:
+    """Return the confirmed-fatal markers present in captured Godot output."""
+    text = output or ""
+    return [marker for marker in FATAL_MARKERS if marker in text]
+
+
+def _is_int(value: object) -> bool:
+    # bools are ints in Python; a JSON count field must be a real integer.
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def validate_result_shape(data: object) -> list[str]:
+    """Validate the result JSON's schema and internal arithmetic.
+
+    Proves consistency independent of the top-level PASS flag: counts add up,
+    the flag matches the failure list, every check name is unique (len(details)
+    == total + skipped, since each ran/skipped check writes one details entry),
+    and the per-suite tallies reconcile with the totals.
+    """
+    failures: list[str] = []
+    if not isinstance(data, dict):
+        return ["result JSON is not an object"]
+    for key in REQUIRED_RESULT_KEYS:
+        if key not in data:
+            failures.append(f"result JSON missing key '{key}'")
+    if failures:
+        return failures
+
+    type_specs = [
+        ("passed", _is_int), ("total", _is_int), ("skipped", _is_int),
+        ("failed", lambda v: isinstance(v, list)),
+        ("skipped_names", lambda v: isinstance(v, list)),
+        ("suites", lambda v: isinstance(v, dict)),
+        ("details", lambda v: isinstance(v, dict)),
+        ("result", lambda v: isinstance(v, str)),
+    ]
+    for key, ok in type_specs:
+        if not ok(data[key]):
+            failures.append(f"result JSON key '{key}' has the wrong type")
+    if failures:
+        return failures
+
+    passed = data["passed"]
+    total = data["total"]
+    failed = data["failed"]
+    skipped = data["skipped"]
+    skipped_names = data["skipped_names"]
+    details = data["details"]
+
+    if passed + len(failed) != total:
+        failures.append(
+            f"arithmetic: passed({passed}) + failed({len(failed)}) != total({total})")
+    if skipped != len(skipped_names):
+        failures.append(
+            f"arithmetic: skipped({skipped}) != len(skipped_names)({len(skipped_names)})")
+
+    expected_flag = "PASS" if len(failed) == 0 else "FAIL"
+    if data["result"] != expected_flag:
+        failures.append(
+            f"result flag '{data['result']}' inconsistent with {len(failed)} "
+            f"failure(s) (expected '{expected_flag}')")
+
+    # Uniqueness/consistency: each ran check and each skip writes exactly one
+    # details entry keyed by its name. Unique names => len(details) == total +
+    # skipped. A mismatch means a duplicate or a missing check name.
+    if len(details) != total + skipped:
+        failures.append(
+            f"name consistency: len(details)({len(details)}) != total+skipped"
+            f"({total + skipped}) — duplicate or missing check names")
+    if len(set(failed)) != len(failed):
+        failures.append("failed name list contains duplicates")
+    if len(set(skipped_names)) != len(skipped_names):
+        failures.append("skipped_names contains duplicates")
+    for name in failed:
+        if name not in details:
+            failures.append(f"failed name '{name}' absent from details")
+    for name in skipped_names:
+        if name not in details:
+            failures.append(f"skipped name '{name}' absent from details")
+
+    suite_passed = suite_failed = suite_skipped = 0
+    for suite in data["suites"].values():
+        if not isinstance(suite, dict):
+            failures.append("a suites entry is not an object")
+            continue
+        suite_passed += int(suite.get("passed", 0))
+        suite_failed += int(suite.get("failed", 0))
+        suite_skipped += int(suite.get("skipped", 0))
+    if (suite_passed, suite_failed, suite_skipped) != (passed, len(failed), skipped):
+        failures.append(
+            f"suite tallies (p={suite_passed},f={suite_failed},s={suite_skipped}) "
+            f"!= totals (p={passed},f={len(failed)},s={skipped})")
+    return failures
+
+
+def validate_result(
+    data: object,
+    *,
+    expected_commit: str | None = None,
+    require_zero_skips: bool = False,
+    exact_skip_allowlist: set[str] | None = None,
+) -> list[str]:
+    """Full result validation: shape + commit provenance + skip policy."""
+    failures = validate_result_shape(data)
+    if failures:
+        return failures  # deeper checks assume a well-formed result
+
+    if expected_commit:
+        actual = str(data.get("commit", ""))
+        if actual != str(expected_commit):
+            failures.append(
+                f"commit mismatch: result commit '{actual}' != expected "
+                f"'{expected_commit}' (stale or foreign result)")
+
+    if require_zero_skips and data["skipped"] != 0:
+        failures.append(
+            "source smoke must skip nothing; skipped "
+            f"{data['skipped']}: {sorted(data['skipped_names'])}")
+
+    if exact_skip_allowlist is not None:
+        got = set(data["skipped_names"])
+        unexpected = got - set(exact_skip_allowlist)
+        missing = set(exact_skip_allowlist) - got
+        if unexpected:
+            failures.append(f"skips OUTSIDE the allowlist: {sorted(unexpected)}")
+        if missing:
+            failures.append(f"expected allowlist skips MISSING: {sorted(missing)}")
+
+    return failures
+
+
+def evaluate_run(
+    tag: str,
+    returncode: int,
+    output: str,
+    results_path: Path,
+    *,
+    expected_commit: str | None = None,
+    require_zero_skips: bool = False,
+    exact_skip_allowlist: set[str] | None = None,
+) -> list[str]:
+    """Fail-closed evaluation of one Godot smoke launch.
+
+    Returns a list of failure strings (empty == success). rc and output markers
+    are checked FIRST and unconditionally, so a PASS-shaped JSON can never mask a
+    crashed/failed process.
+    """
+    failures: list[str] = []
+    if returncode != 0:
+        failures.append(f"{tag}: process exited nonzero ({returncode})")
+    markers = scan_fatal_markers(output)
+    if markers:
+        failures.append(f"{tag}: fatal marker(s) in Godot output: {markers}")
+
+    if not results_path.exists():
+        failures.append(
+            f"{tag}: no results file written by this invocation "
+            f"(crash, wrong mode, or never launched) -> {results_path}")
+        return failures
+    try:
+        data = json.loads(results_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 - any parse failure is a hard fail
+        failures.append(f"{tag}: results file is not valid JSON: {exc}")
+        return failures
+
+    if isinstance(data, dict):
+        _print_report(tag, data)
+    failures.extend(
+        f"{tag}: {msg}"
+        for msg in validate_result(
+            data,
+            expected_commit=expected_commit,
+            require_zero_skips=require_zero_skips,
+            exact_skip_allowlist=exact_skip_allowlist,
+        )
+    )
+    return failures
+
+
+def prepare_results(results_path: Path) -> None:
+    """Ensure the parent dir exists and remove any stale result file, so a file
+    existing after launch proves *this* invocation wrote it."""
+    results_path.parent.mkdir(parents=True, exist_ok=True)
+    if results_path.exists():
+        results_path.unlink()
+
+
+# ---------------------------------------------------------------------------
+# Process launching (teed) + orchestration
+# ---------------------------------------------------------------------------
+
 def _run(cmd: list[str], env: dict | None = None) -> int:
     print(f"\n$ {' '.join(cmd)}", flush=True)
     return subprocess.run(cmd, cwd=str(ROOT), env=env).returncode
+
+
+def launch_teed(cmd: list[str], env: dict | None = None) -> tuple[int, str]:
+    """Run `cmd`, streaming its combined stdout+stderr to our stdout as it
+    arrives (so CI keeps the full log) while also capturing it for fatal-marker
+    scanning. Returns (returncode, combined_output)."""
+    print(f"\n$ {' '.join(cmd)}", flush=True)
+    proc = subprocess.Popen(
+        cmd, cwd=str(ROOT), env=env,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, bufsize=1,
+    )
+    captured: list[str] = []
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        captured.append(line)
+    proc.wait()
+    return proc.returncode, "".join(captured)
 
 
 def commit_hash() -> str:
@@ -77,7 +331,7 @@ def run_static(py: str) -> list[str]:
 
 
 def _print_report(tag: str, data: dict) -> None:
-    print("%s: %s %d/%d (skipped %d, %.1fs, commit %s)" % (
+    print("%s: %s %s/%s (skipped %s, %.1fs, commit %s)" % (
         tag, data.get("result"), data.get("passed", 0), data.get("total", 0),
         data.get("skipped", 0), float(data.get("duration_sec", 0.0)),
         data.get("commit", "")))
@@ -89,27 +343,22 @@ def _print_report(tag: str, data: dict) -> None:
 
 
 def run_smoke(godot: str) -> bool:
-    """Source (editor) smoke: must pass with zero skips."""
+    """Source (editor) smoke: launched, teed, and evaluated fail-closed. Must
+    pass every check with zero skips and a matching commit."""
     results = ROOT / "build" / "source_smoke_results.json"
-    results.parent.mkdir(parents=True, exist_ok=True)
-    if results.exists():
-        results.unlink()
+    prepare_results(results)
+    expected = commit_hash()
     env = dict(os.environ,
                COHERONIA_SMOKE="1",
-               COHERONIA_COMMIT=commit_hash(),
+               COHERONIA_COMMIT=expected,
                COHERONIA_RESULTS_PATH=str(results))
-    _run([godot, "--path", str(ROOT)], env=env)
-    if not results.exists():
-        print("SOURCE SMOKE: no results file was written (crash or wrong mode)")
-        return False
-    data = json.loads(results.read_text(encoding="utf-8"))
-    _print_report("SOURCE SMOKE", data)
-    ok = data.get("result") == "PASS"
-    if data.get("skipped", 0) != 0:
-        print("SOURCE SMOKE: unexpected skips %s (source must skip nothing)"
-              % data.get("skipped_names", []))
-        ok = False
-    return ok
+    rc, output = launch_teed([godot, "--path", str(ROOT)], env=env)
+    failures = evaluate_run(
+        "SOURCE SMOKE", rc, output, results,
+        expected_commit=expected, require_zero_skips=True)
+    for msg in failures:
+        print(msg)
+    return not failures
 
 
 def run_balance_report(py: str, godot: str) -> bool:
@@ -119,40 +368,25 @@ def run_balance_report(py: str, godot: str) -> bool:
 
 def run_exported_smoke(artifact: Path) -> bool:
     """Launch the EXPORTED artifact in smoke mode and enforce the contract:
-    it must launch, pass every non-skipped check, and skip exactly the
-    read-only res:// fixture allowlist (no more, no less)."""
+    it must launch, exit clean, pass every non-skipped check, match the commit,
+    and skip exactly the read-only res:// fixture allowlist (no more, no less)."""
     results = ROOT / "build" / "export_smoke_results.json"
-    results.parent.mkdir(parents=True, exist_ok=True)
-    if results.exists():
-        results.unlink()
+    prepare_results(results)
     if not artifact.exists():
         print("EXPORT SMOKE: artifact missing ->", artifact)
         return False
+    expected = commit_hash()
     env = dict(os.environ,
                COHERONIA_SMOKE="1",
-               COHERONIA_COMMIT=commit_hash(),
+               COHERONIA_COMMIT=expected,
                COHERONIA_RESULTS_PATH=str(results))
-    _run([str(artifact)], env=env)
-    if not results.exists():
-        print("EXPORT SMOKE: exported artifact did not launch / wrote no results")
-        return False
-    data = json.loads(results.read_text(encoding="utf-8"))
-    _print_report("EXPORT SMOKE", data)
-    ok = True
-    if data.get("result") != "PASS":
-        print("EXPORT SMOKE: a non-skipped check FAILED ->",
-              data.get("failed", []))
-        ok = False
-    skipped = set(data.get("skipped_names", []))
-    unexpected = skipped - EXPORT_SKIP_ALLOWLIST
-    missing = EXPORT_SKIP_ALLOWLIST - skipped
-    if unexpected:
-        print("EXPORT SMOKE: skips OUTSIDE the allowlist ->", sorted(unexpected))
-        ok = False
-    if missing:
-        print("EXPORT SMOKE: expected allowlist skips MISSING ->", sorted(missing))
-        ok = False
-    return ok
+    rc, output = launch_teed([str(artifact)], env=env)
+    failures = evaluate_run(
+        "EXPORT SMOKE", rc, output, results,
+        expected_commit=expected, exact_skip_allowlist=EXPORT_SKIP_ALLOWLIST)
+    for msg in failures:
+        print(msg)
+    return not failures
 
 
 def write_build_info(dirpath: Path, preset: str) -> None:
