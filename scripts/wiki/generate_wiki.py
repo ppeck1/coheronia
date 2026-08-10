@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import argparse
+import filecmp
 import json
 import shutil
-from datetime import date
+import sys
+import tempfile
 from html import escape
 from pathlib import Path
 import re
@@ -11,6 +14,13 @@ import re
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
 WIKI_DIR = ROOT / "docs" / "wiki"
+
+# Deterministic provenance line embedded in every generated page. It must NOT
+# carry today's date: an embedded date would make an otherwise-unchanged
+# regeneration differ day to day and break the `--check` drift gate. Dates live
+# in git history, not in generated output.
+GENERATED_LINE = ("Generated from repo data by `scripts/wiki/generate_wiki.py` "
+                  "(see git history for dates).")
 
 GENERATED_DIRS = [
     WIKI_DIR / "items",
@@ -29,6 +39,7 @@ GENERATED_FILES = [
     WIKI_DIR / "bestiary.md",
     WIKI_DIR / "character_types.md",
     WIKI_DIR / "stations.md",
+    WIKI_DIR / "skills.md",
 ]
 
 REFERENCE_DOCS = [
@@ -242,7 +253,9 @@ def ensure_parent(path: Path) -> None:
 
 def write_text(path: Path, content: str) -> None:
     ensure_parent(path)
-    path.write_text(content.rstrip() + "\n", encoding="utf-8")
+    # Force LF on every platform: the repo stores text as LF (.gitattributes
+    # eol=lf), so generating CRLF on Windows would make --check drift falsely.
+    path.write_text(content.rstrip() + "\n", encoding="utf-8", newline="\n")
 
 
 def escape_cell(value: object) -> str:
@@ -914,10 +927,6 @@ def read_repo_data() -> dict:
     }
 
 
-def current_date_string() -> str:
-    return date.today().isoformat()
-
-
 def asset_root(data: dict) -> Path:
     return ROOT / str(data.get("visual_assets", {}).get("asset_root", "art/generated"))
 
@@ -1513,7 +1522,7 @@ def render_item_page(item_id: str, data: dict, indexes: dict) -> None:
     content = [
         f"# {display_name}",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         f"> `Item` page. Current status: `{status}`.",
         "",
@@ -1554,7 +1563,7 @@ def render_items_index(data: dict, indexes: dict) -> None:
     lines = [
         "# Items",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "This page is the item landing page for the current Coheronia wiki tree. It is meant to play the role of an item registry page: browseable, grouped, and link-first.",
         "",
@@ -1712,7 +1721,7 @@ def render_equipment_page(equip_id: str, data: dict, indexes: dict) -> None:
     lines = [
         f"# {equip_def.get('display_name', title_from_id(equip_id))}",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         f"> `Equipment` page. Current status: `{status}`.",
         "",
@@ -1767,7 +1776,7 @@ def render_equipment_indexes(data: dict, indexes: dict) -> None:
     lines = [
         "# Equipment",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "This page groups the current equipment definitions into browseable families, with links to each concrete equipment page.",
         "",
@@ -1820,7 +1829,7 @@ def render_equipment_indexes(data: dict, indexes: dict) -> None:
     weapon_lines = [
         "# Weapons",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "This page groups the current weapon equipment entries, similar to a weapon-family browse page.",
         "",
@@ -1871,7 +1880,7 @@ def render_block_page(block_id: str, block_def: dict, data: dict) -> None:
     content = [
         f"# {block_def.get('display_name', title_from_id(block_id))}",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "> `Block` page.",
         "",
@@ -1917,7 +1926,7 @@ def render_blocks_index(data: dict) -> None:
     lines = [
         "# Blocks",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "This page groups the current block definitions into browseable families.",
         "",
@@ -1989,7 +1998,7 @@ def render_enemy_page(enemy: dict, data: dict) -> None:
     lines = [
         f"# {enemy.get('display_name', title_from_id(enemy_id))}",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         f"> `Enemy` page. Current status: `{enemy.get('status', 'live')}`.",
         "",
@@ -2049,7 +2058,7 @@ def render_bestiary_index(data: dict) -> None:
     lines = [
         "# Bestiary",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "This page groups the current enemy definitions into live and planned slices, similar to a bestiary landing page.",
         "",
@@ -2090,7 +2099,7 @@ def render_species_page(species: dict, data: dict) -> None:
     lines = [
         f"# {species.get('display_name', title_from_id(species['id']))}",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "> `Character species` page.",
         "",
@@ -2144,7 +2153,7 @@ def render_role_page(role: dict) -> None:
     lines = [
         f"# {role.get('display_name', title_from_id(role['id']))}",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "> `Calling` page — a permanent, character-owned identity (serialized under the legacy `role` key).",
         "",
@@ -2172,7 +2181,7 @@ def render_trait_page(trait: dict) -> None:
     lines = [
         f"# {trait.get('display_name', title_from_id(trait['id']))}",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "> `Character trait` page.",
         "",
@@ -2212,7 +2221,7 @@ def render_ancestry_page(ancestry: dict, data: dict) -> None:
     lines = [
         f"# {ancestry.get('display_name', title_from_id(ancestry['id']))}",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         f"> `Ancestry` page. Current status: `{ancestry.get('status', 'planned')}`.",
         "",
@@ -2300,7 +2309,7 @@ def render_character_indexes(data: dict) -> None:
     lines = [
         "# Character Types",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "This page groups the current character-facing data into species, Callings, traits, and planned ancestries.",
         "",
@@ -2322,8 +2331,114 @@ def render_character_indexes(data: dict) -> None:
         "",
         "## Related Pages",
         "",
-        bullet_block([rel_link(page_path, WIKI_DIR / "wiki.md", "Wiki Overview")]),
+        bullet_block([
+            rel_link(page_path, WIKI_DIR / "skills.md", "Skills (Callings, Paths, and tiered skills)"),
+            rel_link(page_path, WIKI_DIR / "wiki.md", "Wiki Overview"),
+        ]),
     ]
+    write_text(page_path, "\n".join(lines))
+
+
+def render_skills_page(data: dict) -> None:
+    """Generate the Calling/Path/skill reference straight from
+    data/progression/perks.json + data/character_data.json, so this page can
+    never drift from the shipped progression (the old hand-maintained page
+    described a retired single-lane 'Miner' star-map that no longer exists)."""
+    page_path = WIKI_DIR / "skills.md"
+    perks = load_json(DATA_DIR / "progression" / "perks.json")
+    lanes = perks.get("perk_lanes", [])
+    tier_gates = perks.get("tier_gates", {})
+    callings = {c["id"]: c for c in data["character_data"].get("roles", [])}
+
+    def tier_label(tier: object) -> str:
+        return "Capstone" if str(tier) == "capstone" else f"Tier {tier}"
+
+    # Two Paths per Calling; list them under their Calling, in data order.
+    calling_rows = []
+    for calling_id, calling in callings.items():
+        paths = ", ".join(title_from_id(p) for p in calling.get("paths", [])) or "—"
+        innate = calling.get("innate", {})
+        innate_txt = f"{innate.get('name', '—')}: {innate.get('description', '')}" if innate else "—"
+        calling_rows.append([
+            calling.get("display_name", title_from_id(calling_id)),
+            f"`{calling_id}`",
+            paths,
+            innate_txt,
+        ])
+
+    gate_rows = [[tier_label(tk), str(tier_gates[tk]) + " skills already purchased in the Path"]
+                 for tk in ["1", "2", "3", "capstone"] if tk in tier_gates]
+
+    lines = [
+        "# Skills",
+        "",
+        GENERATED_LINE,
+        "",
+        "## Scope",
+        "",
+        bullet_block([
+            "Source data: `data/progression/perks.json` (six Path lanes × twelve "
+            "skills) and `data/character_data.json` (the three Callings).",
+            "Live UI consumer: `scripts/ui/skill_tree_panel.gd` (two Path cards "
+            "for the character's Calling).",
+            "Point economy is runtime-owned (one perk point per player level above "
+            "1); a character's Calling, XP, level, and purchased skills are "
+            "character-owned and follow the character between worlds.",
+        ]),
+        "",
+        f"> Every skill below is wired to a real gameplay hook (`support: live`). "
+        f"Balance is a known open item — see "
+        f"[Known Issues](known_issues.md).",
+        "",
+        "## Callings",
+        "",
+        md_matrix(["Calling", "ID", "Paths", "Innate effect"], calling_rows),
+        "",
+        "## Tier Gates",
+        "",
+        "A Path's tiers open by the count of skills already purchased in that "
+        "Path (a live skill is never gated behind an inert one):",
+        "",
+        md_matrix(["Tier", "Opens at"], gate_rows),
+        "",
+        "## Paths and Skills",
+        "",
+    ]
+
+    for lane in lanes:
+        calling = callings.get(lane.get("calling", ""), {})
+        calling_name = calling.get("display_name", title_from_id(lane.get("calling", "")))
+        lines.append(f"### {lane.get('display_name', title_from_id(lane['id']))} "
+                     f"({calling_name})")
+        lines.append("")
+        lines.append(f"*{lane.get('theme', '')}*")
+        lines.append("")
+        skill_rows = []
+        for perk in lane.get("perks", []):
+            skill_rows.append([
+                tier_label(perk.get("tier")),
+                perk.get("display_name", title_from_id(perk["id"])),
+                f"`{perk['id']}`",
+                str(perk.get("cost", 1)),
+                f"`{perk.get('effect_key', '')}`",
+                str(perk.get("effect_value", "")),
+                perk.get("support", ""),
+                perk.get("description", ""),
+            ])
+        lines.append(md_matrix(
+            ["Tier", "Skill", "ID", "Cost", "Effect key", "Value", "Support", "Description"],
+            skill_rows))
+        lines.append("")
+
+    lines.extend([
+        "## Related Pages",
+        "",
+        bullet_block([
+            rel_link(page_path, WIKI_DIR / "character_types.md", "Character Types"),
+            rel_link(page_path, WIKI_DIR / "known_issues.md", "Known Issues"),
+            rel_link(page_path, WIKI_DIR / "wiki.md", "Wiki Overview"),
+        ]),
+    ])
     write_text(page_path, "\n".join(lines))
 
 
@@ -2364,7 +2479,7 @@ def render_station_page(station_id: str, station_def: dict, data: dict, indexes:
     lines = [
         f"# {station_def.get('display_name', title_from_id(station_id))}",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "> `Crafting station` page.",
         "",
@@ -2403,7 +2518,7 @@ def render_stations_index(data: dict, indexes: dict) -> None:
     lines = [
         "# Crafting Stations",
         "",
-        f"Generated: {current_date_string()}",
+        GENERATED_LINE,
         "",
         "This page groups the current station surfaces that host recipes or route crafting behavior.",
         "",
@@ -2452,6 +2567,7 @@ def generate() -> dict[str, int]:
     for ancestry in data["ancestries"]:
         render_ancestry_page(ancestry, data)
     render_character_indexes(data)
+    render_skills_page(data)
 
     merged_stations = dict(data["stations"])
     merged_stations.update(PSEUDO_STATIONS)
@@ -2473,7 +2589,120 @@ def generate() -> dict[str, int]:
     }
 
 
-if __name__ == "__main__":
+def _configure_paths(root: Path) -> None:
+    """Retarget all module output/input globals at `root`, so generation can be
+    run against a temporary tree for the deterministic drift check without
+    touching the real repo."""
+    global ROOT, DATA_DIR, WIKI_DIR, THEME_CSS
+    global GENERATED_DIRS, GENERATED_FILES, REFERENCE_DOCS
+    ROOT = root
+    DATA_DIR = root / "data"
+    WIKI_DIR = root / "docs" / "wiki"
+    THEME_CSS = WIKI_DIR / "wiki_theme.css"
+    GENERATED_DIRS = [
+        WIKI_DIR / "items", WIKI_DIR / "equipment", WIKI_DIR / "blocks",
+        WIKI_DIR / "enemies", WIKI_DIR / "characters", WIKI_DIR / "stations",
+    ]
+    GENERATED_FILES = [
+        WIKI_DIR / "items.md", WIKI_DIR / "equipment.md", WIKI_DIR / "weapons.md",
+        WIKI_DIR / "blocks.md", WIKI_DIR / "bestiary.md",
+        WIKI_DIR / "character_types.md", WIKI_DIR / "stations.md",
+        WIKI_DIR / "skills.md",
+    ]
+    REFERENCE_DOCS = [
+        root / "docs" / "VARIABLE_MATRIX.md",
+        root / "docs" / "ITEM_AND_RECIPE_MATRIX.md",
+        root / "docs" / "ITEM_GRAPH.md",
+        root / "docs" / "IMAGE_INVENTORY_MATRIX.md",
+        root / "docs" / "ASSET_ROADMAP.md",
+        root / "docs" / "UI_ASSET_GAPS.md",
+    ]
+
+
+def _mirror_existence(src_root: Path, dst_root: Path) -> None:
+    """Recreate `src_root`'s file tree under `dst_root` as empty files. The
+    generator only ever probes art assets for *existence* (never reads their
+    bytes), so empty placeholders reproduce every existence-gated decision."""
+    for path in src_root.rglob("*"):
+        if path.is_file():
+            dest = dst_root / path.relative_to(src_root.parent)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.touch()
+
+
+def _wiki_output_surface(docs_root: Path) -> set[Path]:
+    """The generator's output surface, relative to `docs_root`: everything under
+    docs/wiki plus the reference-doc HTML wrappers."""
+    wiki = docs_root / "wiki"
+    surface: set[Path] = set()
+    if wiki.exists():
+        for path in wiki.rglob("*"):
+            if path.is_file():
+                surface.add(path.relative_to(docs_root))
+    for stem in ["VARIABLE_MATRIX", "ITEM_AND_RECIPE_MATRIX", "ITEM_GRAPH",
+                 "IMAGE_INVENTORY_MATRIX", "ASSET_ROADMAP", "UI_ASSET_GAPS"]:
+        html = docs_root / f"{stem}.html"
+        if html.exists():
+            surface.add(html.relative_to(docs_root))
+    return surface
+
+
+def check_drift() -> int:
+    """Regenerate the wiki into a throwaway tree and compare it to the committed
+    output. Makes no in-place changes; exits nonzero on drift, missing output,
+    or an unexpected generated file."""
+    real_root = Path(__file__).resolve().parents[2]
+    real_docs = real_root / "docs"
+    with tempfile.TemporaryDirectory(prefix="coheronia_wiki_check_") as tmp:
+        tmp_root = Path(tmp)
+        shutil.copytree(real_root / "data", tmp_root / "data")
+        shutil.copytree(real_docs, tmp_root / "docs")
+        _mirror_existence(real_root / "art", tmp_root)
+        try:
+            _configure_paths(tmp_root)
+            generate()
+        finally:
+            _configure_paths(real_root)
+
+        tmp_docs = tmp_root / "docs"
+        real_surface = _wiki_output_surface(real_docs)
+        tmp_surface = _wiki_output_surface(tmp_docs)
+
+        drift: list[str] = []
+        for rel in sorted(tmp_surface - real_surface):
+            drift.append(f"UNEXPECTED (regenerate + commit): {rel.as_posix()}")
+        for rel in sorted(real_surface - tmp_surface):
+            drift.append(f"STALE (generator no longer produces it): {rel.as_posix()}")
+        for rel in sorted(real_surface & tmp_surface):
+            if not filecmp.cmp(real_docs / rel, tmp_docs / rel, shallow=False):
+                drift.append(f"DRIFT (out of date): {rel.as_posix()}")
+
+    if drift:
+        print("FAIL wiki generation drift: %d file(s) differ from `generate_wiki.py`."
+              % len(drift))
+        print("     Run `python scripts/wiki/generate_wiki.py` and commit the result.")
+        for item in drift[:50]:
+            print(f"- {item}")
+        if len(drift) > 50:
+            print(f"  ... and {len(drift) - 50} more")
+        return 1
+    print("PASS wiki generated: output matches `generate_wiki.py` (no drift)")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Coheronia wiki generator")
+    ap.add_argument("--check", action="store_true",
+                    help="Deterministically verify committed wiki matches the "
+                         "generator (no in-place changes); nonzero on drift.")
+    args = ap.parse_args()
+    if args.check:
+        return check_drift()
     summary = generate()
     for key, value in summary.items():
         print(f"{key}: {value}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

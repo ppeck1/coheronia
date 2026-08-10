@@ -1,6 +1,6 @@
 # Items
 
-Generated: 2026-08-06
+Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
 This page is the item landing page for the current Coheronia wiki tree. It is meant to play the role of an item registry page: browseable, grouped, and link-first.
 

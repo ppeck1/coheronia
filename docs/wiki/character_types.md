@@ -1,6 +1,6 @@
 # Character Types
 
-Generated: 2026-08-06
+Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
 This page groups the current character-facing data into species, Callings, traits, and planned ancestries.
 
@@ -51,4 +51,5 @@ This page groups the current character-facing data into species, Callings, trait
 
 ## Related Pages
 
+- [Skills (Callings, Paths, and tiered skills)](skills.md)
 - [Wiki Overview](wiki.md)

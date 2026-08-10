@@ -2,8 +2,9 @@
 """R-04: Coheronia's single verification command.
 
 Runs the static validation gate (documentation/data validators, strict asset
-audit, HUD-kit runtime hashes, gear alignment, Capsule Doctor, wiki links) and,
-when a Godot binary is supplied, the in-engine source smoke and (with --export)
+audit, HUD-kit runtime hashes, gear alignment, Capsule Doctor, the deterministic
+wiki drift check, wiki links) and, when a Godot binary is supplied, the
+in-engine source smoke and (with --export)
 a real export whose artifact is then *launched* in smoke mode. Source and
 exported results are written to separate files.
 
@@ -88,6 +89,7 @@ STATIC_STEPS = [
     ("capsule_doctor",
      ["_protocol/Project_Ops_Capsule/scripts/capsule_doctor.py", ".",
       "--profile", "public_repo"]),
+    ("wiki_generated", ["scripts/wiki/generate_wiki.py", "--check"]),
     ("wiki_links", ["scripts/wiki/check_links.py"]),
 ]
 

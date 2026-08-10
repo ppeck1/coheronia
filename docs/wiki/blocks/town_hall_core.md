@@ -1,6 +1,6 @@
 # Town Hall Core
 
-Generated: 2026-08-06
+Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
 > `Block` page.
 
