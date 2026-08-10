@@ -1785,6 +1785,36 @@ func _run() -> void:
 		"survive_day2=%s shown=%s hidden=%s" % [
 			str(_g14_survive), str(_g14_shown), str(_g14_hidden)])
 
+	# S-07 onboarding-truth contract: the shipped goal model is exactly the seven
+	# ordered objectives, the live snapshot covers all seven, the panel total is 7
+	# (not the retired 5), and the craft objective routes to the unified crafting
+	# panel (C) — never the retired "Town Hall to forge" instruction. Guards the
+	# README / PLAYTEST_CHECKLIST reconciliation against silent drift.
+	var _s07_goal_ids: Array = []
+	for _s07_goal in _g14_script.GOALS:
+		_s07_goal_ids.append(str(_s07_goal["id"]))
+	var _s07_expected_ids: Array = ["gather", "light", "deposit", "craft",
+		"survive", "house", "defend"]
+	var _s07_craft_hint := ""
+	for _s07_craft_goal in _g14_script.GOALS:
+		if str(_s07_craft_goal["id"]) == "craft":
+			_s07_craft_hint = str(_s07_craft_goal["hint"])
+	var _s07_snap: Dictionary = root._goal_snapshot()
+	var _s07_snap_covers := true
+	for _s07_id in _s07_expected_ids:
+		if not _s07_snap.has(_s07_id):
+			_s07_snap_covers = false
+	var _s07_craft_route_ok: bool = _s07_craft_hint.contains("(C)") \
+		and not _s07_craft_hint.contains("Town Hall")
+	_check("s07_goal_contract",
+		_s07_goal_ids == _s07_expected_ids
+		and int(_g14_script.new().current().get("total", 0)) == 7
+		and _s07_snap_covers and _s07_craft_route_ok,
+		"ids=%s total=%d snap_covers=%s craft_hint=%s" % [
+			str(_s07_goal_ids),
+			int(_g14_script.new().current().get("total", 0)),
+			str(_s07_snap_covers), _s07_craft_hint])
+
 	# --- FQ-15: map / scouting / navigation ---
 	# pure map_state: revealing a cell marks its 3x3 band, not the far world, and
 	# the compact save form round-trips.
@@ -1960,11 +1990,15 @@ func _run() -> void:
 		and hud._crest_title.text.contains("Lv.2") \
 		and hud._bar_values.size() == 3 \
 		and (hud._bar_values["coherence"] as Label).text == "72"
+	# Progress strip mirrors index/total from the live goal model (7 goals now),
+	# not a hardcoded 5 — derive the total so the check tracks the real count.
+	var _fq19_goal_total: int = int(root._goal_tracker.current().get("total", 0))
 	hud.update_goal({"id": "light", "text": "Light the Town Hall",
-		"hint": "Craft a torch.", "index": 1, "total": 5, "all_done": false})
+		"hint": "Craft a torch.", "index": 1, "total": _fq19_goal_total, "all_done": false})
 	var _fq19_goal_ok: bool = hud._goal_progress != null \
 		and is_equal_approx(hud._goal_progress.value, 1.0) \
-		and is_equal_approx(hud._goal_progress.max_value, 5.0) \
+		and is_equal_approx(hud._goal_progress.max_value, float(_fq19_goal_total)) \
+		and _fq19_goal_total == 7 \
 		and hud._goal_label.text.contains("Light the Town Hall")
 	hud.update_goal(root._goal_tracker.current())
 	root._refresh_hud_progression()

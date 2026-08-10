@@ -80,6 +80,7 @@ REQUIRED_RESULT_KEYS = (
 # at run time so the same list works with any Python.
 STATIC_STEPS = [
     ("verify_self_test", ["scripts/ci/test_verify.py"]),
+    ("onboarding_contract", ["scripts/ci/test_onboarding_contract.py"]),
     ("validate_repo", ["scripts/validate_repo.py"]),
     ("asset_audit", ["scripts/asset_audit.py", "--strict"]),
     ("hud_kit_runtime", ["scripts/art/sync_hud_kit.py", "--verify-runtime"]),

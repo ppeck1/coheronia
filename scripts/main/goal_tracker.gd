@@ -18,7 +18,7 @@ const GOALS := [
 	{"id": "deposit", "text": "Deposit resources at the hall",
 		"hint": "Stand by the Town Hall and press E to store materials."},
 	{"id": "craft", "text": "Forge a tool or build a station",
-		"hint": "Open the Town Hall (E) to forge gear or build a station."},
+		"hint": "Open the crafting panel (C) to forge a tool or build a station."},
 	{"id": "survive", "text": "Survive the first night",
 		"hint": "Keep the hall lit and hold on until dawn."},
 	{"id": "house", "text": "Build a house",

@@ -72,13 +72,15 @@ Or open the folder in the Godot editor and press **Play**. On first launch a sho
 
 ### The first loop
 
-The in-game **Goals** panel (**O**) walks you through it from real progress — it only advances when you actually do the thing:
+The in-game **Goals** panel (**O**) walks you through all **seven** objectives from real progress — it only advances when you actually do the thing:
 
 1. **Gather** wood and stone (hold **Left mouse** on trees and rock).
 2. **Light the hall** — craft torches (**C**) and place them (**Right mouse**).
 3. **Deposit** resources at the Town Hall (**E** / **T**).
-4. **Forge a tool or build a station** at the crafting panel (**C**).
+4. **Forge a tool or build a station** at the unified crafting panel (**C**).
 5. **Survive the night** — threats scale after dark; torches, walls, and a defender hold the line.
+6. **Build a house** — wall in a room with a door (craft doors with **C**) to raise settlement housing.
+7. **Post a defender** — open the Town Hall (**E**) and cycle a settler to **Defender** to guard the walls.
 
 ### A look at the world
 
