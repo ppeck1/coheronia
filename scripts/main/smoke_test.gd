@@ -4620,6 +4620,20 @@ func _run() -> void:
 	_check("player_visual_collision_unchanged", _pv_shape.size == Vector2(12, 28),
 		"size=%s" % str(_pv_shape.size))
 
+	# S-07.1b (F10): the sword swing family now has authored overlays for every
+	# live body (previously the sword had no swing art and fell back to the
+	# code-drawn arc). Assert the three phase frames resolve for a couple of live
+	# species; the renderer picks them up via the <tool>_<body>_swing_<phase>
+	# convention. Pick/axe stay hand-authored (unchanged).
+	var _sw_frames_ok := true
+	for _sw_sp in ["human", "orc"]:
+		for _sw_ph in range(3):
+			if BlockRegistry.visual_texture("player_gear",
+					"sword_crude_%s_swing_%d" % [_sw_sp, _sw_ph]) == null:
+				_sw_frames_ok = false
+	_check("s07_sword_swing_frames_authored", _sw_frames_ok,
+		"human+orc sword_crude 3-phase overlays present=%s" % str(_sw_frames_ok))
+
 	# --- PR-02: character rendering contract surface ---
 	# presentation_snapshot() is the documented surface every consumer reads;
 	# pin its key set, the compositing order, and that visible_gear exposes only
@@ -5909,8 +5923,10 @@ func _run() -> void:
 		"pick=%s pick@0.4=%s axe@0.4=%s" % [
 			str(_pr04_pick_phases), _pr04_pick_at, _pr04_axe_at])
 
-	# (c) the sword uses the same action contract: an attack aims at the target,
-	# steps through the profile, and renders procedurally (no authored frames).
+	# (c) the sword uses the same action contract: an attack aims at the target and
+	# steps through the profile. S-07.1b (F10): the sword now has an AUTHORED swing
+	# family (was procedural-only), so it renders via overlay frames like pick/axe
+	# through the same contract.
 	player._reset_mining()
 	var _pr04_saved_equip: Dictionary = player.equipment.duplicate(true)
 	player.apply_equipment({"weapon": "sword_crude"})
@@ -5926,10 +5942,10 @@ func _run() -> void:
 	player.apply_equipment(_pr04_saved_equip)
 	_check("pr04_sword_uses_action_contract",
 		_pr04_atk_kind == "attack" and _pr04_atk_item == "sword_crude"
-		and _pr04_atk_proc and _pr04_atk_dir.y < -0.2
+		and not _pr04_atk_proc and _pr04_atk_dir.y < -0.2
 		and _pr04_atk_windup == "windup" and _pr04_atk_recovery == "recovery",
-		"kind=%s item=%s proc=%s dir=%s windup=%s recovery=%s" % [
-			_pr04_atk_kind, _pr04_atk_item, str(_pr04_atk_proc),
+		"kind=%s item=%s authored=%s dir=%s windup=%s recovery=%s" % [
+			_pr04_atk_kind, _pr04_atk_item, str(not _pr04_atk_proc),
 			str(_pr04_atk_dir), _pr04_atk_windup, _pr04_atk_recovery])
 
 	# --- PR-05: creation/select preview composes through the shared render path ---
