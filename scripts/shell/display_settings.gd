@@ -14,6 +14,13 @@ const MAX_ZOOM := 3.0       # closest view — least world, largest content
 const DEFAULT_ZOOM := 1.25  # a wider default than the old fixed 2.0 (see more map)
 const ZOOM_STEP := 0.125    # one wheel notch / +/- key press
 
+# S-07.1b (F6 taste): how strongly an open modal dims the rest of the HUD. Stored
+# as the scrim overlay's alpha; a per-player preference like zoom/volume.
+const MIN_SCRIM := 0.30     # light dim — HUD stays fairly visible behind the modal
+const MAX_SCRIM := 0.85     # heavy dim — the world/HUD nearly blacked out
+const DEFAULT_SCRIM := 0.58 # the shipped S-07.1b default
+const SCRIM_STEP := 0.05
+
 
 static func view_zoom(profile: Dictionary) -> float:
 	return clampf(float(profile.get("view_zoom", DEFAULT_ZOOM)), MIN_ZOOM, MAX_ZOOM)
@@ -24,6 +31,19 @@ static func set_view_zoom(profile: Dictionary, value: float) -> float:
 	var z := clampf(value, MIN_ZOOM, MAX_ZOOM)
 	profile["view_zoom"] = z
 	return z
+
+
+## Modal dim-scrim strength (overlay alpha), clamped to the sane taste range.
+static func scrim_strength(profile: Dictionary) -> float:
+	return clampf(float(profile.get("modal_scrim_strength", DEFAULT_SCRIM)),
+		MIN_SCRIM, MAX_SCRIM)
+
+
+## Store a clamped scrim strength and return the value actually stored.
+static func set_scrim_strength(profile: Dictionary, value: float) -> float:
+	var s := clampf(value, MIN_SCRIM, MAX_SCRIM)
+	profile["modal_scrim_strength"] = s
+	return s
 
 
 static func fullscreen(profile: Dictionary) -> bool:

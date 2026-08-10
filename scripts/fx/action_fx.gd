@@ -17,6 +17,9 @@ const STEPS := {
 	"cast_ring": 4,
 	"dust_puff": 4,
 	"forge_spark": 3,
+	# S-07.1b (F10): a brief directional slash arc that sweeps along a swing so
+	# pick/axe/sword strikes read as motion, not a snap between still poses.
+	"swing_arc": 3,
 }
 const DEFAULT_COLORS := {
 	"place_pulse": Color(0.95, 0.9, 0.75, 0.9),
@@ -24,23 +27,27 @@ const DEFAULT_COLORS := {
 	"cast_ring": Color(0.72, 0.83, 1.0),
 	"dust_puff": Color(0.62, 0.58, 0.52),
 	"forge_spark": Color(1.0, 0.75, 0.3),
+	"swing_arc": Color(0.86, 0.92, 1.0),
 }
 
 var kind := ""
 var color := Color.WHITE
+var aim := Vector2.ZERO   # S-07.1b: swing direction for directional kinds (swing_arc)
 var _time := 0.0
 var _step := 0
 
 
 ## Spawns a self-freeing effect at a world position. Returns the node (null
 ## for unknown kinds or a null parent, so callers never need to guard).
+## `aim` orients directional kinds (swing_arc) along the swing.
 static func spawn(parent: Node, fx_kind: String, at: Vector2,
-		tint: Color = Color.TRANSPARENT) -> Node2D:
+		tint: Color = Color.TRANSPARENT, aim_dir: Vector2 = Vector2.ZERO) -> Node2D:
 	if parent == null or not STEPS.has(fx_kind):
 		return null
 	var fx: Node2D = (load("res://scripts/fx/action_fx.gd") as GDScript).new()
 	fx.kind = fx_kind
 	fx.color = DEFAULT_COLORS[fx_kind] if tint == Color.TRANSPARENT else tint
+	fx.aim = aim_dir
 	fx.global_position = at
 	fx.z_index = 20
 	parent.add_child(fx)
@@ -94,3 +101,16 @@ func _draw() -> void:
 				draw_rect(Rect2(floorf(p4.x), floorf(p4.y), 1, 2), col)
 			if _step == 0:
 				draw_rect(Rect2(-2, -2, 4, 4), col, false, 1.0)
+			return
+		"swing_arc":
+			# A crescent of pixels sweeping along the aim: it starts tight and
+			# expands out, thicker toward the leading edge for a slash feel.
+			var base_ang := aim.angle() if aim.length() > 0.001 else 0.0
+			var radius := 9.0 + 3.0 * float(_step)
+			var spread := deg_to_rad(80.0)
+			for k in range(9):
+				var frac := float(k) / 8.0
+				var a := base_ang - spread * 0.5 + spread * frac
+				var p := Vector2(cos(a), sin(a)) * radius
+				var sz := 2.0 if frac > 0.6 else 1.0
+				draw_rect(Rect2(floorf(p.x), floorf(p.y), sz, sz), col)

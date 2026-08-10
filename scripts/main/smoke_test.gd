@@ -5493,6 +5493,29 @@ func _run() -> void:
 		"default=%.3f hi=%.3f lo=%.3f nudged=%.3f fs=%s->%s"
 			% [_ds_default, _ds_hi, _ds_lo, _ds_nudged, str(_ds_fs0), str(_ds_fs1)])
 
+	# S-07.1b (F6 taste): the modal dim-scrim strength is a persisted, clamped
+	# preference that the live HUD scrim actually consumes (default/clamp on an
+	# isolated dict; live consumption via a real modal open).
+	var _sc_p: Dictionary = {}
+	var _sc_default: float = _ds.scrim_strength(_sc_p)          # unset -> DEFAULT_SCRIM
+	var _sc_hi: float = _ds.set_scrim_strength(_sc_p, 9.0)      # clamps to MAX_SCRIM
+	var _sc_lo: float = _ds.set_scrim_strength(_sc_p, -9.0)     # clamps to MIN_SCRIM
+	var _sc_saved: float = _ds.scrim_strength(GameState.profile)
+	_ds.set_scrim_strength(GameState.profile, 0.70)
+	var _sc_was_open: bool = hud.town_panel_open()
+	if not _sc_was_open:
+		hud.toggle_town_panel()
+	var _sc_alpha: float = hud._modal_scrim.color.a
+	var _sc_visible: bool = hud._modal_scrim.visible
+	if not _sc_was_open:
+		hud.toggle_town_panel()
+	_ds.set_scrim_strength(GameState.profile, _sc_saved)        # restore real profile
+	_check("s07_scrim_strength_knob",
+		_sc_default == _ds.DEFAULT_SCRIM and _sc_hi == _ds.MAX_SCRIM and _sc_lo == _ds.MIN_SCRIM
+			and _sc_visible and absf(_sc_alpha - 0.70) < 0.001,
+		"default=%.2f hi=%.2f lo=%.2f live_alpha=%.3f vis=%s" % [
+			_sc_default, _sc_hi, _sc_lo, _sc_alpha, str(_sc_visible)])
+
 	# (g) InputSettings honors the REBINDABLE contract: rebind() ignores an action
 	# outside the set, and apply() ignores a stored override for one.
 	InputSettings.rebind(GameState.profile, "ui_cancel", _r07_ev)   # not rebindable
@@ -6036,6 +6059,32 @@ func _run() -> void:
 	_check("fq09m_fx_transient",
 		get_tree().get_nodes_in_group("action_fx").is_empty(),
 		"remaining=%d" % get_tree().get_nodes_in_group("action_fx").size())
+
+	# S-07.1b (F10): a weapon swing spawns exactly one directional slash arc that
+	# carries its aim and self-frees like every other action FX (the FX group is
+	# empty here after the transient check above).
+	var _sa_before: int = get_tree().get_nodes_in_group("action_fx").size()
+	player.start_attack_swing(Vector2.RIGHT)
+	var _sa_after: int = get_tree().get_nodes_in_group("action_fx").size()
+	var _sa_node: Node = null
+	for _sa_fx in get_tree().get_nodes_in_group("action_fx"):
+		if str(_sa_fx.kind) == "swing_arc":
+			_sa_node = _sa_fx
+	# Capture presence/aim BEFORE freeing (a freed reference misreports != null).
+	var _sa_spawned: bool = _sa_node != null
+	var _sa_aimed: bool = _sa_spawned and _sa_node.aim.x > 0.5
+	for _sa_fx in get_tree().get_nodes_in_group("action_fx"):
+		if is_instance_valid(_sa_fx):
+			_sa_fx._process(1.0)
+	await get_tree().process_frame
+	var _sa_freed := true
+	for _sa_fx in get_tree().get_nodes_in_group("action_fx"):
+		if str(_sa_fx.kind) == "swing_arc":
+			_sa_freed = false
+	_check("s07_swing_arc_fx",
+		_sa_after == _sa_before + 1 and _sa_spawned and _sa_aimed and _sa_freed,
+		"delta=%d spawned=%s aimed=%s freed=%s" % [
+			_sa_after - _sa_before, str(_sa_spawned), str(_sa_aimed), str(_sa_freed)])
 
 	# --- FQ-09U (audio): adaptive context music, stem layering, stingers ---
 	# S-07.3: order-preserving extraction - this section's body lives verbatim in

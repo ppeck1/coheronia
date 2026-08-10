@@ -195,7 +195,9 @@ func _build_settings() -> Control:
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_child(panel)
 	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 6)
+	# S-07.1b: tightened from 6 so the added "Modal Dim" row keeps the Settings
+	# content within the 640x360 fit budget (r07_settings_fits_640x360).
+	vb.add_theme_constant_override("separation", 4)
 	panel.add_child(vb)
 	_settings_vbox = vb
 
@@ -213,6 +215,10 @@ func _build_settings() -> Control:
 		DisplaySettings.view_zoom(GameState.profile), _on_view_zoom))
 	vb.add_child(_check_row("Fullscreen",
 		DisplaySettings.fullscreen(GameState.profile), _on_fullscreen))
+	# S-07.1b: how strongly an open menu dims the rest of the screen (taste knob).
+	vb.add_child(_range_slider_row("Modal Dim",
+		DisplaySettings.MIN_SCRIM, DisplaySettings.MAX_SCRIM, DisplaySettings.SCRIM_STEP,
+		DisplaySettings.scrim_strength(GameState.profile), _on_scrim_strength))
 
 	var kb := Label.new()
 	kb.text = "Key Bindings"
@@ -222,7 +228,7 @@ func _build_settings() -> Control:
 	# The scrollable list is the ONLY element that grows/shrinks with the
 	# viewport; everything else stays fixed and on-screen.
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 40)
+	scroll.custom_minimum_size = Vector2(0, 24)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll = scroll
@@ -302,6 +308,14 @@ func _on_volume(which: String, value: float) -> void:
 func _on_view_zoom(value: float) -> void:
 	DisplaySettings.set_view_zoom(GameState.profile, value)
 	DisplaySettings.apply_zoom(GameState.profile, get_viewport().get_camera_2d())
+	GameState.save_shell()
+
+
+## Settings "Modal Dim" slider: store the scrim strength and persist. The HUD
+## re-reads it whenever a modal opens, so no cross-scene apply is needed (the
+## pause menu closes any open panel first, so nothing is dimmed while tuning).
+func _on_scrim_strength(value: float) -> void:
+	DisplaySettings.set_scrim_strength(GameState.profile, value)
 	GameState.save_shell()
 
 

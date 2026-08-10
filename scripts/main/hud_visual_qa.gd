@@ -5,6 +5,8 @@ extends Node
 ## aid only; smoke remains the functional gate.
 
 const QA_DIR := "user://hud_qa"
+const DisplaySettings := preload("res://scripts/shell/display_settings.gd")
+const ActionFxScript := preload("res://scripts/fx/action_fx.gd")
 
 var _records: Array[Dictionary] = []
 
@@ -103,6 +105,35 @@ func _run() -> void:
 	DisplayServer.window_set_size(Vector2i(1280, 720))
 	for i in range(12):
 		await get_tree().process_frame
+
+	# S-07.1b (F6 taste): the modal dim-scrim strength knob — capture its min and
+	# max behind an open modal so the operator can judge the range. Restore after.
+	var _scrim_had: bool = GameState.profile.has("modal_scrim_strength")
+	var _scrim_saved: float = DisplaySettings.scrim_strength(GameState.profile)
+	hud.toggle_town_panel()
+	DisplaySettings.set_scrim_strength(GameState.profile, DisplaySettings.MIN_SCRIM)
+	hud._refresh_modal_presentation()
+	await _shot("14_scrim_min", "Modal dim at MIN (%.2f) behind the Town Hall." % DisplaySettings.MIN_SCRIM, hud)
+	DisplaySettings.set_scrim_strength(GameState.profile, DisplaySettings.MAX_SCRIM)
+	hud._refresh_modal_presentation()
+	await _shot("15_scrim_max", "Modal dim at MAX (%.2f) behind the Town Hall." % DisplaySettings.MAX_SCRIM, hud)
+	hud.toggle_town_panel()
+	if _scrim_had:
+		DisplaySettings.set_scrim_strength(GameState.profile, _scrim_saved)
+	else:
+		GameState.profile.erase("modal_scrim_strength")
+
+	# S-07.1b (F10): the directional swing-arc action FX, staged at the player and
+	# captured on its first (widest) step before it self-frees.
+	for i in range(8):
+		await get_tree().process_frame
+	ActionFxScript.spawn(world, "swing_arc",
+		player.global_position + Vector2(11, -6), Color.TRANSPARENT, Vector2(1.0, -0.25))
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png("%s/16_swing_arc.png" % QA_DIR)
+	_records.append({"name": "16_swing_arc", "path": "%s/16_swing_arc.png" % QA_DIR,
+		"note": "Directional swing-arc FX (F10) sweeping right at the player."})
 
 	_write_manifest(hud)
 	print("HUD_QA complete -> %s" % QA_DIR)

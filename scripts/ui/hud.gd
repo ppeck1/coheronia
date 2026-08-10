@@ -128,6 +128,7 @@ const MapPanelScript := preload("res://scripts/ui/map_panel.gd")
 const HudChrome := preload("res://scripts/ui/hud/hud_chrome.gd")
 # R-06.2: stateless HUD edit-mode geometry math (measure / min-max / grip / clamp).
 const HudEditGeometry := preload("res://scripts/ui/hud/hud_edit_geometry.gd")
+const DisplaySettings := preload("res://scripts/shell/display_settings.gd")   # S-07.1b scrim knob
 var _map_panel: Control
 var _map_open := false
 # FQ-07/FQ-09: toolbelt slot tiles — always-visible item icons (real art or
@@ -2842,6 +2843,9 @@ func _refresh_modal_presentation() -> void:
 	if _modal_scrim != null:
 		_modal_scrim.visible = modal_open
 		if modal_open:
+			# Re-read the taste knob each open so a changed preference applies
+			# without rebuilding the HUD.
+			_modal_scrim.color = _scrim_color()
 			var panel: Control = _active_modal_panel()
 			move_child(_modal_scrim, get_child_count() - 1)
 			if panel != null:
@@ -2867,11 +2871,17 @@ func _active_modal_panel() -> Control:
 func _build_modal_scrim() -> void:
 	_modal_scrim = ColorRect.new()
 	_modal_scrim.name = "ModalScrim"
-	_modal_scrim.color = Color(0.02, 0.02, 0.04, 0.58)
+	_modal_scrim.color = _scrim_color()
 	_modal_scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_modal_scrim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_modal_scrim.visible = false
 	add_child(_modal_scrim)
+
+
+## S-07.1b: the scrim tint at the operator-tuned strength (its alpha). The dark
+## base color is fixed; only the dim strength is a taste knob.
+func _scrim_color() -> Color:
+	return Color(0.02, 0.02, 0.04, DisplaySettings.scrim_strength(GameState.profile))
 
 
 func _close_open_modal_panels(except_id: String) -> void:

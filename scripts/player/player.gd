@@ -516,6 +516,11 @@ func process_mining(cell: Vector2i, delta: float) -> bool:
 	if block_id == "berry_bush" and bush_bonus_food > 0:
 		world.spawn_item_drop(world.cell_center(cell), "food", bush_bonus_food)
 	_apply_calling_harvest_bonuses(cell, block_id, drops)
+	# S-07.1b (F10): a brief slash arc along the swing so the pick/axe strike that
+	# breaks a block reads as motion, not a still pose. Presentation only.
+	var _break_at: Vector2 = world.cell_center(cell)
+	ActionFx.spawn(world, "swing_arc", _break_at, Color.TRANSPARENT,
+		(_break_at - global_position).normalized())
 	_reset_mining()
 	collect_ground_drops()
 	mined.emit(block_id, drops)
@@ -1289,6 +1294,11 @@ func start_attack_swing(world_dir: Vector2) -> void:
 	if world_dir.length() > 0.001:
 		attack_dir = world_dir.normalized()
 	attack_swing_t = ATTACK_SWING_SEC
+	# S-07.1b (F10): a slash arc sweeping toward the target so weapon strikes read
+	# as a swing rather than a static pose swap. Presentation only.
+	if world != null:
+		ActionFx.spawn(world, "swing_arc",
+			global_position + attack_dir * 10.0, Color.TRANSPARENT, attack_dir)
 
 
 ## PR-04: 0..1 progress through the current weapon swing (1.0 = finished / idle).
