@@ -70,6 +70,7 @@ var _info_label: Label
 var _buy_button: Button
 var _planned_label: Label
 var _canvas: Control
+var _scroll: ScrollContainer          # S-07.1b hook: the card scroll (h disabled)
 var _node_buttons: Dictionary = {}   # perk_id -> Button
 var _aux_labels: Array = []          # Path/tier header labels (freed on rebuild)
 var _node_states: Dictionary = {}    # perk_id -> "purchased"/"available"/"locked"
@@ -126,6 +127,7 @@ func _ready() -> void:
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(scroll)
+	_scroll = scroll
 	_canvas = Control.new()
 	_canvas.draw.connect(_draw_canvas)
 	scroll.add_child(_canvas)
@@ -366,6 +368,18 @@ func info_text() -> String:
 ## the live lane) the canvas draws.
 func link_count() -> int:
 	return _links.size()
+
+
+## S-07.1b hooks: the Path-card scroll disables horizontal scrolling, and the
+## laid-out card canvas fits the panel width (so no horizontal scrollbar is ever
+## needed — the F7 fix). Pure reads for the smoke contract.
+func content_h_scroll_disabled() -> bool:
+	return _scroll != null \
+		and _scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED
+
+
+func canvas_min_width() -> float:
+	return _canvas.custom_minimum_size.x if _canvas != null else 0.0
 
 
 ## Calling system hooks: how many skill nodes the panel currently shows (both

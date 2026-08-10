@@ -70,6 +70,17 @@ func _check(name: String, ok: bool, detail: String = "") -> void:
 	_suite_bucket(_suite_for(name))["passed" if ok else "failed"] += 1
 
 
+## True when `node` is `ancestor` or lives somewhere beneath it. Used by the
+## S-07.1b char-create contract to prove the action row is OUTSIDE the scroll.
+func _is_descendant_of(node: Node, ancestor: Node) -> bool:
+	var n: Node = node
+	while n != null:
+		if n == ancestor:
+			return true
+		n = n.get_parent()
+	return false
+
+
 ## Depth-first search for a Button with the given text under `node` (or null).
 ## Lets a check press a real in-panel button so the actual handler is exercised.
 func _find_button_with_text(node: Node, text: String) -> Button:
@@ -4049,6 +4060,104 @@ func _run() -> void:
 		_pr08_fits_360 and _pr08_fits_720 and _pr08_roomier and _pr08_live_ok,
 		"s360=%s s720=%s live=%s vp=%s" % [str(_pr08_s360), str(_pr08_s720),
 			str(_pr08_live_ok), str(_pr08_vp)])
+
+	# --- S-07.1b (F7): Calling panel never needs a horizontal scrollbar ---
+	# The two Path cards are sized to fit the panel width; the card scroll disables
+	# horizontal scrolling and the laid-out canvas width stays within the panel, so
+	# no h-scrollbar appears (regression contract for the 640x360 fix). The panel
+	# stays valid at 1280x720.
+	var _s07cp = hud.skill_panel()
+	var _s07cp_calling_lanes := 0
+	for _s07cp_lane in root.perk_lanes():
+		if str(_s07cp_lane.get("calling", "")) == str(root.current_calling()):
+			_s07cp_calling_lanes += 1
+	var _s07cp_720: Vector2 = _s07cp.panel_size_for(Vector2(1280, 720))
+	var _s07cp_360: Vector2 = _s07cp.panel_size_for(Vector2(640, 360))
+	_check("s07_calling_panel_no_hscroll",
+		_s07cp.content_h_scroll_disabled()
+		and _s07cp.canvas_min_width() <= _s07cp.panel_size().x + 0.5
+		and _s07cp_360.x <= 640.0 and _s07cp_720.x <= 1280.0 and _s07cp_720.x > 540.0
+		and _s07cp_calling_lanes == 2 and _s07cp.node_count() == 24,
+		"h_disabled=%s canvas_w=%.1f panel_w=%.1f lanes=%d nodes=%d s360x=%.1f s720x=%.1f" % [
+			str(_s07cp.content_h_scroll_disabled()), _s07cp.canvas_min_width(),
+			_s07cp.panel_size().x, _s07cp_calling_lanes, _s07cp.node_count(),
+			_s07cp_360.x, _s07cp_720.x])
+
+	# --- S-07.1b (F9): character creation is legible/operable at 640x360 ---
+	# Build the real shell char-create screen in isolation (suppressing the smoke
+	# scene redirect) forced into the compact layout, and assert its contract: a
+	# vertical-only scroll with the action row pinned OUTSIDE it, a typography
+	# floor, usable control heights, a non-clipped in-form preview, every selector
+	# present, and a creatable default character — with no horizontal scrolling.
+	var _cc_ScriptCC := preload("res://scripts/shell/shell_ui.gd")
+	var _cc := _cc_ScriptCC.new()
+	_cc.suppress_smoke_redirect = true
+	_cc._forced_compact = 1   # pin compact before _ready builds the base
+	_cc.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	add_child(_cc)
+	_cc.size = Vector2(640, 360)
+	_cc._show_char_create()
+	for _cc_i in range(3):
+		await get_tree().process_frame
+	var _cc_scroll: ScrollContainer = _cc._cc_scroll
+	var _cc_form: Control = _cc_scroll.get_child(0) if _cc_scroll != null and _cc_scroll.get_child_count() > 0 else null
+	var _cc_create: Button = _find_button_with_text(_cc._content, "Create")
+	var _cc_back: Button = _find_button_with_text(_cc._content, "Back")
+	# structure: form scrolls vertically inside the ScrollContainer; the action row
+	# is a sibling of the scroll (outside it) and reachable.
+	var _cc_scroll_ok: bool = _cc_scroll != null \
+		and _cc_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED \
+		and _cc_scroll.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED \
+		and _cc_form != null and _is_descendant_of(_cc._create_preview, _cc_form)
+	var _cc_actions_ok: bool = _cc_create != null and _cc_back != null \
+		and not _cc_create.disabled and not _cc_back.disabled \
+		and not _is_descendant_of(_cc_create, _cc_scroll) \
+		and not _is_descendant_of(_cc_back, _cc_scroll)
+	# no horizontal overflow: the laid-out form fits the 640 content width.
+	var _cc_form_w: float = _cc_form.get_combined_minimum_size().x if _cc_form != null else 9999.0
+	var _cc_no_hscroll: bool = _cc_form_w <= 640.0
+	# typography floor: every compact role sits at/above the documented floor.
+	var _cc_floor: int = _cc.CC_FONT_FLOOR
+	var _cc_type_ok: bool = _cc_floor >= 12 \
+		and _cc._cc_fs("header") >= _cc_floor and _cc._cc_fs("body") >= _cc_floor \
+		and _cc._cc_fs("note") >= _cc_floor
+	# usable control heights in compact.
+	var _cc_ctrls_ok: bool = _cc._species_option.custom_minimum_size.y >= 24.0 \
+		and _cc._role_option.custom_minimum_size.y >= 24.0 \
+		and _cc._appearance_option.custom_minimum_size.y >= 24.0 \
+		and _cc._name_edit.custom_minimum_size.y >= 24.0
+	# preview present, in the form, and not eating disproportionate vertical space
+	# (compact draws it at half the large scale — well under this cap; the large
+	# 192px preview would exceed it).
+	var _cc_preview_ok: bool = _cc._create_preview != null \
+		and _cc._create_preview.get_combined_minimum_size().y <= 160.0
+	# every creation selector present and populated.
+	var _cc_selectors_ok: bool = _cc._species_option.item_count > 0 \
+		and _cc._body_variant_option.item_count > 0 \
+		and _cc._appearance_option.item_count > 0 \
+		and _cc._role_option.item_count > 0 \
+		and _cc._visual_variant_spin != null and _cc._name_edit != null \
+		and not _cc._trait_checks.is_empty()
+	# a default character is still creatable: create it, confirm, then clean up.
+	var _cc_made: Dictionary = GameState.create_character({
+		"name": "S07_CC_Probe",
+		"species": _cc._option_id(_cc._species_option, _cc._species_ids, "human"),
+		"body_variant": _cc._option_id(_cc._body_variant_option, _cc._body_variant_ids, "masculine"),
+		"appearance": _cc._option_id(_cc._appearance_option, _cc._appearance_ids, "tan"),
+		"role": _cc._option_id(_cc._role_option, _cc._role_ids, BlockRegistry.default_calling()),
+		"traits": [],
+	})
+	var _cc_create_ok: bool = not _cc_made.is_empty()
+	if _cc_create_ok:
+		GameState.delete_character(str(_cc_made.get("id", "")))
+	_check("s07_char_create_640_legibility_contract",
+		_cc_scroll_ok and _cc_actions_ok and _cc_no_hscroll and _cc_type_ok
+		and _cc_ctrls_ok and _cc_preview_ok and _cc_selectors_ok and _cc_create_ok,
+		"scroll=%s actions=%s no_hscroll=%s(form_w=%.1f) type=%s(floor=%d) ctrls=%s preview=%s selectors=%s create=%s" % [
+			str(_cc_scroll_ok), str(_cc_actions_ok), str(_cc_no_hscroll), _cc_form_w,
+			str(_cc_type_ok), _cc_floor, str(_cc_ctrls_ok), str(_cc_preview_ok),
+			str(_cc_selectors_ok), str(_cc_create_ok)])
+	_cc.queue_free()
 
 	# --- R-01: export-safe runtime resources ---
 	# Every authored art category and every music stream must load through the
