@@ -54,9 +54,37 @@ const RULES_FUTURE := [
 	["scarcity_increases", "Scarcity increases"],
 ]
 
+# --- S-07.1b (F9): responsive character-creation layout ---
+# The stretch mode is canvas_items/expand, so a same-aspect small window keeps the
+# 1280x720 LOGICAL viewport and the whole UI is SCALED DOWN to the window. That is
+# exactly why char-create reads tiny at 640x360: 12-13px logical text renders at
+# ~6px physical. So the trigger is the physical WINDOW width (not the logical
+# viewport), and the response RAISES logical type so the downscaled result clears
+# a comfortable floor — while packing tighter (smaller margins, a smaller preview,
+# a reflow) so the larger type still fits with vertical scrolling.
+const CC_COMPACT_MAX_WINDOW_WIDTH := 900.0
+# Compact multiplies the (preserved) large-viewport font sizes so the downscaled
+# physical text is legible; CC_FONT_FLOOR is the documented LOGICAL minimum any
+# compact character-creation copy must meet.
+const CC_COMPACT_FONT_SCALE := 1.75
+const CC_FONT_FLOOR := 20
+const CC_PREVIEW_SCALE_LARGE := 6.0
+const CC_PREVIEW_SCALE_COMPACT := 3.0
+const CC_CONTROL_MIN_H_COMPACT := 30.0
+const SHELL_MARGIN_LARGE := {"h": 40, "v": 24}
+const SHELL_MARGIN_COMPACT := {"h": 16, "v": 10}
+
 var _built := false
 var _screen: Screen = Screen.TITLE
 var _content: VBoxContainer
+var _margin: MarginContainer
+# S-07.1b: char-create form scroll (kept so resize/tour can restore scroll pos).
+var _cc_scroll: ScrollContainer
+# Force compact regardless of window (-1 = auto). A test host sets this to pin
+# the compact layout for the 640x360 legibility contract without resizing.
+var _forced_compact := -1
+# Let a test host build shell screens without the smoke/QA scene redirect.
+var suppress_smoke_redirect := false
 var _title_backdrop: TextureRect
 var _selected_char_id: String = ""
 var _prologue: Control = null   # FQ-09C: live prologue overlay, null when idle
@@ -100,12 +128,15 @@ var _rule_checks: Dictionary = {}          # rule key -> CheckBox
 
 
 func _ready() -> void:
-	if OS.get_environment("COHERONIA_SMOKE") == "1" \
-			or OS.get_environment("COHERONIA_HUD_QA") == "1":
+	if (OS.get_environment("COHERONIA_SMOKE") == "1" \
+			or OS.get_environment("COHERONIA_HUD_QA") == "1") \
+			and not suppress_smoke_redirect:
 		GameState.ensure_play_context()
 		get_tree().change_scene_to_file.call_deferred("res://scenes/main/Main.tscn")
 		return
 	_build_base()
+	if suppress_smoke_redirect:
+		return   # a test host drives screens directly (no title/prologue/tour)
 	if OS.get_environment("COHERONIA_SHOTS") == "1":
 		# FQ-09C: the shot tour keeps its exact pre-prologue title behavior.
 		_show_title()
@@ -125,11 +156,19 @@ func _run_shot_tour() -> void:
 	_show_char_create()
 	await _tour_shot("07_character_create")
 	# Capture the character-create screen at a 640x360 window too, to show the
-	# scrolling form + pinned Create/Back action row fit at a small viewport.
+	# compact reflow + pinned Create/Back action row at a small viewport. The
+	# resize triggers _on_viewport_resized, which rebuilds char-create compact.
 	DisplayServer.window_set_size(Vector2i(640, 360))
 	for _i in range(20):
 		await get_tree().process_frame
 	await _tour_shot("07b_character_create_small")
+	# Scroll the compact form down to the traits area (Create/Back stay pinned
+	# outside the scroll) and capture that too.
+	if _cc_scroll != null:
+		_cc_scroll.scroll_vertical = 100000   # clamps to the bottom
+		for _i in range(10):
+			await get_tree().process_frame
+	await _tour_shot("07c_character_create_traits")
 	DisplayServer.window_set_size(Vector2i(1280, 720))
 	for _i in range(8):
 		await get_tree().process_frame
@@ -202,11 +241,9 @@ func _build_base() -> void:
 	add_child(_title_backdrop)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 40)
-	margin.add_theme_constant_override("margin_right", 40)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
 	add_child(margin)
+	_margin = margin
+	_apply_shell_margins()
 	_content = VBoxContainer.new()
 	_content.add_theme_constant_override("separation", 10)
 	margin.add_child(_content)
@@ -217,6 +254,120 @@ func _build_base() -> void:
 	_confirm.confirmed.connect(_perform_pending_delete)
 	add_child(_confirm)
 	_built = true
+	# S-07.1b (F9): react to window resizes so the layout adapts without leaving
+	# and reopening the screen (margins always; char-create rebuilds, preserving
+	# in-progress selections).
+	var vp := get_viewport()
+	if vp != null:
+		vp.size_changed.connect(_on_viewport_resized)
+
+
+# ---------- S-07.1b (F9): responsive layout helpers ----------
+
+## True when the current (or test-forced) logical viewport is small enough to use
+## the compact character-creation layout.
+func _cc_compact() -> bool:
+	if _forced_compact >= 0:
+		return _forced_compact == 1
+	var win := get_window()
+	if win == null:
+		return false
+	return float(win.size.x) <= CC_COMPACT_MAX_WINDOW_WIDTH
+
+
+## Font size for a semantic role. Large-viewport sizes are the historical values
+## (unchanged). Compact multiplies them so the downscaled physical text clears the
+## floor; the smallest compact size ("note") stays >= CC_FONT_FLOOR.
+func _cc_fs(role: String) -> int:
+	var base: int = {"header": 16, "label": 13, "body": 13, "note": 12}.get(role, 13)
+	if not _cc_compact():
+		return base
+	return maxi(CC_FONT_FLOOR if role != "header" else int(round(16 * CC_COMPACT_FONT_SCALE)),
+		int(round(base * CC_COMPACT_FONT_SCALE)))
+
+
+## Minimum control height: a usable floor in compact, default (0 = theme) large.
+func _cc_ctrl_h() -> float:
+	return CC_CONTROL_MIN_H_COMPACT if _cc_compact() else 0.0
+
+
+## Apply compact styling (usable min height + up-scaled font) to a form control.
+func _cc_style_ctrl(ctrl: Control) -> void:
+	ctrl.custom_minimum_size.y = _cc_ctrl_h()
+	if _cc_compact():
+		ctrl.add_theme_font_size_override("font_size", _cc_fs("body"))
+
+
+## Apply responsive outer margins to the shared shell margin container.
+func _apply_shell_margins() -> void:
+	if _margin == null:
+		return
+	var m: Dictionary = SHELL_MARGIN_COMPACT if _cc_compact() else SHELL_MARGIN_LARGE
+	_margin.add_theme_constant_override("margin_left", int(m["h"]))
+	_margin.add_theme_constant_override("margin_right", int(m["h"]))
+	_margin.add_theme_constant_override("margin_top", int(m["v"]))
+	_margin.add_theme_constant_override("margin_bottom", int(m["v"]))
+
+
+## React to a live window resize: re-apply margins, and rebuild character
+## creation (only) so it re-flows for the new size while preserving the
+## in-progress selections and scroll position.
+func _on_viewport_resized() -> void:
+	if not _built:
+		return
+	_apply_shell_margins()
+	if _screen == Screen.CHAR_CREATE:
+		var snap := _snapshot_create_form()
+		_show_char_create()
+		_restore_create_form(snap)
+
+
+## Capture the in-progress character-creation selections so a resize-driven
+## rebuild does not reset the form.
+func _snapshot_create_form() -> Dictionary:
+	if _name_edit == null or _species_option == null:
+		return {}
+	var traits: Array = []
+	for tid in _trait_checks:
+		if (_trait_checks[tid] as CheckBox).button_pressed:
+			traits.append(tid)
+	return {
+		"name": _name_edit.text,
+		"species": _species_option.selected,
+		"body": _body_variant_option.selected,
+		"look": int(_visual_variant_spin.value),
+		"appearance": _appearance_option.selected,
+		"role": _role_option.selected,
+		"traits": traits,
+		"scroll_v": _cc_scroll.scroll_vertical if _cc_scroll != null else 0,
+	}
+
+
+## Restore selections captured by _snapshot_create_form onto the freshly rebuilt
+## form.
+func _restore_create_form(snap: Dictionary) -> void:
+	if snap.is_empty():
+		return
+	_name_edit.text = str(snap.get("name", "Settler"))
+	_species_option.select(int(snap.get("species", 0)))
+	_update_species_detail(_species_option.selected)
+	_body_variant_option.select(int(snap.get("body", 0)))
+	_refresh_look_range()
+	_visual_variant_spin.value = int(snap.get("look", 0))
+	_appearance_option.select(int(snap.get("appearance", 0)))
+	_update_swatch(_appearance_option.selected)
+	_role_option.select(int(snap.get("role", 0)))
+	_update_role_desc(_role_option.selected)
+	var kept: Array = snap.get("traits", [])
+	for tid in _trait_checks:
+		(_trait_checks[tid] as CheckBox).button_pressed = tid in kept
+	_enforce_trait_limit()
+	_update_create_preview()
+	var target: int = int(snap.get("scroll_v", 0))
+	if _cc_scroll != null and target > 0:
+		await get_tree().process_frame   # scroll range is valid after a layout pass
+		if _cc_scroll != null:
+			_cc_scroll.scroll_vertical = target
 
 
 ## R-07: arm a destructive delete and ask for confirmation instead of deleting
@@ -456,36 +607,66 @@ func _update_create_preview(_ignored: Variant = null) -> void:
 func _show_char_create() -> void:
 	_screen = Screen.CHAR_CREATE
 	_clear_content()
-	_header(_content, "New character")
+	var compact := _cc_compact()
+	_label(_content, "New character", _cc_fs("header"))
 	# The form can be taller than the viewport (preview + many selectors), so it
 	# scrolls; the Create/Back action row is added to _content AFTER this scroll,
 	# so it stays pinned and reachable at the bottom at any viewport size. Mirrors
-	# the world-create screen.
+	# the world-create screen. F9: horizontal scrolling is disabled — content
+	# wraps/fits the width so no horizontal scrollbar ever appears.
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_content.add_child(scroll)
+	_cc_scroll = scroll
 	var form := VBoxContainer.new()
 	form.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	form.add_theme_constant_override("separation", 8)
+	form.add_theme_constant_override("separation", 6 if compact else 8)
 	scroll.add_child(form)
 	var data: Dictionary = BlockRegistry.character_data
 
-	# PR-05: live figure preview at the top of the form, composed through the
-	# shared render path and refreshed as figure-affecting selectors change.
-	_create_preview = _make_character_preview(6.0)
-	var preview_center := CenterContainer.new()
-	preview_center.add_child(_create_preview)
-	form.add_child(preview_center)
+	# PR-05: live figure preview composed through the shared render path and
+	# refreshed as figure-affecting selectors change. F9: compact reflows the
+	# (smaller) preview beside the Name/Species column to reclaim vertical space
+	# and use the width; large keeps the centered preview above the fields.
+	_create_preview = _make_character_preview(
+		CC_PREVIEW_SCALE_COMPACT if compact else CC_PREVIEW_SCALE_LARGE)
+	var fields_parent: VBoxContainer = form
+	if compact:
+		var top := HBoxContainer.new()
+		top.add_theme_constant_override("separation", 12)
+		top.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		form.add_child(top)
+		var pv := CenterContainer.new()
+		pv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pv.add_child(_create_preview)
+		top.add_child(pv)
+		var ident := VBoxContainer.new()
+		ident.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ident.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ident.add_theme_constant_override("separation", 6)
+		top.add_child(ident)
+		fields_parent = ident
+	else:
+		var preview_center := CenterContainer.new()
+		preview_center.add_child(_create_preview)
+		form.add_child(preview_center)
 
-	var name_row := _form_row(form, "Name")
+	var name_row := _form_row(fields_parent, "Name")
 	_name_edit = LineEdit.new()
 	_name_edit.text = "Settler"
-	_name_edit.custom_minimum_size = Vector2(240, 0)
+	if compact:
+		_name_edit.custom_minimum_size = Vector2(160, CC_CONTROL_MIN_H_COMPACT)
+		_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_name_edit.add_theme_font_size_override("font_size", _cc_fs("body"))
+	else:
+		_name_edit.custom_minimum_size = Vector2(240, 0)
 	name_row.add_child(_name_edit)
 
-	var species_row := _form_row(form, "Species")
+	var species_row := _form_row(fields_parent, "Species")
 	_species_option = OptionButton.new()
+	_cc_style_ctrl(_species_option)
 	_species_ids.clear()
 	var species_list: Array = data.get("species", [])
 	for species_def in species_list:
@@ -496,7 +677,7 @@ func _show_char_create() -> void:
 
 	# Ancestry detail panel (Wave A)
 	_species_detail = Label.new()
-	_species_detail.add_theme_font_size_override("font_size", 12)
+	_species_detail.add_theme_font_size_override("font_size", _cc_fs("note"))
 	_species_detail.add_theme_color_override("font_color", DIM_COLOR)
 	_species_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_species_detail.custom_minimum_size = Vector2(0, 0)
@@ -509,6 +690,7 @@ func _show_char_create() -> void:
 	# data key for save-compat).
 	var role_row := _form_row(form, "Calling (permanent)")
 	_role_option = OptionButton.new()
+	_cc_style_ctrl(_role_option)
 	_role_ids.clear()
 	var role_list: Array = data.get("roles", [])
 	for role_def in role_list:
@@ -516,13 +698,14 @@ func _show_char_create() -> void:
 		_role_option.add_item(str(role_def.get("display_name", "?")))
 	_role_option.item_selected.connect(_update_role_desc)
 	role_row.add_child(_role_option)
-	_role_desc = _label(form, "", 13)
+	_role_desc = _label(form, "", _cc_fs("body"))
 	_role_desc.add_theme_color_override("font_color", DIM_COLOR)
 	_role_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_update_role_desc(0)
 
 	var body_variant_row := _form_row(form, "Body")
 	_body_variant_option = OptionButton.new()
+	_cc_style_ctrl(_body_variant_option)
 	_body_variant_ids.clear()
 	var body_variant_list: Array = data.get("body_variants", [])
 	for body_variant_def in body_variant_list:
@@ -535,6 +718,10 @@ func _show_char_create() -> void:
 	# only where variant art exists, otherwise the default body is drawn.
 	var look_row := _form_row(form, "Look")
 	_visual_variant_spin = SpinBox.new()
+	_visual_variant_spin.custom_minimum_size.y = _cc_ctrl_h()
+	if compact:
+		_visual_variant_spin.get_line_edit().add_theme_font_size_override(
+			"font_size", _cc_fs("body"))
 	_visual_variant_spin.min_value = 0
 	_visual_variant_spin.max_value = 0
 	_visual_variant_spin.step = 1
@@ -545,17 +732,20 @@ func _show_char_create() -> void:
 	_body_variant_option.item_selected.connect(_refresh_look_range)
 	_refresh_look_range()
 	var look_note := _label(form,
-		"Cosmetic only — the selector is limited to authored looks for this body.", 12)
+		"Cosmetic only — the selector is limited to authored looks for this body.",
+		_cc_fs("note"))
 	look_note.add_theme_color_override("font_color", DIM_COLOR)
+	look_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	var carried_note := _label(form,
 		"Character rules: backpack, tools, equipment, ancestry, Calling, and traits follow this character between worlds. Your Calling is a permanent identity choice. Collapse loses a fraction of carried stacks.",
-		12)
+		_cc_fs("note"))
 	carried_note.add_theme_color_override("font_color", DIM_COLOR)
 	carried_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	var appearance_row := _form_row(form, "Appearance")
 	_appearance_option = OptionButton.new()
+	_cc_style_ctrl(_appearance_option)
 	_appearance_ids.clear()
 	var appearance_list: Array = data.get("appearances", [])
 	for appearance_def in appearance_list:
@@ -570,17 +760,28 @@ func _show_char_create() -> void:
 	_update_swatch(0)
 
 	_gap(form, 4)
-	_label(form, "Traits (choose up to %d)" % _max_traits(), 16)
+	_label(form, "Traits (choose up to %d)" % _max_traits(), _cc_fs("header"))
 	_trait_checks.clear()
 	var trait_list: Array = data.get("traits", [])
 	for trait_def in trait_list:
 		var trait_id: String = str(trait_def.get("id", ""))
+		var trait_name: String = str(trait_def.get("display_name", trait_id))
+		var trait_desc: String = str(trait_def.get("description", ""))
 		var check := CheckBox.new()
-		check.text = "%s — %s" % [str(trait_def.get("display_name", trait_id)),
-			str(trait_def.get("description", ""))]
-		check.add_theme_font_size_override("font_size", 13)
+		check.add_theme_font_size_override("font_size", _cc_fs("body") if compact else 13)
 		check.toggled.connect(func(_pressed: bool) -> void: _enforce_trait_limit())
-		form.add_child(check)
+		if compact:
+			# F9: name-only checkbox (no wide single line) + a wrapped description
+			# below, so long trait copy never forces a horizontal scrollbar.
+			check.text = trait_name
+			check.custom_minimum_size.y = CC_CONTROL_MIN_H_COMPACT
+			form.add_child(check)
+			var desc := _label(form, trait_desc, _cc_fs("note"))
+			desc.add_theme_color_override("font_color", DIM_COLOR)
+			desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		else:
+			check.text = "%s — %s" % [trait_name, trait_desc]
+			form.add_child(check)
 		_trait_checks[trait_id] = check
 
 	# PR-05: refresh the preview after every figure-affecting change. Connected
@@ -1032,8 +1233,10 @@ func _form_row(parent: Control, label_text: String) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	parent.add_child(row)
-	var label := _label(row, label_text, 13)
-	label.custom_minimum_size = Vector2(120, 0)
+	# F9: in compact the label uses the up-scaled font and sizes to its content
+	# (no fixed gutter) so the larger type + control still fit the row width.
+	var label := _label(row, label_text, _cc_fs("label"))
+	label.custom_minimum_size = Vector2(0 if _cc_compact() else 120, 0)
 	return row
 
 
