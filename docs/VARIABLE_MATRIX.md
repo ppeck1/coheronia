@@ -634,7 +634,9 @@ The v0.6 smoke suite (122 checks) additionally verifies: ancestry detail text (d
 
 The v0.5 smoke suite (90 checks) additionally verifies: enemies.json loads with 3 live defs; each live enemy spawns with its def id; drops enter the inventory; enemy save/load round-trips id/hp/max_hp/hall_dps; progression JSONs load; XP awards accrue (including human fractional bonus 21 vs 20 over 20 events); level curve; base level advances camp -> hamlet; population caps at 4/6/8 by level and growth is gated; underground threats survive dawn while surface threats are freed; peaceful rule blocks cave spawns; ancestry effects (dwarf mults, orc health, goblin reduction, elf jump) and unknown-species baseline.
 
-The v0.4 smoke suite verifies:
+The v0.4 smoke suite (the earliest historical baseline in this cumulative
+record — not the current suite; see the current-state authorities in
+`docs/HANDOFF.md` and CI) verified:
 
 - shell character/world persistence
 - presets and world config overlay

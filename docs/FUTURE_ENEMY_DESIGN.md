@@ -1,14 +1,32 @@
 # Future Enemy Design Notes
 
-Status: planned future implementation. These notes are design-confirmed material for later builds, but most of the content below is **not integrated as live gameplay yet**. Current v0.4 gameplay has the existing simple night slime pressure unit only.
+Status: forward-looking design notes. Some of this is shipped; much is not. The
+authoritative list of what is live is `data/enemies.json` (`status: "live"`);
+everything marked `planned` there, and every family sketch below without a live
+`data/enemies.json` entry, is design-only and **not integrated as gameplay yet**.
 
-## Existing Confirmed Enemies
+## Currently Live Enemies
 
-| Enemy | Status | Primary Role |
-|---|---|---|
-| `surface_slime` | Design-confirmed | Early surface nuisance, basic crafting source |
-| `cave_crawler` | Design-confirmed | Underground ambush enemy, chitin/silk source |
-| `raider_basic` | Design-confirmed | Settlement raid unit targeting player, Town Hall, or subjects |
+These carry `status: "live"` in `data/enemies.json` and spawn in play today:
+
+| Enemy | Primary Role |
+|---|---|
+| `surface_slime` | Early surface nuisance, basic crafting source |
+| `thornrat` | Crop-eating surface pest |
+| `cave_crawler` | Underground ambush enemy, chitin/silk source |
+| `ore_tick` | Underground ore-drawn pest |
+| `lava_slime` | Hell-biome hazard spawned near lava |
+| `raider_basic` | Settlement raid unit targeting player, Town Hall, or subjects |
+| `raider_torchbearer` | Raider variant that presses lit settlements |
+| `raider_sapper` | Wall-breaking raider |
+
+## Proposed Future Enemy Families (design-only)
+
+The families and rosters below are **proposed** for later builds. Entries that
+already exist in `data/enemies.json` as `planned` (e.g. `ash_wasp`, `mudling`,
+`hollow_stag`, `lantern_leech`, `stoneback_beetle`, `sporekin`, `burrow_maw`,
+`hungry_deserter`, `false_taxman`) are validated data awaiting their consumers;
+the rest are notes only.
 
 ## Enemy Families
 

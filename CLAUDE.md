@@ -13,7 +13,10 @@ Blocks, recipes, enemies, equipment, ancestries, progression, and world presets
 are JSON authorities under `data/`; systems read from them. An in-engine smoke
 harness exercises the real game.
 
-The working project lives in **this** directory (`coheronia_fable_oneshot_repo/`).
+The working project is this repository (the directory containing this
+`CLAUDE.md`, `project.godot`, `README.md`, `data/`, and `scripts/`). Use paths
+relative to the repository root; do not hard-code any absolute or enclosing
+directory name.
 
 ## Source-of-truth hierarchy
 

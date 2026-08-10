@@ -184,7 +184,7 @@ The current standard world sizes are too small for the long-term plan. Once biom
 |---|---|
 | Small | Prototype/testing only |
 | Medium | Early playable loop |
-| Large | Current best default for v0.4 |
+| Large | Current best default for the finite-map sizes |
 | Standard Future | Should be much larger than current large; enough room for several surface biomes and cave systems |
 | Region Future | Generated as linked regions/biome bands rather than one simple width/height preset |
 
