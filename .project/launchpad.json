@@ -23,13 +23,12 @@
     "ROADMAP": "docs/GAME_FEATURE_OUTLINE.md",
     "ARCHITECTURE": "docs/MVP_VERTICAL_SLICE.md"
   },
-  "notes": "Godot 4.6.1 playable Coheronia v0.4 persistent-shell prototype.",
+  "notes": "Godot 4.6.1 playable Coheronia (S-07 stabilization arc toward v0.7-alpha). See CLAUDE.md and docs/HANDOFF.md for current state.",
   "validation": {
     "launch": "PASSED",
     "launch_detail": "Configured main scene is res://scenes/shell/Shell.tscn.",
     "tests": "PASSED",
-    "tests_detail": "scripts/validate_repo.py covers v0.4 shell/data files; smoke passed 62/62 and wrote user://smoke_results.json.",
-    "last_checked_at": "2026-07-02T13:32:27-04:00",
+    "tests_detail": "python scripts/ci/verify.py runs the static gate + fail-closed windowed smoke; CI (GitHub Actions) is the current pass/fail evidence. Canonical smoke is windowed and clean.",
     "last_checked_branch": "main"
   }
 }

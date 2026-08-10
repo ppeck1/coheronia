@@ -1,11 +1,23 @@
 # S-07 — Stabilize, Polish & Bounded Decomposition (Work Order)
 
 **Status: LOCKED (operator, 2026-08-06) — 6 slices scoped from the 2026-08-06
-architecture/polish review; decisions locked in §3. Baseline: `origin/main ==
-10cafef`. Canonical validation is the **windowed** smoke run: **532/532**. The
-headless 531/532 delta is the `r06_texture_prep_delegates` failure, documented as
-**renderer-dependent** (dummy-renderer texture scaling), not a regression — see
-S-07.0.**
+architecture/polish review; decisions locked in §3. Canonical validation is the
+**windowed** smoke run (clean); CI is the authoritative pass/fail evidence. The
+`r06_texture_prep_delegates` check is **renderer-dependent** (dummy-renderer
+texture scaling) and is skipped under the headless display server — not a
+regression, see S-07.0. Per-slice commit SHAs and check counts below are
+historical per-slice evidence; do not read them as the current head.**
+
+> **Closeout A (this pass) — fail-closed truth boundary.** On top of the slices
+> below: (1) `scripts/ci/verify.py` is now fail-closed (a crash, fatal marker,
+> nonzero exit, stale/foreign, or inconsistent smoke result can no longer be
+> masked by a PASS-shaped JSON), with `scripts/ci/test_verify.py`. (2) The
+> runtime seven-goal onboarding contract is reconciled across README /
+> PLAYTEST_CHECKLIST and the shipped crafting route, guarded by
+> `s07_goal_contract` + `scripts/ci/test_onboarding_contract.py`. (3)
+> `docs/wiki/skills.md` is generated from data and `generate_wiki.py --check` is a
+> CI-blocking drift gate. (4) Root `CLAUDE.md` added; v0.1 prompt archived;
+> volatile counts/SHAs replaced with nonvolatile language + CI evidence.
 
 This is the **stabilization arc toward `v0.7-alpha`**, not a new mechanics arc.
 Its authority is the 2026-08-06 review (findings ledger, §1). The through-line:
@@ -97,8 +109,9 @@ Locked by the operator. These govern the arc; a slice may not silently deviate.
 
 - **D1 — Headless smoke flake (S-07.0): LOCKED — windowed is canonical;
   document, don't chase.** Canonical validation is the **windowed** smoke run
-  (**532/532**). `r06_texture_prep_delegates` is **documented as
-  renderer-dependent** (texture scaling under the headless dummy renderer differs
+  (clean; CI is the current evidence). `r06_texture_prep_delegates` is
+  **documented as renderer-dependent** (texture scaling under the headless dummy
+  renderer differs
   from a real surface) and is **not** asserted as a hard failure in headless —
   it is skipped/xfail there with a comment pointing here. We do **not** invest in
   making the texture-prep math renderer-independent for a cosmetic headless green.

@@ -2244,8 +2244,8 @@ func _run() -> void:
 		and HudChrome.scaled_texture_from(null, 0.5) == null
 	# S-07.0 (D1): this seam asserts pixel-exact scaled-texture dimensions, which
 	# the headless dummy display server rounds differently than a real surface —
-	# a renderer-dependent detail, not a regression. Windowed is the canonical run
-	# (532/532); under --headless we record it as skipped (never a pass/fail)
+	# a renderer-dependent detail, not a regression. Windowed is the canonical run;
+	# under --headless we record it as skipped (never a pass/fail)
 	# rather than report a non-regression as a hard failure.
 	# Authority: docs/WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md §3 D1.
 	if DisplayServer.get_name() == "headless":

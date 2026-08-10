@@ -4,7 +4,7 @@ Dig, build, and light a side-view frontier settlement — then keep it alive as 
 
 ![Daytime settlement with the Town Hall, torch line, and live HUD](docs/screenshots/01_settlement_day.png)
 
-`Godot 4.6 · GDScript · data-driven design · procedural world depths · leveled liquid physics · adaptive music · 532-check in-engine smoke suite`
+`Godot 4.6 · GDScript · data-driven design · procedural world depths · leveled liquid physics · adaptive music · large in-engine smoke suite`
 
 ### Watch it
 
@@ -195,7 +195,7 @@ Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-r
 # results: user://smoke_results.json
 ```
 
-The smoke suite asserts **532 checks** against the real game (input map, physics, saves), windowed clean 532/532 (2026-08-06). One check, `r06_texture_prep_delegates`, fails only under the *headless* display server — a texture-scaling detail with no window — and passes windowed, so a headless 531/532 is expected. GitHub Actions builds and smokes a Linux/X11 export on every push.
+The smoke suite asserts hundreds of checks against the real game (input map, physics, saves) and is windowed-clean; the **windowed run is canonical** (frame-capture and renderer checks need a real surface). One check, `r06_texture_prep_delegates`, is renderer-dependent and is skipped under the *headless* display server (a texture-scaling detail with no window), so a headless run reports one skip and no failures. GitHub Actions builds and smokes a Linux/X11 export on every push — CI is the current pass/fail evidence.
 
 ### Regenerate the screenshots
 
@@ -222,7 +222,7 @@ Start-Process -FilePath "<path-to-godot-4.6>" -ArgumentList @("--path", "<this-r
 
 Coheronia is an experiment in disciplined, AI-orchestrated development — every increment is scoped, implemented against explicit data authorities, reviewed independently, and checked in-engine. The repository exposes both the playable architecture and the evidence trail behind it.
 
-- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts **532 checks** across mining, save/load round-trips, legacy migrations, UI panel contents, HUD-kit layering, physics traversal, armor math, the Calling identity system (three Callings → six Paths → 72 tiered skills, all wired to real hooks), the full metal-gear ladder, adaptive-music transitions, the character-rendering contract, the visible-subject labor loop, directed-goal contracts, the procedural world depths (fractional strata, caves, and the hell/lava biome in every world size), the leveled liquid physics (lava and water pour, conserve mass, settle, react into obsidian, and burn the player and enemies), level-aware submersion with a breath/drowning gauge, plant-on-tilled-soil farming, per-column underground depth shading, and event stingers. Windowed clean **532/532** (2026-08-06); the exported artifact runs green with six `res://` fixture checks skipped only under read-only export.
+- **Self-verifying build.** A smoke suite runs the *real game* — real input map, real physics, real saves — and asserts hundreds of checks across mining, save/load round-trips, legacy migrations, UI panel contents, HUD-kit layering, physics traversal, armor math, the Calling identity system (three Callings → six Paths → 72 tiered skills, all wired to real hooks), the full metal-gear ladder, adaptive-music transitions, the character-rendering contract, the visible-subject labor loop, directed-goal contracts, the procedural world depths (fractional strata, caves, and the hell/lava biome in every world size), the leveled liquid physics (lava and water pour, conserve mass, settle, react into obsidian, and burn the player and enemies), level-aware submersion with a breath/drowning gauge, plant-on-tilled-soil farming, per-column underground depth shading, and event stingers. The windowed run is canonical and clean; the exported artifact runs green with six `res://` fixture checks skipped only under read-only export. The verifier is fail-closed — a crash, compile error, or nonzero exit fails even if a stale results file says PASS.
 - **Evidence over claims.** Increment scope, decisions, review findings, and validation state are summarized in [`docs/HANDOFF.md`](docs/HANDOFF.md) and traced in [`docs/VARIABLE_MATRIX.md`](docs/VARIABLE_MATRIX.md) (every variable, its authority, and its consumers).
 - **Independent review loop.** Each change was reviewed by a separate agent pass before commit; findings (from save-corruption edge cases to invisible-tint rendering bugs) are documented and fixed in the ledgers.
 - **Task queue discipline.** Work follows [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) one bounded increment at a time, each documented in the handoff and variable matrix.
@@ -273,7 +273,7 @@ The full adaptive-music arc, the opening cinematic, and the first real art pass 
 
 - **Gear overlays resolve and align; motion still needs a pass.** Body-specific gear stays visible across load/world-transition/forge refreshes and seats correctly, and swings play a data-driven windup→impact→recovery. What remains is art: pick/axe art snaps through three poses, and the sword has no authored attack sequence yet.
 - **The HUD architecture is stabilized, but the art is provisional.** The primary dock separates static chrome from runtime values; some framed-panel states still show padding/masking defects, and the legacy painted/sliced constructions remain fallback code.
-- **Smoke is green, with one environment-specific check.** Windowed **532/532** (2026-08-06). `r06_texture_prep_delegates` fails only under the headless display server (a texture-scaling detail with no window) and passes windowed.
+- **Smoke is green, with one environment-specific check.** The canonical windowed run is clean (CI is the current evidence). `r06_texture_prep_delegates` is renderer-dependent and is skipped under the headless display server (a texture-scaling detail with no window), so a headless run reports one skip and no failures.
 - **Several systems remain partly abstract.** Beyond the visible farmhand/repairer/hauler/defender settlers, the settlement is still driven by an abstract population count layered under the visible actors (the single food-accounting authority). Enemies walk and hop without pathfinding; the adaptive score is one suite still being balanced; and current finite maps have one surface biome.
 
 Full status: [`docs/wiki/known_issues.md`](docs/wiki/known_issues.md).

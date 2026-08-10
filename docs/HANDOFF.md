@@ -1,85 +1,71 @@
 # Coheronia - Handoff
 
-## Next State (2026-08-06: perf + underground gen + view settings)
+This file is intentionally short: it carries only the **current state** and the
+**next steps**. It is the authoritative current-state narrative (see the
+source-of-truth hierarchy in [`CLAUDE.md`](../CLAUDE.md)). Prior "Next State"
+notes and every completed arc (World Depths, Fluids, R-00–R-09, the FQ series,
+the Metal Ladder, the Calling system) are archived in
+[`docs/HANDOFF_ARCHIVE.md`](HANDOFF_ARCHIVE.md); the dated milestone list lives in
+[`README.md`](../README.md#changelog).
 
-**NEXT INSTANCE — start here.** Three operator-driven fixes landed on top of the
-Calling arc (below), all verified at **windowed smoke 532/532 clean** (headless is
-531/532 — `r06_texture_prep_delegates` is a headless-only texture-scaling flake that
-passes windowed; not caused by this work). Authority: `docs/VARIABLE_MATRIX.md`
-(rows *Settler/threat target search (perf)*, *Liquid pool volume + cave spawn gating
-(gen_version 4)*, *Display settings (view zoom + fullscreen)*).
+## Current arc — S-07 stabilization (toward v0.7-alpha)
 
-- **Perf (framerate):** `world.nearest_ripe_crop_in`/`nearest_plantable_soil_in`/
-  `nearest_crop` scanned the whole `cells` grid every physics frame per settler/
-  threat — the dominant drain, scaling with world size. They now iterate the bounded
-  work-zone rect / radius box only. Behaviour identical; pure cost cut.
-- **Underground gen (`WorldGen.CURRENT_GEN_VERSION = 4`):** lava pools to a depth in
-  coherent hell-cavity lakes (`hell.lava_pool_depth`) instead of scattering single
-  cells; `_prune_small_liquid_pools` drops pockets below `liquids.min_pool_volume`;
-  cave spawns require a `CAVE_MIN_OPEN_CELLS` connected open-air region. Legacy v≤3
-  terrain is byte-identical; only new (v4) worlds change (base terrain regenerates
-  from seed on load, so an existing v4 test world picks up the pooled lava too).
-- **View settings:** `scripts/shell/display_settings.gd` owns `view_zoom` (camera
-  magnification 1.0–3.0, default 1.25) + `fullscreen` as `user://shell.json` profile
-  prefs. Pause-menu Settings adds a View Zoom slider + Fullscreen toggle; in-game
-  mouse-wheel / `+` / `-` zoom and `F11` fullscreen. Applied at boot (window) and in
-  `_position_actors` (camera).
-
-Screenshots **were** regenerated afterward: `10cafef` refreshed the tour to the
-wider default zoom (32 shots) and restructured the README. The lava-gen fix still
-isn't reflected in the hell/lava shots (they hand-place lava rather than generate
-it), so those specific frames remain a deliberate media-pass item. `validate_repo.py`
-PASS. **COMMITTED + PUSHED** — `HEAD == origin/main == 10cafef`.
-
-## Next State (2026-08-05: Calling system — implemented, corrected, closed out)
-
-**NEXT INSTANCE — start here.** The current arc is the **Calling** player-identity
-progression system (three permanent Callings → six Paths → 72 tiered skills).
-Authority: `docs/CALLING_EFFECT_MATRIX.md` (per-skill hook trace) +
-`docs/VARIABLE_MATRIX.md` (ownership + schema). The system is **feature-complete
-and reviewed** — the recommendation is **stabilization and playtesting, not a new
-mechanics arc.** Do not re-open the skill tree to make effects more distinct until
-a hands-on playtest shows it actually feels repetitive.
+**NEXT INSTANCE — start here.** The active arc is **stabilization and
+truthfulness**, not new mechanics. Its authority is
+[`docs/WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md`](WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md).
+The game is behaviourally stable and honestly documented; the remaining work is
+maintainability, presentation polish, and one measured balance pass — under a
+hard **no-new-mechanics / no-save-or-gen-change** boundary. Do **not** re-open the
+skill tree or bump `SAVE_VERSION`/`gen_version`.
 
 What is true now:
-- **Data:** `data/character_data.json` `roles` = the 3 Callings (each with `paths`
-  + `innate.effects`, no `starting_items`) + `default_calling`. `data/progression/
-  perks.json` = 6 Path lanes × 12 skills, each `live` on a wired hook; `tier_gates`
-  {2,6,9}. The serialized character key stays **`role`** (save-compat).
-- **Gating:** `game_root.perk_state` / `try_purchase_perk` — non-live skills are
-  `coming_soon` and unpurchasable (all are live today); tier gate is
-  `_effective_tier_gate = min(design, live-skills-in-lower-tiers)`, counting only
-  live purchases, so a live skill is never gated behind an inert one.
-- **Ownership (split):** character owns XP/level/purchased-skills/depth
-  (`character.progression` in shell.json, carries between worlds, Calling-filtered
-  on load); world owns base (settlement) XP/level. Legacy combined saves are
-  adopted as the character fallback **only** when re-entered by the same
-  `character_id` (`save_manager.character_progression_source`).
-- **Effects:** all wired via `game_root.calling_*` resolvers + `player.gd` sites +
-  `town_hall.repair(amount_mult)`. Context is real: settlement-assault = a threat
-  in the settlement bounds; threat weapon damage is per-target; Victory's Breath
-  fires on an actual assault-clearing defeat; reveal is underground/surface-scoped;
-  extra-yield only on non-placeable natural resources; seed-return scales the real
-  leaf roll (incl. trunk collapse).
-- **UI:** skill panel = two vertical Path cards, player-language inspector only.
 
-Smoke: **529 checks**, windowed GUI run **529/529 clean** (the old
-`hud_npc_panel_editable` grip flake was fixed by populating the panel before
-reading its rect). `validate_repo.py` PASS. **COMMITTED + PUSHED** — see the
-git log for the latest Calling commits (`41b83b5` initial → `8e42440` all-live →
-`986137c` correctness → this closeout). Prior arc (Metal Ladder, `origin/main==
-ffe70a0`, 515 checks) is superseded; its details live in git history and
-`docs/WORK_ORDER_METAL_LADDER.md`.
+- **Feature set:** procedural world depths (strata, caves, hell/lava biome),
+  leveled liquid physics (lava/water pour, conserve mass, react into obsidian),
+  swim/breath, a visible bounded citizenry with four jobs, the character-owned
+  **Calling** progression (3 Callings → 6 Paths → 72 live-hooked skills), the
+  full metal-gear ladder, adaptive music, and the state-driven seven-goal
+  onboarding panel.
+- **Verification:** a large in-engine smoke suite. The **windowed run is
+  canonical** and clean; the headless run reports the single renderer-dependent
+  `r06_texture_prep_delegates` as a skip (documented, not a regression). The
+  exported artifact runs green with six `res://` fixture checks skipped only under
+  read-only export. CI (GitHub Actions) is the current pass/fail evidence and
+  builds + smokes a Linux/X11 export on every push.
 
-**Recommended next:** stabilization — deterministic verification (repeat clean-
-profile smoke, full CI incl. the Linux export artifact), a hands-on Calling
-playtest (extend `docs/PLAYTEST_CHECKLIST.md` to all three Callings, purchases/
-tier unlocks, save/restore, world switching, natural yields, assault effects,
-Attunement equipment), then UI/HUD-chrome and swing-art polish. Known design debt
-(not a blocker): the harder specified effects were re-themed onto existing scalar
-channels, so some Paths (notably Hearthwright) repeat a channel — a deliberate
-variance; observe in playtest before changing the tree.
+### S-07 slices — status
 
----
+Per-slice detail and per-commit evidence live in the work order. Shipped: S-07.0
+(headless-flake classification), S-07.1a (functional modal occlusion), S-07.1b
+(scrim + Calling-panel h-scroll fix + Town Hall density, code pieces), the first
+four smoke-suite clusters of S-07.3, and S-07.5 (dead full-grid query removal).
+This **closeout A** added, on top of those:
 
-**History.** This file is intentionally short — only the current state and next steps. Every prior "Next State" note and arc write-up (World Depths, Fluids, R-00–R-09, the FQ series, the Metal Ladder) is archived in [`docs/HANDOFF_ARCHIVE.md`](HANDOFF_ARCHIVE.md), and the dated milestone list lives in [`README.md`](../README.md#current-build).
+- **Fail-closed verification** (`scripts/ci/verify.py`): a crashed/non-compiling/
+  nonzero-exit or stale/foreign smoke result can no longer be masked by a
+  PASS-shaped `smoke_results.json`. Covered by `scripts/ci/test_verify.py`.
+- **Onboarding contract**: the runtime's seven goals (gather, light, deposit,
+  craft, survive, house, defend) now agree with the README, the operator
+  checklist, and the shipped crafting route (the unified **C** panel, not the
+  Town Hall). Guarded by the `s07_goal_contract` smoke check and
+  `scripts/ci/test_onboarding_contract.py`.
+- **Enforceable wiki freshness**: `docs/wiki/skills.md` is now generated from
+  `perks.json` + `character_data.json`; `generate_wiki.py --check` is a
+  deterministic drift gate wired into CI.
+- **Agent/doc truth**: root `CLAUDE.md` added; the v0.1 one-shot prompt archived;
+  volatile counts replaced with nonvolatile language + CI evidence.
+
+## Recommended next
+
+- **S-07.1b remainder (operator/art lane):** 640×360 char-create legibility (F9),
+  swing/action-FX frames (F10/D4), scrim-strength taste knob.
+- **S-07.2 — Calling balance (measure then tune):** run the extended
+  [`PLAYTEST_CHECKLIST.md`](PLAYTEST_CHECKLIST.md) across all three Callings,
+  **record** the measured worst-case conditional stacking on the hot channels,
+  and only then apply the D3-locked data-only tuning. No tuning without evidence.
+- **S-07.3 remainder:** the remaining tightly-coupled smoke clusters need a shared
+  `ctx.scratch` design before continuing (paused deliberately).
+- **S-07.4:** re-confirm the clean stateless extraction candidates against the
+  R-06 gate after the split suite is further along.
+- Then a deterministic verification pass (repeat windowed smoke + full CI incl.
+  the export artifact) and tag **v0.7-alpha**.
