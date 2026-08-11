@@ -145,9 +145,10 @@ directionally (the forward x stays positive in the mirrored frame).
 `swing_progress()` is the `[0,1)` cycle position, `swing_phase_kind()` reports
 the profile segment (`windup`/`impact`/`recovery`), and `_swing_angle_offset()`
 sweeps the tool through the arc (raise back on windup, snap through the target
-on impact, ease home on recovery). Authored pick/axe swing frames are drawn
-rotated toward the aim; anything without swing art (the sword) renders the same
-arc procedurally through the same profile. All of this is presentation only: it
+on impact, ease home on recovery). Authored pick/axe/sword swing frames are drawn
+rotated toward the aim (the four sword tiers ship a generated swing family for
+every body id/variant/phase, S-07.1b F10); anything still without swing art
+renders the same arc procedurally through the same profile. All of this is presentation only: it
 reads mining/attack state and never changes damage, mining time, or any
 gameplay timing. `presentation_snapshot()` exposes `action_kind`, `action_item`,
 `swing_phase_kind`, and `swing_direction`.

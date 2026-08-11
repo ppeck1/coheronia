@@ -111,11 +111,16 @@ it cannot offer absent/no-op values.
 Equipment panels are text-only, so 16x16 equipment item icons have no live
 consumer and remain deferred. `player_visual` has live 16x32 overlay hooks
 (`<item_id>_<body_id>.png`, then generic `<item_id>.png`, plus three tool-swing
-phases). The repository now ships 120 body-specific PNGs: crude helmet/torso/
-feet across all ten bodies and phases 0/1/2 for the basic pick, forged pick,
-and crude axe. Swords, iron armor, rings, amulet, and accessory remain on the
-procedural fallback. Cross-body load/transition alignment and the stepped
-three-pose motion remain active polish issues.
+phases). The repository ships 240 body-specific PNGs: crude helmet/torso/
+feet across all ten bodies (30 static overlays) and phases 0/1/2 for the basic
+pick, forged pick, and crude axe (90 swing overlays), plus a generated swing
+family for all four sword tiers — `sword_crude`/`sword_iron`/`sword_bronze`/
+`sword_obsidian` across the ten bodies and phases 0/1/2 (120 swing overlays,
+S-07.1b F10 via `scripts/art/gen_tool_swing_frames.py`). Iron armor, rings,
+amulet, and accessory remain on the procedural fallback, and swords still have
+no authored static held-pose overlay (swing frames only). Cross-body
+load/transition alignment and the stepped three-pose motion remain active
+polish issues.
 
 `art/generated/ui/` contains fifteen 32x32 legacy/reserved hooks. The primary
 bottom dock now consumes the native 19-asset `ui_painted` kit plus

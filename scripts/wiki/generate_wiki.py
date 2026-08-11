@@ -1705,6 +1705,10 @@ def render_equipment_page(equip_id: str, data: dict, indexes: dict) -> None:
         "helmet_crude": "10 body-specific static overlays (one per current body id).",
         "torso_crude": "10 body-specific static overlays (one per current body id).",
         "feet_crude": "10 body-specific static overlays (one per current body id).",
+        "sword_crude": "30 body/phase swing overlays (10 body ids x phases 0/1/2); no static held-pose overlay yet.",
+        "sword_iron": "30 body/phase swing overlays (10 body ids x phases 0/1/2); no static held-pose overlay yet.",
+        "sword_bronze": "30 body/phase swing overlays (10 body ids x phases 0/1/2); no static held-pose overlay yet.",
+        "sword_obsidian": "30 body/phase swing overlays (10 body ids x phases 0/1/2); no static held-pose overlay yet.",
     }.get(equip_id, "No authored body-specific overlay in the current coverage set.")
     rows = [
         ("ID", f"`{equip_id}`"),

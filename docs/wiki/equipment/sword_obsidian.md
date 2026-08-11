@@ -14,7 +14,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | Stat effects | attack_damage=7 |
 | Visual surface | No dedicated backpack-style equipment icon family is currently in use. |
 | Player gear overlay hook | `art/generated/player_gear/<item_id>_<body_id>.png` or `<item_id>.png` |
-| Authored overlay coverage | No authored body-specific overlay in the current coverage set. |
+| Authored overlay coverage | 30 body/phase swing overlays (10 body ids x phases 0/1/2); no static held-pose overlay yet. |
 | Fallback / placeholder | Procedural equipped presentation when a matching overlay cannot resolve. |
 
 ## Summary

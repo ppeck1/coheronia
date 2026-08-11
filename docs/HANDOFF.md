@@ -36,9 +36,16 @@ What is true now:
 ### S-07 slices — status
 
 Per-slice detail and per-commit evidence live in the work order. Shipped: S-07.0
-(headless-flake classification), S-07.1a (functional modal occlusion), S-07.1b
-(scrim + Calling-panel h-scroll fix + Town Hall density, code pieces), the first
-four smoke-suite clusters of S-07.3, and S-07.5 (dead full-grid query removal).
+(headless-flake classification), S-07.1a (functional modal occlusion), **S-07.1b
+complete** (modal scrim + Calling-panel h-scroll fix + Town Hall density and
+roster reorder; the responsive 640×360 character-creation layout (F9); the
+modal-scrim taste knob and the swing-arc strike FX (F6/F10); and the generated
+four-tier **sword swing family** (F10) covering every body id/variant/phase), the
+first four smoke-suite clusters of S-07.3, and S-07.5 (dead full-grid query
+removal). The S-07.1b polish is pinned by new guards
+`s07_char_create_640_legibility_contract`, `s07_calling_panel_no_hscroll`,
+`s07_scrim_strength_knob`, `s07_swing_arc_fx`, and `s07_sword_swing_frames_authored`;
+the only remaining swing-art work is optional pick/axe frame polish.
 This **closeout A** added, on top of those:
 
 - **Fail-closed verification** (`scripts/ci/verify.py`): a crashed/non-compiling/
@@ -57,12 +64,14 @@ This **closeout A** added, on top of those:
 
 ## Recommended next
 
-- **S-07.1b remainder (operator/art lane):** 640×360 char-create legibility (F9),
-  swing/action-FX frames (F10/D4), scrim-strength taste knob.
-- **S-07.2 — Calling balance (measure then tune):** run the extended
-  [`PLAYTEST_CHECKLIST.md`](PLAYTEST_CHECKLIST.md) across all three Callings,
-  **record** the measured worst-case conditional stacking on the hot channels,
-  and only then apply the D3-locked data-only tuning. No tuning without evidence.
+- **S-07.2 — Calling balance (measure then tune) — the next material task:** run
+  the extended [`PLAYTEST_CHECKLIST.md`](PLAYTEST_CHECKLIST.md) across all three
+  Callings, **record** the measured worst-case conditional stacking on the hot
+  channels, and only then apply the D3-locked data-only tuning. **No tuning
+  without evidence** — the measurement pass comes first.
+- **S-07.1b — complete.** The remainder (F9 responsive char-create, F6 scrim
+  taste knob, F10 swing FX + four-tier sword swing family) shipped and is guarded;
+  the only open swing-art item is optional pick/axe frame polish (D4 art lane).
 - **S-07.3 remainder:** the remaining tightly-coupled smoke clusters need a shared
   `ctx.scratch` design before continuing (paused deliberately).
 - **S-07.4:** re-confirm the clean stateless extraction candidates against the

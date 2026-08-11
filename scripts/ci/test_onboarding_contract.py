@@ -21,6 +21,12 @@ ROOT = Path(__file__).resolve().parents[2]
 GOAL_TRACKER = ROOT / "scripts" / "main" / "goal_tracker.gd"
 README = ROOT / "README.md"
 PLAYTEST = ROOT / "docs" / "PLAYTEST_CHECKLIST.md"
+SMOKE = ROOT / "scripts" / "main" / "smoke_test.gd"
+ASSET_ROADMAP = ROOT / "docs" / "ASSET_ROADMAP.md"
+RENDER_CONTRACT = ROOT / "docs" / "CHARACTER_RENDERING_CONTRACT.md"
+KNOWN_ISSUES = ROOT / "docs" / "wiki" / "known_issues.md"
+HANDOFF = ROOT / "docs" / "HANDOFF.md"
+GEAR_DIR = ROOT / "art" / "generated" / "player_gear"
 
 EXPECTED_GOAL_IDS = ["gather", "light", "deposit", "craft",
                      "survive", "house", "defend"]
@@ -34,6 +40,39 @@ OBSOLETE_STRINGS = [
     "Town Hall (E) to forge",
     "In the Town Hall panel, forge",
 ]
+
+# The four sword tiers whose authored swing family shipped in S-07.1b (F10).
+SWORD_TIERS = ["sword_crude", "sword_iron", "sword_bronze", "sword_obsidian"]
+
+# S-07.1b polish guards that must remain wired in the smoke suite so the
+# reconciled doc claims below stay pinned to a runtime assertion.
+S07_1B_GUARD_CHECKS = [
+    "s07_char_create_640_legibility_contract",
+    "s07_calling_panel_no_hscroll",
+    "s07_scrim_strength_knob",
+    "s07_swing_arc_fx",
+    "s07_sword_swing_frames_authored",
+]
+
+# Retired presentation claims, keyed by the doc that must no longer make them.
+# Once S-07.1b (F9/F10) shipped, the sword-uncovered and char-create-cramped
+# framings are false; this blocks them from creeping back into current docs.
+STALE_PRESENTATION_CLAIMS = {
+    README: [
+        "the sword has no authored attack sequence",
+        "no authored attack sequence yet",
+    ],
+    ASSET_ROADMAP: [
+        "Swords, iron armor, rings, amulet, and accessory remain on the",
+    ],
+    RENDER_CONTRACT: [
+        "anything without swing art (the sword)",
+    ],
+    KNOWN_ISSUES: [
+        "S-07.1b remainder, art/operator lane",
+        "the base text is uncomfortably tiny",
+    ],
+}
 
 
 def goal_ids_in_order() -> list[str]:
@@ -84,6 +123,52 @@ class DocReconciliationTests(unittest.TestCase):
         for phrase in ["Build a house", "Post a defender"]:
             self.assertIn(phrase, text,
                           f"README first loop missing goal: {phrase!r}")
+
+
+class S07PolishDocTruthTests(unittest.TestCase):
+    """S-07.1b (F9/F10) shipped the responsive char-create layout, the modal
+    scrim knob, the swing-arc FX, and the four-tier sword swing family. These
+    keep the docs from re-asserting the old "sword uncovered / char-create
+    cramped" claims and pin them to the shipped guards and authored PNGs."""
+
+    def test_no_stale_presentation_claims(self):
+        for doc, claims in STALE_PRESENTATION_CLAIMS.items():
+            text = doc.read_text(encoding="utf-8")
+            for bad in claims:
+                self.assertNotIn(
+                    bad, text,
+                    f"{doc.relative_to(ROOT).as_posix()} still makes the retired "
+                    f"presentation claim: {bad!r}")
+
+    def test_s07_1b_guards_present_in_smoke(self):
+        text = SMOKE.read_text(encoding="utf-8")
+        for name in S07_1B_GUARD_CHECKS:
+            self.assertIn(
+                f'"{name}"', text,
+                f"smoke_test.gd is missing the S-07.1b guard check {name!r}; "
+                f"the reconciled docs claim it exists")
+
+    def test_sword_swing_family_authored_on_disk(self):
+        # Each sword tier ships a swing overlay for every body id/variant/phase.
+        # Spot-check the two live species the smoke guard asserts, all 3 phases.
+        for tier in SWORD_TIERS:
+            for body in ("human", "orc"):
+                for phase in range(3):
+                    png = GEAR_DIR / f"{tier}_{body}_swing_{phase}.png"
+                    self.assertTrue(
+                        png.exists(),
+                        f"missing authored sword swing frame: "
+                        f"{png.relative_to(ROOT).as_posix()}")
+
+    def test_handoff_marks_s07_1b_complete(self):
+        text = HANDOFF.read_text(encoding="utf-8")
+        self.assertIn(
+            "s07_sword_swing_frames_authored", text,
+            "HANDOFF.md should reference the shipped sword swing guard")
+        self.assertNotIn(
+            "S-07.1b remainder (operator/art lane): 640×360 char-create legibility",
+            text,
+            "HANDOFF.md still lists the shipped S-07.1b remainder as pending")
 
 
 if __name__ == "__main__":
