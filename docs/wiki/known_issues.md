@@ -92,13 +92,18 @@ visual/runtime only and pinned by a smoke check.
   as a black hole. Cells strictly above the surface still show open sky. (This was
   the real cause of the operator-reported "black background behind mined blocks";
   an earlier S-07.1c data-only check confirmed `wall_at()` resolved but did not
-  exercise the surface-row **coverage** gap or the render layer.) The
-  material-derived wall fallback is also recolored cooler/desaturated/purple-blue
-  via `world.wall_tint` (used only where no authored `back_walls` art exists). Wall
-  layer still carries zero physics/occlusion. Guards
+  exercise the surface-row **coverage** gap or the render layer.) **And to tell a
+  background wall apart from the solid foreground of the same material** (a dirt
+  wall vs a mineable dirt block, which looked identical), **every** rear-wall tile
+  — authored `back_walls` art included, not just the derived fallback — is now
+  recolored through `world.wall_tint` (desaturate → lower-contrast → cool
+  purple-blue, darker). A pure layer multiply could not do this (it cannot
+  desaturate the material's warm hue); baking the tint into the texture makes the
+  wall read blue-dominant and clearly recessed, and the hue survives torch/lava
+  lighting. Wall layer still carries zero physics/occlusion. Guards
   `s07c_mined_top_block_reveals_wall`, `s07c_underground_walls_cover_below_skyline`
   (now from the surface row), `fq09w_walls_deterministic_and_inert`,
-  `s07c_wall_distinct_from_foreground`.
+  `s07c_wall_distinct_from_foreground` (now dirt **and** stone).
 - **Lava lights thinned so they stop competing with torches.** A lava cell used to
   own its own broad, shadowless `PointLight2D`, so a lava lake was one overlapping
   light per cell — additively over-bright and unstable next to shadowed torch

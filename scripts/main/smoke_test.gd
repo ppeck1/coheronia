@@ -5430,30 +5430,37 @@ func _run() -> void:
 	if _s7c_topprev != "air" and _s7c_topprev != "":
 		world.place_block(_s7c_topcell, _s7c_topprev)   # restore the surface block
 
-	# S-07.1c: a derived rear wall reads as receding rock — the actual stone_wall
-	# texture is darker, cooler (blue-shifted), and blue-dominant (purple-blue) vs
-	# the solid stone foreground, so a cave wall never looks identical to the
-	# foreground. Averaged over the tile to be robust to per-cell mottle.
+	# S-07.1c: a rear wall reads clearly apart from the solid foreground of the SAME
+	# material, for BOTH dirt and stone (the operator saw dirt wall == dirt block).
+	# Every wall texture is pushed through wall_tint, so it is darker, cooler
+	# (blue-shifted vs the foreground), and blue-dominant (purple-blue). Averaged
+	# over the tile to be robust to per-cell mottle.
 	var _s7c_t: int = world.tile_size()
-	var _s7c_fg_img: Image = world._make_block_texture("stone", _s7c_t).get_image()
-	var _s7c_wl_img: Image = world._make_wall_texture("stone_wall", "stone", _s7c_t).get_image()
-	var _s7c_fg := Color(0, 0, 0)
-	var _s7c_wl := Color(0, 0, 0)
-	var _s7c_np: float = float(_s7c_t * _s7c_t)
-	for _s7c_py in range(_s7c_t):
-		for _s7c_px in range(_s7c_t):
-			var _s7c_cf: Color = _s7c_fg_img.get_pixel(_s7c_px, _s7c_py)
-			var _s7c_cw: Color = _s7c_wl_img.get_pixel(_s7c_px, _s7c_py)
-			_s7c_fg += Color(_s7c_cf.r, _s7c_cf.g, _s7c_cf.b) / _s7c_np
-			_s7c_wl += Color(_s7c_cw.r, _s7c_cw.g, _s7c_cw.b) / _s7c_np
-	var _s7c_fg_v: float = maxf(_s7c_fg.r, maxf(_s7c_fg.g, _s7c_fg.b))
-	var _s7c_wl_v: float = maxf(_s7c_wl.r, maxf(_s7c_wl.g, _s7c_wl.b))
-	_check("s07c_wall_distinct_from_foreground",
-		_s7c_wl_v < _s7c_fg_v                                     # darker / quieter
-		and (_s7c_wl.b - _s7c_wl.r) > (_s7c_fg.b - _s7c_fg.r)     # cooler (blue-shifted)
-		and _s7c_wl.b >= _s7c_wl.r and _s7c_wl.b >= _s7c_wl.g,    # blue-dominant (purple-blue)
-		"fg=(%.2f,%.2f,%.2f) wall=(%.2f,%.2f,%.2f)" % [
-			_s7c_fg.r, _s7c_fg.g, _s7c_fg.b, _s7c_wl.r, _s7c_wl.g, _s7c_wl.b])
+	var _s7c_wd_ok := true
+	var _s7c_wd_detail := ""
+	for _s7c_pair in [["dirt", "dirt_wall"], ["stone", "stone_wall"]]:
+		var _s7c_fg_img: Image = world._make_block_texture(_s7c_pair[0], _s7c_t).get_image()
+		var _s7c_wl_img: Image = world._make_wall_texture(_s7c_pair[1], _s7c_pair[0], _s7c_t).get_image()
+		var _s7c_fg := Color(0, 0, 0)
+		var _s7c_wl := Color(0, 0, 0)
+		var _s7c_np: float = float(_s7c_t * _s7c_t)
+		for _s7c_py in range(_s7c_t):
+			for _s7c_px in range(_s7c_t):
+				var _s7c_cf: Color = _s7c_fg_img.get_pixel(_s7c_px, _s7c_py)
+				var _s7c_cw: Color = _s7c_wl_img.get_pixel(_s7c_px, _s7c_py)
+				_s7c_fg += Color(_s7c_cf.r, _s7c_cf.g, _s7c_cf.b) / _s7c_np
+				_s7c_wl += Color(_s7c_cw.r, _s7c_cw.g, _s7c_cw.b) / _s7c_np
+		var _s7c_fg_v: float = maxf(_s7c_fg.r, maxf(_s7c_fg.g, _s7c_fg.b))
+		var _s7c_wl_v: float = maxf(_s7c_wl.r, maxf(_s7c_wl.g, _s7c_wl.b))
+		var _s7c_this_ok: bool = _s7c_wl_v < _s7c_fg_v \
+			and (_s7c_wl.b - _s7c_wl.r) > (_s7c_fg.b - _s7c_fg.r) \
+			and _s7c_wl.b >= _s7c_wl.r and _s7c_wl.b >= _s7c_wl.g
+		if not _s7c_this_ok and _s7c_wd_detail == "":
+			_s7c_wd_detail = "%s fg=(%.2f,%.2f,%.2f) wall=(%.2f,%.2f,%.2f)" % [_s7c_pair[0],
+				_s7c_fg.r, _s7c_fg.g, _s7c_fg.b, _s7c_wl.r, _s7c_wl.g, _s7c_wl.b]
+		_s7c_wd_ok = _s7c_wd_ok and _s7c_this_ok
+	_check("s07c_wall_distinct_from_foreground", _s7c_wd_ok,
+		_s7c_wd_detail if not _s7c_wd_ok else "dirt+stone walls darker/cooler/blue-dominant vs foreground")
 
 	# (c) underground is dark at midday and the surface stays full daylight —
 	# the depth-aware ambient target, not the smoothing lerp, is asserted.

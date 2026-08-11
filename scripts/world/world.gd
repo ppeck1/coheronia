@@ -996,18 +996,23 @@ static func wall_tint(c: Color) -> Color:
 	r = lerpf(r, 0.5, 0.25)
 	g = lerpf(g, 0.5, 0.25)
 	b = lerpf(b, 0.5, 0.25)
-	# darken + purple-blue bias (blue dominant, red second, green quietest)
-	return Color(r * 0.42, g * 0.34, b * 0.58, 1.0)
+	# darken + purple-blue bias (blue dominant, red second, green quietest). Kept
+	# readable, not black: a rear wall should recede, still show its texture.
+	return Color(r * 0.50, g * 0.40, b * 0.74, 1.0)
 
 
-## Back-wall tile: art at art/generated/back_walls/<wall_id>.png when present,
-## else the matching block texture pushed through wall_tint() — quieter, cooler,
-## fully opaque (walls must read quieter than foreground and never as open sky).
+## Back-wall tile: the authored art at art/generated/back_walls/<wall_id>.png when
+## present, else the matching foreground block texture — and EITHER way pushed
+## through wall_tint() so every rear wall is desaturated, lower-contrast, cool
+## purple-blue and fully opaque. This is what makes a background wall read clearly
+## apart from the solid foreground of the SAME material (a dirt wall vs a mineable
+## dirt block); a pure layer multiply could not, since it cannot desaturate the
+## material's own warm hue. Presentation only — the wall layer has no
+## physics/occlusion, so nothing here touches collision/lighting/shelter/saves.
 func _make_wall_texture(wall_id: String, base_block: String, t: int) -> ImageTexture:
 	var art := BlockRegistry.visual_texture("back_walls", wall_id) as ImageTexture
-	if art != null:
-		return _normalize_art(art, t)
-	var img: Image = _make_block_texture(base_block, t).get_image()
+	var img: Image = _normalize_art(art, t).get_image() if art != null \
+		else _make_block_texture(base_block, t).get_image()
 	for y in range(t):
 		for x in range(t):
 			img.set_pixel(x, y, wall_tint(img.get_pixel(x, y)))
