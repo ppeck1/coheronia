@@ -59,7 +59,7 @@ There are **seven** ordered goals; tick each box and note anything unclear.
 - [ ] Nothing in the goal panel regresses to an earlier objective after you have
       completed it.
 
-## Callings (extend the pass across all three)
+## Callings — first-loop sanity across all three
 
 Run the loop once per Calling (**Oathbound**, **Wayfarer**, **Runewright**) to
 exercise both of each Calling's Paths:
@@ -71,9 +71,93 @@ exercise both of each Calling's Paths:
 - [ ] Natural-yield perks (extra ore/wood/plant, seed return) only fire on
       natural resources, not placed blocks; assault/settlement-scoped effects
       only apply in the right context.
-- [ ] **Record the measured worst-case conditional stacking on the hot channels**
-      (weapon damage, hostile-damage reduction, repair amount) for the S-07.2
-      balance pass — no tuning until this evidence exists.
+
+---
+
+# S-07.2 — Calling balance: MEASURE-FIRST protocol
+
+**This is a measurement pass, not a tuning pass.** Per D3 (LOCKED) no data value
+changes until the worst-case stacking below is recorded. The goal is one number
+per hot channel: *how strong does the fully-stacked, best-context build get,
+measured in-game*, so the later data-only tuning (cap stacking / de-dup the most
+repetitive channel by re-pointing effects) has evidence to size against. Do **not**
+tune, re-point, or edit `data/progression/perks.json` during this pass.
+
+## The three hot channels (D3)
+
+These are the conditionally-stacking channels the balance pass cares about. Each
+row names the Path that owns it, every skill that piles onto it, and the context
+that maximizes it (contexts multiply the stack, so the worst case is "all skills
+bought **and** the strongest context active at once").
+
+| # | Hot channel | Calling / Path | Stacking skills (buy all) | Max-out context |
+|---|---|---|---|---|
+| A | **Hostile-damage reduction** (damage *taken* from creatures) | Oathbound / **Warden** | Resolve (innate) + Holdfast + Defensive Presence + Last Watch + Unbroken + Guardian of the Hearth (+ Armored Bearing / Reinforced Position via armor) | Inside settlement bounds **and** an active settlement assault **and** wounded (below the Last Watch/Unbroken health threshold) |
+| B | **Weapon damage vs hostiles** (damage *dealt*) | Oathbound / **Vanguard** | Weapon Discipline + Decisive Strikes + Momentum + Executioner + Threat Hunter + Counterforce + Steel Rhythm + Breachbreaker + Press the Line + Threatbreaker (cap) | Striking an **assault** enemy during an active settlement threat (Executioner adds more vs a wounded target) |
+| C | **Structure-repair amount** (structure HP restored per repair) | Runewright / **Hearthwright** | Measured Hand (innate) + Practiced Repairs + Economical Construction + Salvager + Repairer's Example + Reinforced Work + Hearth Efficiency + Swift Maintenance + Keeper of Foundations (cap) | Repairing a damaged player structure. *(Note the cross-Calling ceiling: Warden's Emergency Repairs also boosts repair during an assault, but only one Calling is active at a time — record Hearthwright's own stack.)* |
+
+## How to measure each channel
+
+For each channel, take a **baseline** (fresh character of that Calling, **zero**
+skills purchased) and a **full-stack** reading (every listed skill bought, in the
+max-out context), against the **same fixed target**, then record the ratio.
+
+Setup per channel:
+- Make a fresh character of the owning Calling; note it starts with the innate only.
+- Level / award enough perk points to buy the whole Path under test (tiers open by
+  live-count 2 / 6 / 9). If there is no fast route, record the highest tier you
+  could actually reach and mark the reading **partial** — a partial worst-case is
+  still evidence; note which tiers are missing.
+- Use one fixed, repeatable target so baseline and full-stack are comparable
+  (same enemy id for A/B, same structure at the same damage for C).
+
+- [ ] **A — damage reduction.** Take a hit from a fixed enemy with 0 skills; record
+      HP lost. Repeat with the full Warden stack in-context (inside bounds, assault
+      active, wounded); record HP lost. Ratio = full ÷ baseline damage taken.
+- [ ] **B — weapon damage.** Hit a fixed full-HP enemy with 0 skills; record damage
+      per hit (or hits-to-kill). Repeat with the full Vanguard stack vs an assault
+      enemy during a threat; record damage per hit. Ratio = full ÷ baseline damage.
+- [ ] **C — repair amount.** Damage a structure a fixed amount; repair once with 0
+      skills and record HP restored. Repeat with the full Hearthwright stack; record
+      HP restored. Ratio = full ÷ baseline restored.
+
+## Results ledger (fill this in — this is the S-07.2 deliverable)
+
+Record the actual observed numbers. "Ratio" is the multiple over the zero-skill
+baseline; "context" is which max-out conditions were genuinely active; "reach"
+notes if the read is full (capstone bought) or partial (and which tiers missing).
+
+| Channel | Baseline (0 skills) | Full stack | Ratio (×) | Context active | Reach (full/partial) | Notes |
+|---|---|---|---|---|---|---|
+| A — hostile-damage reduction | | | | | | |
+| B — weapon damage vs hostiles | | | | | | |
+| C — structure-repair amount | | | | | | |
+
+**Worst-case summary (one line the tuning pass will size against):**
+
+> Highest measured ratio was channel ___ at ___× (context: ___). Most-repetitive
+> channel (most skills pointed at one number) was ___. Recommended cap direction: ___.
+
+## Secondary channels — glance only (record only if a value looks egregious)
+
+Not the D3 focus, but note any that feel obviously out of band during the runs:
+max health (Warden: Tempered Frame + Stand Together); armor protection; mining
+speed (Prospector: Stonewise + Practiced Swing + Master of the Deep); move speed
+(Trailseeker: Trailcraft + Farwalker + Deep Stride + Familiar Ground + Beyond the
+Known); Attunement pulse radius / duration / cost (Resonant); extra-yield roll
+rates (Clean Extraction / Stone Economy / Woodwise / Forager's Share).
+
+- [ ] No secondary channel is so lopsided it needs to jump the D3 queue. If one is,
+      note it here (do not tune it now): ____________________________________
+
+## After the pass
+
+- [ ] The three-row results ledger above is filled with real numbers (or explicitly
+      marked partial with the missing tiers).
+- [ ] The worst-case summary line is written.
+- [ ] **Nothing was tuned.** Any proposed cap / de-dup is written as a recommendation
+      for the S-07.2 tuning slice, not applied — that slice authors it against this
+      evidence and is guarded by `s07_calling_stack_cap_holds`.
 
 ## Notes
 
