@@ -12,6 +12,9 @@ const GRAVITY := 820.0
 const JUMP_VELOCITY := -240.0
 # FQ-09M: self-freeing action effects (presentation only, never saved).
 const SimpleThreatFx := preload("res://scripts/fx/action_fx.gd")
+# S-07.1c: shared soft-glow authoring for a carried torch light (raider_torchbearer).
+const LightingScript := preload("res://scripts/world/lighting.gd")
+const CARRIED_LIGHT_TEX_SIZE := 256.0   # matches lighting.gd glow_texture default width
 const PLAYER_DAMAGE := 8.0
 const SEVERITY := 10.0
 
@@ -67,6 +70,14 @@ const BUBBLE_HILITE := Color(1.0, 0.92, 0.64)
 var contact_damage := PLAYER_DAMAGE
 var move_speed := SPEED
 
+## S-07.1c: PRESENTATION-ONLY carried light (raider_torchbearer's torch). Set by
+## the spawner from the def's "visual_light" dict {radius(px), color:[r,g,b],
+## energy}. Empty = no light. The PointLight2D is a CHILD of the body so it moves
+## with the enemy for free, and it touches NO settlement scoring, the world light
+## grid (world._lights), or spawn safety — it is pure atmosphere.
+var visual_light: Dictionary = {}
+var _carried_light: PointLight2D = null
+
 ## Liquid Physics: accumulates fractional lava-burn damage so a per-frame hazard
 ## applies as whole integer hits against the int hp (weak enemies die fast, tough
 ## ones last a few ticks) — mirroring the player's paced burn.
@@ -92,6 +103,32 @@ func _ready() -> void:
 	add_to_group("threats")
 	max_hp = maxi(max_hp, hp)
 	_select_sprite()
+	_setup_carried_light()
+
+
+## S-07.1c: build the carried torch light as a child PointLight2D (moves with the
+## body). Presentation only: shadowless soft glow, no entry in world._lights, no
+## settlement/light_score effect. Absent def -> no light (basic raiders stay dark).
+func _setup_carried_light() -> void:
+	if visual_light.is_empty():
+		return
+	var radius := float(visual_light.get("radius", 80.0))
+	if radius <= 0.0:
+		return
+	var col_raw: Array = visual_light.get("color", [1.0, 0.62, 0.28])
+	var lit := PointLight2D.new()
+	lit.texture = LightingScript.glow_texture()
+	lit.texture_scale = (radius * 2.0) / CARRIED_LIGHT_TEX_SIZE
+	lit.color = Color(float(col_raw[0]), float(col_raw[1]), float(col_raw[2]))
+	lit.energy = float(visual_light.get("energy", 1.1))
+	lit.shadow_enabled = false   # a hand-carried torch glows soft, casts no hard shadow
+	add_child(lit)
+	_carried_light = lit
+
+
+## S-07.1c test hook: true when this enemy carries a live presentation light.
+func has_carried_light() -> bool:
+	return _carried_light != null and is_instance_valid(_carried_light)
 
 
 ## FQ-13P1: pick this enemy's sprite once at creation and keep it for life.

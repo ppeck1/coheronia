@@ -481,6 +481,21 @@ func _draw() -> void:
 	_draw_job_marker()
 
 
+## S-07.1c: presentation contract for the defender's sword marker. A sword held
+## blade-UP: the blade rises above the crossguard, and the grip/crossguard sit
+## down near the hand (~ -17 y, matching the other tool markers). Returned as
+## points so a smoke check can assert it is never drawn inverted (blade below the
+## hand). Purely visual — no gameplay reads this.
+static func defender_sword_marker() -> Dictionary:
+	return {
+		"blade_tip": Vector2(7, -32),     # highest point — the blade points up
+		"blade_base": Vector2(7, -20),    # blade meets the crossguard
+		"crossguard_l": Vector2(3, -20),
+		"crossguard_r": Vector2(11, -20), # crossguard sits at the top of the hand
+		"grip_end": Vector2(7, -14),      # hilt in the hand, BELOW the crossguard
+	}
+
+
 ## M3: a small tool overlay by the citizen's hand marking its trade, drawn over
 ## either the sprite or the procedural fallback.
 func _draw_job_marker() -> void:
@@ -490,8 +505,10 @@ func _draw_job_marker() -> void:
 	elif job == "hauler":
 		draw_rect(Rect2(4, -20, 8, 8), TRIM_COL)                      # a crate on the back
 	elif job == "defender":
-		draw_line(Vector2(7, -8), Vector2(7, -28), Color(0.85, 0.86, 0.9), 2.0)  # sword blade
-		draw_line(Vector2(4, -24), Vector2(10, -24), TRIM_COL, 2.0)              # crossguard
+		var m := defender_sword_marker()
+		draw_line(m["grip_end"], m["blade_base"], TRIM_COL, 2.0)               # grip/hilt in hand
+		draw_line(m["crossguard_l"], m["crossguard_r"], TRIM_COL, 2.0)         # crossguard
+		draw_line(m["blade_base"], m["blade_tip"], Color(0.85, 0.86, 0.9), 2.0)  # blade points up
 	else:
 		draw_line(Vector2(5, -20), Vector2(11, -28), TRIM_COL, 2.0)   # a hoe
 

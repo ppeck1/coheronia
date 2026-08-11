@@ -46,6 +46,25 @@ removal). The S-07.1b polish is pinned by new guards
 `s07_char_create_640_legibility_contract`, `s07_calling_panel_no_hscroll`,
 `s07_scrim_strength_knob`, `s07_swing_arc_fx`, and `s07_sword_swing_frames_authored`;
 the only remaining swing-art work is optional pick/axe frame polish.
+
+**S-07.1c — environment/presentation consistency closeout (shipped).** A focused
+defect pass, visual/runtime only (no gameplay, save/gen, Calling/balance, or
+world/render-architecture change): fresh enemies spawn at full health (spawner
+sets `max_hp = hp`; saved damaged enemies preserved); the settler defender's job
+marker reads blade-up (crossguard/grip near the hand) via the
+`subject.defender_sword_marker()` contract; placed torches/lanterns provably
+create a `PointLight2D`, survive load, and light underground; `raider_torchbearer`
+carries a presentation-only, data-driven (`enemies.json` `visual_light`) child
+light that moves with it and touches no `light_score`/world light grid; and
+underground rear walls always resolve below the sky line (never black void) and
+read as receding rock via a cooler/desaturated/purple-blue `world.wall_tint`.
+Pinned by eight new guards (`s07c_fresh_enemy_full_health`,
+`s07c_defender_sword_blade_up`, `s07c_underground_torch_lit`,
+`s07c_load_keeps_lantern_light`, `s07c_torchbearer_carries_light`,
+`s07c_carried_light_visual_only`, `s07c_underground_walls_cover_below_skyline`,
+`s07c_wall_distinct_from_foreground`). Windowed smoke **548/548** (was 540), no
+failures/skips.
+
 This **closeout A** added, on top of those:
 
 - **Fail-closed verification** (`scripts/ci/verify.py`): a crashed/non-compiling/
@@ -64,14 +83,16 @@ This **closeout A** added, on top of those:
 
 ## Recommended next
 
-- **S-07.2 — Calling balance (measure then tune) — the next material task:** run
-  the extended [`PLAYTEST_CHECKLIST.md`](PLAYTEST_CHECKLIST.md) across all three
-  Callings, **record** the measured worst-case conditional stacking on the hot
-  channels, and only then apply the D3-locked data-only tuning. **No tuning
-  without evidence** — the measurement pass comes first.
-- **S-07.1b — complete.** The remainder (F9 responsive char-create, F6 scrim
-  taste knob, F10 swing FX + four-tier sword swing family) shipped and is guarded;
-  the only open swing-art item is optional pick/axe frame polish (D4 art lane).
+- **S-07.2 — Calling balance (measure then tune) — the next material task, PREPARED
+  ONLY:** [`PLAYTEST_CHECKLIST.md`](PLAYTEST_CHECKLIST.md) now carries the measure-first
+  protocol (the three D3 hot channels, per-channel worst-case build + context, and a
+  fill-in results ledger). It is **parked** pending hands-on playtest — **record** the
+  measured worst-case conditional stacking first, and only then apply the D3-locked
+  data-only tuning. **No tuning without evidence.**
+- **S-07.1b / S-07.1c — complete.** S-07.1b (F9 responsive char-create, F6 scrim
+  knob, F10 swing FX + four-tier sword swing family) and S-07.1c (environment/
+  presentation consistency, above) shipped and are guarded; the only open swing-art
+  item is optional pick/axe frame polish (D4 art lane).
 - **S-07.3 remainder:** the remaining tightly-coupled smoke clusters need a shared
   `ctx.scratch` design before continuing (paused deliberately).
 - **S-07.4:** re-confirm the clean stateless extraction candidates against the

@@ -16,6 +16,7 @@ const SmokeAudio := preload("res://scripts/main/smoke/smoke_audio.gd")   # S-07.
 const SmokeContracts := preload("res://scripts/main/smoke/smoke_contracts.gd")   # S-07.3
 const SmokeSettlerCrew := preload("res://scripts/main/smoke/smoke_settler_crew.gd")   # S-07.3
 const SmokeCitizens := preload("res://scripts/main/smoke/smoke_citizens.gd")   # S-07.3
+const SubjectScript := preload("res://scripts/entities/subject.gd")   # S-07.1c defender marker
 
 var _results: Array = []
 var _details: Dictionary = {}
@@ -380,11 +381,36 @@ func _run() -> void:
 		torch_cell.y -= 1
 	var torch_placed: bool = player.try_place(torch_cell, "torch")
 	_check("torch_placement", torch_placed and world.block_at(torch_cell) == "torch")
+	# S-07.1c: strengthen — a placed torch creates a real PointLight2D node (not
+	# merely a has_light_at flag) with positive energy, parented into the world.
 	_check("torch_emits_light", world.has_light_at(torch_cell)
+		and world._lights[torch_cell] is PointLight2D
 		and world._lights[torch_cell].energy > 0.0)
 	_check("light_occlusion_configured",
 		world._tilemap.tile_set.get_occlusion_layers_count() > 0
 		and world._lights[torch_cell].shadow_enabled)
+
+	# S-07.1c: a torch placed UNDERGROUND (below the column sky line) still creates
+	# a live PointLight2D — cave/night torches are lit, not dark. Open a pocket a
+	# few cells under the surface, set a torch there via the world block path (the
+	# light-creation path is world._update_light, independent of player reach),
+	# assert the light, then restore the cell so later world assertions are stable.
+	var _s7c_ux: int = torch_cell.x
+	var _s7c_uy: int = world.sky_line(_s7c_ux) + 4
+	var _s7c_ucell := Vector2i(_s7c_ux, _s7c_uy)
+	var _s7c_uprev: String = world.block_at(_s7c_ucell)
+	world.break_block(_s7c_ucell)   # open a pocket below the surface (no loose drop)
+	var _s7c_ulit: bool = world.place_block(_s7c_ucell, "torch")
+	_check("s07c_underground_torch_lit",
+		_s7c_uy > world.sky_line(_s7c_ux) and _s7c_ulit
+		and world.has_light_at(_s7c_ucell)
+		and world._lights[_s7c_ucell] is PointLight2D
+		and world._lights[_s7c_ucell].energy > 0.0,
+		"depth=%d skyline=%d placed=%s" % [_s7c_uy, world.sky_line(_s7c_ux), str(_s7c_ulit)])
+	# Restore the pocket to whatever was there (keeps later world assertions stable).
+	world.break_block(_s7c_ucell)
+	if _s7c_uprev != "air" and _s7c_uprev != "":
+		world.place_block(_s7c_ucell, _s7c_uprev)
 
 	# --- Town Hall deposit ---
 	var stock_before: int = hall.total_stock()
@@ -556,7 +582,16 @@ func _run() -> void:
 		and world.block_at(place_cell) == "dirt"
 		and world.block_at(torch_cell) == "torch")
 	_check("load_restores_stockpile", hall.total_stock() == save_stock)
-	_check("load_keeps_torch_light", world.has_light_at(torch_cell))
+	_check("load_keeps_torch_light", world.has_light_at(torch_cell)
+		and world._lights[torch_cell] is PointLight2D)
+	# S-07.1c: the lantern's light also survives load — re-derived from the
+	# restored block as a real PointLight2D with positive energy, not just the torch.
+	_check("s07c_load_keeps_lantern_light",
+		world.block_at(lantern_cell) == "lantern"
+		and world.has_light_at(lantern_cell)
+		and world._lights[lantern_cell] is PointLight2D
+		and world._lights[lantern_cell].energy > 0.0,
+		"block=%s lit=%s" % [world.block_at(lantern_cell), str(world.has_light_at(lantern_cell))])
 	var live_threats := 0
 	for threat in get_tree().get_nodes_in_group("threats"):
 		if is_instance_valid(threat) and not threat.is_queued_for_deletion():
@@ -1451,6 +1486,45 @@ func _run() -> void:
 	_check("enemies_json_loads", enemy_reg.live_defs().size() == 8,
 		"%d live defs" % enemy_reg.live_defs().size())
 
+	# S-07.1c: every FRESH enemy spawns at full health — hp == max_hp and the hurt
+	# bar reads exactly 1.0 across ALL live enemy ids. A frail thornrat/ore_tick
+	# (hp_mult < 1) must never spawn already showing a partial bar. Regression
+	# guard for the spawner's `threat.max_hp = threat.hp` fix.
+	var _s7c_fresh_ok := true
+	var _s7c_fresh_bad := ""
+	for _s7c_def in enemy_reg.live_defs():
+		var _s7c_id := str(_s7c_def.get("id", ""))
+		var _s7c_e: Node = root.spawn_enemy_for_test(_s7c_id)
+		var _s7c_good: bool = _s7c_e != null and _s7c_e.hp == _s7c_e.max_hp \
+			and is_equal_approx(_s7c_e.health_bar_ratio(), 1.0)
+		if not _s7c_good:
+			_s7c_fresh_ok = false
+			if _s7c_fresh_bad == "":
+				_s7c_fresh_bad = "%s hp=%s max=%s ratio=%s" % [_s7c_id,
+					str(_s7c_e.hp) if _s7c_e != null else "null",
+					str(_s7c_e.max_hp) if _s7c_e != null else "null",
+					("%.2f" % _s7c_e.health_bar_ratio()) if _s7c_e != null else "n/a"]
+		if _s7c_e != null and is_instance_valid(_s7c_e):
+			_s7c_e.queue_free()
+	await get_tree().process_frame
+	_check("s07c_fresh_enemy_full_health", _s7c_fresh_ok,
+		_s7c_fresh_bad if not _s7c_fresh_ok else "all live ids: hp==max_hp, ratio==1.0")
+
+	# S-07.1c: the defender job marker is a sword held BLADE-UP with the crossguard
+	# and grip down near the hand — never inverted. Assert the presentation-contract
+	# geometry: blade tip is the highest point (most negative y), the crossguard
+	# sits below the tip, and the grip is below the crossguard (in the hand).
+	var _s7c_sw: Dictionary = SubjectScript.defender_sword_marker()
+	var _s7c_tip: Vector2 = _s7c_sw["blade_tip"]
+	var _s7c_base: Vector2 = _s7c_sw["blade_base"]
+	var _s7c_cg: Vector2 = _s7c_sw["crossguard_l"]
+	var _s7c_grip: Vector2 = _s7c_sw["grip_end"]
+	_check("s07c_defender_sword_blade_up",
+		_s7c_tip.y < _s7c_base.y and _s7c_base.y <= _s7c_cg.y \
+			and _s7c_grip.y > _s7c_cg.y,
+		"tip.y=%.0f base.y=%.0f crossguard.y=%.0f grip.y=%.0f" % [
+			_s7c_tip.y, _s7c_base.y, _s7c_cg.y, _s7c_grip.y])
+
 	var slime_node: Node = root.spawn_enemy_for_test("surface_slime")
 	_check("surface_slime_spawns", slime_node != null
 		and str(slime_node.enemy_id) == "surface_slime",
@@ -1586,6 +1660,35 @@ func _run() -> void:
 		and _fq13_torch_node.hp > _fq13_thorn_node.hp,
 		"torch_hp=%d thorn_hp=%d" % [
 			_fq13_torch_node.hp, _fq13_thorn_node.hp])
+
+	# S-07.1c: the raider_torchbearer carries a PRESENTATION-ONLY torch light that
+	# moves with it (a child PointLight2D), while a basic raider stays dark — and
+	# spawning it changes NO settlement scoring (light_score) or the world light
+	# grid (world._lights). Capture the world/scoring state, spawn fresh, compare.
+	var _s7c_ls_before: float = settlement.inputs.get("light_score", 0.0)
+	var _s7c_wl_before: int = world._lights.size()
+	var _s7c_tb: Node = root.spawn_enemy_for_test("raider_torchbearer")
+	var _s7c_rb: Node = root.spawn_enemy_for_test("raider_basic")
+	await get_tree().process_frame
+	var _s7c_tb_child: bool = _s7c_tb != null and _s7c_tb.has_carried_light() \
+		and _s7c_tb._carried_light is PointLight2D \
+		and _s7c_tb._carried_light.get_parent() == _s7c_tb
+	_check("s07c_torchbearer_carries_light",
+		_s7c_tb_child and _s7c_rb != null and not _s7c_rb.has_carried_light(),
+		"tb_light=%s child=%s rb_light=%s" % [
+			str(_s7c_tb.has_carried_light()) if _s7c_tb != null else "null",
+			str(_s7c_tb_child),
+			str(_s7c_rb.has_carried_light()) if _s7c_rb != null else "null"])
+	_check("s07c_carried_light_visual_only",
+		world._lights.size() == _s7c_wl_before
+		and is_equal_approx(settlement.inputs.get("light_score", 0.0), _s7c_ls_before),
+		"worldlights %d→%d light_score %.3f→%.3f" % [
+			_s7c_wl_before, world._lights.size(),
+			_s7c_ls_before, settlement.inputs.get("light_score", 0.0)])
+	for _s7c_n in [_s7c_tb, _s7c_rb]:
+		if _s7c_n != null and is_instance_valid(_s7c_n):
+			_s7c_n.queue_free()
+	await get_tree().process_frame
 
 	# (f) a new enemy's drops reach the player on death. R-08 slice 3 routes loot
 	# through a ground drop; killed on the player, the adjacent player collects it.
@@ -5257,6 +5360,46 @@ func _run() -> void:
 		and world.wall_at(_fq09w_mine) != "",
 		"block=%s delta=%s wall=%s" % [world.block_at(_fq09w_mine),
 			str(world.deltas.get(_fq09w_mine, "")), world.wall_at(_fq09w_mine)])
+
+	# S-07.1c: below the sky line the backing wall ALWAYS resolves — a cave cell
+	# never shows black void because a wall failed to derive. Sample several
+	# columns and depths (including deep) and require a non-empty wall id at each.
+	var _s7c_void := Vector2i(-1, -1)
+	for _s7c_wx in range(_fq09w_x, mini(_fq09w_x + 12, world.width - 1)):
+		var _s7c_top: int = int(world.surface[_s7c_wx]) + 1
+		for _s7c_dep in [0, 4, 14, 40]:
+			var _s7c_wc := Vector2i(_s7c_wx, _s7c_top + _s7c_dep)
+			if _s7c_wc.y >= world.height:
+				continue
+			if world.wall_at(_s7c_wc) == "":
+				_s7c_void = _s7c_wc
+	_check("s07c_underground_walls_cover_below_skyline", _s7c_void == Vector2i(-1, -1),
+		"first void cell below skyline: %s" % str(_s7c_void))
+
+	# S-07.1c: a derived rear wall reads as receding rock — the actual stone_wall
+	# texture is darker, cooler (blue-shifted), and blue-dominant (purple-blue) vs
+	# the solid stone foreground, so a cave wall never looks identical to the
+	# foreground. Averaged over the tile to be robust to per-cell mottle.
+	var _s7c_t: int = world.tile_size()
+	var _s7c_fg_img: Image = world._make_block_texture("stone", _s7c_t).get_image()
+	var _s7c_wl_img: Image = world._make_wall_texture("stone_wall", "stone", _s7c_t).get_image()
+	var _s7c_fg := Color(0, 0, 0)
+	var _s7c_wl := Color(0, 0, 0)
+	var _s7c_np: float = float(_s7c_t * _s7c_t)
+	for _s7c_py in range(_s7c_t):
+		for _s7c_px in range(_s7c_t):
+			var _s7c_cf: Color = _s7c_fg_img.get_pixel(_s7c_px, _s7c_py)
+			var _s7c_cw: Color = _s7c_wl_img.get_pixel(_s7c_px, _s7c_py)
+			_s7c_fg += Color(_s7c_cf.r, _s7c_cf.g, _s7c_cf.b) / _s7c_np
+			_s7c_wl += Color(_s7c_cw.r, _s7c_cw.g, _s7c_cw.b) / _s7c_np
+	var _s7c_fg_v: float = maxf(_s7c_fg.r, maxf(_s7c_fg.g, _s7c_fg.b))
+	var _s7c_wl_v: float = maxf(_s7c_wl.r, maxf(_s7c_wl.g, _s7c_wl.b))
+	_check("s07c_wall_distinct_from_foreground",
+		_s7c_wl_v < _s7c_fg_v                                     # darker / quieter
+		and (_s7c_wl.b - _s7c_wl.r) > (_s7c_fg.b - _s7c_fg.r)     # cooler (blue-shifted)
+		and _s7c_wl.b >= _s7c_wl.r and _s7c_wl.b >= _s7c_wl.g,    # blue-dominant (purple-blue)
+		"fg=(%.2f,%.2f,%.2f) wall=(%.2f,%.2f,%.2f)" % [
+			_s7c_fg.r, _s7c_fg.g, _s7c_fg.b, _s7c_wl.r, _s7c_wl.g, _s7c_wl.b])
 
 	# (c) underground is dark at midday and the surface stays full daylight —
 	# the depth-aware ambient target, not the smoothing lerp, is asserted.

@@ -367,6 +367,7 @@
       "hp": 4,
       "hp_mult": 1.5,
       "hall_dps_mult": 2.5,
+      "visual_light": { "radius": 80, "color": [1.0, 0.62, 0.28], "energy": 1.1 },
       "location": "Raider camps and raid waves",
       "density": {
         "count_min": 1,

@@ -1278,6 +1278,13 @@ func _spawn_enemy_at(def: Dictionary, pos: Vector2) -> Node:
 	# ore tick <1.0, tanky torchbearer >1.0); default 1.0 leaves the original
 	# three enemies unchanged.
 	threat.hp = maxi(1, int(round(float(threat_hp()) * float(def.get("hp_mult", 1.0)))))
+	# S-07.1c: a FRESH enemy spawns at full health — max_hp must match hp so a
+	# frail enemy (hp_mult < 1, e.g. thornrat/ore_tick) never spawns already
+	# showing a partial hurt bar. Without this, simple_threat._ready runs
+	# max_hp = maxi(3, hp), leaving a 1-2 hp enemy pinned to a max of 3.
+	# The load path (apply_threats) overrides both hp/max_hp AFTER _ready, so a
+	# saved damaged enemy is unaffected by this line.
+	threat.max_hp = threat.hp
 	# FQ-13: hall_dps_mult lets the torchbearer burn structures faster than a
 	# basic raider without changing the shared base rate.
 	threat.hall_dps = 4.0 * config().difficulty("enemy") * float(def.get("hall_dps_mult", 1.0))
@@ -1291,6 +1298,9 @@ func _spawn_enemy_at(def: Dictionary, pos: Vector2) -> Node:
 	threat.breaks_walls = bool(def.get("breaks_walls", false))   # M4-A raider_sapper
 	threat.emits_bubbles = bool(def.get("emits_bubbles", false))   # M4-B lava_slime
 	threat.lava_immune = bool(def.get("lava_immune", false))
+	# S-07.1c: presentation-only carried torch light (raider_torchbearer). Visual
+	# only — never touches settlement scoring, the world light grid, or spawn safety.
+	threat.visual_light = def.get("visual_light", {})
 	threat.died.connect(_on_threat_died)
 	threats.add_child(threat)
 	return threat

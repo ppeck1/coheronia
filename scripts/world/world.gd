@@ -975,9 +975,31 @@ func _build_wall_tileset() -> TileSet:
 	return ts
 
 
-## Back-wall tile: art at art/generated/back_walls/<wall_id>.png when
-## present, else the matching block texture pushed darker and fully opaque
-## (walls must read quieter than foreground and never as open sky).
+## S-07.1c: the cool, quiet tint an underground rear wall takes when it is derived
+## from a foreground material (no authored back_wall art). Desaturates the
+## material's own hue, lowers its contrast, and pushes it darker with a purple-blue
+## bias, so a cave's rear wall reads as receding rock — clearly distinct from the
+## solid foreground and never as flat foreground or black void. Purely visual: the
+## wall layer has no physics/occlusion, so nothing here can change collision,
+## lighting, shelter, or settlement math. Exposed static so a smoke check can
+## assert the foreground-vs-wall distinction against the same transform.
+static func wall_tint(c: Color) -> Color:
+	var lum := c.r * 0.299 + c.g * 0.587 + c.b * 0.114
+	# desaturate 60% toward the material's own luminance
+	var r := lerpf(c.r, lum, 0.6)
+	var g := lerpf(c.g, lum, 0.6)
+	var b := lerpf(c.b, lum, 0.6)
+	# lower contrast: pull each channel toward mid-grey
+	r = lerpf(r, 0.5, 0.25)
+	g = lerpf(g, 0.5, 0.25)
+	b = lerpf(b, 0.5, 0.25)
+	# darken + purple-blue bias (blue dominant, red second, green quietest)
+	return Color(r * 0.42, g * 0.34, b * 0.58, 1.0)
+
+
+## Back-wall tile: art at art/generated/back_walls/<wall_id>.png when present,
+## else the matching block texture pushed through wall_tint() — quieter, cooler,
+## fully opaque (walls must read quieter than foreground and never as open sky).
 func _make_wall_texture(wall_id: String, base_block: String, t: int) -> ImageTexture:
 	var art := BlockRegistry.visual_texture("back_walls", wall_id) as ImageTexture
 	if art != null:
@@ -985,8 +1007,7 @@ func _make_wall_texture(wall_id: String, base_block: String, t: int) -> ImageTex
 	var img: Image = _make_block_texture(base_block, t).get_image()
 	for y in range(t):
 		for x in range(t):
-			var c := img.get_pixel(x, y)
-			img.set_pixel(x, y, Color(c.r * 0.40, c.g * 0.40, c.b * 0.46, 1.0))
+			img.set_pixel(x, y, wall_tint(img.get_pixel(x, y)))
 	return ImageTexture.create_from_image(img)
 
 

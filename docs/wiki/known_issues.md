@@ -60,6 +60,42 @@ the shaft below fades smoothly into the cave tint. See `docs/VARIABLE_MATRIX.md`
 `shaders/cave_depth.gdshader`, and `scripts/world/world.gd`
 (`enable_cave_depth_shading` / `set_viewer_darkness`).
 
+## Resolved — Environment / Presentation Consistency (S-07.1c)
+
+A focused pass over long-standing presentation/runtime defects. No gameplay,
+save/gen, Calling/balance, or world/render-architecture change — each fix is
+visual/runtime only and pinned by a smoke check.
+
+- **Fresh enemies spawn at full health.** The spawner now sets `max_hp = hp` on a
+  fresh enemy, so a frail thornrat/ore_tick (`hp_mult` < 1) no longer spawns already
+  showing a partial hurt bar; saved damaged enemies are unaffected (the load path
+  overrides `hp`/`max_hp` after `_ready`). Guard `s07c_fresh_enemy_full_health`
+  (every live enemy id: `hp == max_hp`, `health_bar_ratio() == 1.0`).
+- **Defender sword marker reads blade-up.** The settler defender's job marker was
+  drawn with the crossguard up near the blade tip, reading upside-down; it is now a
+  presentation contract (`subject.defender_sword_marker()`) with the blade pointing
+  up and the crossguard/grip down near the hand. Guard `s07c_defender_sword_blade_up`.
+- **Torch/lantern lights are consistent.** Placed torches and lanterns create a real
+  `PointLight2D` (positive energy), survive save/load (re-derived from the restored
+  block), and light underground/cave cells the same as on the surface. Guards
+  `torch_emits_light`, `s07c_underground_torch_lit`, `load_keeps_torch_light`,
+  `s07c_load_keeps_lantern_light`.
+- **Raider torchbearer carries a light.** `raider_torchbearer` now carries a
+  presentation-only `PointLight2D` (data-driven `visual_light` in `enemies.json`)
+  that moves with the enemy as a child node; a basic raider stays dark. It touches
+  no settlement scoring (`light_score`) or the world light grid — purely atmosphere.
+  Guards `s07c_torchbearer_carries_light`, `s07c_carried_light_visual_only`.
+- **Underground rear walls always resolve and read as receding rock.** Every cell
+  below the sky line derives a backing wall (never black void); when no authored
+  `back_walls` art exists the wall is derived from the material block through a
+  cooler, desaturated, purple-blue, lower-contrast tint (`world.wall_tint`) so it
+  never looks identical to the solid foreground. The wall layer still carries zero
+  physics/occlusion. Guards `s07c_underground_walls_cover_below_skyline`,
+  `s07c_wall_distinct_from_foreground`.
+
+Windowed smoke after this pass: **548/548** (was 540), +8 S-07.1c guards, no
+failures and no skips.
+
 ## What Is Already Stabilized
 
 - The primary dock uses a native 19-asset layered kit and one JSON geometry authority.
