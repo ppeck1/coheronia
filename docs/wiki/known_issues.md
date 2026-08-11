@@ -85,25 +85,27 @@ visual/runtime only and pinned by a smoke check.
   that moves with the enemy as a child node; a basic raider stays dark. It touches
   no settlement scoring (`light_score`) or the world light grid — purely atmosphere.
   Guards `s07c_torchbearer_carries_light`, `s07c_carried_light_visual_only`.
-- **Mined blocks reveal a backing wall, not black.** The backing-wall band now
-  starts **at the surface row** (the first solid cell), not one below it — so
-  mining the top block digs into the hillside and exposes a dirt wall instead of
-  the dark under-earth backdrop (`world_backdrop.UNDER_COL`) that previously read
-  as a black hole. Cells strictly above the surface still show open sky. (This was
-  the real cause of the operator-reported "black background behind mined blocks";
-  an earlier S-07.1c data-only check confirmed `wall_at()` resolved but did not
-  exercise the surface-row **coverage** gap or the render layer.) **And to tell a
-  background wall apart from the solid foreground of the same material** (a dirt
-  wall vs a mineable dirt block, which looked identical), **every** rear-wall tile
-  — authored `back_walls` art included, not just the derived fallback — is now
-  recolored through `world.wall_tint` (desaturate → lower-contrast → cool
-  purple-blue, darker). A pure layer multiply could not do this (it cannot
-  desaturate the material's warm hue); baking the tint into the texture makes the
-  wall read blue-dominant and clearly recessed, and the hue survives torch/lava
-  lighting. Wall layer still carries zero physics/occlusion. Guards
-  `s07c_mined_top_block_reveals_wall`, `s07c_underground_walls_cover_below_skyline`
-  (now from the surface row), `fq09w_walls_deterministic_and_inert`,
-  `s07c_wall_distinct_from_foreground` (now dirt **and** stone).
+- **Mined blocks reveal a backing wall, not black — and the wall reads as a quiet
+  recess.** The backing-wall band starts at the first **solid** cell of a column
+  (skipping air AND surface water), so mining the top solid block digs into the
+  hillside and exposes a wall instead of the dark under-earth backdrop
+  (`world_backdrop.UNDER_COL`) that read as a black hole, and a wall never sits
+  behind a translucent surface pond (`surface[x]` is unreliable there —
+  `_carve_surface_lake` overwrites it with the water top). Cells above the first
+  solid stay wall-free so open sky/water reads clean. **To read apart from the
+  solid foreground of the same material** (a dirt wall vs a mineable dirt block,
+  which looked identical), **every** rear-wall tile — authored `back_walls` art
+  included — is recolored through `world.wall_tint` to a **dark, desaturated,
+  faintly-cool** recess (deliberately quiet, not a loud purple). And the
+  BackgroundWalls layer is **`light_mask = 0`**, so a torch/lava light cannot
+  brighten a wall — it stays a receding backdrop like the scenic backdrop, dimmed
+  only by the cave-depth shader + day/night. Concrete: dirt foreground
+  `(0.40,0.26,0.17)` → wall `(0.08,0.07,0.09)`; stone `(0.41,0.44,0.46)` → wall
+  `(0.09,0.09,0.11)`. Tune via `world.wall_tint`. Wall layer still carries zero
+  physics/occlusion. Guards `s07c_mined_top_block_reveals_wall`,
+  `s07c_underground_walls_cover_below_skyline` (from the first-solid row),
+  `fq09w_walls_deterministic_and_inert`, `s07c_wall_distinct_from_foreground`
+  (dirt **and** stone: darker/flatter/cooler, `light_mask == 0`).
 - **Lava lights thinned so they stop competing with torches.** A lava cell used to
   own its own broad, shadowless `PointLight2D`, so a lava lake was one overlapping
   light per cell — additively over-bright and unstable next to shadowed torch

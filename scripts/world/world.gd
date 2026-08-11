@@ -136,6 +136,12 @@ func _ready() -> void:
 	_walls = TileMapLayer.new()
 	_walls.name = "BackgroundWalls"
 	_walls.z_index = -2
+	# S-07.1c: rear walls are a recessed backdrop, not lit geometry — a torch/lava
+	# light must not brighten them (that was reading as "bright purple" instead of a
+	# dark background). light_mask 0 keeps them out of every 2D light, so they render
+	# only at their (dark, cool) albedo dimmed by the cave-depth shader + day/night
+	# CanvasModulate, exactly like the scenic backdrop. No physics/occlusion either.
+	_walls.light_mask = 0
 	_walls.tile_set = _build_wall_tileset()
 	add_child(_walls)
 	_tilemap = TileMapLayer.new()
@@ -863,17 +869,24 @@ func _redraw_all() -> void:
 
 # ---------- FQ-09W: backing walls and column skylight ----------
 
-## Fills the BackgroundWalls layer from the generated surface: a dirt wall band
-## for the configured dirt depth, stone wall below. The band starts AT the
-## surface row (the first solid cell), not below it: mining the top block digs
-## INTO the hillside and must reveal a dirt wall, not the dark under-earth
-## backdrop (`world_backdrop.UNDER_COL`). Cells strictly ABOVE the surface row
-## stay wall-free so open sky still reads as sky. (S-07.1c-fix)
+## Fills the BackgroundWalls layer: a dirt wall band for the configured dirt depth,
+## stone wall below. The band starts at the first **solid** cell of the column
+## (skipping air AND surface water/lava), so:
+##  - mining the top solid block digs INTO the hillside and reveals a wall, not the
+##    dark under-earth backdrop (`world_backdrop.UNDER_COL`) — the black-gap fix;
+##  - a wall never sits behind a surface pond, so the tinted wall does not show
+##    through translucent water above the horizon (`surface[x]` is unreliable here
+##    — `_carve_surface_lake` overwrites it with the water top, not the ground).
+## Cells above the first solid row stay wall-free so open sky/water reads clean.
 func _rebuild_walls(config: WorldConfig) -> void:
 	_walls.clear()
 	var dirt_depth := int(config.gen("dirt_depth"))
 	for x in range(width):
-		var sy: int = int(surface.get(x, height))
+		var sy := 0
+		while sy < height and not BlockRegistry.is_solid(cells.get(Vector2i(x, sy), "air")):
+			sy += 1
+		if sy >= height:
+			continue   # column has no solid ground (all sky/water) — nothing to back
 		for y in range(sy, height):
 			var wall_id := "dirt_wall" if y <= sy + dirt_depth else "stone_wall"
 			_walls.set_cell(Vector2i(x, y), _wall_source_ids[wall_id], Vector2i.ZERO)
@@ -988,17 +1001,19 @@ func _build_wall_tileset() -> TileSet:
 ## assert the foreground-vs-wall distinction against the same transform.
 static func wall_tint(c: Color) -> Color:
 	var lum := c.r * 0.299 + c.g * 0.587 + c.b * 0.114
-	# desaturate 60% toward the material's own luminance
-	var r := lerpf(c.r, lum, 0.6)
-	var g := lerpf(c.g, lum, 0.6)
-	var b := lerpf(c.b, lum, 0.6)
+	# desaturate strongly toward the material's own luminance so the warm foreground
+	# hue is neutralised (a dirt wall reads apart from a dirt block by being flat and
+	# recessed, NOT by a loud colour) — the purple is only a whisper now.
+	var r := lerpf(c.r, lum, 0.85)
+	var g := lerpf(c.g, lum, 0.85)
+	var b := lerpf(c.b, lum, 0.85)
 	# lower contrast: pull each channel toward mid-grey
-	r = lerpf(r, 0.5, 0.25)
-	g = lerpf(g, 0.5, 0.25)
-	b = lerpf(b, 0.5, 0.25)
-	# darken + purple-blue bias (blue dominant, red second, green quietest). Kept
-	# readable, not black: a rear wall should recede, still show its texture.
-	return Color(r * 0.50, g * 0.40, b * 0.74, 1.0)
+	r = lerpf(r, 0.5, 0.2)
+	g = lerpf(g, 0.5, 0.2)
+	b = lerpf(b, 0.5, 0.2)
+	# darken to a quiet, receding backdrop with only a faint cool bias (green quietest,
+	# blue a touch highest). Much dimmer than before so it never reads as bright.
+	return Color(r * 0.34, g * 0.32, b * 0.40, 1.0)
 
 
 ## Back-wall tile: the authored art at art/generated/back_walls/<wall_id>.png when

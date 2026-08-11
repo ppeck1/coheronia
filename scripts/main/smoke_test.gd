@@ -5352,7 +5352,10 @@ func _run() -> void:
 	world.setup(777)
 	var _fq09w_dd: int = int(GameState.current_config.gen("dirt_depth"))
 	var _fq09w_x: int = clampi(int(world.hall_info["center_cell"].x) - 30, 2, world.width - 14)
-	var _fq09w_sy: int = int(world.surface[_fq09w_x])
+	# First SOLID row of the test column (skip air/water), matching the wall band.
+	var _fq09w_sy := 0
+	while _fq09w_sy < world.height and not BlockRegistry.is_solid(world.cells.get(Vector2i(_fq09w_x, _fq09w_sy), "air")):
+		_fq09w_sy += 1
 	var _fq09w_samples: Array = []
 	for _fq09w_i in range(10):
 		_fq09w_samples.append(Vector2i(_fq09w_x + _fq09w_i,
@@ -5402,7 +5405,9 @@ func _run() -> void:
 	# (the top mineable block) and require a non-empty wall id at each.
 	var _s7c_void := Vector2i(-1, -1)
 	for _s7c_wx in range(_fq09w_x, mini(_fq09w_x + 12, world.width - 1)):
-		var _s7c_top: int = int(world.surface[_s7c_wx])   # surface row (first solid)
+		var _s7c_top := 0   # first SOLID row (skip air/water), matching the wall band
+		while _s7c_top < world.height and not BlockRegistry.is_solid(world.cells.get(Vector2i(_s7c_wx, _s7c_top), "air")):
+			_s7c_top += 1
 		for _s7c_dep in [0, 1, 4, 14, 40]:
 			var _s7c_wc := Vector2i(_s7c_wx, _s7c_top + _s7c_dep)
 			if _s7c_wc.y >= world.height:
@@ -5430,11 +5435,12 @@ func _run() -> void:
 	if _s7c_topprev != "air" and _s7c_topprev != "":
 		world.place_block(_s7c_topcell, _s7c_topprev)   # restore the surface block
 
-	# S-07.1c: a rear wall reads clearly apart from the solid foreground of the SAME
-	# material, for BOTH dirt and stone (the operator saw dirt wall == dirt block).
-	# Every wall texture is pushed through wall_tint, so it is darker, cooler
-	# (blue-shifted vs the foreground), and blue-dominant (purple-blue). Averaged
-	# over the tile to be robust to per-cell mottle.
+	# S-07.1c: a rear wall reads apart from the solid foreground of the SAME material,
+	# for BOTH dirt and stone (the operator saw dirt wall == dirt block). Every wall
+	# texture is pushed through wall_tint, so it is DARKER, DESATURATED (flat, not the
+	# warm foreground hue), and slightly COOLER (blue-shifted) — a quiet recess, not a
+	# loud colour. Averaged over the tile to be robust to per-cell mottle. And the
+	# wall layer is light_mask 0, so a torch/lava light can never brighten it.
 	var _s7c_t: int = world.tile_size()
 	var _s7c_wd_ok := true
 	var _s7c_wd_detail := ""
@@ -5452,15 +5458,20 @@ func _run() -> void:
 				_s7c_wl += Color(_s7c_cw.r, _s7c_cw.g, _s7c_cw.b) / _s7c_np
 		var _s7c_fg_v: float = maxf(_s7c_fg.r, maxf(_s7c_fg.g, _s7c_fg.b))
 		var _s7c_wl_v: float = maxf(_s7c_wl.r, maxf(_s7c_wl.g, _s7c_wl.b))
+		# blue proportion b/(r+g+b): a brightness-independent "coolness" that holds
+		# for a warm foreground (dirt) AND an already-neutral one (stone).
+		var _s7c_fg_bp: float = _s7c_fg.b / maxf(_s7c_fg.r + _s7c_fg.g + _s7c_fg.b, 0.001)
+		var _s7c_wl_bp: float = _s7c_wl.b / maxf(_s7c_wl.r + _s7c_wl.g + _s7c_wl.b, 0.001)
 		var _s7c_this_ok: bool = _s7c_wl_v < _s7c_fg_v \
-			and (_s7c_wl.b - _s7c_wl.r) > (_s7c_fg.b - _s7c_fg.r) \
-			and _s7c_wl.b >= _s7c_wl.r and _s7c_wl.b >= _s7c_wl.g
+			and _s7c_wl_bp > _s7c_fg_bp          # cooler than its foreground
 		if not _s7c_this_ok and _s7c_wd_detail == "":
-			_s7c_wd_detail = "%s fg=(%.2f,%.2f,%.2f) wall=(%.2f,%.2f,%.2f)" % [_s7c_pair[0],
-				_s7c_fg.r, _s7c_fg.g, _s7c_fg.b, _s7c_wl.r, _s7c_wl.g, _s7c_wl.b]
+			_s7c_wd_detail = "%s fg=(%.2f,%.2f,%.2f)bp%.2f wall=(%.2f,%.2f,%.2f)bp%.2f" % [_s7c_pair[0],
+				_s7c_fg.r, _s7c_fg.g, _s7c_fg.b, _s7c_fg_bp,
+				_s7c_wl.r, _s7c_wl.g, _s7c_wl.b, _s7c_wl_bp]
 		_s7c_wd_ok = _s7c_wd_ok and _s7c_this_ok
-	_check("s07c_wall_distinct_from_foreground", _s7c_wd_ok,
-		_s7c_wd_detail if not _s7c_wd_ok else "dirt+stone walls darker/cooler/blue-dominant vs foreground")
+	_check("s07c_wall_distinct_from_foreground",
+		_s7c_wd_ok and world._walls.light_mask == 0,
+		_s7c_wd_detail if not _s7c_wd_ok else ("dirt+stone walls darker/flatter/cooler; light_mask=%d" % world._walls.light_mask))
 
 	# (c) underground is dark at midday and the surface stays full daylight —
 	# the depth-aware ambient target, not the smoothing lerp, is asserted.
