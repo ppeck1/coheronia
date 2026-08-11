@@ -14,7 +14,6 @@ This page separates confirmed presentation defects from intentional scope limits
 | Character creation at 640×360 | S-07.1b (F9) shipped a responsive compact layout: on a small physical window the shell raises logical type above a documented floor, tightens margins/rows, reflows the live preview beside the form, disables horizontal scroll, and pins Create/Back outside the vertical scroll — while the 1280×720 presentation is unchanged. Guarded by `s07_char_create_640_legibility_contract`. | The screen is legible and operable at the small size. | Resolved; only optional cosmetic refinement remains. |
 | Town Hall panel | S-07.1 trimmed the inline instructions, reserved roster height, and reordered the roster above the stockpile/actions. Some settler-roster content can still read busy at small sizes. | Controls work; the panel is clearer than before. | Continue density/legibility polish at target window sizes. |
 | Swing / action-FX art | Pick/axe/sword swings play a data-driven windup→impact→recovery aimed at the target, now joined by a swing-arc strike FX. The sword has a generated swing family (F10, all species); pick/axe swing frames stay hand-authored. | Mining/combat timing is unchanged; the gap is art fidelity, not motion logic. | Optional pick/axe frame polish (D4 art lane); the code contract already consumes authored overlays. |
-| Lava + torch light interaction | Every lava cell owns its own broad, shadowless `PointLight2D`, so a lava lake is many overlapping lights sharing one flicker phase. Near torch lights (which are shadowed) the overlapping additive glow can over-brighten and read unstable at the lava level. | Cosmetic only; lighting does not change gameplay, and lava/torch light never feeds settlement scoring. | Proposed: thin lava lights to a sparse representative set (each is already broad) or cap the total, preserving the molten wash — a tuned-visual change pending operator sign-off + native-size review. |
 
 ## Intentional Current Limits
 
@@ -100,6 +99,16 @@ visual/runtime only and pinned by a smoke check.
   `s07c_mined_top_block_reveals_wall`, `s07c_underground_walls_cover_below_skyline`
   (now from the surface row), `fq09w_walls_deterministic_and_inert`,
   `s07c_wall_distinct_from_foreground`.
+- **Lava lights thinned so they stop competing with torches.** A lava cell used to
+  own its own broad, shadowless `PointLight2D`, so a lava lake was one overlapping
+  light per cell — additively over-bright and unstable next to shadowed torch
+  lights. Lava lights are now thinned to a sparse 2×2 representative grid
+  (`world.lava_light_cell`); each is broad (~3-tile radius) so the lake still
+  washes continuously from ~¼ the lights, and off-grid cells are covered by their
+  grid neighbours. Torches/lanterns are never thinned; lava/torch light still feeds
+  no settlement scoring. Guard `s07c_lava_lights_thinned`. (Visual improvement to be
+  confirmed at native size; a truly isolated 1–2 cell odd-coordinate lava puddle
+  may glow slightly dimmer — a rare, cosmetic edge.)
 
 Windowed smoke after this pass: **548/548** (was 540), +8 S-07.1c guards, no
 failures and no skips.

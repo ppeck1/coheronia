@@ -1053,8 +1053,22 @@ func _set_tile(cell: Vector2i, block_id: String) -> void:
 	_update_light(cell, block_id)
 
 
+## S-07.1c-fix: which lava (liquid) cells own their own light — a sparse 2x2
+## representative grid. Each lava light is broad (~3-tile radius) and shadowless,
+## so a lake still washes continuously from ~1/4 the lights; off-grid lava cells
+## are covered by their neighbouring grid lights. Torches/lanterns are never
+## thinned. This kills the over-bright, unstable stacking a lava lake's many
+## per-cell lights produced where they competed with (shadowed) torch lights.
+static func lava_light_cell(cell: Vector2i) -> bool:
+	return posmod(cell.x, 2) == 0 and posmod(cell.y, 2) == 0
+
+
 func _update_light(cell: Vector2i, block_id: String) -> void:
 	var wants_light := block_id != "air" and BlockRegistry.emits_light(block_id)
+	# Thin lava lights to the sparse grid (see lava_light_cell). Non-liquid
+	# emitters (torch/lantern) light every cell as before.
+	if wants_light and BlockRegistry.is_liquid(block_id) and not lava_light_cell(cell):
+		wants_light = false
 	if not wants_light:
 		if _lights.has(cell):
 			_lights[cell].queue_free()

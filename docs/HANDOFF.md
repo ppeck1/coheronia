@@ -67,9 +67,11 @@ Pinned by nine guards (`s07c_fresh_enemy_full_health`,
 `s07c_load_keeps_lantern_light`, `s07c_torchbearer_carries_light`,
 `s07c_carried_light_visual_only`, `s07c_underground_walls_cover_below_skyline`,
 `s07c_wall_distinct_from_foreground`, `s07c_mined_top_block_reveals_wall`).
-Windowed smoke **549/549** (was 540), no failures/skips. Still open (documented,
-not yet fixed): the lava+torch light interaction (many per-cell lava lights) —
-a tuned-visual change awaiting operator sign-off.
+Lava lights were also thinned to a sparse 2×2 grid (`world.lava_light_cell`) so a
+lake washes from ~¼ the lights instead of one broad shadowless light per cell,
+fixing the over-bright/unstable stacking next to shadowed torch lights (guard
+`s07c_lava_lights_thinned`; visual to be confirmed at native size). Windowed smoke
+**550/550** (was 540), no failures/skips.
 
 This **closeout A** added, on top of those:
 

@@ -412,6 +412,36 @@ func _run() -> void:
 	if _s7c_uprev != "air" and _s7c_uprev != "":
 		world.place_block(_s7c_ucell, _s7c_uprev)
 
+	# S-07.1c-fix: lava (liquid) lights are thinned to a sparse 2x2 grid so a lava
+	# lake washes from ~1/4 the lights instead of one broad, shadowless light per
+	# cell (which over-brightened and read unstable next to shadowed torch lights).
+	# The grid predicate holds; a grid lava cell gets a PointLight2D, its off-grid
+	# neighbour does not (covered by the broad grid light); non-liquid torches are
+	# never thinned (the torch above lit regardless of its cell parity).
+	var _s7c_lgrid := Vector2i(40, 8)   # even,even -> on the grid
+	var _s7c_loff := Vector2i(41, 8)    # odd,even  -> off the grid
+	for _s7c_lc in [_s7c_lgrid, _s7c_loff]:
+		if world._lights.has(_s7c_lc):
+			world._lights[_s7c_lc].queue_free()
+			world._lights.erase(_s7c_lc)
+	world._update_light(_s7c_lgrid, "lava")
+	world._update_light(_s7c_loff, "lava")
+	var _s7c_grid4 := 0
+	for _s7c_gx in range(4):
+		for _s7c_gy in range(4):
+			if world.lava_light_cell(Vector2i(_s7c_gx, _s7c_gy)):
+				_s7c_grid4 += 1
+	_check("s07c_lava_lights_thinned",
+		world.lava_light_cell(_s7c_lgrid) and not world.lava_light_cell(_s7c_loff)
+		and world.has_light_at(_s7c_lgrid) and not world.has_light_at(_s7c_loff)
+		and world._lights[_s7c_lgrid] is PointLight2D
+		and _s7c_grid4 == 4,   # a 4x4 region keeps 4 of 16 lights (~1/4)
+		"grid_lit=%s off_lit=%s per16=%d" % [str(world.has_light_at(_s7c_lgrid)),
+			str(world.has_light_at(_s7c_loff)), _s7c_grid4])
+	if world._lights.has(_s7c_lgrid):   # clean up the transient test light
+		world._lights[_s7c_lgrid].queue_free()
+		world._lights.erase(_s7c_lgrid)
+
 	# --- Town Hall deposit ---
 	var stock_before: int = hall.total_stock()
 	var moved: Dictionary = hall.deposit_all(player.inventory)
