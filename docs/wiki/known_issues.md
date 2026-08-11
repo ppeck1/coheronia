@@ -14,6 +14,7 @@ This page separates confirmed presentation defects from intentional scope limits
 | Character creation at 640×360 | S-07.1b (F9) shipped a responsive compact layout: on a small physical window the shell raises logical type above a documented floor, tightens margins/rows, reflows the live preview beside the form, disables horizontal scroll, and pins Create/Back outside the vertical scroll — while the 1280×720 presentation is unchanged. Guarded by `s07_char_create_640_legibility_contract`. | The screen is legible and operable at the small size. | Resolved; only optional cosmetic refinement remains. |
 | Town Hall panel | S-07.1 trimmed the inline instructions, reserved roster height, and reordered the roster above the stockpile/actions. Some settler-roster content can still read busy at small sizes. | Controls work; the panel is clearer than before. | Continue density/legibility polish at target window sizes. |
 | Swing / action-FX art | Pick/axe/sword swings play a data-driven windup→impact→recovery aimed at the target, now joined by a swing-arc strike FX. The sword has a generated swing family (F10, all species); pick/axe swing frames stay hand-authored. | Mining/combat timing is unchanged; the gap is art fidelity, not motion logic. | Optional pick/axe frame polish (D4 art lane); the code contract already consumes authored overlays. |
+| Lava + torch light interaction | Every lava cell owns its own broad, shadowless `PointLight2D`, so a lava lake is many overlapping lights sharing one flicker phase. Near torch lights (which are shadowed) the overlapping additive glow can over-brighten and read unstable at the lava level. | Cosmetic only; lighting does not change gameplay, and lava/torch light never feeds settlement scoring. | Proposed: thin lava lights to a sparse representative set (each is already broad) or cap the total, preserving the molten wash — a tuned-visual change pending operator sign-off + native-size review. |
 
 ## Intentional Current Limits
 
@@ -85,12 +86,19 @@ visual/runtime only and pinned by a smoke check.
   that moves with the enemy as a child node; a basic raider stays dark. It touches
   no settlement scoring (`light_score`) or the world light grid — purely atmosphere.
   Guards `s07c_torchbearer_carries_light`, `s07c_carried_light_visual_only`.
-- **Underground rear walls always resolve and read as receding rock.** Every cell
-  below the sky line derives a backing wall (never black void); when no authored
-  `back_walls` art exists the wall is derived from the material block through a
-  cooler, desaturated, purple-blue, lower-contrast tint (`world.wall_tint`) so it
-  never looks identical to the solid foreground. The wall layer still carries zero
-  physics/occlusion. Guards `s07c_underground_walls_cover_below_skyline`,
+- **Mined blocks reveal a backing wall, not black.** The backing-wall band now
+  starts **at the surface row** (the first solid cell), not one below it — so
+  mining the top block digs into the hillside and exposes a dirt wall instead of
+  the dark under-earth backdrop (`world_backdrop.UNDER_COL`) that previously read
+  as a black hole. Cells strictly above the surface still show open sky. (This was
+  the real cause of the operator-reported "black background behind mined blocks";
+  an earlier S-07.1c data-only check confirmed `wall_at()` resolved but did not
+  exercise the surface-row **coverage** gap or the render layer.) The
+  material-derived wall fallback is also recolored cooler/desaturated/purple-blue
+  via `world.wall_tint` (used only where no authored `back_walls` art exists). Wall
+  layer still carries zero physics/occlusion. Guards
+  `s07c_mined_top_block_reveals_wall`, `s07c_underground_walls_cover_below_skyline`
+  (now from the surface row), `fq09w_walls_deterministic_and_inert`,
   `s07c_wall_distinct_from_foreground`.
 
 Windowed smoke after this pass: **548/548** (was 540), +8 S-07.1c guards, no

@@ -55,15 +55,21 @@ marker reads blade-up (crossguard/grip near the hand) via the
 `subject.defender_sword_marker()` contract; placed torches/lanterns provably
 create a `PointLight2D`, survive load, and light underground; `raider_torchbearer`
 carries a presentation-only, data-driven (`enemies.json` `visual_light`) child
-light that moves with it and touches no `light_score`/world light grid; and
-underground rear walls always resolve below the sky line (never black void) and
-read as receding rock via a cooler/desaturated/purple-blue `world.wall_tint`.
-Pinned by eight new guards (`s07c_fresh_enemy_full_health`,
+light that moves with it and touches no `light_score`/world light grid; and the
+backing-wall band now starts **at the surface row** so mining the top block
+reveals a dirt wall instead of the dark under-earth backdrop (the real cause of
+the operator "black background behind mined blocks" report — the first pass added
+a `wall_at()` data check that missed the surface-row coverage gap; the corrective
+`_rebuild_walls` change + `s07c_mined_top_block_reveals_wall` guard fix it). The
+material-derived wall fallback is also recolored via `world.wall_tint`.
+Pinned by nine guards (`s07c_fresh_enemy_full_health`,
 `s07c_defender_sword_blade_up`, `s07c_underground_torch_lit`,
 `s07c_load_keeps_lantern_light`, `s07c_torchbearer_carries_light`,
 `s07c_carried_light_visual_only`, `s07c_underground_walls_cover_below_skyline`,
-`s07c_wall_distinct_from_foreground`). Windowed smoke **548/548** (was 540), no
-failures/skips.
+`s07c_wall_distinct_from_foreground`, `s07c_mined_top_block_reveals_wall`).
+Windowed smoke **549/549** (was 540), no failures/skips. Still open (documented,
+not yet fixed): the lava+torch light interaction (many per-cell lava lights) —
+a tuned-visual change awaiting operator sign-off.
 
 This **closeout A** added, on top of those:
 

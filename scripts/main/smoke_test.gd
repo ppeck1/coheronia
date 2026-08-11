@@ -5335,18 +5335,23 @@ func _run() -> void:
 	for _fq09w_i2 in range(_fq09w_samples.size()):
 		if world.wall_at(_fq09w_samples[_fq09w_i2]) != _fq09w_first[_fq09w_i2]:
 			_fq09w_same = false
+	# S-07.1c-fix: the wall band starts AT the surface row (mining the top block
+	# reveals a dirt wall, not the dark under-earth backdrop); the row strictly
+	# ABOVE the surface stays open sky (no wall).
 	_check("fq09w_walls_deterministic_and_inert",
 		_fq09w_same
+		and world.wall_at(Vector2i(_fq09w_x, _fq09w_sy)) == "dirt_wall"
 		and world.wall_at(Vector2i(_fq09w_x, _fq09w_sy + 1)) == "dirt_wall"
 		and world.wall_at(Vector2i(_fq09w_x, _fq09w_sy + _fq09w_dd + 1)) == "stone_wall"
-		and world.wall_at(Vector2i(_fq09w_x, _fq09w_sy)) == ""
+		and world.wall_at(Vector2i(_fq09w_x, _fq09w_sy - 1)) == ""
 		and world.wall_at(Vector2i(_fq09w_x, _fq09w_sy - 3)) == ""
 		and world._walls.tile_set.get_physics_layers_count() == 0
 		and world._walls.tile_set.get_occlusion_layers_count() == 0,
-		"same=%s band=%s/%s above_empty=%s phys=%d occ=%d" % [str(_fq09w_same),
+		"same=%s surface=%s band=%s/%s above_empty=%s phys=%d occ=%d" % [str(_fq09w_same),
+			world.wall_at(Vector2i(_fq09w_x, _fq09w_sy)),
 			world.wall_at(Vector2i(_fq09w_x, _fq09w_sy + 1)),
 			world.wall_at(Vector2i(_fq09w_x, _fq09w_sy + _fq09w_dd + 1)),
-			str(world.wall_at(Vector2i(_fq09w_x, _fq09w_sy)) == ""),
+			str(world.wall_at(Vector2i(_fq09w_x, _fq09w_sy - 1)) == ""),
 			world._walls.tile_set.get_physics_layers_count(),
 			world._walls.tile_set.get_occlusion_layers_count()])
 
@@ -5361,20 +5366,39 @@ func _run() -> void:
 		"block=%s delta=%s wall=%s" % [world.block_at(_fq09w_mine),
 			str(world.deltas.get(_fq09w_mine, "")), world.wall_at(_fq09w_mine)])
 
-	# S-07.1c: below the sky line the backing wall ALWAYS resolves — a cave cell
-	# never shows black void because a wall failed to derive. Sample several
-	# columns and depths (including deep) and require a non-empty wall id at each.
+	# S-07.1c: from the SURFACE ROW down the backing wall ALWAYS resolves — a cell
+	# never shows black void (the dark under-earth backdrop) because a wall failed
+	# to cover it. Sample several columns and depths starting AT the surface row
+	# (the top mineable block) and require a non-empty wall id at each.
 	var _s7c_void := Vector2i(-1, -1)
 	for _s7c_wx in range(_fq09w_x, mini(_fq09w_x + 12, world.width - 1)):
-		var _s7c_top: int = int(world.surface[_s7c_wx]) + 1
-		for _s7c_dep in [0, 4, 14, 40]:
+		var _s7c_top: int = int(world.surface[_s7c_wx])   # surface row (first solid)
+		for _s7c_dep in [0, 1, 4, 14, 40]:
 			var _s7c_wc := Vector2i(_s7c_wx, _s7c_top + _s7c_dep)
 			if _s7c_wc.y >= world.height:
 				continue
 			if world.wall_at(_s7c_wc) == "":
 				_s7c_void = _s7c_wc
 	_check("s07c_underground_walls_cover_below_skyline", _s7c_void == Vector2i(-1, -1),
-		"first void cell below skyline: %s" % str(_s7c_void))
+		"first void cell at/below surface row: %s" % str(_s7c_void))
+
+	# S-07.1c-fix: mining the TOP surface block reveals a dirt wall, never the dark
+	# under-earth backdrop. This reproduces the operator report (fresh world, mine a
+	# few top blocks -> black background) as a regression guard: find a column's
+	# first solid, mine it, and require the now-air cell to expose a backing wall.
+	var _s7c_topx: int = clampi(_fq09w_x + 5, 2, world.width - 2)
+	var _s7c_topy: int = int(world.surface[_s7c_topx])
+	while _s7c_topy < world.height and not BlockRegistry.is_solid(world.block_at(Vector2i(_s7c_topx, _s7c_topy))):
+		_s7c_topy += 1   # skip any air above the true first-solid row
+	var _s7c_topcell := Vector2i(_s7c_topx, _s7c_topy)
+	var _s7c_topprev: String = world.block_at(_s7c_topcell)
+	world.break_block(_s7c_topcell)
+	_check("s07c_mined_top_block_reveals_wall",
+		world.block_at(_s7c_topcell) == "air" and world.wall_at(_s7c_topcell) != "",
+		"prev=%s now=%s wall=%s" % [_s7c_topprev, world.block_at(_s7c_topcell),
+			world.wall_at(_s7c_topcell)])
+	if _s7c_topprev != "air" and _s7c_topprev != "":
+		world.place_block(_s7c_topcell, _s7c_topprev)   # restore the surface block
 
 	# S-07.1c: a derived rear wall reads as receding rock — the actual stone_wall
 	# texture is darker, cooler (blue-shifted), and blue-dominant (purple-blue) vs

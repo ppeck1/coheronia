@@ -863,15 +863,18 @@ func _redraw_all() -> void:
 
 # ---------- FQ-09W: backing walls and column skylight ----------
 
-## Fills the BackgroundWalls layer from the generated surface: a dirt wall
-## band for the configured dirt depth, stone wall below, nothing at or above
-## the surface row (mining the top block reveals sky/backdrop, not a wall).
+## Fills the BackgroundWalls layer from the generated surface: a dirt wall band
+## for the configured dirt depth, stone wall below. The band starts AT the
+## surface row (the first solid cell), not below it: mining the top block digs
+## INTO the hillside and must reveal a dirt wall, not the dark under-earth
+## backdrop (`world_backdrop.UNDER_COL`). Cells strictly ABOVE the surface row
+## stay wall-free so open sky still reads as sky. (S-07.1c-fix)
 func _rebuild_walls(config: WorldConfig) -> void:
 	_walls.clear()
 	var dirt_depth := int(config.gen("dirt_depth"))
 	for x in range(width):
 		var sy: int = int(surface.get(x, height))
-		for y in range(sy + 1, height):
+		for y in range(sy, height):
 			var wall_id := "dirt_wall" if y <= sy + dirt_depth else "stone_wall"
 			_walls.set_cell(Vector2i(x, y), _wall_source_ids[wall_id], Vector2i.ZERO)
 
