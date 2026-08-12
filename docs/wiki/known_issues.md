@@ -40,9 +40,13 @@ viewer's own depth factor — so it only *adds* the darkening the global tint ha
 already applied at or above the viewer. On the surface the whole underground reads
 dark; once the player descends the shader contributes nothing extra at the viewer's
 depth (the global tint already handles it), so there is **no double-dimming and no
-behaviour change for entities**. The shader keeps default 2D lighting (no `unshaded`),
-so torch/lava/celestial `PointLight2D` still additively re-light the darkened rock —
-lit pockets stay readable.
+behaviour change for entities**. The depth darkening is **ambient only**: the shader's
+`fragment()` dims the unlit base, but a matching `light()` illuminates each tile's
+**true albedo** (the texture, before the depth dim), so a torch/lava/celestial
+`PointLight2D` brightens a deep tile **fully regardless of the viewer's depth** — a lit
+pocket below the player, or an underground torch seen from a cave mouth, still reads.
+(An earlier version had only the `fragment()` half, so the darkened `COLOR` also
+multiplied the light down and suppressed it — see the follow-up below.)
 
 **Wiring.** `world.gd` builds a one-texel-per-column `RF` sky-line texture (rebuilt on
 the same dirty trigger that invalidates `_sky_line` when the player digs) and assigns
@@ -96,16 +100,13 @@ visual/runtime only and pinned by a smoke check.
   solid foreground of the same material** (a dirt wall vs a mineable dirt block,
   which looked identical), **every** rear-wall tile — authored `back_walls` art
   included — is recolored through `world.wall_tint` to a **dark, desaturated,
-  faintly-cool** recess (deliberately quiet, not a loud purple). And the
-  BackgroundWalls layer is **`light_mask = 0`**, so a torch/lava light cannot
-  brighten a wall — it stays a receding backdrop like the scenic backdrop, dimmed
-  only by the cave-depth shader + day/night. Concrete: dirt foreground
-  `(0.40,0.26,0.17)` → wall `(0.08,0.07,0.09)`; stone `(0.41,0.44,0.46)` → wall
-  `(0.09,0.09,0.11)`. Tune via `world.wall_tint`. Wall layer still carries zero
-  physics/occlusion. Guards `s07c_mined_top_block_reveals_wall`,
+  faintly-cool** recess (deliberately quiet, not a loud purple). Tune via
+  `world.wall_tint`. Wall layer still carries zero physics/occlusion. Guards
+  `s07c_mined_top_block_reveals_wall`,
   `s07c_underground_walls_cover_below_skyline` (from the first-solid row),
   `fq09w_walls_deterministic_and_inert`, `s07c_wall_distinct_from_foreground`
-  (dirt **and** stone: darker/flatter/cooler, `light_mask == 0`).
+  (dirt **and** stone: darker/flatter/cooler). *(The wall's exact tint and its
+  light response were retuned in the follow-up below — the walls now receive light.)*
 - **Lava lights thinned so they stop competing with torches.** A lava cell used to
   own its own broad, shadowless `PointLight2D`, so a lava lake was one overlapping
   light per cell — additively over-bright and unstable next to shadowed torch
@@ -119,6 +120,51 @@ visual/runtime only and pinned by a smoke check.
 
 Windowed smoke after this pass: **548/548** (was 540), +8 S-07.1c guards, no
 failures and no skips.
+
+## Resolved — Background & Underground Light Legibility (S-07.1c follow-up) — 2026-08-12
+
+Operator play-testing at native size drove a short follow-up over the backing walls
+and underground torch light. Each fix is presentation-only; windowed smoke ends at
+**551/551**.
+
+- **The scenic backdrop no longer shows black through surface water.** The wall fix
+  above stopped a *wall* behind a pond, but the code-drawn backdrop still drew its
+  near-black under-earth fill (`world_backdrop.UNDER_COL`) from `surface[x]` — the
+  pond's **water top** — so the dark tone showed through the translucent water. The
+  backdrop earth band now anchors to the first opaque row (the wall line, via
+  `world_backdrop.earth_top_px` → `world.sky_line`, which skips air **and** liquid),
+  so it sits behind the pond floor, not behind the water. Guard
+  `s07c_earth_backing_at_wall_line_not_behind_water`.
+- **Backing walls receive light again and are no longer near-black.** The S-07.1c
+  pass had set the BackgroundWalls layer to `light_mask = 0` and driven
+  `world.wall_tint` to a near-black albedo. Underground that made a torch's lit area
+  impossible to read (the background stayed black), and exposed walls read as black
+  blocks. The wall layer is now `light_mask = 1` (it still carries **zero** occlusion,
+  so it receives light without casting shadow) and `wall_tint` is lifted off
+  near-black to a visibly-recessed dark-cool rock (dirt `(0.40,0.26,0.17)` → wall
+  `~(0.18,0.16,0.19)`; stone `(0.41,0.44,0.46)` → wall `~(0.23,0.21,0.27)`). Guard
+  `s07c_wall_distinct_from_foreground` now requires the wall to be darker + cooler
+  **and** `light_mask != 0`.
+- **The cave-depth shader no longer suppresses torch light.** `cave_depth.gdshader`
+  only had a `fragment()` that dims `COLOR` by depth; in Godot 2D the default lighting
+  multiplies each light by that dimmed `COLOR`, so depth-darkening a wall also dimmed
+  the torch on it — a lit pocket below the viewer stayed dark until the player
+  descended, and an underground torch was invisible from a cave mouth. A `light()`
+  function now lights the tile's **true albedo**, so the depth darkening is ambient
+  only and lit pockets read from any depth.
+- **The depth transition is eased, not stepped.** `game_root` fed the shader the raw
+  `ambient_darkness_factor()`, which jumps as the player crosses columns of differing
+  skylight; the walls popped between light and dark on movement. It is now eased
+  (`_viewer_darkness_smooth`) at the same rate as the day/night tint (the first frame
+  and each world load snap so there is no fade-in from black).
+- **Torches/lanterns are shadowless soft glows.** With `shadow_enabled = true`, the
+  solid blocks a torch is carved into occluded its own light — a torch in a mined
+  passage lit only a sliver, and one against a wall was cut off on that side. Torches
+  and lanterns now cast **no** shadow (like lava). The sun/moon keep their shadows and
+  the foreground tileset keeps its occluders, so **daylight still stops at the
+  surface**; only these local emitters glow evenly through the rock they sit in. Guard
+  `light_occlusion_configured` (tileset has occluders for sun/moon shadows; torch is
+  shadowless).
 
 ## What Is Already Stabilized
 

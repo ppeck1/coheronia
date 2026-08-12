@@ -82,8 +82,38 @@ earth backing now anchors to the wall line (the first opaque row via new
 `world_backdrop.earth_top_px` → `world.sky_line`, which skips air **and** liquid),
 identical to where `_rebuild_walls` starts the walls; the foothill band still
 follows the surface contour, so valley visuals are unchanged. Pinned by
-`s07c_earth_backing_at_wall_line_not_behind_water`. Windowed smoke **551/551** (was
-540), no failures/skips.
+`s07c_earth_backing_at_wall_line_not_behind_water`.
+
+That same native-size play-test drove a **background & underground light legibility**
+follow-up (operator-verified over several rounds), which partly re-tunes the earlier
+S-07.1c wall pass:
+
+- **Backing walls receive light again and are off near-black.** The earlier pass had
+  set the wall layer `light_mask = 0` and driven `world.wall_tint` near-black, which
+  made a torch's lit area impossible to read underground and left exposed walls
+  reading as black blocks. The layer is now `light_mask = 1` (still zero occlusion —
+  it receives light without casting shadow) and `wall_tint` is lifted to a
+  visibly-recessed dark-cool rock (dirt `~(0.18,0.16,0.19)`, stone `~(0.23,0.21,0.27)`).
+  `s07c_wall_distinct_from_foreground` now requires darker + cooler **and** `light_mask
+  != 0`.
+- **The cave-depth shader is ambient-only so it never suppresses torch light.**
+  `cave_depth.gdshader` had only a `fragment()` that dims `COLOR` by depth; in Godot 2D
+  the default lighting multiplies each light by that dimmed `COLOR`, so a lit pocket
+  below the viewer — or an underground torch seen from a cave mouth — read dark. A new
+  `light()` lights each tile's true albedo, so the darkening is ambient only and lit
+  pockets read from any depth.
+- **The depth transition is eased.** `game_root` fed the shader the raw
+  `ambient_darkness_factor()`, which steps across columns of differing skylight and
+  popped the walls on movement; it is now eased (`_viewer_darkness_smooth`) at the tint
+  rate (first frame / world load snap).
+- **Torches/lanterns are shadowless soft glows.** With shadows on, the rock a torch is
+  carved into occluded its own light (a torch in a passage lit only a sliver, one
+  against a wall was cut off). Torches/lanterns now cast no shadow (like lava); the
+  sun/moon keep shadows and the tileset keeps occluders, so daylight still stops at the
+  surface. `light_occlusion_configured` now asserts the torch is shadowless.
+
+Windowed smoke **551/551** (was 540), no failures/skips. Torch reach is still ~3 tiles
+(`blocks.json` `light_radius`) — a dial for later if more glow spill is wanted.
 
 This **closeout A** added, on top of those:
 
