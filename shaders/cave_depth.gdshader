@@ -10,9 +10,13 @@ shader_type canvas_item;
 // nothing extra at the player's depth (the global tint already handles it) — no
 // double-darkening, no behaviour change for entities.
 //
-// No `render_mode unshaded`: the fragment output is albedo, so torch/lava/sun
-// PointLight2D lights still additively brighten these darkened tiles, keeping lit
-// pockets readable — exactly the desired cave feel.
+// The depth darkening is AMBIENT ONLY. fragment() dims the unlit base by depth, but
+// a matching light() illuminates each tile's TRUE albedo (the texture, before the
+// depth dim), so a torch/lava/sun PointLight2D brightens a deep tile FULLY no matter
+// how far below the viewer it sits. Without this, the darkened fragment COLOR
+// multiplies the light too, so a lit pocket below the viewer — or an underground
+// torch seen from a cave mouth — read as dark. Lit pockets now stay readable from
+// any depth; only the ambient (unlit) surfaces recede with depth.
 
 // R channel = first solid cell y (in TILES) for that column, one texel per column.
 uniform sampler2D sky_tex : filter_nearest, repeat_disable;
@@ -41,4 +45,14 @@ void fragment() {
 	// Only the darkening the global CanvasModulate has NOT already applied.
 	float extra = clamp(frag_factor - viewer_darkness, 0.0, 1.0);
 	COLOR.rgb *= mix(vec3(1.0), cave_tint.rgb, extra);
+}
+
+void light() {
+	// Illuminate the tile's TRUE albedo (pre depth-darken), NOT the dimmed COLOR, so
+	// a 2D light brightens a deep tile fully regardless of the viewer's depth — a
+	// torch below the player, or an underground torch at a cave mouth, still reads.
+	// LIGHT_COLOR already carries the light's texture falloff + colour; LIGHT_ENERGY
+	// its energy. Matches Godot's default light() with COLOR swapped for the albedo.
+	vec4 albedo = texture(TEXTURE, UV);
+	LIGHT = vec4(LIGHT_COLOR.rgb * LIGHT_ENERGY * albedo.rgb, LIGHT_COLOR.a * albedo.a);
 }
