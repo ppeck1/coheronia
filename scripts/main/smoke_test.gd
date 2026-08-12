@@ -5439,8 +5439,11 @@ func _run() -> void:
 	# for BOTH dirt and stone (the operator saw dirt wall == dirt block). Every wall
 	# texture is pushed through wall_tint, so it is DARKER, DESATURATED (flat, not the
 	# warm foreground hue), and slightly COOLER (blue-shifted) — a quiet recess, not a
-	# loud colour. Averaged over the tile to be robust to per-cell mottle. And the
-	# wall layer is light_mask 0, so a torch/lava light can never brighten it.
+	# loud colour. Averaged over the tile to be robust to per-cell mottle. The wall
+	# layer DOES receive light (light_mask 1) so a torch's lit area reads against it
+	# underground, but it stays occlusion-free (asserted in
+	# fq09w_walls_deterministic_and_inert), so lighting it never casts shadow or
+	# changes collision/shelter.
 	var _s7c_t: int = world.tile_size()
 	var _s7c_wd_ok := true
 	var _s7c_wd_detail := ""
@@ -5470,7 +5473,7 @@ func _run() -> void:
 				_s7c_wl.r, _s7c_wl.g, _s7c_wl.b, _s7c_wl_bp]
 		_s7c_wd_ok = _s7c_wd_ok and _s7c_this_ok
 	_check("s07c_wall_distinct_from_foreground",
-		_s7c_wd_ok and world._walls.light_mask == 0,
+		_s7c_wd_ok and world._walls.light_mask != 0,
 		_s7c_wd_detail if not _s7c_wd_ok else ("dirt+stone walls darker/flatter/cooler; light_mask=%d" % world._walls.light_mask))
 
 	# (c) underground is dark at midday and the surface stays full daylight —

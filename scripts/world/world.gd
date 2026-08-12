@@ -136,12 +136,15 @@ func _ready() -> void:
 	_walls = TileMapLayer.new()
 	_walls.name = "BackgroundWalls"
 	_walls.z_index = -2
-	# S-07.1c: rear walls are a recessed backdrop, not lit geometry — a torch/lava
-	# light must not brighten them (that was reading as "bright purple" instead of a
-	# dark background). light_mask 0 keeps them out of every 2D light, so they render
-	# only at their (dark, cool) albedo dimmed by the cave-depth shader + day/night
-	# CanvasModulate, exactly like the scenic backdrop. No physics/occlusion either.
-	_walls.light_mask = 0
+	# S-07.1c-fix: rear walls DO receive 2D light (light_mask 1). An earlier pass
+	# set this to 0 to kill a "bright purple under light" look, but with an unlit,
+	# near-black wall a torch's illuminated area could not READ against the black
+	# background underground (operator: "hard to see where the torches are
+	# lighting"). The albedo is now a desaturated dark-cool rock (wall_tint), so a
+	# warm torch/lava light pools on it as lit rock, not purple. They still cast no
+	# shadow and have no collision (0 occlusion/physics layers on the tileset), so
+	# lighting them changes only their appearance, never shelter/collision/saves.
+	_walls.light_mask = 1
 	_walls.tile_set = _build_wall_tileset()
 	add_child(_walls)
 	_tilemap = TileMapLayer.new()
@@ -1012,8 +1015,11 @@ static func wall_tint(c: Color) -> Color:
 	g = lerpf(g, 0.5, 0.2)
 	b = lerpf(b, 0.5, 0.2)
 	# darken to a quiet, receding backdrop with only a faint cool bias (green quietest,
-	# blue a touch highest). Much dimmer than before so it never reads as bright.
-	return Color(r * 0.34, g * 0.32, b * 0.40, 1.0)
+	# blue a touch highest). Dark but NOT near-black: an unlit wall stays visibly
+	# recessed rock rather than a black void (operator: surface/underground walls
+	# "almost too dark"), and — now that the wall layer receives light again — a
+	# torch/lava light can lift it into a legible warm pool. TUNING KNOB.
+	return Color(r * 0.52, g * 0.48, b * 0.60, 1.0)
 
 
 ## Back-wall tile: the authored art at art/generated/back_walls/<wall_id>.png when
