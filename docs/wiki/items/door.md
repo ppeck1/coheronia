@@ -4,6 +4,8 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 
 > `Item` page. Current status: `source-only`.
 
+![Door](../../../art/generated/items/door.png)
+
 | Field | Value |
 |---|---|
 | ID | `door` |

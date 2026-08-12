@@ -13,7 +13,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | Location | Lava pools in the hell layer |
 | Role | Molten dweller of the lava layer; leaves obsidian and hellstone |
 | Image path | `art/generated/enemies/lava_slime.png` |
-| Visual family | No authored image. |
+| Visual family | 1 canonical image + 3 variants |
 | Fallback / placeholder | Code-drawn hostile shape fallback when authored sprite art is absent. |
 | hp | 4 |
 | contact_damage | 10 |
@@ -28,7 +28,17 @@ Lava Slime is a live enemy entry loaded from `data/enemies.json`.
 
 ### Enemy art and variants
 
-No authored art is currently attached to this visual family.
+![Lava Slime - lava_slime (Canonical image)](../../../art/generated/enemies/lava_slime.png)
+![Lava Slime - lava_slime_01 (Variant 1)](../../../art/generated/enemies/lava_slime_01.png)
+![Lava Slime - lava_slime_02 (Variant 2)](../../../art/generated/enemies/lava_slime_02.png)
+![Lava Slime - lava_slime_03 (Variant 3)](../../../art/generated/enemies/lava_slime_03.png)
+
+| Asset id | Role | File |
+|---|---|---|
+| `lava_slime` | Canonical image | `../../../art/generated/enemies/lava_slime.png` |
+| `lava_slime_01` | Variant 1 | `../../../art/generated/enemies/lava_slime_01.png` |
+| `lava_slime_02` | Variant 2 | `../../../art/generated/enemies/lava_slime_02.png` |
+| `lava_slime_03` | Variant 3 | `../../../art/generated/enemies/lava_slime_03.png` |
 
 ## Drops
 

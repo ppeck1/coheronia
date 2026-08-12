@@ -12,10 +12,10 @@ This page groups the current enemy definitions into live and planned slices, sim
 | [Thornrat](enemies/thornrat.md) | surface | Grasslands, farms | Pressures early agriculture, provides leather materials | 1 canonical image + 3 variants |
 | [Cave Crawler](enemies/cave_crawler.md) | underground | Early caves | Underground ambush enemy, chitin and silk source | 1 canonical image + 3 variants |
 | [Ore Tick](enemies/ore_tick.md) | underground | Ore veins | Ore pocket nuisance, provides metal residue | 1 canonical image + 3 variants |
-| [Lava Slime](enemies/lava_slime.md) | underground | Lava pools in the hell layer | Molten dweller of the lava layer; leaves obsidian and hellstone | No authored image. |
+| [Lava Slime](enemies/lava_slime.md) | underground | Lava pools in the hell layer | Molten dweller of the lava layer; leaves obsidian and hellstone | 1 canonical image + 3 variants |
 | [Raider Basic](enemies/raider_basic.md) | raider | Raider camps and raid waves | Settlement raid unit targeting player, Town Hall, or subjects | 1 canonical image + 3 variants |
 | [Raider Torchbearer](enemies/raider_torchbearer.md) | raider | Raider camps and raid waves | Raider with fire attacks, supplies raid consumables | 1 canonical image + 3 variants |
-| [Raider Sapper](enemies/raider_sapper.md) | raider | Raider camps and raid waves | Wall destruction specialist, threatens settlement defenses | No authored image. |
+| [Raider Sapper](enemies/raider_sapper.md) | raider | Raider camps and raid waves | Wall destruction specialist, threatens settlement defenses | 1 canonical image + 3 variants |
 
 ## Planned Enemies
 

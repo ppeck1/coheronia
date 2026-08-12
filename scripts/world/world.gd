@@ -580,6 +580,17 @@ func _door_run(cell: Vector2i) -> Array:
 	return run
 
 
+## Door art is assembled from a vertical run of tiles. Variant selection must use
+## one shared anchor so every segment shows the same left- or right-parked leaf.
+func _visual_variant_anchor(cell: Vector2i, block_id: String) -> Vector2i:
+	if block_id not in DOOR_IDS:
+		return cell
+	var run := _door_run(cell)
+	if not run.is_empty():
+		return Vector2i(run[0])
+	return cell
+
+
 ## Place a DOOR_HEIGHT-tall door with its base at `bottom`, growing upward. Every
 ## target cell must be air. Saved as deltas like any placed block. Returns success.
 func place_door_stack(bottom: Vector2i) -> bool:
@@ -592,6 +603,9 @@ func place_door_stack(bottom: Vector2i) -> bool:
 	for c in targets:
 		cells[c] = "door"
 		deltas[c] = "door"
+	# Populate the full run before rendering so every segment resolves the same
+	# top-cell variant anchor.
+	for c in targets:
 		_set_tile(c, "door")
 		block_changed.emit(c, "door")
 		if _fluid != null:
@@ -1074,7 +1088,8 @@ func _set_tile(cell: Vector2i, block_id: String) -> void:
 		var sids: Array = _source_ids[block_id]
 		var idx := 0
 		if sids.size() > 1:
-			idx = posmod(hash(Vector3i(cell.x, cell.y, world_seed)), sids.size())
+			var variant_cell := _visual_variant_anchor(cell, block_id)
+			idx = posmod(hash(Vector3i(variant_cell.x, variant_cell.y, world_seed)), sids.size())
 		_tilemap.set_cell(cell, sids[idx], Vector2i.ZERO)
 	_update_light(cell, block_id)
 

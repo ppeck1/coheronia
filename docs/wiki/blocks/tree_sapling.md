@@ -19,7 +19,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | Light radius | 0 |
 | Settlement tags | none |
 | Image path | `art/generated/blocks/tree_sapling.png` |
-| Visual family | No authored image. |
+| Visual family | 1 canonical image |
 | Fallback / placeholder | Generated block texture fallback when authored art is absent. |
 
 ## Summary
@@ -30,7 +30,11 @@ Tree Sapling is a current block definition loaded from `data/blocks.json`.
 
 ### Block art and variants
 
-No authored art is currently attached to this visual family.
+![Tree Sapling - tree_sapling (Canonical image)](../../../art/generated/blocks/tree_sapling.png)
+
+| Asset id | Role | File |
+|---|---|---|
+| `tree_sapling` | Canonical image | `../../../art/generated/blocks/tree_sapling.png` |
 
 ## Drops
 

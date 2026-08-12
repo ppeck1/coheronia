@@ -4,6 +4,8 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 
 > `Item` page. Current status: `source-only`.
 
+![Tree Seed](../../../art/generated/items/tree_seed.png)
+
 | Field | Value |
 |---|---|
 | ID | `tree_seed` |

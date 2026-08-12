@@ -19,7 +19,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | Light radius | 0 |
 | Settlement tags | structure, door |
 | Image path | `art/generated/blocks/door_open.png` |
-| Visual family | No authored image. |
+| Visual family | 1 canonical image + 2 variants |
 | Fallback / placeholder | Generated block texture fallback when authored art is absent. |
 
 ## Summary
@@ -30,7 +30,15 @@ Open Door is a current block definition loaded from `data/blocks.json`.
 
 ### Block art and variants
 
-No authored art is currently attached to this visual family.
+![Open Door - door_open (Canonical image)](../../../art/generated/blocks/door_open.png)
+![Open Door - door_open_01 (Variant 1)](../../../art/generated/blocks/door_open_01.png)
+![Open Door - door_open_02 (Variant 2)](../../../art/generated/blocks/door_open_02.png)
+
+| Asset id | Role | File |
+|---|---|---|
+| `door_open` | Canonical image | `../../../art/generated/blocks/door_open.png` |
+| `door_open_01` | Variant 1 | `../../../art/generated/blocks/door_open_01.png` |
+| `door_open_02` | Variant 2 | `../../../art/generated/blocks/door_open_02.png` |
 
 ## Drops
 

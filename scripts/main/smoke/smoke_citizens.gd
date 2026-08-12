@@ -468,10 +468,20 @@ func run(harness, root, world, player, hall, settlement, hud, _fq01_msg_conn) ->
 	# open: the whole run becomes passable (a DOOR_HEIGHT-tall walk-through opening).
 	world.toggle_door(Vector2i(_td_x, _td_by))
 	var _td_open := true
+	var _td_open_sources: Array = []
 	for _td_i in range(world.DOOR_HEIGHT):
 		var _to := Vector2i(_td_x, _td_by - _td_i)
+		_td_open_sources.append(world._tilemap.get_cell_source_id(_to))
 		if world.block_at(_to) != "door_open" or world.is_solid_at(_to):
 			_td_open = false
+	var _td_pose_coherent: bool = BlockRegistry.visual_variant_textures(
+		"blocks", "door_open").size() == 2
+	for _td_i in range(1, _td_open_sources.size()):
+		_td_pose_coherent = _td_pose_coherent \
+			and _td_open_sources[_td_i] == _td_open_sources[0]
+	harness._check("m6_tall_door_open_pose_coherent", _td_pose_coherent,
+		"sources=%s variants=%d" % [_td_open_sources,
+			BlockRegistry.visual_variant_textures("blocks", "door_open").size()])
 	# mine one cell → the whole door is removed and exactly one door returns.
 	var _td_drops: Dictionary = world.break_block(Vector2i(_td_x, _td_by - 1))
 	var _td_gone := true

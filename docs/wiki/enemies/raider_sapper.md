@@ -13,7 +13,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | Location | Raider camps and raid waves |
 | Role | Wall destruction specialist, threatens settlement defenses |
 | Image path | `art/generated/enemies/raider_sapper.png` |
-| Visual family | No authored image. |
+| Visual family | 1 canonical image + 3 variants |
 | Fallback / placeholder | Code-drawn hostile shape fallback when authored sprite art is absent. |
 | hp | 4 |
 | contact_damage | 9 |
@@ -28,7 +28,17 @@ Raider Sapper is a live enemy entry loaded from `data/enemies.json`.
 
 ### Enemy art and variants
 
-No authored art is currently attached to this visual family.
+![Raider Sapper - raider_sapper (Canonical image)](../../../art/generated/enemies/raider_sapper.png)
+![Raider Sapper - raider_sapper_01 (Variant 1)](../../../art/generated/enemies/raider_sapper_01.png)
+![Raider Sapper - raider_sapper_02 (Variant 2)](../../../art/generated/enemies/raider_sapper_02.png)
+![Raider Sapper - raider_sapper_03 (Variant 3)](../../../art/generated/enemies/raider_sapper_03.png)
+
+| Asset id | Role | File |
+|---|---|---|
+| `raider_sapper` | Canonical image | `../../../art/generated/enemies/raider_sapper.png` |
+| `raider_sapper_01` | Variant 1 | `../../../art/generated/enemies/raider_sapper_01.png` |
+| `raider_sapper_02` | Variant 2 | `../../../art/generated/enemies/raider_sapper_02.png` |
+| `raider_sapper_03` | Variant 3 | `../../../art/generated/enemies/raider_sapper_03.png` |
 
 ## Drops
 

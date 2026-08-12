@@ -19,7 +19,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | Light radius | 0 |
 | Settlement tags | structure, door |
 | Image path | `art/generated/blocks/door.png` |
-| Visual family | No authored image. |
+| Visual family | 1 canonical image |
 | Fallback / placeholder | Generated block texture fallback when authored art is absent. |
 
 ## Summary
@@ -30,7 +30,11 @@ Door is a current block definition loaded from `data/blocks.json`.
 
 ### Block art and variants
 
-No authored art is currently attached to this visual family.
+![Door - door (Canonical image)](../../../art/generated/blocks/door.png)
+
+| Asset id | Role | File |
+|---|---|---|
+| `door` | Canonical image | `../../../art/generated/blocks/door.png` |
 
 ## Drops
 
