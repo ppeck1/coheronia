@@ -6895,16 +6895,24 @@ func _run() -> void:
 			str(_fq09_gear_backpack), str(_fq09_gear_dock_rejected),
 			str(_fq09_legacy_pick_dock_rejected), str(_fq09_legacy_pick_icon_ok),
 			str(_fq09_legacy_pick_sanitized), player.inventory.count("helmet_iron")])
-	var _fq09_pick_icon_px: Color = BlockRegistry.item_icon("pick_forged") \
-		.get_image().get_pixel(8, 8)
+	# Per-tier tool icons (2026-08-12 art pass): a pick/axe is one upgradeable tool,
+	# but the character/equipment panel shows its CURRENT tier via pick_item_for_tier
+	# / axe_item_for_tier, and those tiered ids now resolve their OWN authored icon —
+	# a forged pick reads apart from a basic one — instead of every tier reusing the
+	# generic tool-family swatch. (The legacy `tool_tier_*` token still maps to the
+	# family icon; that is asserted separately above.) Assert each tiered tool icon
+	# resolves and is visibly DISTINCT from the generic family icon.
+	var _fq09_pick_icon: Texture2D = BlockRegistry.item_icon("pick_forged")
+	var _fq09_axe_icon: Texture2D = BlockRegistry.item_icon("axe_crude")
+	var _fq09_pick_icon_px: Color = _fq09_pick_icon.get_image().get_pixel(8, 8)
 	var _fq09_pick_family_px: Color = BlockRegistry.item_icon("pick") \
 		.get_image().get_pixel(8, 8)
-	var _fq09_axe_icon_px: Color = BlockRegistry.item_icon("axe_crude") \
-		.get_image().get_pixel(8, 8)
+	var _fq09_axe_icon_px: Color = _fq09_axe_icon.get_image().get_pixel(8, 8)
 	var _fq09_axe_family_px: Color = BlockRegistry.item_icon("axe") \
 		.get_image().get_pixel(8, 8)
-	var _fq09_gear_icon_ok: bool = _fq09_pick_icon_px == _fq09_pick_family_px \
-		and _fq09_axe_icon_px == _fq09_axe_family_px
+	var _fq09_gear_icon_ok: bool = _fq09_pick_icon != null and _fq09_axe_icon != null \
+		and _fq09_pick_icon_px != _fq09_pick_family_px \
+		and _fq09_axe_icon_px != _fq09_axe_family_px
 	_check("fq09_inventory_board_equipment_icons",
 		_fq09_gear_icon_ok,
 		"pick=%s/%s axe=%s/%s" % [str(_fq09_pick_icon_px),
