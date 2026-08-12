@@ -70,8 +70,20 @@ Pinned by nine guards (`s07c_fresh_enemy_full_health`,
 Lava lights were also thinned to a sparse 2×2 grid (`world.lava_light_cell`) so a
 lake washes from ~¼ the lights instead of one broad shadowless light per cell,
 fixing the over-bright/unstable stacking next to shadowed torch lights (guard
-`s07c_lava_lights_thinned`; visual to be confirmed at native size). Windowed smoke
-**550/550** (was 540), no failures/skips.
+`s07c_lava_lights_thinned`; visual to be confirmed at native size).
+
+A follow-up caught the **twin** of the wall/black-background defect on the scenic
+backdrop: `_carve_surface_lake` records `surface[x]` as the pond's **water top**
+(not the ground), and the backdrop contour skirt drew its near-black under-earth
+fill (`world_backdrop.UNDER_COL`) from that surface line down — so behind a surface
+pond, where there is deliberately no backing wall, the dark tone showed **through**
+the translucent water (the operator's "black blocks above a water deposit"). The
+earth backing now anchors to the wall line (the first opaque row via new
+`world_backdrop.earth_top_px` → `world.sky_line`, which skips air **and** liquid),
+identical to where `_rebuild_walls` starts the walls; the foothill band still
+follows the surface contour, so valley visuals are unchanged. Pinned by
+`s07c_earth_backing_at_wall_line_not_behind_water`. Windowed smoke **551/551** (was
+540), no failures/skips.
 
 This **closeout A** added, on top of those:
 

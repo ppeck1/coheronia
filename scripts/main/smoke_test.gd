@@ -5598,6 +5598,49 @@ func _run() -> void:
 			str(_pr07g_exercises), str(_pr07g_bounded), str(_pr07g_present),
 			_pr07g_earth.size(), _pr07g_max_bottom, _pr07g_min_top])
 
+	# (f-water) S-07.1c: the near-black under-earth backing must begin at the
+	# WALL line (first opaque row), never at a surface pond's water top — else
+	# the dark tone shows THROUGH the translucent water ("black blocks above a
+	# water deposit"). Invariant: no earth quad rises above its column's first
+	# solid row. And where the generated world actually holds a surface pond (top
+	# surface cell is a liquid, not ground), the backing sits strictly BELOW the
+	# water line.
+	var _s7w_view := Rect2(0.0, 0.0, float(world.width) * _pr07_tile,
+		(_pr07_max + 4.0) * _pr07_tile)
+	var _s7w_fills: Dictionary = _fq09w_bd.skirt_rects(_s7w_view, _fq09w_bd._horizon_py)
+	var _s7w_at_wall := true
+	var _s7w_detail := ""
+	for _s7w_r: Rect2 in _s7w_fills["earth"]:
+		var _s7w_col := int(round(_s7w_r.position.x / _pr07_tile))
+		# off-world border columns clamp to the nearest edge column (matching
+		# earth_top_px), so no void shows past the world bounds.
+		var _s7w_cc := clampi(_s7w_col, 0, world.width - 1)
+		var _s7w_wall_px: float = minf(float(int(world.sky_line(_s7w_cc))) * _pr07_tile,
+			_s7w_view.end.y)
+		if _s7w_r.position.y < _s7w_wall_px - 0.6:
+			_s7w_at_wall = false
+			if _s7w_detail == "":
+				_s7w_detail = "col=%d top=%.1f wall=%.1f" % [
+					_s7w_col, _s7w_r.position.y, _s7w_wall_px]
+	var _s7w_pond_cols := 0
+	var _s7w_pond_ok := true
+	for _s7w_c in world.surface:
+		var _s7w_x := int(_s7w_c)
+		var _s7w_top := int(world.surface[_s7w_x])
+		if BlockRegistry.is_solid(world.cells.get(Vector2i(_s7w_x, _s7w_top), "air")):
+			continue   # dry column: the surface top cell is solid ground
+		_s7w_pond_cols += 1
+		var _s7w_earth: float = _fq09w_bd.earth_top_px(_s7w_x, _fq09w_bd._horizon_py)
+		if _s7w_earth <= float(_s7w_top) * _pr07_tile + 0.5:
+			_s7w_pond_ok = false
+			if _s7w_detail == "":
+				_s7w_detail = "pond col=%d water_top=%d earth=%.1f" % [
+					_s7w_x, _s7w_top, _s7w_earth]
+	_check("s07c_earth_backing_at_wall_line_not_behind_water",
+		_s7w_at_wall and _s7w_pond_ok,
+		"at_wall=%s pond_ok=%s ponds=%d %s" % [
+			str(_s7w_at_wall), str(_s7w_pond_ok), _s7w_pond_cols, _s7w_detail])
+
 	# --- R-07 slice 1: pause menu, settings, key rebinding ---
 	# (a) the pause menu genuinely freezes the simulation via get_tree().paused
 	# (game_root is pausable; the menu + music run PROCESS_MODE_ALWAYS) and

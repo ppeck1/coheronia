@@ -149,9 +149,11 @@ func _draw_contour_skirt(horizon: float) -> void:
 
 
 ## PR-07 (correctness): the per-column fill rectangles for the contour skirt at a
-## given view/horizon. Pure — reads only the world surface, tile size, and the
-## passed view — so the geometry can be pinned by tests without a live camera.
-## Returns {"earth": Array[Rect2], "foothill": Array[Rect2]}.
+## given view/horizon. Side-effect free — reads only the world surface/column
+## skylight, tile size, and the passed view — so the geometry can be pinned by
+## tests without a live camera. The foothill band follows the surface contour; the
+## earth backing follows the wall line (`earth_top_px`) so it never shows through a
+## surface pond. Returns {"earth": Array[Rect2], "foothill": Array[Rect2]}.
 ##
 ## The skirt is a staircase (each column is already a flat step), so it is drawn
 ## as one quad per column rather than a single spanning polygon. A single polygon
@@ -174,9 +176,12 @@ func skirt_rects(view: Rect2, horizon: float) -> Dictionary:
 	for col in range(left, right + 1):
 		var x0 := float(col) * _tile
 		var top := contour_top_px(col, horizon)
-		# earth: under-terrain backing from the surface line down to the view
-		# bottom (clamped, so a column whose ground is past the view adds nothing).
-		var earth_top := minf(top, bottom)
+		# earth: under-terrain backing begins at the first OPAQUE row (the wall
+		# line via earth_top_px), not the surface contour, so a surface pond's
+		# translucent water never has the near-black tone showing through it.
+		# Clamped to the view bottom, so a column whose ground is past the view
+		# adds nothing.
+		var earth_top := minf(earth_top_px(col, horizon), bottom)
 		if bottom - earth_top > 0.5:
 			earth.append(Rect2(x0, earth_top, _tile, bottom - earth_top))
 		# foothill: fill only the valley gap between the flat horizon and the
@@ -200,6 +205,29 @@ func contour_top_px(col: int, fallback_horizon: float = -1.0) -> float:
 	var c := clampi(col, 0, w - 1) if w > 0 else col
 	var sy: float = float(_world.surface.get(c, -1.0))
 	return horizon if sy < 0.0 else sy * _tile
+
+
+## S-07.1c: the top of the near-black under-earth backing for world column `col`,
+## in world pixels — the first OPAQUE row, i.e. exactly where the backing walls
+## begin (`world.sky_line`, which skips air AND translucent liquid). This is
+## deliberately deeper than `contour_top_px` for a surface pond, whose `surface[x]`
+## is the WATER top (`_carve_surface_lake` overwrites it): anchoring the earth to
+## the surface line would paint the near-black tone from the water line down, and
+## because there is no wall behind the pond it would show THROUGH the translucent
+## water (the reported "black blocks above the water"). Anchoring to the wall line
+## keeps the dark backing behind the opaque pond floor, so the water reads against
+## sky, not void. Falls back to the surface contour when there is no live
+## column-skylight query. Pure aside from reading live world state.
+func earth_top_px(col: int, fallback_horizon: float = -1.0) -> float:
+	var surf := contour_top_px(col, fallback_horizon)
+	if _world == null or _tile <= 0.0 or not _world.has_method("sky_line"):
+		return surf
+	var w := int(_world.width) if "width" in _world else 0
+	var c := clampi(col, 0, w - 1) if w > 0 else col
+	var solid_px := float(int(_world.sky_line(c))) * _tile
+	# never lift the backing ABOVE the surface contour; only push it DOWN past a
+	# translucent surface pond so the near-black tone never shows through water.
+	return maxf(surf, solid_px)
 
 
 ## One parallax strip anchored to the horizon: tiled art when present, else
