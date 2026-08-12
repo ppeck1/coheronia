@@ -73,6 +73,12 @@ var _build_preview: Node2D     # R-07: placement ghost + validity tint
 var _craft_panel: CanvasLayer   # R-07: unified crafting/building navigation
 var _contracts_panel: CanvasLayer   # R-09: player-facing directed goals
 var time_of_day := 0.25
+# Eased viewer-depth fed to the cave-depth shader. ambient_darkness_factor() steps
+# discretely as the player crosses columns of differing skylight (an overhang, a
+# shaft edge), so feeding it raw made the backing walls POP between light and dark
+# when the character moved. Ease it at the same rate as the global tint so the two
+# depth models stay in step and the background never snaps. -1.0 = not yet primed.
+var _viewer_darkness_smooth := -1.0
 var _celestial: Node2D   # M5-A: sun/moon sky renderer (presentation-only)
 # Per-NPC work-zone drag assignment (feedback): a modal mode where two world clicks
 # define the rectangle a settler works in. A world-space preview draws the pending rect.
@@ -818,7 +824,14 @@ func _advance_time(delta: float) -> void:
 	canvas_modulate.color = canvas_modulate.color.lerp(ambient_target_color(), delta * 1.5)
 	# Feed the same viewer-depth factor to the per-column depth shader so it only
 	# darkens terrain DEEPER than the player (no double-dim with the tint above).
-	world.set_viewer_darkness(ambient_darkness_factor())
+	# Eased like the tint above (first frame snaps to avoid a fade-in from black) so
+	# the backing walls don't POP as ambient_darkness_factor() steps across columns.
+	var _vd_target := ambient_darkness_factor()
+	if _viewer_darkness_smooth < 0.0:
+		_viewer_darkness_smooth = _vd_target
+	else:
+		_viewer_darkness_smooth = lerpf(_viewer_darkness_smooth, _vd_target, delta * 1.5)
+	world.set_viewer_darkness(_viewer_darkness_smooth)
 
 
 ## FQ-09W: 0 = sky-exposed, 1 = fully buried. Column-skylight approximation:
@@ -2030,6 +2043,9 @@ func apply_time_state(data: Dictionary) -> void:
 		_celestial.set_phase_from_day(day_count)
 		_celestial.set_sky_visible(_sky_visible_now())
 	canvas_modulate.color = ambient_target_color()
+	# Re-prime the eased viewer-darkness so entering/loading a world snaps to its
+	# depth instead of easing in from the previous world's value.
+	_viewer_darkness_smooth = -1.0
 
 
 ## Used by the smoke test to exercise the threat loop deterministically.
