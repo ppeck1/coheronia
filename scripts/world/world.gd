@@ -1122,8 +1122,14 @@ func _update_light(cell: Vector2i, block_id: String) -> void:
 		light.texture_scale = (radius * 2.0) / float(_light_texture.width)
 		light.energy = 1.3
 		light.color = Color(1.0, 0.85, 0.6)
-		light.shadow_enabled = true
-		light.shadow_filter = PointLight2D.SHADOW_FILTER_PCF5
+		# S-07.1c-fix: a torch/lantern is a SHADOWLESS soft glow (like lava). With
+		# shadows on, the solid blocks the torch is carved into occlude its own light:
+		# a torch in a mined passage lit only a tiny unshadowed sliver and one against
+		# a wall was "cut off" on that side (operator screenshot). The sun/moon keep
+		# their shadows (the tileset occluders still exist), so daylight still stops at
+		# the surface; only these local emitters now glow evenly through the rock they
+		# sit in, the way a stylised side-view torch should.
+		light.shadow_enabled = false
 
 
 ## LQ-2b: a lava cell's light energy for a given fill level, modulated by the

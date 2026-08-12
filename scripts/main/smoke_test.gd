@@ -386,9 +386,12 @@ func _run() -> void:
 	_check("torch_emits_light", world.has_light_at(torch_cell)
 		and world._lights[torch_cell] is PointLight2D
 		and world._lights[torch_cell].energy > 0.0)
+	# The foreground tileset carries occluders so the sun/moon cast terrain shadows
+	# (daylight stops at the surface), but a torch is a SHADOWLESS soft glow so the
+	# rock it is carved into never occludes its own light.
 	_check("light_occlusion_configured",
 		world._tilemap.tile_set.get_occlusion_layers_count() > 0
-		and world._lights[torch_cell].shadow_enabled)
+		and not world._lights[torch_cell].shadow_enabled)
 
 	# S-07.1c: a torch placed UNDERGROUND (below the column sky line) still creates
 	# a live PointLight2D — cave/night torches are lit, not dark. Open a pocket a
