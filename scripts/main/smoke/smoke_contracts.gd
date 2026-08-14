@@ -8,7 +8,13 @@ extends Node
 const ContractBalanceReportScript := preload("res://scripts/contracts/balance_report.gd")
 
 
-func run(harness, root, world, player, hall) -> void:
+func run(ctx) -> void:
+	# S-07.3 ctx seam (work order §11): unpack the handles this module declares.
+	var harness = ctx.harness
+	var root = ctx.root
+	var world = ctx.world
+	var player = ctx.player
+	var hall = ctx.hall
 	# --- R-09 slice 1: contracts (directed goals) -----------------------------
 	# Drive the model directly (no awaits) for determinism: the objective reads
 	# the LIVE stockpile, completion latches, and claim is transactional. See

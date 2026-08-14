@@ -6,7 +6,15 @@ extends Node
 ## the baseline world, recomputed here (it originates in the mining section).
 
 
-func run(harness, root, world, player, hall, settlement, hud) -> void:
+func run(ctx) -> void:
+	# S-07.3 ctx seam (work order §11): unpack the handles this module declares.
+	var harness = ctx.harness
+	var root = ctx.root
+	var world = ctx.world
+	var player = ctx.player
+	var hall = ctx.hall
+	var settlement = ctx.settlement
+	var hud = ctx.hud
 	var hall_cell: Vector2i = world.hall_info["center_cell"]
 	# --- R-08: visible settler crew (slice 1 farmhand + slice 2 repairer/assignment) ---
 	# M3-B: earlier sections drove the population authority and one _on_dawn() synced

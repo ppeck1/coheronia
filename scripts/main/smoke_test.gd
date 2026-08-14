@@ -16,6 +16,7 @@ const SmokeAudio := preload("res://scripts/main/smoke/smoke_audio.gd")   # S-07.
 const SmokeContracts := preload("res://scripts/main/smoke/smoke_contracts.gd")   # S-07.3
 const SmokeSettlerCrew := preload("res://scripts/main/smoke/smoke_settler_crew.gd")   # S-07.3
 const SmokeCitizens := preload("res://scripts/main/smoke/smoke_citizens.gd")   # S-07.3
+const SmokeCtx := preload("res://scripts/main/smoke/smoke_ctx.gd")   # S-07.3
 const SubjectScript := preload("res://scripts/entities/subject.gd")   # S-07.1c defender marker
 
 var _results: Array = []
@@ -6012,11 +6013,24 @@ func _run() -> void:
 		"ok=%s bad=[%s] axe=%s sword=%s armor=%s" % [str(_ci_ok), _ci_bad,
 			str(_ci_axe), str(_ci_sword), str(_ci_armor)])
 
+	# S-07.3 (ctx seam, work order §11): one shared context for the extracted
+	# smoke_*.gd modules. All seven handles are in scope at this point (the first
+	# module call is just below); cross-section scratch (e.g. _fq01_msg_conn) is
+	# added at the point it becomes available, before the module that reads it.
+	var _ctx := SmokeCtx.new()
+	_ctx.harness = self
+	_ctx.root = root
+	_ctx.world = world
+	_ctx.player = player
+	_ctx.hall = hall
+	_ctx.settlement = settlement
+	_ctx.hud = hud
+
 	# --- R-08 (settler crew): farmhand/repairer/assignment/work-zone + hauler ---
 	# S-07.3: order-preserving extraction to scripts/main/smoke/smoke_settler_crew.gd.
 	var _smoke_crew := SmokeSettlerCrew.new()
 	add_child(_smoke_crew)
-	await _smoke_crew.run(self, root, world, player, hall, settlement, hud)
+	await _smoke_crew.run(_ctx)
 	_smoke_crew.queue_free()
 
 	# --- R-09 (contracts): directed goals ---
@@ -6025,7 +6039,7 @@ func _run() -> void:
 	# _fq09w_storm_was declared in the earlier FQ-09W section.)
 	var _smoke_contracts := SmokeContracts.new()
 	add_child(_smoke_contracts)
-	await _smoke_contracts.run(self, root, world, player, hall)
+	await _smoke_contracts.run(_ctx)
 	_smoke_contracts.queue_free()
 
 	# (f) wall art hook: a dropped-in back_walls PNG resolves through the
@@ -6372,7 +6386,7 @@ func _run() -> void:
 	# 24 fq09u* checks keep their names + order.
 	var _smoke_audio := SmokeAudio.new()
 	add_child(_smoke_audio)
-	await _smoke_audio.run(self, root, player)
+	await _smoke_audio.run(_ctx)
 	_smoke_audio.queue_free()
 
 	# --- FQ-08: block and enemy damage visuals ---
@@ -7287,9 +7301,12 @@ func _run() -> void:
 
 	# --- Settlement Coherence (M1-M5): citizens, roster, defender, raiders, sky, doors, housing ---
 	# S-07.3: order-preserving extraction to scripts/main/smoke/smoke_citizens.gd.
+	# _fq01_msg_conn is a Callable connected in the FQ-01 section above; it cannot
+	# be recomputed, so it rides in ctx.scratch (work order §11.3).
+	_ctx.scratch["_fq01_msg_conn"] = _fq01_msg_conn
 	var _smoke_citizens := SmokeCitizens.new()
 	add_child(_smoke_citizens)
-	await _smoke_citizens.run(self, root, world, player, hall, settlement, hud, _fq01_msg_conn)
+	await _smoke_citizens.run(_ctx)
 	_smoke_citizens.queue_free()
 
 	# --- Screenshot evidence (windowed runs only) ---
