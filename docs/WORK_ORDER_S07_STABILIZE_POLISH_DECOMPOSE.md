@@ -231,3 +231,93 @@ extraction) and S-07.5 (dead-query removal).
 - **Q3:** Does the smoke split (S-07.3) also become the CI job boundary (per-domain
   parallel runs), or stay a single run with better file organization? Affects the
   coordinator's entry-point shape.
+
+## 11. S-07.3 resume plan — the `ctx` seam (design)
+
+S-07.3 is **paused at 4/~10 clusters** (audio, contracts, settler-crew, citizens).
+Those four were extractable because each consumed the shared handles plus at most
+one extra value that could be **recomputed in-module** (`hall_cell`) or **threaded
+as a single `run()` param** (`_fq01_msg_conn`). The remaining core
+(world-generation, player-combat, callings, ui-hud, persistence, assets/rendering)
+is where the cross-section locals are **declared** and later **consumed** across
+section boundaries, so per-call positional params stop scaling. This section is the
+missing design the earlier notes called for; it is the thing to build **first** when
+S-07.3 resumes. **Scope:** test-harness structure only — no `_check` name, count,
+or pass/fail meaning changes; strictly order-preserving.
+
+### 11.1 The `ctx` object
+
+Add `scripts/main/smoke/smoke_ctx.gd` — a plain `RefCounted` (loaded as a `preload`
+const in `smoke_test.gd`, per the class_name gotcha) carrying the stable handles and
+a scratch bag:
+
+```
+# smoke_ctx.gd
+extends RefCounted
+var harness            # the smoke_test.gd node — owns _check/_skip/_find_block/_mine_cell
+var root
+var world
+var player
+var hall
+var settlement
+var hud
+var scratch: Dictionary = {}   # cross-section locals, string-keyed (see 11.3)
+```
+
+`harness` stays the owner of the assertion + helper API (`_check`, `_skip`,
+`_find_block`, `_mine_cell`, `_r08_clear_ground_drops`, …). Extracted sections call
+`ctx.harness._check(...)` exactly as the current four modules already call
+`harness._check(...)`; this is why `harness` is passed, not duplicated.
+
+### 11.2 Coordinator shape
+
+`_run()` builds one `ctx` at the top, populates the seven handles as they become
+available (in the **current order** — `world`/`hall`/`settlement`/`hud` are still
+assigned at the same points they are today), and then becomes an **ordered list of
+`await <Module>.<section>(ctx)`** calls in the exact present sequence. No section is
+reordered; the coordinator is a table of contents, not a regrouping.
+
+### 11.3 `scratch` — the cross-section locals (the whole reason for `ctx`)
+
+Every local that is declared in one section and read in a later one moves into
+`ctx.scratch["<name>"]` at the **exact line it is first assigned today**, and each
+later read becomes `ctx.scratch["<name>"]`. Known members (grep before cutting —
+this list is a starting set, not exhaustive):
+
+| scratch key | declared (today) | consumed (today) | note |
+| --- | --- | --- | --- |
+| `original_config` | `smoke_test.gd:643` | `:1068` (restore) | `WorldConfig`; capture→restore spans the persistence core |
+| `wood_cell` | `:310` | `:597` (must stay air post-load) | `Vector2i`; world-gen → persistence |
+| `hall_cell` | derived | multiple | pure derived read → **recompute in-module**, do not scratch |
+| `_fq01_msg_conn` | `:7000` | citizens teardown | `Callable`; can't recompute → scratch (currently a `run()` param) |
+| `_fq09w_storm_was` | FQ-09W head | R-09 tail | leave the reading tail in the coordinator, per the R-09 boundary lesson |
+| `_pv` cluster | `:4322–6580` | within presentation | keep co-located; scratch only what escapes the block |
+
+Rule of thumb: **pure derived reads recompute in-module; anything that can't be
+recomputed (Callables, captured configs, mined-cell coordinates) goes in `scratch`.**
+
+### 11.4 Migration order (each step one verified-green windowed commit)
+
+1. **Plumbing-only first.** Add `smoke_ctx.gd`; build `ctx` in `_run()`; convert the
+   **four already-extracted modules** from positional `run(harness, root, …)` to
+   `run(ctx)` (reading `ctx.root`, `ctx.world`, …). Pure refactor, zero behaviour
+   change — proves the seam on safe, already-lifted code before touching the core
+   (the R-06 "prove the pattern on the safest seam first" discipline).
+2. **Then cluster-by-cluster**, easiest remaining first, moving each block's escaping
+   locals into `ctx.scratch` at their current declaration points. One green commit
+   per cluster; never batch two.
+3. Land guard **`s07_smoke_coordinator_covers_all`** (already specced): asserts the
+   union of module-owned section names equals the pre-split name-set, so no check is
+   silently lost or renamed.
+
+### 11.5 Verification constraint (do not skip)
+
+There is **no Godot binary on the current dev box**, and neither the Python static
+gate nor any tool compiles GDScript — so a smoke-suite change is only truly verified
+by **CI** (windowed under `xvfb`) or a **local editor smoke run**. Follow the
+existing traps: a compile crash still writes a garbage `total=… failed=0` JSON, so
+**delete `build/source_smoke_results.json` before each run** and **scan raw Godot
+stdout** for `SCRIPT ERROR` / `Compile Error` / `Nonexistent function`; and do all
+line surgery as **UTF-8-no-BOM** (.NET `File.ReadAllText`/`WriteAllText`) to avoid
+em-dash mojibake flipping the exact-copy checks. Do not claim a cluster done on the
+JSON alone.
