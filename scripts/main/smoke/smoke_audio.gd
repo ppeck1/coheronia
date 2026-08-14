@@ -7,7 +7,11 @@ extends Node
 ## set_process(false)/(true) toggle span all three sub-sections.
 
 
-func run(harness, root, player) -> void:
+func run(ctx) -> void:
+	# S-07.3 ctx seam (work order §11): unpack the handles this module declares.
+	var harness = ctx.harness
+	var root = ctx.root
+	var player = ctx.player
 	# --- FQ-09U1: adaptive context music foundation ---
 	# The state machine is asserted deterministically (direct evaluate calls
 	# with synthetic snapshots and explicit deltas — no wall-clock waits);

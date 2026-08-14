@@ -12,7 +12,18 @@ const HousingScript := preload("res://scripts/settlement/housing.gd")
 ## _fq01_msg_conn is the player_event signal handle connected back in the FQ-01
 ## section; this cluster's state-restore tail disconnects it, so it is threaded
 ## in (a Callable can't be recomputed).
-func run(harness, root, world, player, hall, settlement, hud, _fq01_msg_conn) -> void:
+func run(ctx) -> void:
+	# S-07.3 ctx seam (work order §11): unpack the handles this module declares.
+	# _fq01_msg_conn is a Callable that cannot be recomputed, so it rides in
+	# ctx.scratch (set by the coordinator right before this call).
+	var harness = ctx.harness
+	var root = ctx.root
+	var world = ctx.world
+	var player = ctx.player
+	var hall = ctx.hall
+	var settlement = ctx.settlement
+	var hud = ctx.hud
+	var _fq01_msg_conn = ctx.scratch["_fq01_msg_conn"]
 	var hall_cell: Vector2i = world.hall_info["center_cell"]
 	# --- Settlement Coherence (M1): bounded, persistent citizens; roster ==
 	# starting population. -----------------------------------------------------
