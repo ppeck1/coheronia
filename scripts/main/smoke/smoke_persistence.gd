@@ -7,6 +7,10 @@ extends Node
 ## trailing progression/Calling restore stays in the coordinator (it reads
 ## _cal_prev_role/_fq06_saved_* declared in earlier sections).
 
+# The R-01 audio checks use MusicManifest, a class-local preload const in the
+# harness (not a global autoload), so it must be preloaded here too.
+const MusicManifest := preload("res://scripts/audio/music_manifest.gd")
+
 
 func run(ctx) -> void:
 	# S-07.3 ctx seam (work order §11): this cluster uses only the harness helpers.
