@@ -22,6 +22,18 @@ GOAL_TRACKER = ROOT / "scripts" / "main" / "goal_tracker.gd"
 README = ROOT / "README.md"
 PLAYTEST = ROOT / "docs" / "PLAYTEST_CHECKLIST.md"
 SMOKE = ROOT / "scripts" / "main" / "smoke_test.gd"
+# S-07.3 splits the monolith into per-domain modules under smoke/; a guard check
+# may live in the coordinator or in any module, so contract searches read the
+# whole suite text, not just smoke_test.gd.
+SMOKE_MODULES_DIR = ROOT / "scripts" / "main" / "smoke"
+
+
+def _smoke_suite_text():
+    parts = [SMOKE.read_text(encoding="utf-8")]
+    if SMOKE_MODULES_DIR.is_dir():
+        for mod in sorted(SMOKE_MODULES_DIR.glob("*.gd")):
+            parts.append(mod.read_text(encoding="utf-8"))
+    return "\n".join(parts)
 ASSET_ROADMAP = ROOT / "docs" / "ASSET_ROADMAP.md"
 RENDER_CONTRACT = ROOT / "docs" / "CHARACTER_RENDERING_CONTRACT.md"
 KNOWN_ISSUES = ROOT / "docs" / "wiki" / "known_issues.md"
@@ -141,11 +153,11 @@ class S07PolishDocTruthTests(unittest.TestCase):
                     f"presentation claim: {bad!r}")
 
     def test_s07_1b_guards_present_in_smoke(self):
-        text = SMOKE.read_text(encoding="utf-8")
+        text = _smoke_suite_text()
         for name in S07_1B_GUARD_CHECKS:
             self.assertIn(
                 f'"{name}"', text,
-                f"smoke_test.gd is missing the S-07.1b guard check {name!r}; "
+                f"the smoke suite is missing the S-07.1b guard check {name!r}; "
                 f"the reconciled docs claim it exists")
 
     def test_sword_swing_family_authored_on_disk(self):
