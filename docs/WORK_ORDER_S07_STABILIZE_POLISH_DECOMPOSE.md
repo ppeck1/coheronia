@@ -350,3 +350,48 @@ stdout** for `SCRIPT ERROR` / `Compile Error` / `Nonexistent function`; and do a
 line surgery as **UTF-8-no-BOM** (.NET `File.ReadAllText`/`WriteAllText`) to avoid
 em-dash mojibake flipping the exact-copy checks. Do not claim a cluster done on the
 JSON alone.
+
+### 11.6 Closeout — clean tier done, coupled tier left documented (2026-08-14)
+
+S-07.3 is **substantially complete**: the monolith is nearly halved
+(`smoke_test.gd` **7,454 → 4,596 lines**) and every cleanly-separable domain is
+lifted behind the `ctx` seam. The `_check` name-set, count, and order are
+preserved; each cluster shipped as its own CI-green PR (Linux + Windows windowed
+smoke), squash-merged.
+
+**Extracted modules** (`scripts/main/smoke/`): `smoke_ctx.gd` plus `smoke_audio`,
+`smoke_citizens`, `smoke_contracts`, `smoke_crafting_farming`, `smoke_enemies`,
+`smoke_equipment`, `smoke_goal_panel`, `smoke_liquid_traits`, `smoke_map_scouting`,
+`smoke_persistence`, `smoke_progression`, `smoke_settings`, `smoke_settler_crew`.
+
+**Deliberately left in the coordinator** (per the §2.3 "clean stateless seams only
+— a candidate that fails is left in place and documented, never forced" rule).
+These are **not** clean cuts; each carries cross-section mutable state:
+
+| Section(s) | Coupling that blocks a clean cut |
+| --- | --- |
+| FQ-07 → FQ-09W presentation (~1,150 lines) | Declares `_pv` / `_pv_saved_character` / `_pv_saved_equipment` (and the FQ-09W `_fq09w_storm_was`) that **downstream** sections (PR-04/05/06, FQ-08, FQ-09, the fq09w-restore tail) consume — shared presentation state, not a leaf. |
+| Calling system + Stage 2 (~370 lines) | Declares `_cal_prev_role`, consumed by the persistence-restore tail that already lives in the coordinator. |
+| Early game-mechanics + World-Depths generation (~1,300 lines) | Entangled through the `original_config` capture→restore and `wood_cell` save-load ordering; execution order is load-bearing. |
+
+Extracting any of these would require threading shared mutable state through
+`ctx.scratch` across a wide downstream swath **and** editing not-yet-extracted
+coordinator code — trading a maintainability gain for fragility. Same conclusion
+R-06 reached: façade/monolith decomposition only pays where portable, stateless
+logic exists. Revisit only if one of these sections is independently refactored to
+drop the shared local (e.g. `_pv` promoted to a harness member), which would turn
+it into a clean seam.
+
+**The `s07_smoke_coordinator_covers_all` guard does not apply** as originally
+specced: it assumed a *complete* split (union of module sections == full name-set).
+With an intentional partial split, the coordinator legitimately still owns sections,
+so that invariant would be false by design. Not landed.
+
+**Two CI-caught lessons folded back into this work order:**
+- §11.4a category 4 (harness class-local `const`/preload symbols, e.g.
+  `MusicManifest`) — a module referencing one must re-`preload` it.
+- A moved `_check("…")` guard can break a **static** doc-contract test that greps
+  `smoke_test.gd` by filename (`test_s07_1b_guards_present_in_smoke`). Fixed by
+  searching the whole suite (`_smoke_suite_text()` over `smoke_test.gd` +
+  `smoke/*.gd`). The **static** gate (Python, runnable locally) is the check for
+  this class of break, not the smoke run.

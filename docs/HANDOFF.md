@@ -41,8 +41,8 @@ complete** (modal scrim + Calling-panel h-scroll fix + Town Hall density and
 roster reorder; the responsive 640×360 character-creation layout (F9); the
 modal-scrim taste knob and the swing-arc strike FX (F6/F10); and the generated
 four-tier **sword swing family** (F10) covering every body id/variant/phase), the
-first four smoke-suite clusters of S-07.3, and S-07.5 (dead full-grid query
-removal). The S-07.1b polish is pinned by new guards
+S-07.3 smoke-suite decomposition (clean tier — 14 domain modules behind the `ctx`
+seam; see below), and S-07.5 (dead full-grid query removal). The S-07.1b polish is pinned by new guards
 `s07_char_create_640_legibility_contract`, `s07_calling_panel_no_hscroll`,
 `s07_scrim_strength_knob`, `s07_swing_arc_fx`, and `s07_sword_swing_frames_authored`;
 the only remaining swing-art work is optional pick/axe frame polish.
@@ -143,8 +143,15 @@ This **closeout A** added, on top of those:
   knob, F10 swing FX + four-tier sword swing family) and S-07.1c (environment/
   presentation consistency, above) shipped and are guarded; the only open swing-art
   item is optional pick/axe frame polish (D4 art lane).
-- **S-07.3 remainder:** the remaining tightly-coupled smoke clusters need a shared
-  `ctx.scratch` design before continuing (paused deliberately).
+- **S-07.3 — substantially complete (clean tier done).** The smoke monolith is
+  nearly halved (`smoke_test.gd` 7,454 → 4,596 lines): every cleanly-separable
+  domain is lifted behind the `ctx` seam into `scripts/main/smoke/*.gd` (audio,
+  citizens, contracts, crafting/farming, enemies, equipment, goal-panel,
+  liquid/traits, map/scouting, persistence, progression, settings, settler-crew).
+  The remaining sections (FQ-07→FQ-09W presentation, Calling core, early
+  mechanics/world-gen) are **deliberately left in the coordinator** — they carry
+  cross-section mutable state (`_pv`, `_cal_prev_role`, `original_config`) so they
+  fail the clean-seams gate and are not forced. See the work order §11.6 closeout.
 - **S-07.4:** re-confirm the clean stateless extraction candidates against the
   R-06 gate after the split suite is further along.
 - Then a deterministic verification pass (repeat windowed smoke + full CI incl.
