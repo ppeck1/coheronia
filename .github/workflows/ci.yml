@@ -2,7 +2,9 @@ name: CI
 
 # R-04: single source of truth for "is this build shippable?"
 #   * static  - Python validators / asset audit / capsule / wiki (no engine)
-#   * godot   - pinned Godot 4.6.1, in-engine smoke + real export artifact
+#   * godot   - pinned Godot 4.6.1, in-engine smoke + real Linux/X11 export
+#   * windows - pinned Godot 4.6.1, in-engine smoke + real Windows export,
+#               then launches the exported .exe in smoke mode (the ship target)
 # Any failing step blocks the workflow.
 
 on:
@@ -104,6 +106,79 @@ jobs:
           name: coheronia-linux-${{ github.sha }}
           path: |
             build/coheronia
+            build/coheronia.pck
+            build/source_smoke_results.json
+            build/export_smoke_results.json
+            build/build_info.json
+          if-no-files-found: warn
+
+  windows:
+    name: Smoke + export (Windows 4.6.1 — ship target)
+    needs: static
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      GODOT_BASE: https://github.com/godotengine/godot-builds/releases/download
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $url = "$env:GODOT_BASE/$env:GODOT_VERSION/Godot_v$($env:GODOT_VERSION)_win64.exe.zip"
+          Invoke-WebRequest -Uri $url -OutFile godot.zip
+          Expand-Archive godot.zip -DestinationPath godot-bin -Force
+          # Prefer the console-subsystem build so the verifier can tee stdout and
+          # scan it for SCRIPT ERROR / Compile Error markers (the GUI-subsystem
+          # exe does not attach to the parent console on Windows).
+          $exe = Get-ChildItem godot-bin -Recurse -Filter *_console.exe | Select-Object -First 1
+          if (-not $exe) { $exe = Get-ChildItem godot-bin -Recurse -Filter *.exe | Select-Object -First 1 }
+          "GODOT_BIN=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & $exe.FullName --version
+
+      - name: Install export templates
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $url = "$env:GODOT_BASE/$env:GODOT_VERSION/Godot_v$($env:GODOT_VERSION)_export_templates.tpz"
+          Invoke-WebRequest -Uri $url -OutFile templates.zip
+          Expand-Archive templates.zip -DestinationPath templates-extract -Force
+          $dest = Join-Path $env:APPDATA "Godot\export_templates\4.6.1.stable"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Move-Item "templates-extract\templates\*" $dest -Force
+          Get-ChildItem $dest | Select-Object -First 5 Name
+
+      - name: Import project resources
+        shell: pwsh
+        run: |
+          & $env:GODOT_BIN --headless --path . --import
+
+      - name: Smoke + export + run exported artifact
+        # The verifier runs the windowed source smoke (windows-latest provides a
+        # desktop session; Godot falls back to the OpenGL3 renderer without a GPU),
+        # exports the Windows Desktop preset, then launches coheronia.exe in smoke
+        # mode against a separate results file — verifying the actual ship target.
+        shell: pwsh
+        timeout-minutes: 30
+        env:
+          COHERONIA_COMMIT: ${{ github.sha }}
+        run: python scripts/ci/verify.py --godot $env:GODOT_BIN --export --export-preset "Windows Desktop"
+
+      - name: Upload build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coheronia-windows-${{ github.sha }}
+          path: |
+            build/coheronia.exe
             build/coheronia.pck
             build/source_smoke_results.json
             build/export_smoke_results.json
