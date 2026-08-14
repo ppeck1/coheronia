@@ -310,6 +310,35 @@ recomputed (Callables, captured configs, mined-cell coordinates) goes in `scratc
    union of module-owned section names equals the pre-split name-set, so no check is
    silently lost or renamed.
 
+### 11.4a Pre-cut symbol scan (mandatory — four categories, not one)
+
+Before cutting any block, every identifier it references must resolve in the new
+module. There are **four** categories, and missing any one is a compile error that
+only CI/editor catches (no local GDScript compiler). The `s07-3-persistence-cluster`
+break was a category-4 miss (`MusicManifest`), so all four are now explicit:
+
+1. **Inbound bare `_locals`** — a `_ident` used in the block but declared in an
+   earlier section. Resolve by: recompute in-module (pure derived, e.g. `hall_cell`),
+   thread via `ctx.scratch` (Callables/captured state), or leave the reading tail in
+   the coordinator (e.g. the R-03 progression/Calling restore reads
+   `_cal_prev_role`/`_fq06_saved_*`). Scan method: for each `_ident`, check the char
+   immediately before it — `.` = member access (safe), else a bare ref; flag bare
+   refs not declared (`var`/`for`) in-block.
+2. **Outbound `_locals`** — declared in the block, read after it. Keep in the
+   coordinator or route through `ctx.scratch`.
+3. **Harness ledger members** used bare (`_check` / `_skip` / `_suite_for` /
+   `_start_ms` / `_suites` / `_find_block` / `_mine_cell` / `_r08_clear_ground_drops`)
+   → rewrite to `harness.<member>` (unpack `var harness = ctx.harness`).
+4. **Harness class-local `const`/preload symbols** — CAPS identifiers that are
+   `const X := preload(...)` **in `smoke_test.gd`** (e.g. `MusicManifest`,
+   `AudioSettings`, `HousingScript`, `CelestialScript`, `SubjectScript`). These are
+   **not** global and do **not** arrive via `ctx` — re-declare the same `const` in
+   the module. Distinguish them from genuine globals (project autoloads like
+   `GameState`/`BlockRegistry`, `class_name` types like `WorldConfig`, and engine
+   built-ins like `FileAccess`) which resolve everywhere. Quick check: grep the block
+   for CAPS identifiers, then confirm each is an autoload/`class_name`/built-in; any
+   that is a `const` in `smoke_test.gd`'s header (lines ~7–21) must be copied in.
+
 ### 11.5 Verification constraint (do not skip)
 
 There is **no Godot binary on the current dev box**, and neither the Python static
