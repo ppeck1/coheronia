@@ -186,6 +186,34 @@ static func positions(t: float, view: Rect2, baseline_y := NAN) -> Dictionary:
 	}
 
 
+## The world-space direction (normalized, +y down) from terrain UP toward the
+## currently-visible body, for the cave-depth shader's sky-admission march. The arc
+## sweeps rise-left → set-right, so at dawn the sun sits low to the east (ray slants
+## up-and-right), at noon nearly straight up, at dusk up-and-left — a mined window
+## facing that direction admits the light. Pure geometry off `time_of_day`; the fixed
+## `ARC_HEIGHT_PX`/half-width span set the slope the same way `positions()` does.
+func sky_direction() -> Vector2:
+	var is_night := _time >= NIGHT_START
+	var frac := _time / NIGHT_START if not is_night \
+		else (_time - NIGHT_START) / (1.0 - NIGHT_START)
+	frac = clampf(frac, 0.0, 1.0)
+	# Horizontal progress across the arc maps to a slant: -1 (east/low) .. +1 (west/low),
+	# 0 at the zenith. The vertical reach is the arc peak; combine for the up-toward-body
+	# ray. Keep it always pointing UP (negative y) so it never marches down into rock.
+	var slant := 2.0 * frac - 1.0
+	return Vector2(slant, -1.0).normalized()
+
+
+## How strongly a clear slant path re-admits ambient sky light (0 disables the march):
+## full by day, and by night scaled by the moon's lit fraction so a new moon admits
+## nothing while a full moon lets soft moonlight down an open shaft/window.
+func sky_admit_strength() -> float:
+	var is_night := _time >= NIGHT_START
+	if not is_night:
+		return 1.0
+	return clampf(illumination_f(_phase_f), 0.0, 1.0)
+
+
 ## Rebuild the moon texture for the current phase: opaque only where the disc is LIT
 ## (dark side transparent → blends into the night sky). Waxing lights the right
 ## limb, waning the left; full is a whole disc, new is empty.

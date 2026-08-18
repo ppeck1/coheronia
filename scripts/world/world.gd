@@ -976,6 +976,20 @@ func set_viewer_darkness(f: float) -> void:
 		_cave_material.set_shader_parameter("viewer_darkness", clampf(f, 0.0, 1.0))
 
 
+## Feed the depth shader the current sun/moon admission ray: `dir` is the world-space
+## direction (normalized, +y down) from a terrain cell TOWARD the celestial body, and
+## `strength` (0..1) how strongly a clear slant path re-admits ambient light (0 = off,
+## e.g. a new moon). The shader marches this ray over the per-column sky-line texture
+## so a window / doorway / cave mouth with an unobstructed path to the body stays lit,
+## not just a vertical shaft. Presentation-only; nothing here touches gameplay/save.
+func set_sky_admission(dir: Vector2, strength: float) -> void:
+	if _cave_material == null:
+		return
+	var d := dir.normalized() if dir.length() > 0.0 else Vector2(0.0, -1.0)
+	_cave_material.set_shader_parameter("sky_dir", d)
+	_cave_material.set_shader_parameter("sky_admit_strength", clampf(strength, 0.0, 1.0))
+
+
 ## Repaint the one-texel-per-column sky-line texture (R = first solid y in tiles)
 ## the depth shader samples. Cheap: width texels, only when a dig moved a column.
 func _rebuild_sky_texture() -> void:

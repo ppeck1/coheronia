@@ -55,8 +55,9 @@ const SAP_BREAK_COOLDOWN := 1.0
 var emits_bubbles := false
 var lava_immune := false
 var _bubbles: Array = []
-const MAX_SLIME_BUBBLES := 10          # hard cap on simultaneous visible bubbles
-const SLIME_BUBBLE_RATE := 7.0         # expected births/sec (variable, gated by the cap)
+var _bubble_cd := 0.0                   # seconds until the next single bubble may nucleate
+const MAX_SLIME_BUBBLES := 1           # one bubble at a time — a slow, sporadic simmer
+const SLIME_BUBBLE_GAP := Vector2(2.4, 5.0)  # random seconds between bubbles (min, max)
 const SLIME_BUBBLE_RISE := 10.0
 const SLIME_BUBBLE_POP := 0.28
 const BUBBLE_CORE := Color(1.0, 0.74, 0.30)
@@ -231,17 +232,19 @@ func _is_sappable(block_id: String) -> bool:
 ## — the same behaviour as the lava-tile overlay, but as lightweight state, never
 ## scene nodes. Purely decorative: it touches no world/save state.
 func _tick_bubbles(delta: float) -> void:
-	var expected := SLIME_BUBBLE_RATE * delta
-	while expected > 0.0 and _bubbles.size() < MAX_SLIME_BUBBLES:
-		if randf() < expected:
-			_bubbles.append({
-				"x": randf_range(-5.0, 5.0), "y": randf_range(2.0, 5.0),
-				"r": randf_range(1.0, 2.2),
-				"speed": SLIME_BUBBLE_RISE * randf_range(0.7, 1.4),
-				"wob": randf() * TAU, "amp": randf_range(1.5, 4.0),
-				"pop": -1.0,
-			})
-		expected -= 1.0
+	# One molten bubble at a time: count down a randomized gap, and only nucleate a
+	# new bubble once the previous one has cleared. Keeps the slime a slow simmer
+	# rather than a fizzing pot.
+	_bubble_cd -= delta
+	if _bubble_cd <= 0.0 and _bubbles.size() < MAX_SLIME_BUBBLES:
+		_bubble_cd = randf_range(SLIME_BUBBLE_GAP.x, SLIME_BUBBLE_GAP.y)
+		_bubbles.append({
+			"x": randf_range(-5.0, 5.0), "y": randf_range(2.0, 5.0),
+			"r": randf_range(1.0, 2.2),
+			"speed": SLIME_BUBBLE_RISE * randf_range(0.7, 1.4),
+			"wob": randf() * TAU, "amp": randf_range(1.5, 4.0),
+			"pop": -1.0,
+		})
 	var kept: Array = []
 	for b in _bubbles:
 		if b["pop"] >= 0.0:

@@ -22,7 +22,12 @@ const LIQUID_BLOCK_IDS := ["lava", "water"]
 ##   v4 = Liquid pool pruning: generated lava/water pockets below a minimum
 ##        connected volume are dropped, so the underground no longer speckles
 ##        with lone single-cell lava/water blocks.
-const CURRENT_GEN_VERSION := 4
+##   v5 = Liquid encapsulation bugfix: the seal pass walls in EVERY flowable face
+##        of a generated pool, not just absent (air) cells. v3/v4 sealed only air,
+##        so a pool touching a non-solid decoration (tree/bush) kept a real open
+##        face the fluid sim would pour through on the first nearby disturbance.
+##        v5 seals those faces (see _encapsulate_liquids); v3/v4 stay byte-identical.
+const CURRENT_GEN_VERSION := 5
 
 ## v4: a generated liquid pocket (lava or water) smaller than this many connected
 ## same-liquid cells is removed at gen time, so the caves keep only real pools
@@ -158,7 +163,7 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 		# so it sits inert until the player MINES into it — a nearby edit no longer
 		# merely wakes an already-exposed pool. Runs before surface ponds so ponds
 		# keep their open tops.
-		_encapsulate_liquids(cells, surface, width, height, strata)
+		_encapsulate_liquids(cells, surface, width, height, strata, gen_version)
 		if not water_cfg.is_empty():
 			_place_surface_lakes(cells, surface, width, height, world_seed, water_cfg)
 
@@ -397,13 +402,24 @@ static func _prune_small_liquid_pools(cells: Dictionary, min_volume: int) -> voi
 
 
 ## Liquid Physics (v3, LQ-3): seals every generated liquid pocket (lava +
-## underground water) inside solid rock by filling any AIR cell orthogonally
+## underground water) inside solid rock by filling any open-face cell orthogonally
 ## adjacent to a liquid with the depth-appropriate stratum block. The result:
-## generated liquid never borders open air, so it sits inert until the player
-## MINES into it — mining is what releases it, not merely a nearby edit. Runs
-## before surface ponds, which keep their intended open tops.
+## generated liquid never borders a flowable cell, so it sits inert until the
+## player MINES into it — mining is what releases it, not merely a nearby edit.
+## Runs before surface ponds, which keep their intended open tops.
+##
+## v5 (bugfix): an "open face" is any cell the fluid sim (`fluid_sim._can_receive`)
+## would flow INTO, not merely an absent (air) cell. The v3/v4 pass sealed only
+## air, so a generated liquid cell orthogonally touching a NON-SOLID decoration
+## (tree_trunk/leaves/berry_bush and, generally, any non-solid non-liquid block)
+## was left with a real open face: the sim floods those decorations, so the pool
+## would pour into one the moment an adjacent block was disturbed. v5 seals those
+## faces too. Existing v3/v4 worlds keep the air-only pass byte-for-byte, so they
+## regenerate unchanged; only worlds stamped v5+ get the tightened seal. A cell
+## that is already solid, a same-or-other liquid, or a protected structure is a
+## barrier and never sealed over.
 static func _encapsulate_liquids(cells: Dictionary, surface: Dictionary,
-		width: int, height: int, strata: Array) -> void:
+		width: int, height: int, strata: Array, gen_version: int) -> void:
 	var bedrock_top := height - BEDROCK_THICKNESS
 	var seal: Dictionary = {}   # Vector2i -> solid block id
 	for pos: Vector2i in cells:
@@ -413,14 +429,36 @@ static func _encapsulate_liquids(cells: Dictionary, surface: Dictionary,
 				pos + Vector2i(1, 0), pos + Vector2i(-1, 0)]:
 			if nb.x < 0 or nb.x >= width or nb.y < 0 or nb.y >= height:
 				continue
-			if cells.has(nb):
-				continue   # already rock or liquid — not an open side
+			if seal.has(nb):
+				continue   # already scheduled to be sealed this pass
+			if not _is_open_liquid_face(cells, nb, gen_version):
+				continue   # rock / liquid / protected (v3-v4: only air is "open")
 			var surf_y: int = int(surface.get(nb.x, 0))
 			var col_depth: int = maxi(1, bedrock_top - surf_y)
 			var f: float = float(maxi(0, nb.y - surf_y)) / float(col_depth)
 			seal[nb] = _stratum_base_frac(strata, f)
 	for nb: Vector2i in seal:
 		cells[nb] = seal[nb]
+
+
+## True when `nb` is a face a generated liquid could flow through, so the
+## encapsulation pass must wall it in.
+##   * v3/v4 (save-compat): only an absent (air) cell counts — the original
+##     `cells.has(nb)` test, inverted, byte-for-byte.
+##   * v5+: mirrors `fluid_sim._can_receive` — air OR any non-solid, non-liquid,
+##     non-protected block (a decoration the sim floods) is an open face; solids,
+##     liquids (same or other), and protected structures are barriers.
+static func _is_open_liquid_face(cells: Dictionary, nb: Vector2i, gen_version: int) -> bool:
+	if not cells.has(nb):
+		return true   # air — flowable in every version
+	if gen_version < 5:
+		return false  # v3/v4: an occupied cell is treated as sealed (legacy)
+	var bid: String = str(cells[nb])
+	if BlockRegistry.is_liquid(bid):
+		return false  # a same/other liquid dams (or reacts) — not an open face
+	if BlockRegistry.is_solid(bid) or BlockRegistry.has_tag(bid, "protected"):
+		return false  # solid rock / protected structure — a barrier
+	return true       # a non-solid decoration the sim would flood through
 
 
 ## LQ-3: scatters surface ponds. Each is a tapered bowl carved into the surface

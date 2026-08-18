@@ -724,12 +724,21 @@ func _unhandled_input(event: InputEvent) -> void:
 ## profile so the choice survives a relaunch. Returns true when the event is a view
 ## control (so _unhandled_input stops). Only fires for events no GUI panel consumed.
 func _handle_view_input(event: InputEvent) -> bool:
+	# Don't let the wheel fall through to camera zoom while a scrolling menu is
+	# open (HUD editor / crafting / an inventory-class modal): scrolling to the end
+	# of a list would otherwise silently start re-zooming the world behind it.
+	var menu_open := GameState.hud_edit_mode or GameState.craft_panel_open \
+		or GameState.modal_panel_open
 	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
 		match (event as InputEventMouseButton).button_index:
 			MOUSE_BUTTON_WHEEL_UP:
+				if menu_open:
+					return true   # swallow, but do not zoom
 				_zoom_by(1.0)   # scroll up = zoom in (see less, larger)
 				return true
 			MOUSE_BUTTON_WHEEL_DOWN:
+				if menu_open:
+					return true
 				_zoom_by(-1.0)  # scroll down = zoom out (see more, smaller)
 				return true
 	elif event is InputEventKey and (event as InputEventKey).pressed \
@@ -832,6 +841,11 @@ func _advance_time(delta: float) -> void:
 	else:
 		_viewer_darkness_smooth = lerpf(_viewer_darkness_smooth, _vd_target, delta * 1.5)
 	world.set_viewer_darkness(_viewer_darkness_smooth)
+	# Feed the depth shader the current sun/moon admission ray so an interior cell with
+	# an unobstructed slant path to the body (a window/doorway/cave mouth, not just a
+	# vertical shaft) keeps its ambient light. Presentation-only.
+	if _celestial != null:
+		world.set_sky_admission(_celestial.sky_direction(), _celestial.sky_admit_strength())
 
 
 ## FQ-09W: 0 = sky-exposed, 1 = fully buried. Column-skylight approximation:
@@ -2042,6 +2056,7 @@ func apply_time_state(data: Dictionary) -> void:
 		_celestial.set_time(time_of_day)   # M5-A: reflect the loaded time in the sky
 		_celestial.set_phase_from_day(day_count)
 		_celestial.set_sky_visible(_sky_visible_now())
+		world.set_sky_admission(_celestial.sky_direction(), _celestial.sky_admit_strength())
 	canvas_modulate.color = ambient_target_color()
 	# Re-prime the eased viewer-darkness so entering/loading a world snaps to its
 	# depth instead of easing in from the previous world's value.
