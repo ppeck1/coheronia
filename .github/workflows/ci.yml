@@ -58,11 +58,25 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Install runtime libraries
+        # Bound + retry apt so a stalled Azure mirror fails fast and self-heals
+        # instead of hanging the runner for the full timeout (a prior run wedged
+        # ~30 min on apt-get update and never reached Godot). Per-connection
+        # timeouts + forced IPv4 + up to three attempts; the final dpkg check fails
+        # the step if the packages never landed.
+        timeout-minutes: 8
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            xvfb libgl1 libglu1-mesa libxi6 libxrandr2 libxcursor1 \
-            libxinerama1 libasound2t64 libpulse0 fontconfig unzip
+          APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::ForceIPv4=true"
+          for i in 1 2 3; do
+            sudo apt-get $APT_OPTS update && break
+            echo "apt-get update attempt $i failed; retrying in 10s"; sleep 10
+          done
+          for i in 1 2 3; do
+            sudo apt-get $APT_OPTS install -y --no-install-recommends \
+              xvfb libgl1 libglu1-mesa libxi6 libxrandr2 libxcursor1 \
+              libxinerama1 libasound2t64 libpulse0 fontconfig unzip && break
+            echo "apt-get install attempt $i failed; retrying in 10s"; sleep 10
+          done
+          dpkg -s xvfb >/dev/null 2>&1 || { echo "runtime libraries missing after retries"; exit 1; }
 
       - name: Install Godot ${{ env.GODOT_VERSION }}
         run: |
