@@ -31,6 +31,10 @@ const SCOOP_MAX_SCAN := 256
 # FQ-13: ore-family blocks (FQ-10) the ore tick keys off when choosing a spawn.
 const ORE_IDS := ["ore", "coal", "copper_ore", "tin_ore", "iron_ore",
 	"silver_ore", "crystal"]
+# S-07.4: pure encode/decode for the sparse per-cell save dicts (preload, not
+# class_name — repo convention). The serialize_*/parse_* methods below delegate
+# to it so the "x,y" conversion lives in one place.
+const WorldSerialize := preload("res://scripts/world/world_serialize.gd")
 
 var width := 240
 var height := 80
@@ -1478,80 +1482,49 @@ func _make_light_texture() -> GradientTexture2D:
 	return LightingScript.glow_texture()
 
 
+## Each of these persists a sparse per-cell dict as a "x,y"-string-keyed map and
+## reloads it byte-identically (only disturbed cells appear, so an undisturbed
+## world round-trips through an empty map). The encode/decode bodies are shared,
+## stateless helpers in world_serialize.gd; these keep the public save/load
+## signatures. deltas hold block-id strings; the timer/level maps hold floats.
 func serialize_deltas() -> Dictionary:
-	var out := {}
-	for cell in deltas:
-		out["%d,%d" % [cell.x, cell.y]] = deltas[cell]
-	return out
+	return WorldSerialize.encode_cells(deltas)
+
+
+static func parse_deltas(raw: Dictionary) -> Dictionary:
+	return WorldSerialize.decode_cell_strings(raw)
 
 
 func serialize_bush_regrow() -> Dictionary:
-	var out := {}
-	for cell in bush_regrow:
-		out["%d,%d" % [cell.x, cell.y]] = bush_regrow[cell]
-	return out
+	return WorldSerialize.encode_cells(bush_regrow)
 
 
 static func parse_bush_regrow(raw: Dictionary) -> Dictionary:
-	var out := {}
-	for key in raw:
-		var parts: PackedStringArray = str(key).split(",")
-		if parts.size() == 2:
-			out[Vector2i(int(parts[0]), int(parts[1]))] = float(raw[key])
-	return out
+	return WorldSerialize.decode_cell_floats(raw)
 
 
-## FQ-12: crop growth timers persist exactly like bush regrowth.
 func serialize_crop_growth() -> Dictionary:
-	var out := {}
-	for cell in crop_growth:
-		out["%d,%d" % [cell.x, cell.y]] = crop_growth[cell]
-	return out
+	return WorldSerialize.encode_cells(crop_growth)
 
 
 static func parse_crop_growth(raw: Dictionary) -> Dictionary:
-	var out := {}
-	for key in raw:
-		var parts: PackedStringArray = str(key).split(",")
-		if parts.size() == 2:
-			out[Vector2i(int(parts[0]), int(parts[1]))] = float(raw[key])
-	return out
+	return WorldSerialize.decode_cell_floats(raw)
 
 
-## Item-wiring (Phase 3): sapling growth timers persist exactly like crops/bushes.
 func serialize_tree_growth() -> Dictionary:
-	var out := {}
-	for cell in tree_growth:
-		out["%d,%d" % [cell.x, cell.y]] = tree_growth[cell]
-	return out
+	return WorldSerialize.encode_cells(tree_growth)
 
 
 static func parse_tree_growth(raw: Dictionary) -> Dictionary:
-	var out := {}
-	for key in raw:
-		var parts: PackedStringArray = str(key).split(",")
-		if parts.size() == 2:
-			out[Vector2i(int(parts[0]), int(parts[1]))] = float(raw[key])
-	return out
+	return WorldSerialize.decode_cell_floats(raw)
 
 
-## LQ-1: liquid fill levels persist exactly like the other sparse per-cell dicts.
-## Only disturbed cells appear here (generated pools carry no entry = full), so an
-## undisturbed world serializes an empty map and reloads byte-identically.
 func serialize_liquid_level() -> Dictionary:
-	var out := {}
-	for cell in liquid_level:
-		out["%d,%d" % [cell.x, cell.y]] = liquid_level[cell]
-	return out
+	return WorldSerialize.encode_cells(liquid_level)
 
 
 static func parse_liquid_level(raw: Dictionary) -> Dictionary:
-	var out := {}
-	for key in raw:
-		var parts: PackedStringArray = str(key).split(",")
-		if parts.size() == 2:
-			out[Vector2i(int(parts[0]), int(parts[1]))] = float(raw[key])
-	return out
+	return WorldSerialize.decode_cell_floats(raw)
 
 
 # ---------- LQ-1: fluid sim access (smoke/deterministic stepping) ----------
@@ -1658,10 +1631,3 @@ func liquid_mass() -> float:
 	return total
 
 
-static func parse_deltas(raw: Dictionary) -> Dictionary:
-	var out := {}
-	for key in raw:
-		var parts: PackedStringArray = str(key).split(",")
-		if parts.size() == 2:
-			out[Vector2i(int(parts[0]), int(parts[1]))] = str(raw[key])
-	return out
