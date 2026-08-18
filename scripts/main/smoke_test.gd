@@ -27,6 +27,11 @@ const SmokeEquipment := preload("res://scripts/main/smoke/smoke_equipment.gd")  
 const SmokeLiquidTraits := preload("res://scripts/main/smoke/smoke_liquid_traits.gd")   # S-07.3
 const SmokeSettings := preload("res://scripts/main/smoke/smoke_settings.gd")   # S-07.3
 const SubjectScript := preload("res://scripts/entities/subject.gd")   # S-07.1c defender marker
+# Pinned fingerprints of the seed-2024 medium v3/v4 generated cell maps (see
+# _cells_fingerprint). Any future gen change that perturbs an older world trips
+# wg_gen_v3_v4_pinned_after_v5. Captured 2026-08-18 after the gen_version 5 seal fix.
+const GEN_V3_FINGERPRINT := 119253797091923
+const GEN_V4_FINGERPRINT := 118325105647989
 
 var _results: Array = []
 var _details: Dictionary = {}
@@ -157,6 +162,16 @@ func _smallest_pocket_of(cells: Dictionary, kind: String) -> int:
 					stack.append(nb)
 		smallest = mini(smallest, n)
 	return smallest
+
+
+## Order-independent fingerprint of a generated cell map (sum of per-cell string
+## hashes), used to pin v3/v4 terrain byte-for-byte so a future gen change to a
+## newer version can never silently perturb an older world's output.
+func _cells_fingerprint(cells: Dictionary) -> int:
+	var acc := 0
+	for k: Vector2i in cells:
+		acc = (acc + hash("%d,%d=%s" % [k.x, k.y, str(cells[k])])) & 0x7fffffffffffffff
+	return acc
 
 
 ## R-03: record a check intentionally not run in this environment (never counted
@@ -1358,6 +1373,58 @@ func _run() -> void:
 		"v4 lava cells=%d smallest lava pocket=%d (>= %d)"
 			% [_v4_lava_cells, _v4_lava_min, _min_pool])
 
+	# gen_version 5 (2026-08-18): the seal pass walls EVERY flowable face, not just
+	# air. Unit-test the predicate directly: a non-solid decoration (tree) neighbour
+	# is an OPEN face at v5 (so it gets sealed) but was treated as closed at v4 (the
+	# bug the fix targets); air is open in every version; a solid is always a barrier.
+	var _seal_cells := {
+		Vector2i(0, 0): "water", Vector2i(1, 0): "tree_trunk", Vector2i(2, 0): "stone"}
+	var _tree_open_v5: bool = WorldGen._is_open_liquid_face(_seal_cells, Vector2i(1, 0), 5)
+	var _tree_open_v4: bool = WorldGen._is_open_liquid_face(_seal_cells, Vector2i(1, 0), 4)
+	var _air_open_v5: bool = WorldGen._is_open_liquid_face(_seal_cells, Vector2i(9, 9), 5)
+	var _air_open_v4: bool = WorldGen._is_open_liquid_face(_seal_cells, Vector2i(9, 9), 4)
+	var _solid_open_v5: bool = WorldGen._is_open_liquid_face(_seal_cells, Vector2i(2, 0), 5)
+	_check("wg5_seal_predicate_gates_decorations",
+		_tree_open_v5 and not _tree_open_v4 and _air_open_v5 and _air_open_v4
+			and not _solid_open_v5,
+		"tree v5=%s v4=%s | air v5=%s v4=%s | solid v5=%s" % [_tree_open_v5,
+			_tree_open_v4, _air_open_v5, _air_open_v4, _solid_open_v5])
+
+	# And the whole v5 world honours it: NO generated lava/deep-water cell keeps an
+	# open face (air OR a flowable decoration). Same seed as the v3/v4 worlds above;
+	# strict superset of lq_generated_liquid_encapsulated (which counted air faces).
+	var _wg5: Dictionary = WorldGen.generate(2024, WorldConfig.new({"size": "medium", "gen_version": 5}))
+	var _wg5_cells: Dictionary = _wg5["cells"]
+	var _wg5_w: int = int(_wg5["width"])
+	var _wg5_h: int = int(_wg5["height"])
+	var _wg5_surf: Dictionary = _wg5["surface"]
+	var _v5_open := 0
+	for _c5: Vector2i in _wg5_cells:
+		var _id5: String = str(_wg5_cells[_c5])
+		var _deep5: bool = _c5.y - int(_wg5_surf.get(_c5.x, 0)) > 6
+		if _id5 != "lava" and not (_id5 == "water" and _deep5):
+			continue   # surface ponds are intentionally exposed at the top
+		for _nb5: Vector2i in [_c5 + Vector2i(0, 1), _c5 + Vector2i(0, -1),
+				_c5 + Vector2i(1, 0), _c5 + Vector2i(-1, 0)]:
+			if _nb5.x < 0 or _nb5.x >= _wg5_w or _nb5.y < 0 or _nb5.y >= _wg5_h:
+				continue
+			if WorldGen._is_open_liquid_face(_wg5_cells, _nb5, 5):
+				_v5_open += 1
+				break
+	_check("wg5_generated_pools_fully_sealed", _v5_open == 0,
+		"v5 generated liquid cells with an open (air/decoration) face: %d (must be 0)" % _v5_open)
+
+	# Save-compat: the v5 seal predicate is a no-op for v3/v4, so their generated
+	# terrain must stay byte-identical. Pin an order-independent fingerprint of the
+	# v3 and v4 cell maps (seed 2024) — any future change that perturbs older worlds
+	# trips this guard. (Determinism is also implied: regenerating gives the same map.)
+	var _v3_fp: int = _cells_fingerprint(_wg3["cells"])
+	var _v4_fp: int = _cells_fingerprint(_wg4_cells)
+	_check("wg_gen_v3_v4_pinned_after_v5",
+		_v3_fp == GEN_V3_FINGERPRINT and _v4_fp == GEN_V4_FINGERPRINT,
+		"v3 fp=%d (want %d) v4 fp=%d (want %d)"
+			% [_v3_fp, GEN_V3_FINGERPRINT, _v4_fp, GEN_V4_FINGERPRINT])
+
 	# LQ-3: trees don't dam liquid — a non-solid tree in the flow path is flooded
 	# (background prop, not a wall), so lava/water pass through rather than stop.
 	var _tr_src := Vector2i(44, 5)
@@ -1618,6 +1685,76 @@ func _run() -> void:
 		and hud.skill_panel().has_skill_node("familiar_ground")
 		and not hud.skill_panel().has_skill_node("tempered_frame"),
 		"nodes=%d" % hud.skill_panel().node_count())
+
+	# (h) 2026-08-18 constellation redesign: the star-map draws constellation LINK
+	# lines between the Path stars, selecting a different star switches the inspector,
+	# an available star exists, and the Learn action emits its id for purchase. The
+	# real purchase handler is detached around the probe so this never mutates
+	# character progression mid-suite.
+	var _sc = hud.skill_panel()
+	_sc.setup(root)
+	var _sc_links: int = _sc.link_count()
+	_sc.select_node("familiar_ground")
+	var _sc_info_a: String = _sc.info_text()
+	_sc.select_node("stonewise")
+	var _sc_info_b: String = _sc.info_text()
+	var _sc_avail := ""
+	for _sc_k in _sc._node_states:
+		if str(_sc._node_states[_sc_k]) == "available":
+			_sc_avail = str(_sc_k)
+			break
+	var _sc_had_real: bool = _sc.purchase_requested.is_connected(root._on_perk_purchase_requested)
+	if _sc_had_real:
+		_sc.purchase_requested.disconnect(root._on_perk_purchase_requested)
+	var _sc_emitted := {"id": ""}
+	var _sc_probe := func(pid: String) -> void: _sc_emitted["id"] = pid
+	_sc.purchase_requested.connect(_sc_probe)
+	if _sc_avail != "":
+		_sc.select_node(_sc_avail)
+		_sc._on_buy_pressed()
+	_sc.purchase_requested.disconnect(_sc_probe)
+	if _sc_had_real:
+		_sc.purchase_requested.connect(root._on_perk_purchase_requested)
+	_check("skill_constellation_links_select_purchase",
+		_sc_links > 0 and _sc_info_a != _sc_info_b
+			and _sc_avail != "" and str(_sc_emitted["id"]) == _sc_avail,
+		"links=%d select_switch=%s avail=%s emitted=%s" % [_sc_links,
+			str(_sc_info_a != _sc_info_b), _sc_avail, str(_sc_emitted["id"])])
+
+	# (i) 2026-08-18 interior sun/moon light: the cave shader admits a body's light
+	# down a clear slant path. The GDScript side of that contract: the celestial ray
+	# always points UP and swings east->west across the day, day admits fully, a new
+	# moon admits nothing and a full moon some, and world.set_sky_admission pushes
+	# those values onto the shared cave-depth shader material.
+	var _cel = CelestialScript.new()
+	_cel._time = 0.32
+	var _dir_noon: Vector2 = _cel.sky_direction()
+	_cel._time = 0.05
+	var _dir_dawn: Vector2 = _cel.sky_direction()
+	_cel._time = 0.60
+	var _dir_dusk: Vector2 = _cel.sky_direction()
+	var _day_admit: float = _cel.sky_admit_strength()
+	_cel._time = 0.80
+	_cel._phase_f = 0.5
+	var _full_admit: float = _cel.sky_admit_strength()
+	_cel._phase_f = 0.0
+	var _new_admit: float = _cel.sky_admit_strength()
+	var _dir_ok: bool = _dir_noon.y < 0.0 and _dir_dawn.y < 0.0 and _dir_dusk.y < 0.0 \
+		and _dir_dawn.x < 0.0 and _dir_dusk.x > 0.0 and absf(_dir_noon.x) < 0.2
+	var _strength_ok: bool = is_equal_approx(_day_admit, 1.0) \
+		and _full_admit > 0.4 and _new_admit < 0.05
+	var _plumb_ok := true
+	world.set_sky_admission(Vector2(0.3, -1.0), 0.7)
+	if world._cave_material != null:
+		var _u_str: float = float(world._cave_material.get_shader_parameter("sky_admit_strength"))
+		var _u_dir: Vector2 = world._cave_material.get_shader_parameter("sky_dir")
+		_plumb_ok = is_equal_approx(_u_str, 0.7) \
+			and _u_dir.is_equal_approx(Vector2(0.3, -1.0).normalized())
+	_cel.free()
+	_check("s07_sky_admission_direction_strength_plumbing",
+		_dir_ok and _strength_ok and _plumb_ok,
+		"noon=%s dawn=%s dusk=%s day=%.2f full=%.2f new=%.2f plumb=%s" % [str(_dir_noon),
+			str(_dir_dawn), str(_dir_dusk), _day_admit, _full_admit, _new_admit, str(_plumb_ok)])
 
 	# --- Calling system Stage 2: wired-effect behavior ---
 	# Clear any lingering test threats so threat-state context is deterministic.

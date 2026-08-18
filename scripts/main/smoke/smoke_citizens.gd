@@ -302,6 +302,24 @@ func run(ctx) -> void:
 		harness._check("m4_lava_slime_bubbles_capped",
 			_ls._bubbles.size() <= _ls.MAX_SLIME_BUBBLES,
 			"bubbles=%d cap=%d" % [_ls._bubbles.size(), _ls.MAX_SLIME_BUBBLES])
+		# 2026-08-18: not merely the cap — a slow SIMMER of ONE bubble at a time on a
+		# randomized multi-second gap. A first tiny tick nucleates exactly one bubble
+		# and arms a 2.4-5.0s cooldown; sub-gap ticks never raise a second concurrent
+		# bubble.
+		_ls._bubbles.clear()
+		_ls._bubble_cd = 0.0
+		_ls._tick_bubbles(0.05)
+		var _ls_after_one: int = _ls._bubbles.size()
+		var _ls_cd: float = _ls._bubble_cd
+		var _ls_peak: int = _ls_after_one
+		for _ls_j in 20:                      # 20 x 0.05s = 1.0s, well under the gap
+			_ls._tick_bubbles(0.05)
+			_ls_peak = maxi(_ls_peak, _ls._bubbles.size())
+		harness._check("m4_lava_slime_bubble_timing",
+			_ls.MAX_SLIME_BUBBLES == 1 and _ls_after_one == 1 and _ls_peak <= 1
+			and _ls_cd >= _ls.SLIME_BUBBLE_GAP.x and _ls_cd <= _ls.SLIME_BUBBLE_GAP.y,
+			"after_one=%d peak=%d cd=%.2f gap=[%.1f,%.1f]" % [_ls_after_one, _ls_peak,
+				_ls_cd, _ls.SLIME_BUBBLE_GAP.x, _ls.SLIME_BUBBLE_GAP.y])
 		# lava immunity: standing in a lava cell deals no environmental hazard damage.
 		var _ls_cell := Vector2i(hall_cell.x + 25, hall_cell.y + 6)
 		world.break_block(_ls_cell)

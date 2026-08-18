@@ -14,9 +14,14 @@ the Metal Ladder, the Calling system) are archived in
 truthfulness**, not new mechanics. Its authority is
 [`docs/WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md`](WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md).
 The game is behaviourally stable and honestly documented; the remaining work is
-maintainability, presentation polish, and one measured balance pass — under a
-hard **no-new-mechanics / no-save-or-gen-change** boundary. Do **not** re-open the
-skill tree or bump `SAVE_VERSION`/`gen_version`.
+release hardening, maintainability, presentation polish, and one measured balance
+pass — under a hard **no-new-mechanics** boundary. The save format is frozen
+(`SAVE_VERSION` unchanged). Terrain `gen_version` may advance **only** through the
+gated, byte-identical stamp pattern — it is now **5** after the 2026-08-18 liquid-
+seal bugfix (v3/v4 worlds regenerate identically; see `world_gen.gd`). The skill
+tree was reworked to a **constellation** presentation on 2026-08-18 (operator-
+authorized, gating/costs/mechanics unchanged). Both were bounded operator fixes,
+not a re-opened mechanics arc.
 
 What is true now:
 
@@ -30,8 +35,10 @@ What is true now:
   canonical** and clean; the headless run reports the single renderer-dependent
   `r06_texture_prep_delegates` as a skip (documented, not a regression). The
   exported artifact runs green with six `res://` fixture checks skipped only under
-  read-only export. CI (GitHub Actions) is the current pass/fail evidence and
-  builds + smokes a Linux/X11 export on every push.
+  read-only export. CI (GitHub Actions) is the current pass/fail evidence and, on
+  every push, builds + smokes a **Linux/X11** export **and** a **Windows** export,
+  launching the exported `.exe` in smoke mode so the actual ship target is verified
+  end-to-end.
 
 ### S-07 slices — status
 
@@ -133,6 +140,22 @@ This **closeout A** added, on top of those:
 
 ## Recommended next
 
+- **Latest shipped — 2026-08-18 operator bug-fix & polish pass (origin/main `87d5b4b`).**
+  Five play-tested fixes, no balance change: menu-scroll wheel no longer re-zooms the
+  world; the `lava_slime` bubbles at one-at-a-time on a random 2.4–5.0 s gap; generated
+  liquid pools are fully sealed against the non-solid faces the fluid sim flows through
+  (`gen_version 4→5`, gated); caverns/buildings admit sun/moon light through openings via
+  a cave-shader line-of-sight march; and the skill tree is a clickable **constellation**.
+  Windowed smoke **552/552** clean.
+- **Release sequence toward v0.7-alpha (in order):** (1) add focused regression guards
+  for the five 2026-08-18 fixes — including explicit `gen_version` v3/v4/v5 compatibility
+  coverage — so the behaviour isn't resting on older broad checks; (2) rerun CI to green
+  (the 2026-08-18 run was **cancelled** when the Linux runner spent 30 min on apt and
+  never reached Godot — the Windows ship job passed end-to-end; harden the Linux install
+  step if it repeats); (3) this documentation truth pass; (4) at most one or two genuinely
+  clean S-07.4 extractions; (5) set `0.7.0-alpha` export metadata, build fresh Linux +
+  Windows artifacts, verify clean-profile startup + save compatibility, and tag
+  **v0.7-alpha** as a prerelease. Do **not** tag while CI is not fully green.
 - **S-07.2 — Calling balance (measure then tune) — the next material task, PREPARED
   ONLY:** [`PLAYTEST_CHECKLIST.md`](PLAYTEST_CHECKLIST.md) now carries the measure-first
   protocol (the three D3 hot channels, per-channel worst-case build + context, and a

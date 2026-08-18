@@ -261,7 +261,7 @@ Dated shipped milestones, newest first (full detail in [`docs/HANDOFF.md`](docs/
 <details>
 <summary><h2>🗺️ Roadmap</h2></summary>
 
-The full adaptive-music arc, the opening cinematic, and the first real art pass are done; the active queue ([`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md)) continues in bounded increments:
+The full adaptive-music arc, the opening cinematic, and the first real art pass are done. Current work is tracked in [`docs/HANDOFF.md`](docs/HANDOFF.md) and the active [work order](docs/WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md) — the project is in stabilization/release-hardening toward **v0.7-alpha**, not a new mechanics arc (the early [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) is a historical scoping record). Forward-looking directions:
 
 - **Next up** — the next code arc is intentionally unselected; stabilization and playtesting come first.
 - **More enemies** from a 16-entry design roster (mini-bosses and the hollow_king / world_worm bosses remain), each landing with its gameplay consumer.

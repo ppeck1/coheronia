@@ -381,3 +381,44 @@ func run(ctx) -> void:
 		_ci_ok and _ci_axe and _ci_sword and _ci_armor,
 		"ok=%s bad=[%s] axe=%s sword=%s armor=%s" % [str(_ci_ok), _ci_bad,
 			str(_ci_axe), str(_ci_sword), str(_ci_armor)])
+
+	# --- 2026-08-18: the mouse wheel must not re-zoom the world while a scrolling
+	# menu is open (HUD editor / crafting / any inventory-class modal); it zooms only
+	# in free play. Drive game_root._handle_view_input with a synthetic wheel event
+	# under each menu flag, then with all closed. The camera zoom is derived from
+	# GameState.profile["view_zoom"] (what _zoom_by actually mutates), so assert on
+	# that — and force a mid-range baseline each time so a step can't clamp and the
+	# check never depends on a value persisted from an earlier run. ---
+	var _wz_ok := true
+	var _wz_prof: Dictionary = GameState.profile
+	var _wz_saved0: float = float(_wz_prof.get("view_zoom", 1.25))
+	var _wz_edit0: bool = GameState.hud_edit_mode
+	var _wz_craft0: bool = GameState.craft_panel_open
+	var _wz_modal0: bool = GameState.modal_panel_open
+	var _wz_evt := InputEventMouseButton.new()
+	_wz_evt.button_index = MOUSE_BUTTON_WHEEL_UP
+	_wz_evt.pressed = true
+	for _wz_flag in ["hud_edit_mode", "craft_panel_open", "modal_panel_open"]:
+		GameState.hud_edit_mode = false
+		GameState.craft_panel_open = false
+		GameState.modal_panel_open = false
+		GameState.set(_wz_flag, true)
+		_wz_prof["view_zoom"] = 2.0
+		var _wz_handled: bool = root._handle_view_input(_wz_evt)
+		# menu open: the wheel is swallowed (returns true) and view_zoom is untouched
+		if not (_wz_handled and is_equal_approx(float(_wz_prof.get("view_zoom", 0.0)), 2.0)):
+			_wz_ok = false
+	# every menu closed: the same wheel event DOES zoom (one step up from 2.0, no clamp)
+	GameState.hud_edit_mode = false
+	GameState.craft_panel_open = false
+	GameState.modal_panel_open = false
+	_wz_prof["view_zoom"] = 2.0
+	var _wz_free: bool = root._handle_view_input(_wz_evt)
+	if not (_wz_free and float(_wz_prof.get("view_zoom", 0.0)) > 2.0):
+		_wz_ok = false
+	GameState.hud_edit_mode = _wz_edit0
+	GameState.craft_panel_open = _wz_craft0
+	GameState.modal_panel_open = _wz_modal0
+	_wz_prof["view_zoom"] = _wz_saved0
+	harness._check("s07_wheel_zoom_swallowed_in_menus", _wz_ok,
+		"wheel swallowed under each menu flag + still zooms with all menus closed")
