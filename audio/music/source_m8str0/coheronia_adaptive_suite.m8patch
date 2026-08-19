@@ -1,13 +1,13 @@
 {
-  "schema": "m8str0-placeholder-v1",
+  "schema": "coheronia-fm-synth-v1",
   "title": "Coheronia Adaptive Suite",
-  "status": "deterministic Codex placeholder render; replace with M8str0-authored performance after operator listening approval",
+  "status": "rendered by scripts/audio/gen_music.py - a numpy YM2612-style FM + SN76489-style PSG synth suite (warm RPG/pastoral voice)",
   "bpm": 72,
   "meter": "4/4",
   "bars": 16,
   "sample_rate_hz": 48000,
   "loop_samples": 2560000,
-  "key_family": "D Dorian / D-centered pentatonic",
+  "key_family": "A major / F# minor (contexts + stems share the family so the layer bed is consonant over every context)",
   "motif_contour": [
     "grounded D",
     "small lift",
@@ -43,5 +43,6 @@
     "attunement",
     "base_advance"
   ],
-  "operator_approval": "pending by-ear review; mechanical validation is not final approval"
+  "operator_approval": "surface_day prototype approved by ear 2026-08-19; full suite rendered in the same voice",
+  "source_generator": "scripts/audio/gen_music.py"
 }
