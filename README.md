@@ -12,7 +12,7 @@ Dig, build, and light a side-view frontier settlement — then keep it alive as 
 
 [![Coheronia Prologue](https://img.youtube.com/vi/QQ2BuoXqErk/maxresdefault.jpg)](https://youtu.be/QQ2BuoXqErk)
 
-**🎮 Gameplay** — the latest gameplay demonstration: [youtu.be/ydgF0356CXw](https://youtu.be/ydgF0356CXw)
+**🎮 Gameplay** — the latest gameplay demonstration: [youtu.be/uR5a-ZjHHEc](https://youtu.be/uR5a-ZjHHEc)
 
 Pick the section that fits you:
 
@@ -90,7 +90,7 @@ The in-game **Goals** panel (**O**) walks you through all **seven** objectives f
 | ![A generated above-ground pond reading as one calm body of water](docs/screenshots/23_water_surface_lake.png)<br>*Water flows and fills lakes* | ![The player submerged in a water pool with the Breath gauge draining](docs/screenshots/26_swim_breath.png)<br>*Swim below the surface and your Breath gauge drains — surface before it runs out* |
 | ![A visible farmhand settler harvesting a row of ripe crops](docs/screenshots/16_farmhand.png)<br>*A visible farmhand works the land and stocks the larder* | ![The settler info panel showing name, role, days alive, and stats](docs/screenshots/37_settler_panel.png)<br>*Click any settler to see its name, ancestry, job, and stats* |
 | ![The unified crafting panel opened with C](docs/screenshots/15_crafting.png)<br>*Press **C** — every recipe grouped by station, with have/need per input* | ![The inventory board with loadout, backpack, and dock](docs/screenshots/03_inventory.png)<br>*Open the inventory with **I** — drag and drop stacks, gear, and the hotbar dock* |
-| ![The Calling skill panel shown as two Path cards](docs/screenshots/05_skill_tree.png)<br>*Your **Calling** (**K**) — two Paths of tiered skills, every one wired to a real effect* | ![World creation with size, seed, preset, and rule controls](docs/screenshots/08_world_create.png)<br>*Create a world — size, seed, preset, difficulty, and rule toggles* |
+| ![The Calling skill tree drawn as a clickable star constellation](docs/screenshots/05_skill_tree.png)<br>*Your **Calling** (**K**) — a constellation of tiered skills you click star-by-star, every one wired to a real effect* | ![World creation with size, seed, preset, and rule controls](docs/screenshots/08_world_create.png)<br>*Create a world — size, seed, preset, difficulty, and rule toggles* |
 
 ### What you can do
 
@@ -101,6 +101,28 @@ The in-game **Goals** panel (**O**) walks you through all **seven** objectives f
 - **Craft a full gear ladder** — crude → bronze → iron → deep obsidian/hellstone weapons and armor, plus silver/crystal rings and an ember amulet — by smelting depth-banded ores at the furnace and forging at the anvil and workbench.
 - **Farm** a renewable food supply (till soil, sow seeds, harvest, replant) and a **renewable forest** (plant tree seeds that grow back).
 - **Grow your character** across a permanent **Calling** (Oathbound, Wayfarer, or Runewright) with two Paths of tiered skills, plus scouting, an attunement light-pulse, and directed **Contracts**.
+
+### Who you are — ancestries & Callings
+
+At character creation you pick a playable **ancestry** and a permanent **Calling**, then grow that Calling's skill tree as you level.
+
+**Ancestries** — five playable peoples, each with its own look and innate bent (further ancestries exist as validated data awaiting their phases):
+
+| Ancestry | Bent |
+|---|---|
+| **Human** | Adaptable founding settlers with a talent for civic organisation. |
+| **Dwarf** | Mountain-born craftspeople, at home among stone halls and ore routes. |
+| **Elf** | Forest-keepers who thrive in harmony with the land. |
+| **Orc** | Frontier-hardened warriors built for rough, contested ground. |
+| **Goblin** | Resourceful scavengers who turn ruins into workshops and traps. |
+
+**Callings** — one permanent identity chosen at creation, each an innate effect plus **two Paths of twelve tiered skills** (24 per Calling; every skill wired to a real gameplay effect). Open the tree with **K** — a clickable **star constellation**; spend points as you level, with reachability-safe tier gates.
+
+| Calling | Innate | Two Paths |
+|---|---|---|
+| **Oathbound** — sworn defender | Takes reduced damage from enemies, and the protection strengthens while the settlement is under assault. | **Warden** (defense & resilience) · **Vanguard** (weapon power) |
+| **Wayfarer** — ranging explorer | Moves faster beyond the walls and permanently reveals more of the map. | **Prospector** (mining & ore) · **Trailseeker** (mobility & scouting) |
+| **Runewright** — keeper of hearth & resonance | Structure repairs restore more health, and Attunement bonuses reach further. | **Hearthwright** (repair & building) · **Resonant** (Attunement & the light-pulse) |
 
 </details>
 
