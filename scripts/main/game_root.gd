@@ -831,6 +831,8 @@ func _advance_time(delta: float) -> void:
 	# Smooth tint transition near the day/night/storm boundaries and across
 	# cave mouths (FQ-09W: the target itself is depth-aware).
 	canvas_modulate.color = canvas_modulate.color.lerp(ambient_target_color(), delta * 1.5)
+	if _celestial != null:
+		_celestial.set_ambient(canvas_modulate.color)   # keep the world-canvas sky bodies bright
 	# Feed the same viewer-depth factor to the per-column depth shader so it only
 	# darkens terrain DEEPER than the player (no double-dim with the tint above).
 	# Eased like the tint above (first frame snaps to avoid a fade-in from black) so
@@ -2058,6 +2060,8 @@ func apply_time_state(data: Dictionary) -> void:
 		_celestial.set_sky_visible(_sky_visible_now())
 		world.set_sky_admission(_celestial.sky_direction(), _celestial.sky_admit_strength())
 	canvas_modulate.color = ambient_target_color()
+	if _celestial != null:
+		_celestial.set_ambient(canvas_modulate.color)
 	# Re-prime the eased viewer-darkness so entering/loading a world snaps to its
 	# depth instead of easing in from the previous world's value.
 	_viewer_darkness_smooth = -1.0

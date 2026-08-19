@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.1",
+  "_note": "Backdrop biome profiles. Each biome defines the scenic parallax backdrop drawn behind the world by scripts/world/world_backdrop.gd (cosmetic; never collides or saves). A biome lists an opaque full-frame `sky` plus an ordered back-to-front `layers` set (each a horizontally-tiling RGBA strip). Adding a biome = a new entry here + its art from `python scripts/art/gen_backgrounds.py` (which reads this file for ids/sizes) + a validator pass (validate_repo.py loops these layers). `default_biome` is used until world-gen selects one per world. Anchors: `horizon` = strip bottom sits on the terrain horizon; `sky` = strip top sits `anchor_y` px below the view top.",
+  "default_biome": "surface",
+  "biomes": {
+    "surface": {
+      "display_name": "Temperate Surface",
+      "star_density": 1.0,
+      "sky": { "art": "surface_sky", "width": 640, "height": 360, "format": "rgb" },
+      "layers": [
+        { "art": "surface_clouds",     "width": 1920, "height": 300, "format": "rgba", "parallax": 0.08, "rise": 110 },
+        { "art": "surface_range_far",  "width": 1920, "height": 120, "format": "rgba", "parallax": 0.16, "rise": 0 },
+        { "art": "surface_range_mid",  "width": 1280, "height": 86,  "format": "rgba", "parallax": 0.32, "rise": 0 },
+        { "art": "surface_hills_near", "width": 1280, "height": 56,  "format": "rgba", "parallax": 0.52, "rise": 0 }
+      ]
+    }
+  }
+}

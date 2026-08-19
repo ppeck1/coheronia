@@ -19,8 +19,8 @@ static func glow_texture(size := 256, warmth := Color(1, 1, 1)) -> GradientTextu
 	# Approximates an ease-out (roughly (1-r)^2) falloff so most of the brightness
 	# hugs the source and the outer half fades away smoothly rather than clipping.
 	var stops := [
-		[0.00, 1.00], [0.12, 0.98], [0.28, 0.82], [0.45, 0.58],
-		[0.62, 0.34], [0.78, 0.16], [0.90, 0.05], [1.00, 0.00],
+		[0.00, 0.60], [0.16, 0.55], [0.34, 0.40], [0.50, 0.28],
+		[0.65, 0.18], [0.80, 0.09], [0.91, 0.03], [1.00, 0.00],
 	]
 	grad.offsets = _offsets(stops)
 	grad.colors = _colors(stops, warmth)

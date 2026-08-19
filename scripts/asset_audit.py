@@ -146,6 +146,18 @@ def main() -> int:
     sizes = va.get("target_sizes", {})
     categories = list(va.get("categories", {}).keys())
 
+    # The scenic-backdrop layers carry per-layer sizes declared in data/biomes.json
+    # (each biome's sky + parallax strips), verified exactly by validate_repo. They
+    # are exempt from the single category-wide "target width" here so a wide,
+    # long-tiling range strip isn't a false data bug.
+    biome_bg_ids: set[str] = set()
+    biomes_path = ROOT / "data/biomes.json"
+    if biomes_path.is_file():
+        for _b in json.loads(biomes_path.read_text(encoding="utf-8")).get("biomes", {}).values():
+            biome_bg_ids.add(str(_b.get("sky", {}).get("art", "")))
+            for _layer in _b.get("layers", []):
+                biome_bg_ids.add(str(_layer.get("art", "")))
+
     data_ids = {}
     for name, key in [("blocks", "blocks"), ("items", "items")]:
         raw = json.loads((ROOT / f"data/{name}.json").read_text(encoding="utf-8"))
@@ -222,10 +234,13 @@ def main() -> int:
                         f"{MAX_VARIANTS}; files after _{MAX_VARIANTS:02d} are ignored")
             # Dimension checks. Full-frame/strip categories are width-only.
             width_only = cat in WIDTH_ONLY_CATEGORIES
+            biome_layer = cat == "backgrounds" and aid in biome_bg_ids
             for f in ([canon] if canon else []) + variants:
                 dims = png_size(f)
                 if dims is None:
                     problems.append(f"{f.relative_to(ROOT)}: not a readable PNG")
+                elif biome_layer:
+                    pass   # exact size checked by validate_repo (biomes.json-driven)
                 elif tdims and width_only and dims[0] != tdims[0]:
                     problems.append(
                         f"{f.relative_to(ROOT)}: width {dims[0]} != target {tdims[0]}")

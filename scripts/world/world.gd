@@ -1153,7 +1153,10 @@ func _update_light(cell: Vector2i, block_id: String) -> void:
 		light.energy = _lava_light_energy(liquid_level.get(cell, 1.0))
 	else:
 		light.texture_scale = (radius * 2.0) / float(_light_texture.width)
-		light.energy = 1.3
+		# Softened hard (1.3 -> 1.0 -> 0.65): a torch/lantern additively lights nearby
+		# stone and characters, so even 1.0 still blew out the surfaces right next to
+		# it (operator: still too harsh). The glow reach is unchanged.
+		light.energy = 0.65
 		light.color = Color(1.0, 0.85, 0.6)
 		# S-07.1c-fix: a torch/lantern is a SHADOWLESS soft glow (like lava). With
 		# shadows on, the solid blocks the torch is carved into occlude its own light:
@@ -1169,7 +1172,7 @@ func _update_light(cell: Vector2i, block_id: String) -> void:
 ## shared flicker phase. Level-scaled (a faint film .. a full glow) with a soft
 ## floor so even a sliver still reads as molten.
 func _lava_light_energy(level: float) -> float:
-	var by_level := 0.5 * clampf(level, 0.25, 1.0)
+	var by_level := 0.32 * clampf(level, 0.25, 1.0)   # softened from 0.5 (harsh on stone)
 	return by_level * (0.9 + 0.1 * sin(_lava_glow_phase))
 
 

@@ -54,8 +54,8 @@ var _phase_f := 0.0                  # continuous lunar phase, 0 = new .. 0.5 = 
 var _phase_day := 0                  # posmod(day, SYNODIC_DAYS) — rebuild key
 var _moon_tex: ImageTexture = null   # cached per-phase lit-crescent texture
 var _light: PointLight2D = null      # the soft glow the body casts onto the world
-var _sky_layer: CanvasLayer = null   # camera-following layer, immune to the tint
-var _sky: Node2D = null              # draws the bodies at full brightness on _sky_layer
+var _sky: Node2D = null              # draws the bodies in the world canvas (z=-9)
+var _ambient := Color(1, 1, 1)       # live day/night CanvasModulate colour (from game_root)
 var _sky_visible := true             # false underground so the sky never shows on rock
 var _glow_tex: GradientTexture2D = null   # smooth radial glow sprite (no stacked rings)
 var _sky_baseline_y := NAN           # fixed world-Y the arc rides (fed by game_root)
@@ -76,21 +76,19 @@ func _ready() -> void:
 	_light.shadow_enabled = true
 	_light.shadow_filter = PointLight2D.SHADOW_FILTER_PCF5
 	add_child(_light)
-	# The bodies themselves draw on a follow-the-camera CanvasLayer so the day/night
-	# CanvasModulate does NOT dim them — a full moon reads as a bright disc against
-	# the dark sky, and the sun stays luminous (mirrors the R-07 build-preview layer).
-	_sky_layer = CanvasLayer.new()
-	_sky_layer.name = "CelestialSkyLayer"
-	_sky_layer.follow_viewport_enabled = true
-	_sky_layer.layer = 0
-	add_child(_sky_layer)
+	# The bodies draw in the WORLD canvas at z=-9 — in front of the scenic backdrop
+	# (z=-10) but BEHIND every terrain block/wall — so the ground and buildings
+	# correctly OCCLUDE the sun and moon; they never render over blocks you interact
+	# with. To keep them bright (undimmed by the day/night CanvasModulate that tints
+	# this canvas), game_root feeds the live ambient via set_ambient(), which
+	# pre-divides the bodies' colour so CanvasModulate multiplies them back to full.
 	_sky = Node2D.new()
 	_sky.name = "CelestialBodies"
 	_sky.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_sky.light_mask = 0
 	_sky.z_index = -9
 	_sky.draw.connect(_draw_bodies)
-	_sky_layer.add_child(_sky)
+	add_child(_sky)
 	_rebuild_moon_texture()
 
 
@@ -111,6 +109,16 @@ func set_sky_visible(v: bool) -> void:
 		_sky.visible = v
 	if not v and _light != null:
 		_light.energy = 0.0
+
+
+## game_root feeds the live day/night CanvasModulate colour; we pre-divide the sky
+## bodies by it (self_modulate) so, after CanvasModulate re-multiplies the world
+## canvas, the sun/moon still render at full brightness while sitting behind terrain.
+func set_ambient(c: Color) -> void:
+	_ambient = c
+	if _sky != null:
+		_sky.self_modulate = Color(1.0 / maxf(0.02, c.r), 1.0 / maxf(0.02, c.g),
+			1.0 / maxf(0.02, c.b), 1.0)
 
 
 ## The fixed world-Y the arc rides — game_root feeds this from the average surface so
@@ -290,7 +298,11 @@ func _draw_bodies() -> void:
 		# A large, soft warm pool cast onto the world so light visibly radiates from the
 		# sun (most apparent at dawn/dusk when the ambient is dim; midday daylight is
 		# already full-bright ambient). Fades smoothly from the body outward.
-		_radiate(s, SUN_LIGHT_COL, 760.0, 0.85)
+		# Softened from 0.85: this broad warm pool adds ON TOP of the full-bright
+		# midday ambient, so a high energy over-lit characters and stone (operator:
+		# "harsh"). The daytime BASE brightness is the white ambient, unchanged — only
+		# the additive sun highlight is gentler, most visible at dawn/dusk.
+		_radiate(s, SUN_LIGHT_COL, 760.0, 0.28)
 	else:
 		var m: Vector2 = p["moon"]
 		var lit := illumination_f(_phase_f)

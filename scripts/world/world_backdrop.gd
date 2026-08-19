@@ -28,6 +28,10 @@ var _under_py := 640.0   # deepest valley line: sky must reach at least here
 # the backdrop follows the ACTUAL terrain top, not just the flat average horizon.
 var _world = null
 var _tile := 32.0
+# Biome backdrop profile (data/biomes.json): the ordered back-to-front parallax
+# layers + sky for the active biome. Empty -> the legacy two-strip fallback below.
+const BIOMES_PATH := "res://data/biomes.json"
+var _biome: Dictionary = {}
 # Horizon/under metrics are anchored from the generated surface. The world may
 # generate its surface either before or after this node's _ready (setup order
 # varies), so anchoring is deferred until the surface exists.
@@ -47,6 +51,21 @@ func _ready() -> void:
 		_world = world
 		_tile = float(world.tile_size())
 		_recompute_metrics()
+	_load_biome()
+
+
+## Load the active biome's backdrop profile from data/biomes.json (default biome
+## unless the world names one). Missing/invalid file -> {} (legacy fallback draw).
+func _load_biome() -> void:
+	var doc: Dictionary = {}
+	if FileAccess.file_exists(BIOMES_PATH):
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(BIOMES_PATH))
+		if parsed is Dictionary:
+			doc = parsed
+	var biome_id := str(doc.get("default_biome", "surface"))
+	if _world != null and "biome" in _world and str(_world.biome) != "":
+		biome_id = str(_world.biome)   # world-gen may select a biome per world later
+	_biome = doc.get("biomes", {}).get(biome_id, {})
 
 
 ## Anchor the flat horizon to the AVERAGE surface line and the under-earth fill
@@ -116,13 +135,43 @@ func _draw() -> void:
 	if _view.end.y > _under_py:
 		draw_rect(Rect2(_view.position.x, _under_py, _view.size.x,
 			_view.end.y - _under_py), UNDER_COL)
-	# Far and mid silhouette strips with stepped parallax.
-	_strip(layer_texture("surface_far_terrain"), horizon, 72.0, FAR_PARALLAX,
-		FAR_COL, 64.0, 903)
-	_strip(layer_texture("surface_mid_silhouette"), horizon, 40.0, MID_PARALLAX,
-		MID_COL, 40.0, 511)
+	# Scenic parallax layers. Biome profile (data/biomes.json) drives an ordered
+	# back-to-front set of tiling strips (clouds, distant ranges, near hills) each
+	# with its own parallax + rise above the horizon; a missing profile falls back
+	# to the legacy two code/art strips so the backdrop is never blank.
+	var layers: Array = _biome.get("layers", [])
+	if layers.is_empty():
+		_strip(layer_texture("surface_far_terrain"), horizon, 72.0, FAR_PARALLAX,
+			FAR_COL, 64.0, 903)
+		_strip(layer_texture("surface_mid_silhouette"), horizon, 40.0, MID_PARALLAX,
+			MID_COL, 40.0, 511)
+	else:
+		for layer in layers:
+			_draw_biome_layer(layer, horizon)
 	# PR-07: the contour skirt ties the flat distant horizon to the real terrain.
 	_draw_contour_skirt(horizon)
+
+
+## Draw one biome parallax layer: a horizontally-tiling art strip whose BOTTOM sits
+## `rise` px above the terrain horizon, offset by its `parallax` factor (stepped to
+## STEP_PX so it never sub-pixel shimmers). Missing art simply skips the layer.
+func _draw_biome_layer(layer: Dictionary, horizon: float) -> void:
+	var tex := layer_texture(str(layer.get("art", "")))
+	if tex == null:
+		return
+	var parallax := float(layer.get("parallax", 0.3))
+	var rise := float(layer.get("rise", 0.0))
+	var w := float(tex.get_width())
+	var h := float(tex.get_height())
+	var bottom := horizon - rise
+	# Smooth parallax: the strip scrolls at `parallax` of the camera pan; snap the tile
+	# origin to a whole WORLD pixel only (the old hard 2px STEP_PX made distant, slow
+	# layers visibly jitter/stutter as the offset jumped two pixels at a time).
+	var scroll := _view.position.x * parallax
+	var x := floorf(_view.position.x - fposmod(scroll, w) - w)
+	while x < _view.end.x + w:
+		draw_texture_rect(tex, Rect2(x, bottom - h, w, h), false)
+		x += w
 
 
 ## PR-07: the structural contour skirt. The backdrop's distant scenery is

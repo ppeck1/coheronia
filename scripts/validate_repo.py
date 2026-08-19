@@ -785,37 +785,32 @@ if (core_width, core_height, core_depth, core_color_type) != (16, 16, 8, 6):
          f"{core_width}x{core_height} depth={core_depth} color_type={core_color_type}")
 print("PASS Town Hall core art contract")
 
-sky_art_path = ROOT / asset_root / "backgrounds" / "surface_sky.png"
-sky_payload = sky_art_path.read_bytes()
-if len(sky_payload) < 26 or sky_payload[:8] != b"\x89PNG\r\n\x1a\n" \
-        or sky_payload[12:16] != b"IHDR":
-    fail("invalid PNG header: art/generated/backgrounds/surface_sky.png")
-sky_width, sky_height, sky_depth, sky_color_type = struct.unpack(
-    ">IIBB", sky_payload[16:26])
-if (sky_width, sky_height, sky_depth, sky_color_type) != (640, 360, 8, 2):
-    fail("surface_sky must be 640x360 8-bit opaque RGB, got "
-         f"{sky_width}x{sky_height} depth={sky_depth} color_type={sky_color_type}")
-print("PASS surface sky art contract")
+# Backdrop biome art contracts (biome-driven): every sky + parallax layer declared
+# in data/biomes.json must exist at its declared size and format (rgb = opaque
+# color_type 2, rgba = color_type 6). A new biome is validated automatically just
+# by adding its entry here and generating its art (scripts/art/gen_backgrounds.py).
+def _png_ihdr(path):
+    payload = path.read_bytes()
+    if len(payload) < 26 or payload[:8] != b"\x89PNG\r\n\x1a\n" \
+            or payload[12:16] != b"IHDR":
+        fail(f"invalid PNG header: {path.relative_to(ROOT)}")
+    return struct.unpack(">IIBB", payload[16:26])
 
-surface_strip_contracts = {
-    "surface_far_terrain.png": (640, 36),
-    "surface_mid_silhouette.png": (640, 20),
-}
-for strip_name, expected_size in surface_strip_contracts.items():
-    strip_path = ROOT / asset_root / "backgrounds" / strip_name
-    strip_payload = strip_path.read_bytes()
-    if len(strip_payload) < 26 or strip_payload[:8] != b"\x89PNG\r\n\x1a\n" \
-            or strip_payload[12:16] != b"IHDR":
-        fail(f"invalid PNG header: art/generated/backgrounds/{strip_name}")
-    strip_width, strip_height, strip_depth, strip_color_type = struct.unpack(
-        ">IIBB", strip_payload[16:26])
-    if (strip_width, strip_height, strip_depth, strip_color_type) != (
-            expected_size[0], expected_size[1], 8, 6):
-        fail(f"{strip_name} must be {expected_size[0]}x{expected_size[1]} "
-             "8-bit RGBA, got "
-             f"{strip_width}x{strip_height} depth={strip_depth} "
-             f"color_type={strip_color_type}")
-print("PASS surface backdrop strip art contracts")
+_biomes_doc = json.loads((ROOT / "data/biomes.json").read_text(encoding="utf-8"))
+_fmt_color_type = {"rgb": 2, "rgba": 6}
+for _bname, _biome in _biomes_doc.get("biomes", {}).items():
+    for _spec in [_biome["sky"]] + list(_biome.get("layers", [])):
+        _art = str(_spec["art"])
+        _p = ROOT / asset_root / "backgrounds" / f"{_art}.png"
+        if not _p.is_file():
+            fail(f"missing backdrop art for biome '{_bname}': backgrounds/{_art}.png")
+        _w, _h, _depth, _ct = _png_ihdr(_p)
+        _exp_ct = _fmt_color_type.get(str(_spec.get("format", "rgba")), 6)
+        if (_w, _h, _depth, _ct) != (int(_spec["width"]), int(_spec["height"]), 8, _exp_ct):
+            fail(f"biome '{_bname}' art backgrounds/{_art}.png must be "
+                 f"{_spec['width']}x{_spec['height']} 8-bit {_spec.get('format', 'rgba')}, "
+                 f"got {_w}x{_h} depth={_depth} color_type={_ct}")
+print("PASS backdrop biome art contracts (data/biomes.json)")
 
 # Player visual contract: five live species, two body variants, exact 16x32
 # RGBA source art, species-specific rig anchors, and collision kept at 12x28.
