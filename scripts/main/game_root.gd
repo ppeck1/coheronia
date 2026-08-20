@@ -38,6 +38,12 @@ const STORM_TINT := Color(0.55, 0.58, 0.66)
 # torches/lanterns/the pulse stay the readable local lights.
 const CAVE_TINT := Color(0.10, 0.11, 0.16)
 const CAVE_FADE_CELLS := 6.0   # smooth band below the local sky line
+# Perception + Resonance (opt-in via COHERONIA_PERCEPTION=1). Sight radius in cells:
+# a base LOS range, widened in open daylight and pinched at night/underground. These
+# are prototype values, tuned in the Phase A readability playtest.
+const PERCEPTION_RADIUS_BASE := 18
+const PERCEPTION_RADIUS_DAYLIGHT_BONUS := 8
+const PERCEPTION_EDGE_TILES := 3.0   # width of the soft radial sight rim, in cells
 # WD-3: the deepest stratum glows an ember red. The ambient tint multiplies the
 # scene, so a red-dominant dark tint reads as red-lit gloom; lava adds its own
 # emitted light on top.
@@ -79,6 +85,9 @@ var time_of_day := 0.25
 # when the character moved. Ease it at the same rate as the global tint so the two
 # depth models stay in step and the background never snaps. -1.0 = not yet primed.
 var _viewer_darkness_smooth := -1.0
+# Perception + Resonance: last cell the perception LOS was recomputed at (recompute
+# only fires when the character crosses a tile boundary). Vector2i.MAX = not primed.
+var _perception_last_cell := Vector2i(2147483647, 2147483647)
 var _celestial: Node2D   # M5-A: sun/moon sky renderer (presentation-only)
 # Per-NPC work-zone drag assignment (feedback): a modal mode where two world clicks
 # define the rectangle a settler works in. A world-space preview draws the pending rect.
@@ -162,6 +171,18 @@ func _ready() -> void:
 	# local sky line (minus the viewer's depth), so a mined cross-section viewed
 	# from the surface finally reads dark instead of lit-from-the-surface.
 	world.enable_cave_depth_shading(CAVE_TINT, CAVE_FADE_CELLS)
+	# Perception + Resonance arc (Phase A): opt-in so the default build / existing
+	# screenshots + smoke stay byte-identical. A restored seen set was stashed into
+	# world by apply_state above; enable_perception adopts it, then we seed LOS from
+	# the player's spawn cell.
+	if OS.get_environment("COHERONIA_PERCEPTION") == "1":
+		world.enable_perception()
+		var _p0: Vector2i = world.cell_of(player.global_position)
+		world.update_perception(_p0, _perception_radius() + int(PERCEPTION_EDGE_TILES) + 1)
+		world.set_perception_view(player.global_position,
+			float(_perception_radius()) * float(world.tile_size()),
+			PERCEPTION_EDGE_TILES * float(world.tile_size()))
+		_perception_last_cell = _p0
 	hud.update_inventory()
 	hud.update_health(player.health, player.max_health)
 	hud.update_attunement(player.attunement, player.max_attunement())
@@ -848,6 +869,28 @@ func _advance_time(delta: float) -> void:
 	# vertical shaft) keeps its ambient light. Presentation-only.
 	if _celestial != null:
 		world.set_sky_admission(_celestial.sky_direction(), _celestial.sky_admit_strength())
+	# Perception + Resonance: recompute line of sight when the character crosses a
+	# tile boundary (uses the freshly-eased darkness above for the day/night radius).
+	# The mask is computed a few cells BEYOND the visual radius so the smooth radial
+	# rim (below) fades within marked terrain, never against a hard mask edge.
+	if world.perception_enabled():
+		var _pcell: Vector2i = world.cell_of(player.global_position)
+		if _pcell != _perception_last_cell:
+			_perception_last_cell = _pcell
+			world.update_perception(_pcell, _perception_radius() + int(PERCEPTION_EDGE_TILES) + 1)
+		# Smooth per-pixel FOV rim, updated every frame so it glides with the character.
+		var _ts := float(world.tile_size())
+		world.set_perception_view(player.global_position,
+			float(_perception_radius()) * _ts, PERCEPTION_EDGE_TILES * _ts)
+
+
+## Perception sight radius in cells: a base LOS range widened in open daylight and
+## pinched toward night/underground via the eased viewer-darkness factor (0 bright ..
+## 1 dark). Visibility and lighting stay separate — this bounds what is PERCEIVED, not
+## how bright it is. Phase C multiplies this by the Trailseeker Calling bonus.
+func _perception_radius() -> int:
+	var dark: float = clampf(_viewer_darkness_smooth, 0.0, 1.0)
+	return PERCEPTION_RADIUS_BASE + int(round((1.0 - dark) * PERCEPTION_RADIUS_DAYLIGHT_BONUS))
 
 
 ## FQ-09W: 0 = sky-exposed, 1 = fully buried. Column-skylight approximation:
