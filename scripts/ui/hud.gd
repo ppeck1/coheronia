@@ -100,6 +100,7 @@ var _module_toolbar: Control
 var _command_center_panel: PanelContainer
 # FQ-14: compact, state-driven current-goal panel (top-center; toggle_goals hides it).
 var _goal_panel: PanelContainer
+var _status_hud: Control   # timed status-effect countdown stack (owned here; pinned below the crest)
 var _goal_label: Label
 var _goal_hint: Label
 var _goal_progress: ProgressBar   # FQ-19: milestone strip (index/total)
@@ -124,6 +125,7 @@ const InventorySlotCellScript := preload("res://scripts/ui/inventory_slot_cell.g
 var _skill_panel: PanelContainer
 # FQ-15: map/minimap panel (M); hidden until opened, fed a snapshot by game_root.
 const MapPanelScript := preload("res://scripts/ui/map_panel.gd")
+const StatusEffectsHudScript := preload("res://scripts/ui/status_effects_hud.gd")
 # R-06.1: stateless painted-chrome / theme resolver + slicer-geometry parsers.
 const HudChrome := preload("res://scripts/ui/hud/hud_chrome.gd")
 # R-06.2: stateless HUD edit-mode geometry math (measure / min-max / grip / clamp).
@@ -208,6 +210,7 @@ const HUD_LAYOUT_VERSION := 7
 func _ready() -> void:
 	_hud_visual_theme = _initial_hud_visual_theme()
 	_build_top_left()
+	_build_status_hud()
 	_build_bottom_left()
 	_wire_hotbar_clicks()
 	_build_command_center_widget()
@@ -2361,6 +2364,30 @@ func _make_item_tile(parent: Control, item_id: String, count: int,
 ## Map/Events zone (their default bottom is 236) so the three surfaces can
 ## never collide. Fixed child order is the display priority: selected item,
 ## save toast, interaction prompt. Every entry autowraps and auto-hides.
+func _build_status_hud() -> void:
+	_status_hud = StatusEffectsHudScript.new()
+	_status_hud.name = "StatusEffectsHud"
+	_status_hud.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	add_child(_status_hud)
+
+
+## Drive the timed status-effect stack (game_root owns the model) and pin it just BELOW
+## the crest on the LEFT, so it never collides with the top-right Events module.
+func update_status_effects(effects: Array) -> void:
+	if _status_hud == null:
+		return
+	var below := 12.0
+	if _top_left_box != null and _top_left_box.visible:
+		below = _top_left_box.get_global_rect().end.y + 10.0
+	_status_hud.position = Vector2(12.0, below)
+	_status_hud.set_effects(effects)
+
+
+## Test/inspection accessor for the status-effect widget.
+func status_hud() -> Control:
+	return _status_hud
+
+
 func _build_context_stack() -> void:
 	_context_stack = VBoxContainer.new()
 	_context_stack.anchor_left = 1.0

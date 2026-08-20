@@ -8,10 +8,45 @@ the Metal Ladder, the Calling system) are archived in
 [`docs/HANDOFF_ARCHIVE.md`](HANDOFF_ARCHIVE.md); the dated milestone list lives in
 [`README.md`](../README.md#changelog).
 
+## Active arc — Perception + Resonance (operator-approved feature exception)
+
+**NEXT INSTANCE — start here.** An explicit, **operator-authorized exception** to the
+S-07 "no-new-mechanics" boundary below: a deliberate final feature arc before
+v0.7-alpha, then stabilization resumes. It lives on branch **`feat/perception-veil`**
+(pushed to origin, **not merged to main**; a draft PR runs Linux + Windows CI). Plan:
+`C:\Users\peckm\.claude\plans\vivid-plotting-cosmos.md` (operator-local).
+
+**What it adds (windowed smoke 570/570):**
+- **Fog of war** — a 360° line-of-sight veil (recursive shadowcasting + corner-pinch
+  propagation, `scripts/world/perception.gd`) grading each cell VISIBLE / REMEMBERED
+  (persisted silhouette) / UNSEEN, rendered by the shared `cave_depth.gdshader` with a
+  soft radial rim. World rule **`fog_of_war` defaults ON** (unchecked in world settings
+  to disable; the smoke/screenshot/HUD-QA harnesses are guarded off). Save gains an
+  additive optional `perception_seen` — **no `SAVE_VERSION` / `gen_version` bump.**
+- **Attunement resonance pulse (R)** — the formerly-inert pulse now lights up on-screen
+  objects of interest (enemies red, settlers + hall green, items/ore gold, doors/
+  stations cyan, hazards amber) THROUGH the veil and out of sight, via a silhouette
+  recolor shader for entities + a batched fill for terrain, on a ~10 s countdown.
+- **Status-effect HUD** (`scripts/ui/status_effects_hud.gd`, owned by `hud.gd`) — a
+  generic timed-effect stack; resonance is the first consumer.
+- **Ancestry dark-sight** — sight radius is a composable resolver with a dark-adapted
+  ancestry bonus + gear/weather/Calling hooks (stubbed at 1.0).
+
+**Decisions on record (reviewer-flagged):** ore stays in the **universal** pulse
+(operator choice); the Phase C **Prospector** variant EXTENDS ore-sense (range/depth/
+through-rock), it is not the only ore sense. Resonance duration is intentionally longer
+than the data-driven light pulse; `RESONANCE_DURATION_SEC` is the single authority.
+
+**Remaining:** Phase C (Calling detection variants — Prospector/Trailseeker/Warden/etc.,
+hooks already stubbed), Phase D (balance: pulse cost/regen/range/duration), refresh
+showcase screenshots, land the PR green, then merge. **Known limit:** sun/torch light
+still leaks through 1×1 diagonal block seams — pre-existing 2D lighting, not the veil
+(documented in `docs/wiki/known_issues.md`).
+
 ## Current arc — S-07 stabilization (toward v0.7-alpha)
 
-**NEXT INSTANCE — start here.** The active arc is **stabilization and
-truthfulness**, not new mechanics. Its authority is
+**Paused for the Perception + Resonance arc above; resumes once it merges.** The S-07
+arc is **stabilization and truthfulness**, not new mechanics. Its authority is
 [`docs/WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md`](WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md).
 The game is behaviourally stable and honestly documented; the remaining work is
 release hardening, maintainability, presentation polish, and one measured balance

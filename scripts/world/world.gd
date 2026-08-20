@@ -1035,6 +1035,10 @@ func enable_perception() -> void:
 	_cave_material.set_shader_parameter("perception_enabled", 1.0)
 	_perception_los_dirty = true
 	_perception_mask_dirty = true
+	# Gate any entity the moment it spawns (else a fresh off-screen enemy/settler/drop
+	# stays visible through the fog until the next LOS recompute).
+	if not get_tree().node_added.is_connected(_on_perception_node_added):
+		get_tree().node_added.connect(_on_perception_node_added)
 
 
 func perception_enabled() -> bool:
@@ -1049,6 +1053,8 @@ func disable_perception() -> void:
 	_perception_enabled = false
 	if _cave_material != null:
 		_cave_material.set_shader_parameter("perception_enabled", 0.0)
+	if get_tree().node_added.is_connected(_on_perception_node_added):
+		get_tree().node_added.disconnect(_on_perception_node_added)
 	for grp in ["threats", "subjects", "item_drops"]:
 		for n in get_tree().get_nodes_in_group(grp):
 			if n is Node2D:
@@ -1126,6 +1132,28 @@ func set_perception_force_visible(ids: Dictionary) -> void:
 ## the tile-cross recomputes).
 func refresh_entity_visibility() -> void:
 	_apply_entity_visibility()
+
+
+## A node just entered the tree — if perception is on, gate it once its _ready has run
+## (that is when entities add themselves to their group), so it never flashes visible.
+func _on_perception_node_added(node: Node) -> void:
+	if _perception_enabled and node is Node2D:
+		call_deferred("gate_entity_visibility", node)
+
+
+## Set one entity's visibility from perception right now (visible only if its cell is in
+## sight, or it is force-shown by a resonance pulse). No-op for non-entities / fog off.
+func gate_entity_visibility(node: Node) -> void:
+	if not _perception_enabled or _perception == null or not is_instance_valid(node):
+		return
+	if not (node is Node2D):
+		return
+	for grp in ["threats", "subjects", "item_drops"]:
+		if node.is_in_group(grp):
+			var c := cell_of((node as Node2D).global_position)
+			(node as Node2D).visible = bool(_perception.call("is_visible", c)) \
+				or _force_visible_ids.has(node.get_instance_id())
+			return
 
 
 ## Source-gate dynamic lights: a torch/lava PointLight2D shines only while its own

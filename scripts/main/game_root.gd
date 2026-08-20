@@ -48,7 +48,11 @@ const PERCEPTION_EDGE_TILES := 3.0   # width of the soft radial sight rim, in ce
 # interest as temporary contours. Detection reach in cells (× the Calling pulse-radius
 # multiplier), and per-category caps so a lava lake or crowd never floods the screen.
 const RESONANCE_BASE_RADIUS_CELLS := 12
-const RESONANCE_DURATION_SEC := 10.0                        # base highlight lifetime (long)
+# The SINGLE authority for how long a resonance highlight lasts — intentionally longer
+# than the Attunement light pulse (data-driven, ~4 s): the light is a brief flash, the
+# detection lingers so you can act on what it revealed. Balance (Phase D) tunes this and
+# may move it to data alongside the pulse fields.
+const RESONANCE_DURATION_SEC := 10.0
 const RESONANCE_ENTITY_CAP := 24
 const RESONANCE_CELL_CAP := 6000                            # safety bound on batched terrain cells
 # Entity highlights RECOLOUR the sprite toward these marks (shader, masked to silhouette),
@@ -68,7 +72,6 @@ const RESONANCE_HAZARD_COLOR := Color(1.0, 0.6, 0.28)       # liquids — amber
 const RESONANCE_ORE_COLOR := Color(0.85, 0.75, 0.35)        # ore veins — warm gold
 const RESONANCE_STATUS_COLOR := Color(0.6, 0.85, 1.0)       # the "Resonance" status chip
 const ResonanceContourScript := preload("res://scripts/fx/resonance_contour.gd")
-const StatusEffectsHudScript := preload("res://scripts/ui/status_effects_hud.gd")
 # WD-3: the deepest stratum glows an ember red. The ambient tint multiplies the
 # scene, so a red-dominant dark tint reads as red-lit gloom; lava adds its own
 # emitted light on top.
@@ -123,8 +126,7 @@ var _resonance_highlights: Dictionary = {}   # entity instance_id -> active high
 var _resonance_forced_last := false          # had forced-visible entities last frame
 # Generic timed status effects + their HUD element. Effects register via
 # add_status_effect(); _tick_status_effects counts them down and drives the widget.
-var _status_effects: Array = []              # [{id,label,color,remaining,duration}]
-var _status_hud = null                       # StatusEffectsHud (untyped for dynamic set_effects)
+var _status_effects: Array = []              # [{id,label,color,remaining,duration}]; HUD owns the widget
 var _celestial: Node2D   # M5-A: sun/moon sky renderer (presentation-only)
 # Per-NPC work-zone drag assignment (feedback): a modal mode where two world clicks
 # define the rectangle a settler works in. A world-space preview draws the pending rect.
@@ -265,15 +267,6 @@ func _ready() -> void:
 		_resonance_interest_blocks[str((_res_station as Dictionary).get("id", ""))] = true
 	for _res_ore in world.ORE_IDS:
 		_resonance_ore_blocks[str(_res_ore)] = true
-	# Status-effects HUD element (top-right countdown stack). Its own CanvasLayer above
-	# the world; populated by add_status_effect (resonance is the first live consumer).
-	var _status_layer := CanvasLayer.new()
-	_status_layer.name = "StatusEffectsLayer"
-	_status_layer.layer = 1
-	add_child(_status_layer)
-	_status_hud = StatusEffectsHudScript.new()
-	_status_hud.name = "StatusEffectsHud"
-	_status_layer.add_child(_status_hud)
 	# R-07: the unified crafting panel (C). Crafting/building lives here; the Town
 	# Hall panel keeps only Repair.
 	_craft_panel = CraftPanelScript.new()
@@ -993,12 +986,14 @@ func _perception_calling_sight_mult() -> float:
 	return 1.0   # Trailseeker Calling sight bonus (Phase C)
 
 
-## Perception + Resonance (Phase B): an Attunement pulse fired — reveal nearby objects
-## of interest as temporary contours, REGARDLESS of line of sight (the pulse says
+## Perception + Resonance (Phase B): an Attunement pulse fired — reveal objects of
+## interest across the visible screen, REGARDLESS of line of sight (the pulse says
 ## "something is there" without lifting the veil around it). Base targets: hostiles,
 ## settlers, dropped items, interactable structures (doors / craft stations / hall),
-## and liquid hazards. Ore-through-rock and threat/repair emphasis are Calling variants
-## added in Phase C. Works whether or not fog is enabled — Attunement is universal.
+## liquid hazards, AND ore veins (operator-chosen: ore is in the universal pulse; the
+## Prospector Calling variant in Phase C EXTENDS it — greater range / through thicker
+## rock / deeper — rather than being the only ore sense). Threat/repair/marked-enemy
+## emphasis are the other Phase C variants. Works whether or not fog is on.
 func _on_attunement_resonance() -> void:
 	if _resonance_layer == null or player == null or world == null:
 		return
@@ -1168,8 +1163,8 @@ func _tick_status_effects(delta: float) -> void:
 
 
 func _refresh_status_hud() -> void:
-	if _status_hud != null:
-		_status_hud.set_effects(_status_effects)
+	if hud != null:
+		hud.update_status_effects(_status_effects)
 
 
 ## FQ-09W: 0 = sky-exposed, 1 = fully buried. Column-skylight approximation:

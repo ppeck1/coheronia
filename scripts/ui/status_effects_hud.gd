@@ -1,11 +1,10 @@
 extends Control
-## Status-effects HUD element: a small top-right stack of active timed effects, each a
-## colour tag + name + live countdown + a thin remaining bar. Generic and consumer-
-## agnostic — future effects (potions, weather, resonance, ...) register through
-## game_root.add_status_effect(); this widget only renders whatever list it's handed.
-## Reconciles rows by id (no per-frame rebuild flicker).
-
-const MARGIN := 12.0
+## Status-effects HUD element: a small stack of active timed effects, each a colour
+## tag + name + live countdown + a thin remaining bar. Generic and consumer-agnostic —
+## future effects (potions, weather, resonance, ...) register through
+## game_root.add_status_effect(); this widget only renders whatever list it's handed and
+## reconciles rows by id (no per-frame rebuild flicker). It is OWNED and POSITIONED by
+## hud.gd (pinned below the crest, clear of the Events module), not self-anchored.
 
 var _box: VBoxContainer
 var _rows: Dictionary = {}   # id -> row Control
@@ -13,7 +12,6 @@ var _rows: Dictionary = {}   # id -> row Control
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	set_anchors_preset(Control.PRESET_FULL_RECT)   # fill the viewport; _box pins top-right
 	_box = VBoxContainer.new()
 	_box.add_theme_constant_override("separation", 4)
 	_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -39,9 +37,11 @@ func set_effects(effects: Array) -> void:
 			if is_instance_valid(_rows[id]):
 				_rows[id].queue_free()
 			_rows.erase(id)
-	# Keep pinned to the top-right corner as its own size changes.
+	# Self-size to the stack so the owner (hud) can place/measure it deterministically.
+	_box.position = Vector2.ZERO
 	_box.reset_size()
-	_box.position = Vector2(size.x - _box.size.x - MARGIN, MARGIN)
+	custom_minimum_size = _box.size
+	size = _box.size
 
 
 func _make_row() -> Control:

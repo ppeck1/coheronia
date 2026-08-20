@@ -13,6 +13,7 @@ func run(ctx) -> void:
 	var root = ctx.root
 	var world = ctx.world
 	var player = ctx.player
+	var hud = ctx.hud
 
 	# --- Pure LOS: a full wall column occludes; the wall itself is seen; open
 	# vertical space is seen. 21x21 grid, wall column at x=10, origin (5,10), r=6
@@ -37,18 +38,27 @@ func run(ctx) -> void:
 	# stay visible and an unobstructed diagonal is still seen.
 	var pin = PerceptionScript.new(W, W)
 	var corner := func(c: Vector2i) -> bool: return c == Vector2i(6, 5) or c == Vector2i(5, 6)
-	pin.recompute(Vector2i(5, 5), 6, corner)
-	var _pin_blocked: bool = pin.state_at(Vector2i(6, 6)) == PerceptionScript.UNSEEN
+	pin.recompute(Vector2i(5, 5), 8, corner)
+	# The cell behind the pinch AND everything further along the sealed diagonal must be
+	# unseen — not just the first cell (the earlier single-cell cleanup leaked past it).
+	var _pin_blocked: bool = pin.state_at(Vector2i(6, 6)) == PerceptionScript.UNSEEN \
+		and pin.state_at(Vector2i(7, 7)) == PerceptionScript.UNSEEN \
+		and pin.state_at(Vector2i(8, 8)) == PerceptionScript.UNSEEN
 	var _pin_walls_seen: bool = pin.state_at(Vector2i(6, 5)) == PerceptionScript.VISIBLE \
 		and pin.state_at(Vector2i(5, 6)) == PerceptionScript.VISIBLE
+	# Sight still reaches OPEN space beside the barrier (the near-side cells are visible),
+	# so the cull is the diagonal pinch only, not a blanket quadrant wipe.
+	var _pin_side_ok: bool = pin.state_at(Vector2i(6, 4)) == PerceptionScript.VISIBLE \
+		and pin.state_at(Vector2i(4, 6)) == PerceptionScript.VISIBLE
 	var open2 = PerceptionScript.new(W, W)
 	var nowall := func(_c: Vector2i) -> bool: return false
-	open2.recompute(Vector2i(5, 5), 6, nowall)
-	var _pin_open_ok: bool = open2.state_at(Vector2i(6, 6)) == PerceptionScript.VISIBLE
+	open2.recompute(Vector2i(5, 5), 8, nowall)
+	var _pin_open_ok: bool = open2.state_at(Vector2i(6, 6)) == PerceptionScript.VISIBLE \
+		and open2.state_at(Vector2i(8, 8)) == PerceptionScript.VISIBLE
 	harness._check("perception_no_diagonal_leak",
-		_pin_blocked and _pin_walls_seen and _pin_open_ok,
-		"blocked=%s walls_seen=%s open=%s" % [str(_pin_blocked), str(_pin_walls_seen),
-			str(_pin_open_ok)])
+		_pin_blocked and _pin_walls_seen and _pin_side_ok and _pin_open_ok,
+		"blocked=%s walls_seen=%s side=%s open=%s" % [str(_pin_blocked), str(_pin_walls_seen),
+			str(_pin_side_ok), str(_pin_open_ok)])
 
 	# --- Remembered vs visible: recomputing from the far side of the wall leaves the
 	# old region seen-but-not-visible (REMEMBERED); the seen set is the union of both.
@@ -111,6 +121,17 @@ func run(ctx) -> void:
 	# set_perception_seen_pending adopts a restored blob while enabled.
 	world.set_perception_seen_pending(_on_ser)
 	var _reload_ok: bool = world.perception_is_visible(pcell) or world.perception_state_at(pcell) >= PerceptionScript.REMEMBERED
+	# Spawn-under-fog: an entity spawned OUT of sight is hidden the moment it joins its
+	# group (spawn gating), not left visible until the next recompute. A cell far from
+	# the player (well beyond the radius-10 sight) is unseen.
+	var _far_cell := pcell + Vector2i(40, 0)
+	var _far_drop = world.spawn_item_drop(world.cell_center(_far_cell), "stone", 1)
+	world.gate_entity_visibility(_far_drop)   # the synchronous path node_added defers to
+	var _spawn_hidden: bool = _far_drop != null and not (_far_drop as Node2D).visible
+	if _far_drop != null and is_instance_valid(_far_drop):
+		_far_drop.queue_free()
+	harness._check("perception_spawn_gated", _spawn_hidden,
+		"far_drop_visible=%s" % [str(_far_drop != null and (_far_drop as Node2D).visible)])
 	world.disable_perception()
 	for _entry in _vis_snapshot:
 		if is_instance_valid(_entry[0]):
@@ -182,3 +203,29 @@ func run(ctx) -> void:
 		_stat_has_res and _stat_added and _stat_expired and _dur_ok,
 		"has_res=%s added=%s expired=%s dur=%.1f" % [str(_stat_has_res),
 			str(_stat_added), str(_stat_expired), _res_dur])
+
+	# --- Status HUD layout contract: the widget is owned by the HUD, visible with an
+	# active effect, on-screen, and does NOT overlap the top-right Events module.
+	var _sh = hud.status_hud()
+	var _ev_was: bool = hud._event_panel != null and hud._event_panel.visible
+	if hud._event_panel != null:
+		hud._event_panel.visible = true
+	root.add_status_effect("layout_probe", "Probe", 8.0, Color(0.4, 0.8, 1.0))
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var _sh_owned: bool = _sh != null and hud.is_ancestor_of(_sh)
+	var _sh_visible: bool = _sh != null and _sh.visible
+	var _sh_rect: Rect2 = _sh.get_global_rect() if _sh != null else Rect2()
+	var _ev_rect: Rect2 = hud._event_panel.get_global_rect() if hud._event_panel != null else Rect2()
+	var _sh_clear: bool = not _sh_rect.intersects(_ev_rect)
+	var _vp: Vector2 = get_viewport().get_visible_rect().size
+	var _sh_onscreen: bool = _sh_rect.position.x >= 0.0 and _sh_rect.position.y >= 0.0 \
+		and _sh_rect.end.x <= _vp.x and _sh_rect.end.y <= _vp.y
+	root._status_effects.clear()
+	root._refresh_status_hud()
+	if hud._event_panel != null:
+		hud._event_panel.visible = _ev_was
+	harness._check("perception_status_hud_layout",
+		_sh_owned and _sh_visible and _sh_clear and _sh_onscreen,
+		"owned=%s vis=%s clear=%s onscreen=%s sh=%s ev=%s" % [str(_sh_owned),
+			str(_sh_visible), str(_sh_clear), str(_sh_onscreen), str(_sh_rect), str(_ev_rect)])

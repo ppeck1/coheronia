@@ -995,15 +995,6 @@ func _try_attune_pulse() -> bool:
 	return true
 
 
-## The effective pulse duration (base × Calling duration multiplier) — used by the
-## resonance contours so they fade in step with the pulse light. Public read-only.
-func pulse_display_duration() -> float:
-	var mult := 1.0
-	if game_root != null:
-		mult = game_root.calling_pulse_duration_mult()
-	return _attunement_pulse_duration_sec * mult
-
-
 ## Fades the active pulse light out over its duration.
 func _tick_pulse(delta: float) -> void:
 	_pulse_cooldown = maxf(0.0, _pulse_cooldown - delta)

@@ -115,6 +115,14 @@ func _mark_visible(cell: Vector2i) -> void:
 ## diagonally; an OPEN cell whose two bridging cells toward the origin are BOTH walls
 ## is reachable only through that zero-width pinch, so it is not truly visible.
 func _finalize_visibility(origin: Vector2i, occluder: Callable) -> void:
+	# Process near -> far so a pinch cull PROPAGATES outward: once the cell directly
+	# behind a diagonal corner is culled, the next cell out (whose only approach is
+	# through it) is culled in turn, sealing the WHOLE ray behind the corner rather than
+	# just the first cell.
+	_visible_cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var da := a - origin
+		var db := b - origin
+		return da.x * da.x + da.y * da.y < db.x * db.x + db.y * db.y)
 	for c in _visible_cells:
 		var i := _idx(c.x, c.y)
 		if _visible[i] == 0:
@@ -129,11 +137,18 @@ func _is_corner_pinched(c: Vector2i, origin: Vector2i, occluder: Callable) -> bo
 	var sx := signi(origin.x - c.x)
 	var sy := signi(origin.y - c.y)
 	if sx == 0 or sy == 0:
-		return false            # orthogonal approach — no diagonal pinch
+		return false            # orthogonal approach — a straight ray, no diagonal pinch
 	if occluder.call(c):
 		return false            # the cell IS a wall; we're allowed to see it
-	return occluder.call(Vector2i(c.x + sx, c.y)) \
-		and occluder.call(Vector2i(c.x, c.y + sy))
+	# The two cells bridging C toward the origin (both in-bounds, since they step toward
+	# an in-bounds origin). A bridge that is a wall OR is itself no-longer-visible
+	# (shadowed, or already culled this near->far pass) cannot carry sight to C; if BOTH
+	# are blocked, C is reachable only through the zero-width diagonal pinch -> not seen.
+	var bx := Vector2i(c.x + sx, c.y)
+	var by := Vector2i(c.x, c.y + sy)
+	var block_x: bool = bool(occluder.call(bx)) or not is_visible(bx)
+	var block_y: bool = bool(occluder.call(by)) or not is_visible(by)
+	return block_x and block_y
 
 
 ## One octant of recursive shadowcasting (Björn Bergström's algorithm). Scans rows
