@@ -175,7 +175,7 @@ func _ready() -> void:
 	# screenshots + smoke stay byte-identical. A restored seen set was stashed into
 	# world by apply_state above; enable_perception adopts it, then we seed LOS from
 	# the player's spawn cell.
-	if OS.get_environment("COHERONIA_PERCEPTION") == "1":
+	if _perception_should_enable():
 		world.enable_perception()
 		var _p0: Vector2i = world.cell_of(player.global_position)
 		world.update_perception(_p0, _perception_radius() + int(PERCEPTION_EDGE_TILES) + 1)
@@ -884,13 +884,43 @@ func _advance_time(delta: float) -> void:
 			float(_perception_radius()) * _ts, PERCEPTION_EDGE_TILES * _ts)
 
 
-## Perception sight radius in cells: a base LOS range widened in open daylight and
-## pinched toward night/underground via the eased viewer-darkness factor (0 bright ..
-## 1 dark). Visibility and lighting stay separate — this bounds what is PERCEIVED, not
-## how bright it is. Phase C multiplies this by the Trailseeker Calling bonus.
+## Perception is on when the map's "fog_of_war" cheat rule is set, or forced by the
+## COHERONIA_PERCEPTION dev env override. Default rule is OFF, so existing maps and
+## the smoke/screenshot builds are unchanged until a map opts in.
+func _perception_should_enable() -> bool:
+	if OS.get_environment("COHERONIA_PERCEPTION") == "1":
+		return true
+	return config().rule("fog_of_war")
+
+
+## Composable sight-radius resolver (cells): a base day/night range, PLUS an ancestry
+## "dark sight" bonus that grows as the surroundings darken, all scaled by pluggable
+## gear / weather / Calling multipliers. Visibility and lighting stay separate — this
+## bounds what is PERCEIVED, not how bright it is. Each multiplier is a documented
+## join point; they default to 1.0 until their module is wired.
 func _perception_radius() -> int:
 	var dark: float = clampf(_viewer_darkness_smooth, 0.0, 1.0)
-	return PERCEPTION_RADIUS_BASE + int(round((1.0 - dark) * PERCEPTION_RADIUS_DAYLIGHT_BONUS))
+	var base := float(PERCEPTION_RADIUS_BASE) + (1.0 - dark) * float(PERCEPTION_RADIUS_DAYLIGHT_BONUS)
+	# Dark-adapted ancestries keep extra reach in the dark (0 in full daylight).
+	base += player.perception_dark_sight * dark
+	var mult := _perception_gear_sight_mult() \
+		* _perception_weather_sight_mult() \
+		* _perception_calling_sight_mult()
+	return maxi(1, int(round(base * mult)))
+
+
+## Sight-radius modifier hooks — no-op (1.0) join points for future modules, so those
+## systems have access without new consumers wired now (operator scope 2026-08-20).
+func _perception_gear_sight_mult() -> float:
+	return 1.0   # helmets / goggles / lantern gear (Perception + Resonance follow-up)
+
+
+func _perception_weather_sight_mult() -> float:
+	return 1.0   # fog / storm / night weather (follow-up)
+
+
+func _perception_calling_sight_mult() -> float:
+	return 1.0   # Trailseeker Calling sight bonus (Phase C)
 
 
 ## FQ-09W: 0 = sky-exposed, 1 = fully buried. Column-skylight approximation:

@@ -73,6 +73,7 @@
         "constraint": "Slower movement, lower jump"
       },
       "player_effects": {
+        "dark_sight": 3,
         "hotbar_slots_bonus": 1,
         "stone_ore_mining_mult": 1.2,
         "move_speed_mult": 0.9,
@@ -125,6 +126,7 @@
         "constraint": "Weak surface farming/forestry"
       },
       "player_effects": {
+        "dark_sight": 7,
         "ore_mining_mult": 1.25,
         "fall_damage_reduction_stone": 0.5,
         "notes": ["better underground visibility", "reduced fall damage on stone"]
@@ -230,6 +232,7 @@
       },
       "player_effects": {
         "dark_vision": true,
+        "dark_sight": 8,
         "mushroom_harvest_mult": 1.2,
         "crystal_harvest_mult": 1.2,
         "underground_movement_mult": 1.1,
@@ -282,6 +285,7 @@
         "constraint": "Lower stealth/diplomacy finesse"
       },
       "player_effects": {
+        "dark_sight": 2,
         "health_bonus": 25,
         "stamina_endurance_mult": 1.1,
         "tree_clearing_speed_mult": 1.15,
@@ -336,6 +340,7 @@
         "constraint": "Fragile, lower trust/coherence"
       },
       "player_effects": {
+        "dark_sight": 3,
         "hitbox_reduction": 0.7,
         "trap_cost_reduction": 0.7,
         "material_recovery_chance": 0.25,
@@ -390,6 +395,7 @@
         "constraint": "Very fragile, poor open-field defense"
       },
       "player_effects": {
+        "dark_sight": 7,
         "cave_crawl_speed_mult": 1.3,
         "scrap_recovery_mult": 1.25,
         "trap_bonus_underground": 1.2,
@@ -495,6 +501,7 @@
         "constraint": "Poor surface survival"
       },
       "player_effects": {
+        "dark_sight": 5,
         "crystal_machine_bonus": 1.15,
         "precision_crafting_mult": 1.2,
         "automation_bonus_deep": 1.15,

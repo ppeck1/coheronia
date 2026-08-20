@@ -28,6 +28,7 @@ No authored ancestry body art is currently attached to this entry.
 
 | Bucket | Effect | Value |
 |---|---|---|
+| player_effects | dark_sight | 5 |
 | player_effects | crystal_machine_bonus | 1.15 |
 | player_effects | precision_crafting_mult | 1.2 |
 | player_effects | automation_bonus_deep | 1.15 |

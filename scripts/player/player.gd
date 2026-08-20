@@ -99,6 +99,10 @@ var ancestry_jump_mult := 1.0
 var stone_ore_mine_mult := 1.0
 var ancestry_health_bonus := 0.0
 var learning_speed_mult := 1.0
+# Perception + Resonance: extra cells of sight this ancestry keeps in darkness
+# ("dark-adapted" cave/underground folk). Consumed by game_root's composable
+# sight-radius resolver, scaled by how dark the surroundings are (0 in full day).
+var perception_dark_sight := 0.0
 # FQ-05 ancestry hooks: additive max-attunement bonus and regen multiplier.
 # Every live ancestry defaults to 0.0 / 1.0, so non-magic characters play
 # exactly as before; future magic-user lanes set these via player_effects.
@@ -257,6 +261,7 @@ func apply_character(character: Dictionary) -> void:
 	ancestry_swim_speed_mult = 1.0
 	ancestry_water_breathing = false
 	ancestry_breath_capacity_mult = 1.0
+	perception_dark_sight = 0.0
 	species_id = str(character.get("species", "human"))
 	body_variant = GameState.normalize_body_variant(
 		str(character.get("body_variant", "masculine")))
@@ -318,6 +323,8 @@ func apply_ancestry_effects(effects: Dictionary) -> void:
 	ancestry_swim_speed_mult = float(effects.get("swim_speed_mult", 1.0))
 	ancestry_water_breathing = bool(effects.get("water_breathing", false))
 	ancestry_breath_capacity_mult = float(effects.get("breath_capacity_mult", 1.0))
+	# Perception + Resonance: dark-adapted ancestries keep extra sight in the dark.
+	perception_dark_sight = float(effects.get("dark_sight", 0.0))
 	breath = minf(breath, max_breath())
 	breath_changed.emit(breath, max_breath())
 	_clamp_attunement()

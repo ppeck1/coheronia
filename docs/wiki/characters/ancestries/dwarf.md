@@ -52,6 +52,7 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 
 | Bucket | Effect | Value |
 |---|---|---|
+| player_effects | dark_sight | 3 |
 | player_effects | hotbar_slots_bonus | 1 |
 | player_effects | stone_ore_mining_mult | 1.2 |
 | player_effects | move_speed_mult | 0.9 |

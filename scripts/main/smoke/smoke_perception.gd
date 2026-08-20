@@ -10,6 +10,7 @@ const PerceptionScript := preload("res://scripts/world/perception.gd")
 
 func run(ctx) -> void:
 	var harness = ctx.harness
+	var root = ctx.root
 	var world = ctx.world
 	var player = ctx.player
 
@@ -119,3 +120,21 @@ func run(ctx) -> void:
 		_off_default and _on_ok and _on_ser_ok and _reload_ok and _restored,
 		"off_default=%s on=%s ser=%s reload=%s restored=%s" % [str(_off_default),
 			str(_on_ok), str(_on_ser_ok), str(_reload_ok), str(_restored)])
+
+	# --- Composable sight resolver: a dark-adapted ancestry keeps extra reach in the
+	# dark. Compare the radius WITH vs WITHOUT the ancestry bonus at full darkness
+	# (daylight would mask it), then restore the player's real ancestry.
+	var _prev_vd: float = root._viewer_darkness_smooth
+	root._viewer_darkness_smooth = 1.0   # full dark
+	player.apply_ancestry_effects({"dark_sight": 6.0})
+	var _ds_set: bool = is_equal_approx(player.perception_dark_sight, 6.0)
+	var _r_with: int = root._perception_radius()
+	player.apply_ancestry_effects({})
+	var _r_without: int = root._perception_radius()
+	var _ds_reset: bool = is_equal_approx(player.perception_dark_sight, 0.0)
+	root._viewer_darkness_smooth = _prev_vd
+	root.apply_ancestry_for_species(player.species_id)   # restore real ancestry effects
+	harness._check("perception_ancestry_dark_sight",
+		_ds_set and _r_with > _r_without and _ds_reset,
+		"set=%s with=%d without=%d reset=%s" % [str(_ds_set), _r_with, _r_without,
+			str(_ds_reset)])
