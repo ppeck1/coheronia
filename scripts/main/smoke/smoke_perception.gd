@@ -138,3 +138,47 @@ func run(ctx) -> void:
 		_ds_set and _r_with > _r_without and _ds_reset,
 		"set=%s with=%d without=%d reset=%s" % [str(_ds_set), _r_with, _r_without,
 			str(_ds_reset)])
+
+	# --- Resonance ping (Phase B): an Attunement pulse marks nearby objects of interest
+	# with temporary contours on the undimmed resonance layer (independent of fog). Drop
+	# an item at the player's feet, fire the resonance handler, and confirm a contour
+	# appeared, then clean up so later modules see a clear layer.
+	var _res_layer = root._resonance_layer
+	var _res_before: int = _res_layer.get_child_count() if _res_layer != null else -1
+	var _res_drop = world.spawn_item_drop(player.global_position, "wood", 1)
+	root._on_attunement_resonance()
+	var _res_after: int = _res_layer.get_child_count() if _res_layer != null else -1
+	var _res_ok: bool = _res_layer != null and _res_after > _res_before
+	# Resonance registered a live "resonance" status effect on the new status model.
+	var _res_dur: float = root._resonance_duration()
+	var _stat_has_res := false
+	for _se in root._status_effects:
+		if str(_se.get("id", "")) == "resonance":
+			_stat_has_res = true
+	if _res_drop != null and is_instance_valid(_res_drop):
+		_res_drop.queue_free()
+	if _res_layer != null:
+		for _rc in _res_layer.get_children():
+			_rc.queue_free()
+	harness._check("perception_resonance_marks_targets", _res_ok,
+		"before=%d after=%d" % [_res_before, _res_after])
+
+	# --- Status-effect model (new HUD element): add / count down / expire, generic by
+	# id, and resonance's long lifetime composes from the pulse-duration resolver.
+	root.add_status_effect("smoke_status", "Smoke", 5.0, Color.WHITE)
+	var _stat_added := false
+	for _se in root._status_effects:
+		if str(_se.get("id", "")) == "smoke_status":
+			_stat_added = true
+	root._tick_status_effects(6.0)   # advance past its lifetime
+	var _stat_expired := true
+	for _se in root._status_effects:
+		if str(_se.get("id", "")) == "smoke_status":
+			_stat_expired = false
+	root._status_effects.clear()
+	root._refresh_status_hud()
+	var _dur_ok: bool = is_equal_approx(_res_dur, 10.0 * root.calling_pulse_duration_mult())
+	harness._check("perception_status_effects_model",
+		_stat_has_res and _stat_added and _stat_expired and _dur_ok,
+		"has_res=%s added=%s expired=%s dur=%.1f" % [str(_stat_has_res),
+			str(_stat_added), str(_stat_expired), _res_dur])

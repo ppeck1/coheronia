@@ -103,6 +103,7 @@ var _perception_los_dirty := false         # LOS needs recompute (terrain change
 var _perception_last_origin := Vector2i.ZERO
 var _perception_radius := 20
 var _perception_seen_pending: Dictionary = {}   # restored seen set, adopted on enable
+var _force_visible_ids: Dictionary = {}          # entities a resonance pulse keeps visible
 
 const BackdropScript := preload("res://scripts/world/world_backdrop.gd")
 const ItemDropScript := preload("res://scripts/entities/item_drop.gd")   # R-08 slice 3
@@ -1109,7 +1110,22 @@ func _apply_entity_visibility() -> void:
 		for n in get_tree().get_nodes_in_group(grp):
 			if n is Node2D:
 				var c := cell_of((n as Node2D).global_position)
-				(n as Node2D).visible = _perception.call("is_visible", c)
+				# An active resonance highlight keeps an out-of-sight entity visible so
+				# the pulse can reveal what you cannot currently see (its whole point).
+				(n as Node2D).visible = bool(_perception.call("is_visible", c)) \
+					or _force_visible_ids.has(n.get_instance_id())
+
+
+## Perception + Resonance: ids of entities to keep visible even when out of line of
+## sight (the resonance pulse's temporary reveal). Set by game_root each frame.
+func set_perception_force_visible(ids: Dictionary) -> void:
+	_force_visible_ids = ids
+
+
+## Re-evaluate entity visibility now (used when the forced-visible set changes between
+## the tile-cross recomputes).
+func refresh_entity_visibility() -> void:
+	_apply_entity_visibility()
 
 
 ## Source-gate dynamic lights: a torch/lava PointLight2D shines only while its own

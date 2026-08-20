@@ -677,6 +677,23 @@ record — not the current suite; see the current-state authorities in
 - save/load of player, terrain, stockpile, lights, threats, tool tier, regrow timer, crop-growth timers, storm state, discovered map bands
 - world size, ore abundance, density controls, and per-block seed variation
 
+## Perception veil + Resonance (2026-08-20)
+
+A line-of-sight fog of war and an object-detection re-use of the Attunement pulse.
+Gated by the world rule `fog_of_war` (`data/world_settings.json` defaults → **true**;
+world-create checkbox; dev override env `COHERONIA_PERCEPTION=1`). `game_root._perception_should_enable()`
+returns off for the deterministic harnesses (`COHERONIA_SMOKE`/`SHOTS`/`HUD_QA`) so their
+evidence and screenshots are unperturbed.
+
+| Variable / owner | Meaning | Consumed by |
+|---|---|---|
+| `perception.gd` (`scripts/world/perception.gd`) | Pure LOS + memory model: per-cell `UNSEEN`/`REMEMBERED`/`VISIBLE` via recursive shadowcasting + a corner-pinch (no diagonal leak); persistent per-cell `seen` bitset (base64) | `world` (owns the instance), smoke `smoke_perception.gd` |
+| `world._perception*` (mask `ImageTexture`, dirty flags, `_force_visible_ids`, `_perception_seen_pending`) | Uploads the `width*height` R8 veil mask to the shared cave material; `enable/disable/update_perception`, `set_perception_view` (radial rim), entity + light source-gating, `set_perception_force_visible` (resonance reveal) | `shaders/cave_depth.gdshader` (`perception_tex`/`perception_enabled`/rim uniforms), `game_root` |
+| world save `perception_seen` | Additive, optional remembered-terrain set (no `SAVE_VERSION`/`gen_version` bump) | `save_manager.collect_state`/`apply_state` → `world.perception_serialized`/`set_perception_seen_pending` |
+| `player.perception_dark_sight` | Ancestry "dark sight" cells kept in darkness (`ancestries.json` `player_effects.dark_sight`) | `game_root._perception_radius()` (composable: base day/night + ancestry × gear/weather/Calling hooks) |
+| `game_root._resonance_*` (`_resonance_layer`, `_resonance_highlights`, `_resonance_interest_blocks`, `_resonance_ore_blocks`) | The **R** pulse (`_on_attunement_resonance`, on `player.attunement_pulsed`) lights up on-screen objects of interest across the visible viewport (`_resonance_region` via the viewport canvas transform); entities recoloured by `shaders/resonance_mark.gdshader` (masked to silhouette), terrain by a batched additive fill; ore excluded from Calling-only sense until Phase C | `scripts/fx/resonance_contour.gd`, `world` (force-visible), status HUD |
+| `game_root._status_effects` + `scripts/ui/status_effects_hud.gd` | Generic timed status-effect model (`add_status_effect(id,label,duration,color)`, `_tick_status_effects`) rendered as a top-right countdown stack; resonance is the first consumer | `status_effects_hud.set_effects`; future potions/weather |
+
 ## Required Audit Behavior
 
 After implementation runs, update this file when variables are added, removed, renamed, or moved between authority surfaces. A run is not SIGNABLE if C/L/R values are decorative or disconnected from world state.
