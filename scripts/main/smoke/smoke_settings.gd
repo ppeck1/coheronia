@@ -438,6 +438,12 @@ func run(ctx) -> void:
 	var _pi_on: bool = bool(ProjectSettings.get_setting("physics/common/physics_interpolation", false))
 	var _pi_cam: Camera2D = player.get_node_or_null("Camera2D")
 	var _pi_smooth: bool = _pi_cam != null and _pi_cam.position_smoothing_enabled
+	# The load-bearing pairing: with interpolation ON the camera MUST smooth on the
+	# physics clock (CAMERA2D_PROCESS_PHYSICS = 0), else its smoothing runs on the render
+	# clock over non-interpolated positions while the player renders interpolated — they
+	# diverge and the character jitters, worst while jumping. Default IDLE is the bug.
+	var _pi_cam_physics: bool = _pi_cam != null \
+		and _pi_cam.process_callback == Camera2D.CAMERA2D_PROCESS_PHYSICS
 	var _pi_has_teleport: bool = player.has_method("teleport")
 	var _pi_prev_pos: Vector2 = player.global_position
 	var _pi_prev_vel: Vector2 = player.velocity
@@ -449,6 +455,6 @@ func run(ctx) -> void:
 	player.teleport(_pi_prev_pos)        # restore prior position for later modules
 	player.velocity = _pi_prev_vel
 	harness._check("jitter_physics_interpolation_and_safe_teleport",
-		_pi_on and _pi_smooth and _pi_has_teleport and _pi_moved,
-		"interp=%s smoothing=%s teleport=%s moved=%s" % [str(_pi_on), str(_pi_smooth),
-			str(_pi_has_teleport), str(_pi_moved)])
+		_pi_on and _pi_smooth and _pi_cam_physics and _pi_has_teleport and _pi_moved,
+		"interp=%s smoothing=%s cam_physics=%s teleport=%s moved=%s" % [str(_pi_on),
+			str(_pi_smooth), str(_pi_cam_physics), str(_pi_has_teleport), str(_pi_moved)])

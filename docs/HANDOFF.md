@@ -54,11 +54,18 @@ the player stepped at 60 Hz, so the character shimmered against the terrain — 
 during **jumping** (gravity swings the vertical velocity every frame, so the smoothing
 lag oscillates) and on any monitor whose refresh ≠ 60 Hz.
 
-**Fix (smallest coherent, smoothing preserved):** enable engine-level 2D physics
-interpolation (`physics/common/physics_interpolation=true`). Every node's render
-transform is now interpolated between physics ticks, so the camera and character stay
-locked each frame. Camera **position smoothing is kept ON** (the fix does *not* disable
-it — see tradeoff below). Every direct `global_position` relocation now routes through
+**Fix (smallest coherent, smoothing preserved) — TWO paired settings, both required:**
+1. enable engine-level 2D physics interpolation (`physics/common/physics_interpolation=true`)
+   so every node's render transform is interpolated between physics ticks; and
+2. set the player `Camera2D.process_callback = Physics` (`process_callback = 0` in
+   `Player.tscn`). This is load-bearing: with interpolation ON but the camera left at the
+   **default IDLE**, its smoothing runs on the *render* clock over non-interpolated
+   positions while the player renders interpolated — the two diverge and the character
+   still jitters, worst while jumping. Smoothing on the physics clock is then interpolated
+   consistently with the player, so they stay locked. (Interpolation alone did **not** fix
+   it — the IDLE camera was the remaining cause.)
+
+Camera **position smoothing is kept ON** (the fix does *not* disable it — see tradeoff below). Every direct `global_position` relocation now routes through
 the interpolation-safe **`player.teleport()`** (resets the body + camera interpolation
 snapshot and camera smoothing) so a teleport snaps instead of sweeping: respawn,
 save/load restore, and world entry (`game_root._position_actors`). Freshly-added nodes
