@@ -76,6 +76,24 @@ func setup_entity(target: CanvasItem, mark_color: Color, brighten: float, durati
 	target.material = _mat
 
 
+## Travel update (CELL/BATCH): swap the drawn cells to the character's CURRENT
+## surroundings WITHOUT disturbing the envelope — the highlight keeps its original
+## onset/fade timeline while the set of lit tiles follows the moving character. Used
+## every travel tick so the ping isn't a stagnant snapshot of where the pulse fired.
+func set_cells(entries: Array) -> void:
+	_cells = entries
+	queue_redraw()
+
+
+## Re-trigger an existing terrain highlight (a fresh pulse on the same node): swap the
+## cells AND restart the envelope for a new lifetime, reusing the one batch node.
+func refresh_cells(entries: Array, duration: float) -> void:
+	_cells = entries
+	_duration = maxf(duration, 0.1)
+	_life = 0.0
+	queue_redraw()
+
+
 ## Re-trigger an existing entity highlight (a fresh pulse), reusing the same material.
 func refresh_entity(mark_color: Color, brighten: float, duration: float) -> void:
 	_duration = maxf(duration, 0.1)

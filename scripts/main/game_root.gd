@@ -116,14 +116,26 @@ var _viewer_darkness_smooth := -1.0
 # Perception + Resonance: last cell the perception LOS was recomputed at (recompute
 # only fires when the character crosses a tile boundary). Vector2i.MAX = not primed.
 var _perception_last_cell := Vector2i(2147483647, 2147483647)
-# Perception + Resonance (Phase B): undimmed layer the pulse contours draw on (so they
-# read through the veil/dark), and the set of terrain block ids the pulse treats as
-# interactables (doors, craft stations, town hall). Built once in _ready.
-var _resonance_layer: CanvasLayer
+# Perception + Resonance (Phase B): world-canvas container the pulse contours draw in
+# (pixel-locked to terrain, kept bright through the CanvasModulate by _sync_resonance_ambient
+# — see _ready), and the set of terrain block ids the pulse treats as interactables (doors,
+# craft stations, town hall). Built once in _ready.
+var _resonance_layer: Node2D
 var _resonance_interest_blocks: Dictionary = {}
 var _resonance_ore_blocks: Dictionary = {}
 var _resonance_highlights: Dictionary = {}   # entity instance_id -> active highlight node
 var _resonance_forced_last := false          # had forced-visible entities last frame
+# Perception + Resonance (Phase B travel): a pulse's highlight TRAVELS with the
+# character for its whole life — while `_resonance_remaining` > 0 the marked region is
+# re-scanned around the moving character (throttled), refreshing the terrain batch and
+# adding newly in-range entities, so walking into a new area keeps revealing objects
+# instead of leaving a stagnant snapshot where the pulse first fired.
+var _resonance_terrain_node: Node2D = null   # the single batched terrain highlight for the live pulse
+var _resonance_remaining := 0.0              # seconds left on the live pulse (0 == none active)
+var _resonance_travel_accum := 0.0           # throttle accumulator for the travel re-scan
+var _resonance_last_scan_cell := Vector2i(2147483647, 2147483647)  # cell last re-scanned at
+const RESONANCE_TRAVEL_INTERVAL := 0.2       # seconds between travel re-scans
+const RESONANCE_ENTITY_TOTAL_CAP := 48       # bound on entities kept lit across a whole travel
 # Generic timed status effects + their HUD element. Effects register via
 # add_status_effect(); _tick_status_effects counts them down and drives the widget.
 var _status_effects: Array = []              # [{id,label,color,remaining,duration}]; HUD owns the widget
@@ -252,15 +264,22 @@ func _ready() -> void:
 	_build_preview = BuildPreviewScript.new()
 	_preview_layer.add_child(_build_preview)
 	_build_preview.setup(player, world)
-	# Perception + Resonance (Phase B): a world-space, undimmed layer for pulse
-	# contours (same follow-viewport trick as the preview) so a resonance ping reads
-	# through the veil and the dark. Built once; the interest-block set is derived from
-	# the craft-station data plus doors and the town hall.
-	_resonance_layer = CanvasLayer.new()
-	_resonance_layer.name = "ResonanceLayer"
-	_resonance_layer.follow_viewport_enabled = true
-	_resonance_layer.layer = 0
-	add_child(_resonance_layer)
+	# Perception + Resonance (Phase B): a container for the pulse's terrain-highlight
+	# contours. It lives IN THE WORLD CANVAS (child of `world`, z above terrain) — the
+	# SAME canvas the tiles render in — so the fills are pixel-locked to the terrain and
+	# cannot jitter against the smoothed player camera. (A separate CanvasLayer, whether
+	# follow_viewport or transform-synced, tracks the camera through a different path and
+	# shimmers during vertical camera motion, i.e. jumping above ground.) To stay bright
+	# through the day/night + cave-darkness CanvasModulate that dims this canvas, we
+	# pre-divide the container by the live ambient (_sync_resonance_ambient), exactly like
+	# the celestial sun/moon renderer. Interest-block set = craft stations + doors + hall.
+	_resonance_layer = Node2D.new()
+	_resonance_layer.name = "ResonanceContours"
+	_resonance_layer.z_index = 80          # above terrain; matches the contour nodes' own z
+	_resonance_layer.z_as_relative = false
+	_resonance_layer.light_mask = 0
+	world.add_child(_resonance_layer)
+	_sync_resonance_ambient()
 	for _res_static_id in ["door", "door_open", "town_hall_core"]:
 		_resonance_interest_blocks[_res_static_id] = true
 	for _res_station in BlockRegistry.station_defs():
@@ -692,6 +711,7 @@ func _process(delta: float) -> void:
 	_advance_time(delta)
 	_advance_cave_spawns(delta)
 	_tick_status_effects(delta)
+	_advance_resonance_travel(delta)
 	_reconcile_resonance_visibility()
 	_depth_check_timer += delta
 	if _depth_check_timer >= _DEPTH_CHECK_INTERVAL:
@@ -911,6 +931,7 @@ func _advance_time(delta: float) -> void:
 	canvas_modulate.color = canvas_modulate.color.lerp(ambient_target_color(), delta * 1.5)
 	if _celestial != null:
 		_celestial.set_ambient(canvas_modulate.color)   # keep the world-canvas sky bodies bright
+	_sync_resonance_ambient()   # ...and the world-canvas resonance fills bright through the tint
 	# Feed the same viewer-depth factor to the per-column depth shader so it only
 	# darkens terrain DEEPER than the player (no double-dim with the tint above).
 	# Eased like the tint above (first frame snaps to avoid a fade-in from black) so
@@ -1009,7 +1030,11 @@ func _on_attunement_resonance() -> void:
 	_resonance_mark_group("threats", RESONANCE_HOSTILE_MARK, region, center, dur, RESONANCE_ENTITY_CAP)
 	_resonance_mark_group("subjects", RESONANCE_ALLY_MARK, region, center, dur, RESONANCE_ENTITY_CAP)
 	_resonance_mark_group("item_drops", RESONANCE_ITEM_MARK, region, center, dur, RESONANCE_ENTITY_CAP)
-	_resonance_mark_terrain(region, center, dur)
+	_resonance_mark_terrain(region, dur)
+	# Prime the travel state so the highlight follows the character for its whole life.
+	_resonance_remaining = dur
+	_resonance_travel_accum = 0.0
+	_resonance_last_scan_cell = world.cell_of(center)
 	# Make freshly-highlighted out-of-sight entities visible immediately (not next frame).
 	_reconcile_resonance_visibility()
 	# Surface the effect on the status HUD as a live countdown.
@@ -1039,11 +1064,15 @@ func _resonance_region() -> Rect2:
 	return Rect2(player.global_position - Vector2(r, r), Vector2(r, r) * 2.0)
 
 
-## Highlight the nearest `cap` grouped entities within `radius_px` by tinting each
-## one's sprite (masked to the object) for `dur`. Re-pulsing an already-lit entity
-## refreshes it rather than stacking a second highlight (which would corrupt restore).
+## Highlight the nearest `cap` grouped entities within `region` by tinting each one's
+## sprite (masked to the object) for `dur`. Re-pulsing an already-lit entity refreshes
+## it rather than stacking a second highlight (which would corrupt restore). During a
+## TRAVEL re-scan pass `add_only` is set: existing highlights are left to run on their
+## own timeline (refreshing them every tick would reset their onset and make them
+## flicker), and only newly in-range entities are lit — with `dur` = the pulse's
+## remaining life so they expire together with it.
 func _resonance_mark_group(group: String, mark: Color, region: Rect2, center: Vector2,
-		dur: float, cap: int) -> void:
+		dur: float, cap: int, add_only: bool = false) -> void:
 	var found: Array = []
 	for n in get_tree().get_nodes_in_group(group):
 		if n is Node2D and region.has_point((n as Node2D).global_position):
@@ -1054,21 +1083,45 @@ func _resonance_mark_group(group: String, mark: Color, region: Rect2, center: Ve
 		var iid := target.get_instance_id()
 		var existing = _resonance_highlights.get(iid)
 		if existing != null and is_instance_valid(existing):
-			existing.refresh_entity(mark, RESONANCE_ENTITY_BRIGHTEN, dur)
+			if not add_only:
+				existing.refresh_entity(mark, RESONANCE_ENTITY_BRIGHTEN, dur)
 		else:
+			if add_only and _resonance_highlights.size() >= RESONANCE_ENTITY_TOTAL_CAP:
+				break   # bound the number of entities a single travelling pulse keeps lit
 			var c = ResonanceContourScript.new()
 			_resonance_layer.add_child(c)
 			c.setup_entity(target, mark, RESONANCE_ENTITY_BRIGHTEN, dur)
 			_resonance_highlights[iid] = c
 
 
-## Scan the pulse disc for interactable terrain (doors / stations / hall) and liquid
-## hazards, nearest-first and capped per category so a big pool never floods the view.
-func _resonance_mark_terrain(region: Rect2, center: Vector2, dur: float) -> void:
+## Scan the pulse region for interactable terrain (doors / stations / hall), ore veins,
+## and surface-liquid hazards, and (re)drive the SINGLE batched terrain highlight node so
+## the whole visible area lights up. Reuses one node for the pulse's life: a fresh pulse
+## restarts its envelope (refresh_cells); a travel re-scan swaps its cells in place
+## (set_cells, in _advance_resonance_travel) so the fade timeline is preserved.
+func _resonance_mark_terrain(region: Rect2, dur: float) -> void:
+	var entries := _collect_resonance_terrain_entries(region)
+	if entries.is_empty():
+		# Keep an existing node alive (it will fade out on its own) but let it show empty
+		# rather than freeing it mid-pulse; a later travel tick may refill it.
+		if _resonance_terrain_node != null and is_instance_valid(_resonance_terrain_node):
+			_resonance_terrain_node.set_cells(entries)
+		return
+	var box := Vector2(float(world.tile_size()), float(world.tile_size()))
+	if _resonance_terrain_node != null and is_instance_valid(_resonance_terrain_node):
+		_resonance_terrain_node.refresh_cells(entries, dur)
+	else:
+		var c = ResonanceContourScript.new()
+		_resonance_layer.add_child(c)
+		c.setup_cells(entries, box, dur)
+		_resonance_terrain_node = c
+
+
+## Collect the interesting cells in `region` as batch entries ([world_pos, color,
+## strength]), capped so a huge pool never floods the view. Pure — no node side effects.
+func _collect_resonance_terrain_entries(region: Rect2) -> Array:
 	var min_c: Vector2i = world.cell_of(region.position)
 	var max_c: Vector2i = world.cell_of(region.end)
-	# One batched entry list for EVERY interesting cell on screen ([pos, color, strength]),
-	# drawn in a single node so the whole visible area lights up (no nearest-N disc cap).
 	var entries: Array = []
 	for cy in range(min_c.y, max_c.y + 1):
 		for cx in range(min_c.x, max_c.x + 1):
@@ -1089,11 +1142,55 @@ func _resonance_mark_terrain(region: Rect2, center: Vector2, dur: float) -> void
 				break
 		if entries.size() >= RESONANCE_CELL_CAP:
 			break
-	if entries.is_empty():
+	return entries
+
+
+## Keep the world-canvas resonance contours bright despite the day/night + cave-darkness
+## CanvasModulate that dims this canvas: pre-divide the container by the live ambient so
+## CanvasModulate multiplies the additive fills back to full strength (the same trick the
+## celestial sun/moon renderer uses). `modulate` propagates to the child contour nodes.
+func _sync_resonance_ambient() -> void:
+	if not is_instance_valid(_resonance_layer):
 		return
-	var c = ResonanceContourScript.new()
-	_resonance_layer.add_child(c)
-	c.setup_cells(entries, Vector2(float(world.tile_size()), float(world.tile_size())), dur)
+	var c: Color = canvas_modulate.color if canvas_modulate != null else Color(1, 1, 1)
+	_resonance_layer.modulate = Color(1.0 / maxf(0.02, c.r), 1.0 / maxf(0.02, c.g),
+		1.0 / maxf(0.02, c.b), 1.0)
+
+
+## While a pulse is live, the highlight TRAVELS with the character: count the pulse down
+## and (throttled) re-scan the region around the moving character — refreshing the terrain
+## batch to the current view and lighting newly in-range entities — so exploring a new area
+## keeps revealing objects instead of leaving a stale snapshot where the pulse first fired.
+func _advance_resonance_travel(delta: float) -> void:
+	if _resonance_remaining <= 0.0:
+		return
+	_resonance_remaining -= delta
+	if _resonance_remaining <= 0.0:
+		_resonance_remaining = 0.0
+		_resonance_terrain_node = null   # its own timer fades/frees it at the same moment
+		return
+	if player == null or world == null:
+		return
+	_resonance_travel_accum += delta
+	if _resonance_travel_accum < RESONANCE_TRAVEL_INTERVAL:
+		return
+	_resonance_travel_accum = 0.0
+	var center: Vector2 = player.global_position
+	var cell: Vector2i = world.cell_of(center)
+	# Terrain re-scan only when the character actually crossed a tile (terrain is static
+	# otherwise), but always keep the batch node's cells current to the moved view.
+	if cell != _resonance_last_scan_cell:
+		_resonance_last_scan_cell = cell
+		var region := _resonance_region()
+		if _resonance_terrain_node != null and is_instance_valid(_resonance_terrain_node):
+			_resonance_terrain_node.set_cells(_collect_resonance_terrain_entries(region))
+		# Add entities that scrolled into range (existing ones keep their own timelines).
+		_resonance_mark_group("threats", RESONANCE_HOSTILE_MARK, region, center,
+			_resonance_remaining, RESONANCE_ENTITY_CAP, true)
+		_resonance_mark_group("subjects", RESONANCE_ALLY_MARK, region, center,
+			_resonance_remaining, RESONANCE_ENTITY_CAP, true)
+		_resonance_mark_group("item_drops", RESONANCE_ITEM_MARK, region, center,
+			_resonance_remaining, RESONANCE_ENTITY_CAP, true)
 
 
 ## Resonance detection reach (cells) and highlight lifetime (seconds), each composed
@@ -2379,6 +2476,7 @@ func apply_time_state(data: Dictionary) -> void:
 	canvas_modulate.color = ambient_target_color()
 	if _celestial != null:
 		_celestial.set_ambient(canvas_modulate.color)
+	_sync_resonance_ambient()
 	# Re-prime the eased viewer-darkness so entering/loading a world snaps to its
 	# depth instead of easing in from the previous world's value.
 	_viewer_darkness_smooth = -1.0

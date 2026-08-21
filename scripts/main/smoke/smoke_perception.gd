@@ -178,6 +178,11 @@ func run(ctx) -> void:
 			_stat_has_res = true
 	if _res_drop != null and is_instance_valid(_res_drop):
 		_res_drop.queue_free()
+	# Stop the pulse travelling (Phase B travel) before clearing so a later frame's
+	# re-scan can't repopulate the layer the following modules expect clear.
+	root._resonance_remaining = 0.0
+	root._resonance_terrain_node = null
+	root._resonance_highlights.clear()
 	if _res_layer != null:
 		for _rc in _res_layer.get_children():
 			_rc.queue_free()
