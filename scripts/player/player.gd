@@ -185,11 +185,40 @@ var _low_health_active := false  # tracks whether the "badly hurt" message alrea
 
 @onready var player_visual = get_node_or_null("PlayerVisual")
 
+## Render-position interpolation mirror. 2D physics interpolation smooths the drawn
+## body between physics ticks but exposes no getter for that interpolated transform, so
+## we snapshot the post-move position each physics tick and reconstruct it in
+## render_global_position(). Presentation that must follow the SMOOTH on-screen player
+## — the perception veil's per-pixel FOV rim — samples that instead of the stepped
+## logical global_position, which otherwise shimmers against the interpolated
+## player/terrain (the fog-of-war-only above-ground jitter). Reset by teleport().
+var _interp_prev_pos := Vector2.ZERO
+var _interp_curr_pos := Vector2.ZERO
+
 
 func _ready() -> void:
 	_load_player_defaults()
+	_interp_prev_pos = global_position
+	_interp_curr_pos = global_position
 	if player_visual != null:
 		player_visual.sync_from_player()
+
+
+## Book-keep the render-interpolation mirror: shift the current snapshot to previous and
+## capture the live (post-move) position as the new current. Runs every physics tick,
+## including frozen frames (so prev==curr and the rim can't oscillate between two stale
+## positions while a modal is open).
+func _snapshot_render_position() -> void:
+	_interp_prev_pos = _interp_curr_pos
+	_interp_curr_pos = global_position
+
+
+## The player's interpolated on-screen world position for the CURRENT render frame — the
+## smooth value 2D physics interpolation draws the body at, rebuilt from the last two
+## physics snapshots by the engine's own interpolation fraction. Presentation-only;
+## gameplay/collision must always use the authoritative global_position.
+func render_global_position() -> Vector2:
+	return _interp_prev_pos.lerp(_interp_curr_pos, Engine.get_physics_interpolation_fraction())
 
 
 ## Reads data/character_data.json's player_defaults section (same registry
@@ -333,6 +362,7 @@ func apply_ancestry_effects(effects: Dictionary) -> void:
 func _physics_process(delta: float) -> void:
 	if GameState.hud_edit_mode or GameState.craft_panel_open or GameState.modal_panel_open:
 		velocity = Vector2.ZERO
+		_snapshot_render_position()   # keep the interp mirror alive (prev==curr while frozen)
 		return
 	# Liquid physics: while the body centre is below a liquid's TRUE surface (its
 	# fill level, not merely the cell), movement slows and the player turns
@@ -360,6 +390,10 @@ func _physics_process(delta: float) -> void:
 	var direction := Input.get_axis("move_left", "move_right")
 	velocity.x = direction * SPEED * move_mult
 	move_and_slide()
+	# Snapshot the post-move position for the render-interpolation mirror (below), so
+	# presentation that must track the SMOOTH on-screen position samples the interpolated
+	# value, not this stepped physics-tick one.
+	_snapshot_render_position()
 	_hurt_cooldown = maxf(0.0, _hurt_cooldown - delta)
 	_eat_cooldown = maxf(0.0, _eat_cooldown - delta)
 	attack_swing_t = maxf(0.0, attack_swing_t - delta)
@@ -1196,6 +1230,10 @@ func teleport(pos: Vector2, keep_velocity: bool = false) -> void:
 	global_position = pos
 	if not keep_velocity:
 		velocity = Vector2.ZERO
+	# Collapse the render-interpolation mirror onto the destination so the veil rim (and
+	# anything else reading render_global_position) snaps there instead of sweeping.
+	_interp_prev_pos = pos
+	_interp_curr_pos = pos
 	reset_physics_interpolation()
 	var cam := get_node_or_null("Camera2D") as Camera2D
 	if cam != null:

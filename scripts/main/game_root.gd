@@ -973,8 +973,13 @@ func _advance_time(delta: float) -> void:
 			_perception_last_cell = _pcell
 			world.update_perception(_pcell, _perception_radius() + int(PERCEPTION_EDGE_TILES) + 1)
 		# Smooth per-pixel FOV rim, updated every frame so it glides with the character.
+		# Use the INTERPOLATED render position, not the stepped logical global_position:
+		# the rim is a world-space circle, so a per-physics-tick origin shimmers against
+		# the interpolated player/terrain every render frame (the fog-of-war-only
+		# above-ground jitter, worst on jumps). render_global_position() matches what the
+		# engine actually draws the body at this frame.
 		var _ts := float(world.tile_size())
-		world.set_perception_view(player.global_position,
+		world.set_perception_view(player.render_global_position(),
 			float(_perception_radius()) * _ts, PERCEPTION_EDGE_TILES * _ts)
 
 

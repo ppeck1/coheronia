@@ -450,11 +450,17 @@ func run(ctx) -> void:
 	player.velocity = Vector2(123.0, -45.0)
 	var _pi_dest: Vector2 = _pi_prev_pos + Vector2(200.0, -80.0)
 	player.teleport(_pi_dest)
+	# The fog-veil rim reads the INTERPOLATED render position; after a teleport its mirror
+	# must be collapsed onto the destination (no cross-world sweep of the sight circle).
+	var _pi_render_ok: bool = player.has_method("render_global_position") \
+		and (player.render_global_position() as Vector2).is_equal_approx(_pi_dest)
 	var _pi_moved: bool = player.global_position.is_equal_approx(_pi_dest) \
 		and player.velocity == Vector2.ZERO
 	player.teleport(_pi_prev_pos)        # restore prior position for later modules
 	player.velocity = _pi_prev_vel
 	harness._check("jitter_physics_interpolation_and_safe_teleport",
-		_pi_on and _pi_smooth and _pi_cam_physics and _pi_has_teleport and _pi_moved,
-		"interp=%s smoothing=%s cam_physics=%s teleport=%s moved=%s" % [str(_pi_on),
-			str(_pi_smooth), str(_pi_cam_physics), str(_pi_has_teleport), str(_pi_moved)])
+		_pi_on and _pi_smooth and _pi_cam_physics and _pi_has_teleport and _pi_moved \
+			and _pi_render_ok,
+		"interp=%s smoothing=%s cam_physics=%s teleport=%s moved=%s render=%s" % [str(_pi_on),
+			str(_pi_smooth), str(_pi_cam_physics), str(_pi_has_teleport), str(_pi_moved),
+			str(_pi_render_ok)])

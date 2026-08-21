@@ -65,7 +65,17 @@ lag oscillates) and on any monitor whose refresh ≠ 60 Hz.
    consistently with the player, so they stay locked. (Interpolation alone did **not** fix
    it — the IDLE camera was the remaining cause.)
 
-Camera **position smoothing is kept ON** (the fix does *not* disable it — see tradeoff below). Every direct `global_position` relocation now routes through
+Camera **position smoothing is kept ON** (the fix does *not* disable it — see tradeoff below).
+
+A **fog-of-war-only** residual remained after the camera pairing (jittery in a
+`fog_of_war` world, clean without it): the perception veil's per-pixel FOV rim
+(`cave_depth.gdshader`, a world-space circle around `perception_origin`) was fed the
+player's *stepped* logical `global_position` every render frame, so its edge shimmered
+against the interpolated player/terrain. Fixed by feeding the **interpolated** render
+position: `player.render_global_position()` reconstructs the drawn position from the last
+two physics snapshots via `Engine.get_physics_interpolation_fraction()` (Godot 4.6 has no
+public 2D interpolated-transform getter), reset by `teleport()`. Non-fog worlds have no
+per-frame position uniform, which is why they never jittered. Every direct `global_position` relocation now routes through
 the interpolation-safe **`player.teleport()`** (resets the body + camera interpolation
 snapshot and camera smoothing) so a teleport snaps instead of sweeping: respawn,
 save/load restore, and world entry (`game_root._position_actors`). Freshly-added nodes
