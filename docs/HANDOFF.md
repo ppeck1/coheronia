@@ -43,6 +43,55 @@ showcase screenshots, land the PR green, then merge. **Known limit:** sun/torch 
 still leaks through 1×1 diagonal block seams — pre-existing 2D lighting, not the veil
 (documented in `docs/wiki/known_issues.md`).
 
+### Above-ground camera/player jitter fix (2026-08-21)
+
+Follows the resonance-contour jitter fix in `917e045`. **Root cause:** the player
+(`CharacterBody2D`) moves in `_physics_process`, but the project had **no 2D physics
+interpolation**, so the body's transform only advanced at the physics tick while the
+player-owned `Camera2D` (position smoothing, default IDLE process callback) re-followed
+every *render* frame. The static world was drawn against a smoothly-moving camera while
+the player stepped at 60 Hz, so the character shimmered against the terrain — worst
+during **jumping** (gravity swings the vertical velocity every frame, so the smoothing
+lag oscillates) and on any monitor whose refresh ≠ 60 Hz.
+
+**Fix (smallest coherent, smoothing preserved):** enable engine-level 2D physics
+interpolation (`physics/common/physics_interpolation=true`). Every node's render
+transform is now interpolated between physics ticks, so the camera and character stay
+locked each frame. Camera **position smoothing is kept ON** (the fix does *not* disable
+it — see tradeoff below). Every direct `global_position` relocation now routes through
+the interpolation-safe **`player.teleport()`** (resets the body + camera interpolation
+snapshot and camera smoothing) so a teleport snaps instead of sweeping: respawn,
+save/load restore, and world entry (`game_root._position_actors`). Freshly-added nodes
+(FX, spawned settlers) auto-reset on add; the screenshot tour / smoke frame captures
+`await` ≥1 physics frame before capturing, so they self-heal without per-site resets.
+
+**Rejected hypotheses:** disabling camera smoothing (removes the smooth follow the game
+wants, and the task's own constraint); quantizing the authoritative physics position
+(would damage collision/movement); moving the build preview into the world canvas — with
+interpolation on, its `follow_viewport` layer derives from the same interpolated camera
+transform as the world canvas and the cell-snapped ghost stays pixel-locked, so it was
+left where it is to keep dodging the underground `CanvasModulate` dimming.
+
+**Tradeoffs / remaining limits:**
+- *Camera smoothing speed* becomes mildly framerate-dependent above 60 Hz under
+  interpolation (upstream [godot#95869](https://github.com/godotengine/godot/issues/95869));
+  it is a feel nuance, not the jitter, and only above 60 Hz.
+- *Fractional view zoom* (`view_zoom` default **1.25**, 0.125 steps, 1.0–3.0) still maps
+  nearest-neighbour texels to non-integer screen pixels, so a faint pixel *shimmer* can
+  remain on fast motion at non-integer zooms — a **separate** issue from the physics
+  jitter. Left fractional to preserve the existing settings/save-compat surface; switching
+  to integer-snapped zoom is a product decision (documented in `display_settings.gd`), not
+  done silently here. Integer zooms (1.0, 2.0, 3.0) are crispest.
+
+**Regression coverage:** `jitter_physics_interpolation_and_safe_teleport`
+(`smoke_settings.gd`) guards that interpolation stays ON, camera smoothing stays ON, and
+`teleport()` repositions + clears velocity. **Manual/windowed check (temporal smoothness
+is not screenshot-testable):** run windowed at 60 Hz vsync; hold left/right and jump
+repeatedly above ground while watching the parallax sky and terrain edges — the character
+must stay rock-steady against the world with no per-frame shimmer. Repeat at zoom 1.0 and
+2.0 (`+`/`-`) and after F9 load and a death/respawn — none should sweep the camera in.
+Windowed smoke **571/571**, verify PASS.
+
 ## Current arc — S-07 stabilization (toward v0.7-alpha)
 
 **Paused for the Perception + Resonance arc above; resumes once it merges.** The S-07

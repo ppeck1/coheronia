@@ -422,3 +422,33 @@ func run(ctx) -> void:
 	_wz_prof["view_zoom"] = _wz_saved0
 	harness._check("s07_wheel_zoom_swallowed_in_menus", _wz_ok,
 		"wheel swallowed under each menu flag + still zooms with all menus closed")
+
+	# --- Above-ground jitter fix (2026-08-21) ---
+	# The player moves in _physics_process; without 2D physics interpolation the body
+	# only advanced at the physics tick while the smoothed Camera2D re-followed every
+	# RENDER frame, so the character shimmered against the world (worst on the vertical
+	# velocity swings of a jump). The systemic fix is engine-level physics interpolation,
+	# which the whole presentation now leans on — so guard the invariant: it must stay ON,
+	# the camera's position smoothing (the smooth follow the fix preserves rather than
+	# disabling) must stay ON, and the player must expose an interpolation-safe teleport()
+	# that repositions + clears velocity without the visible cross-world sweep a bare
+	# `global_position =` now causes. (The interpolation snapshot reset is a visual-only op
+	# that can't be sampled headless, but the reposition contract can, and a regression
+	# that flips the setting off is caught.)
+	var _pi_on: bool = bool(ProjectSettings.get_setting("physics/common/physics_interpolation", false))
+	var _pi_cam: Camera2D = player.get_node_or_null("Camera2D")
+	var _pi_smooth: bool = _pi_cam != null and _pi_cam.position_smoothing_enabled
+	var _pi_has_teleport: bool = player.has_method("teleport")
+	var _pi_prev_pos: Vector2 = player.global_position
+	var _pi_prev_vel: Vector2 = player.velocity
+	player.velocity = Vector2(123.0, -45.0)
+	var _pi_dest: Vector2 = _pi_prev_pos + Vector2(200.0, -80.0)
+	player.teleport(_pi_dest)
+	var _pi_moved: bool = player.global_position.is_equal_approx(_pi_dest) \
+		and player.velocity == Vector2.ZERO
+	player.teleport(_pi_prev_pos)        # restore prior position for later modules
+	player.velocity = _pi_prev_vel
+	harness._check("jitter_physics_interpolation_and_safe_teleport",
+		_pi_on and _pi_smooth and _pi_has_teleport and _pi_moved,
+		"interp=%s smoothing=%s teleport=%s moved=%s" % [str(_pi_on), str(_pi_smooth),
+			str(_pi_has_teleport), str(_pi_moved)])

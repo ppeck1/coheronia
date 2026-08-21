@@ -25,6 +25,19 @@ window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[physics]
+
+; 2D physics interpolation: the player and settlers move in _physics_process, so
+; without this the smoothed Camera2D (which re-follows every RENDER frame) tracked
+; a body whose transform only advanced at the physics tick — the character shimmered
+; against the world, worst on vertical jump motion above ground. With interpolation
+; on, every node's render transform is smoothly interpolated between physics ticks,
+; so the camera and the character stay locked together each frame. Any direct
+; global_position assignment (teleport/respawn/load/world-entry) must be paired with
+; reset_physics_interpolation() or the node visibly sweeps from its old spot — see
+; player.teleport() and game_root._position_actors().
+common/physics_interpolation=true
+
 [input]
 
 move_left={

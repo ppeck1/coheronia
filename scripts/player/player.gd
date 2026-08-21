@@ -1185,6 +1185,24 @@ func _apply_collapse_loss() -> bool:
 	return changed
 
 
+## Physics-interpolation-safe relocation. Sets the position, clears carried velocity
+## (unless asked to keep it), and resets both the body's interpolation snapshot and the
+## camera's smoothing so neither the character NOR the view visibly sweeps from the old
+## spot. Use this for any real teleport — respawn, save/load restore, world entry — in
+## place of a bare `global_position =`, which under 2D physics interpolation would streak
+## across the world. (Order matters: set the transform first, THEN reset — Godot resets
+## the interpolation snapshot to the CURRENT transform.)
+func teleport(pos: Vector2, keep_velocity: bool = false) -> void:
+	global_position = pos
+	if not keep_velocity:
+		velocity = Vector2.ZERO
+	reset_physics_interpolation()
+	var cam := get_node_or_null("Camera2D") as Camera2D
+	if cam != null:
+		cam.reset_smoothing()
+		cam.reset_physics_interpolation()
+
+
 func respawn(supplies_lost: bool = false) -> void:
 	health = max_health
 	health_changed.emit(health, max_health)
@@ -1196,8 +1214,9 @@ func respawn(supplies_lost: bool = false) -> void:
 	if world != null and not world.hall_info.is_empty():
 		# FQ-09M: dust where the player fell and where they come to.
 		ActionFx.spawn(world, "dust_puff", global_position)
-		global_position = world.cell_center(world.hall_info["center_cell"]) + Vector2(-48, -24)
-		velocity = Vector2.ZERO
+		# Interpolation-safe: without the reset inside teleport() the collapsed player
+		# (and camera) would streak across the whole world to the Town Hall.
+		teleport(world.cell_center(world.hall_info["center_cell"]) + Vector2(-48, -24))
 		ActionFx.spawn(world, "dust_puff", global_position)
 	_regen_active = false
 	var _msg := "You collapsed and awoke near the Town Hall."

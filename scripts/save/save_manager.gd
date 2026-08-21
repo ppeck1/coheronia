@@ -182,5 +182,7 @@ func apply_state(state: Dictionary) -> bool:
 func apply_player_position(state: Dictionary) -> void:
 	var p: Dictionary = state.get("player", {})
 	if p.has("x") and p.has("y"):
-		player.global_position = Vector2(float(p["x"]), float(p["y"]))
-		player.velocity = Vector2.ZERO
+		# Interpolation-safe restore: teleport() resets the body's interpolation snapshot
+		# and the camera smoothing so a loaded save snaps to the saved spot instead of
+		# sweeping there from wherever the player last stood.
+		player.teleport(Vector2(float(p["x"]), float(p["y"])))

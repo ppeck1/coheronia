@@ -256,6 +256,13 @@ func _ready() -> void:
 	# it tracks the aim cell but is NOT dimmed by the world's day/night/cave
 	# CanvasModulate (otherwise the ghost vanishes underground). Layer 0 sits above
 	# the root world canvas and below the HUD (layer 1).
+	# Jitter (2026-08-21): with 2D physics interpolation now enabled engine-wide, this
+	# follow_viewport layer derives its scroll from the SAME interpolated camera
+	# transform as the world canvas each render frame, so the quantized (cell-snapped)
+	# ghost stays pixel-locked to terrain — it no longer needs to move into the world
+	# canvas (which would re-introduce the underground CanvasModulate dimming this layer
+	# exists to dodge). Left here deliberately; revisit only if a preview shimmer is
+	# observed, in which case mirror the resonance container's ambient-divide trick.
 	var _preview_layer := CanvasLayer.new()
 	_preview_layer.name = "BuildPreviewLayer"
 	_preview_layer.follow_viewport_enabled = true
@@ -267,9 +274,11 @@ func _ready() -> void:
 	# Perception + Resonance (Phase B): a container for the pulse's terrain-highlight
 	# contours. It lives IN THE WORLD CANVAS (child of `world`, z above terrain) — the
 	# SAME canvas the tiles render in — so the fills are pixel-locked to the terrain and
-	# cannot jitter against the smoothed player camera. (A separate CanvasLayer, whether
-	# follow_viewport or transform-synced, tracks the camera through a different path and
-	# shimmers during vertical camera motion, i.e. jumping above ground.) To stay bright
+	# cannot jitter against the smoothed player camera. (The systemic above-ground jump
+	# jitter — a body stepping at the physics tick under a camera that re-smoothed every
+	# render frame — is now fixed engine-wide by 2D physics interpolation; this
+	# world-canvas placement remains as strictly-correct, belt-and-suspenders pixel
+	# locking and is preserved per the 917e045 fix.) To stay bright
 	# through the day/night + cave-darkness CanvasModulate that dims this canvas, we
 	# pre-divide the container by the live ambient (_sync_resonance_ambient), exactly like
 	# the celestial sun/moon renderer. Interest-block set = craft stations + doors + hall.
@@ -703,6 +712,13 @@ func _position_actors() -> void:
 	camera.limit_top = -200
 	# Apply the player's saved view zoom (how much of the world is on screen).
 	DisplaySettings.apply_zoom(GameState.profile, camera)
+	# World entry: the player was just placed with a direct global_position. Under 2D
+	# physics interpolation reset the body's interpolation snapshot and the camera
+	# smoothing here, so the opening frame shows the player at the Town Hall rather than
+	# sweeping in from the origin.
+	player.reset_physics_interpolation()
+	camera.reset_smoothing()
+	camera.reset_physics_interpolation()
 
 
 const _DEPTH_CHECK_INTERVAL := 3.0
