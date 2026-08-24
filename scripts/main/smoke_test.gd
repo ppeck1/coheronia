@@ -1776,6 +1776,50 @@ func _run() -> void:
 		"noon=%s dawn=%s dusk=%s day=%.2f full=%.2f new=%.2f plumb=%s" % [str(_dir_noon),
 			str(_dir_dawn), str(_dir_dusk), _day_admit, _full_admit, _new_admit, str(_plumb_ok)])
 
+	# Phase B: the sun and moon ENTER from beyond the left edge and EXIT beyond the
+	# right edge — the whole body (corona/halo, bounded by SUN/MOON_MAX_EXTENT) clears
+	# the frame instead of popping in mid-sky. Pure geometry off positions() (no render).
+	var _celv := Rect2(0.0, 0.0, 1280.0, 720.0)
+	var _cel_left: float = _celv.position.x
+	var _cel_right: float = _celv.position.x + _celv.size.x
+	var _cel_cx: float = _celv.position.x + _celv.size.x * 0.5
+	var _cel_ns: float = CelestialScript.NIGHT_START
+	var _cel_se: float = CelestialScript.SUN_MAX_EXTENT
+	var _cel_me: float = CelestialScript.MOON_MAX_EXTENT
+	var _cel_tol := 1.0
+	var _cel_sun0: Vector2 = CelestialScript.positions(0.0, _celv)["sun"]
+	var _cel_sun_set: Vector2 = CelestialScript.positions(_cel_ns - 0.0001, _celv)["sun"]
+	var _cel_moon0: Vector2 = CelestialScript.positions(_cel_ns, _celv)["moon"]
+	var _cel_moon_set: Vector2 = CelestialScript.positions(1.0 - 0.0001, _celv)["moon"]
+	var _cel_noon: Vector2 = CelestialScript.positions(_cel_ns * 0.5, _celv)["sun"]
+	var _cel_mid: Vector2 = CelestialScript.positions(_cel_ns + (1.0 - _cel_ns) * 0.5, _celv)["moon"]
+	# t=0 sunrise: rightmost extent at/left of the left edge.
+	var _cel_sun_enters: bool = _cel_sun0.x + _cel_se <= _cel_left + _cel_tol
+	# just before NIGHT_START: leftmost extent at/right of the right edge.
+	var _cel_sun_exits: bool = _cel_sun_set.x - _cel_se >= _cel_right - _cel_tol
+	# t=NIGHT_START moonrise: rightmost extent at/left of the left edge.
+	var _cel_moon_enters: bool = _cel_moon0.x + _cel_me <= _cel_left + _cel_tol
+	# just before wrap: leftmost extent at/right of the right edge.
+	var _cel_moon_exits: bool = _cel_moon_set.x - _cel_me >= _cel_right - _cel_tol
+	# midday/midnight: horizontal centre AND above the baseline (arc peak).
+	var _cel_noon_peak: bool = absf(_cel_noon.x - _cel_cx) <= _cel_tol and _cel_noon.y < _cel_sun0.y - 1.0
+	var _cel_mid_peak: bool = absf(_cel_mid.x - _cel_cx) <= _cel_tol and _cel_mid.y < _cel_moon0.y - 1.0
+	# monotonic left-to-right travel across the day (sample strictly within the day
+	# branch — t=NIGHT_START would cross into night and reset to the moon's start_x).
+	var _cel_mono := true
+	var _cel_prevx := -1.0e20
+	for _cel_i in range(0, 21):
+		var _cel_x: float = (CelestialScript.positions((float(_cel_i) / 20.0) * (_cel_ns - 0.0001), _celv)["sun"] as Vector2).x
+		if _cel_x < _cel_prevx:
+			_cel_mono = false
+		_cel_prevx = _cel_x
+	_check("celestial_bodies_enter_and_exit_offscreen",
+		_cel_sun_enters and _cel_sun_exits and _cel_moon_enters and _cel_moon_exits
+		and _cel_noon_peak and _cel_mid_peak and _cel_mono,
+		"sun_in=%s sun_out=%s moon_in=%s moon_out=%s noon=%s mid=%s mono=%s" % [
+			str(_cel_sun_enters), str(_cel_sun_exits), str(_cel_moon_enters),
+			str(_cel_moon_exits), str(_cel_noon_peak), str(_cel_mid_peak), str(_cel_mono)])
+
 	# --- Calling system Stage 2: wired-effect behavior ---
 	# Clear any lingering test threats so threat-state context is deterministic.
 	for _cs_t in get_tree().get_nodes_in_group("threats"):

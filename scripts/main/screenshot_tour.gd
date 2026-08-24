@@ -554,6 +554,33 @@ func _shoot_celestial(root: Node2D, world: Node2D, player: CharacterBody2D, hud:
 	cel.set_sky_baseline(root._sky_baseline_y())   # world regenerated → refresh the arc altitude
 	cel.set_sky_visible(true)
 
+	# Phase B evidence: the sun rises from beyond the LEFT edge, crosses the sky, and
+	# sets beyond the RIGHT edge; the moon then does the same. Nothing pops in mid-sky
+	# — each body enters and leaves the frame. Sequence spans dawn → dusk → transition
+	# → moonrise → midnight → moonset.
+	var _cel_seq := [
+		[0.005, false, "34a_sunrise_edge"],
+		[0.06, false, "34b_sunrise_partial"],
+		[cel.NIGHT_START * 0.5, false, "34c_midday"],
+		[0.60, false, "34d_sunset_partial"],
+		[cel.NIGHT_START - 0.006, false, "34e_pre_transition_sun"],
+		[cel.NIGHT_START + 0.015, true, "34f_post_transition_moon"],
+		[0.70, true, "34g_moonrise_partial"],
+		[cel.NIGHT_START + (1.0 - cel.NIGHT_START) * 0.5, true, "34h_midnight"],
+		[0.985, true, "34i_moonset"],
+	]
+	for _cs in _cel_seq:
+		root.time_of_day = float(_cs[0])
+		root.is_night = bool(_cs[1])
+		root.canvas_modulate.color = root.NIGHT_TINT if bool(_cs[1]) else root.DAY_TINT
+		if bool(_cs[1]):
+			cel._phase_f = 0.42          # bright waxing gibbous so the moon reads clearly
+			cel._rebuild_moon_texture()
+		cel.set_time(root.time_of_day)
+		cel._redraw_sky()
+		cam.reset_smoothing()
+		await _shot(str(_cs[2]))
+
 	# Midday sun: high, radiating warm light + flares.
 	root.time_of_day = 0.3
 	root.is_night = false
