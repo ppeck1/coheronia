@@ -289,10 +289,10 @@ func run(ctx) -> void:
 	var _fq21_theme_base_before: Texture2D = BlockRegistry.visual_texture(
 		"ui_painted", "slot_normal")
 	var _fq21_theme_source: Image = _fq21_theme_base_before.get_image()
-	_fq21_theme_source.save_png(_fq21_theme_valid_path)
+	harness._res_write_png(_fq21_theme_source, _fq21_theme_valid_path)
 	var _fq21_theme_bad := Image.create(1, 1, false, Image.FORMAT_RGBA8)
 	_fq21_theme_bad.fill(Color.WHITE)
-	_fq21_theme_bad.save_png(_fq21_theme_invalid_path)
+	harness._res_write_png(_fq21_theme_bad, _fq21_theme_invalid_path)
 	var _fq21_theme_base: Texture2D = BlockRegistry.visual_texture(
 		"ui_painted", "slot_normal")
 	var _fq21_theme_valid: Texture2D = hud._painted_texture_for_theme(
@@ -678,7 +678,14 @@ func run(ctx) -> void:
 		_fq20_map_chip.button_pressed = false
 	var _fq20_map_chip_closes: bool = _fq20_map_chip != null \
 		and not hud.map_open() and not _fq20_map_chip.button_pressed
-	if _fq20_map_chip != null:
+	# The docked command chips are intentionally non-focusable (FOCUS_NONE) so a
+	# click never parks keyboard focus on the chip and away from gameplay. Calling
+	# grab_focus() on a FOCUS_NONE control is a no-op that ALSO emits an engine
+	# "This control can't grab focus" warning, so we assert the invariant by
+	# property and only exercise grab_focus() when the control is actually
+	# focusable (it never is here). The check's meaning — the chip refuses focus —
+	# is unchanged; the spurious warning is gone.
+	if _fq20_map_chip != null and _fq20_map_chip.focus_mode != Control.FOCUS_NONE:
 		_fq20_map_chip.grab_focus()
 	var _fq20_map_chip_no_focus: bool = _fq20_map_chip != null \
 		and _fq20_map_chip.focus_mode == Control.FOCUS_NONE \

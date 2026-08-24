@@ -87,6 +87,38 @@ class FatalMarkerTests(unittest.TestCase):
             self.assertIn(marker, verify.scan_fatal_markers(f"...{marker}..."))
 
 
+class LifecycleLeakTests(unittest.TestCase):
+    def test_clean_output_has_no_leaks(self):
+        self.assertEqual(verify.scan_lifecycle_leaks("SMOKE PASS: all good\n"), [])
+
+    def test_detects_rid_objectdb_and_resource_leaks(self):
+        # The exact four lines a leaking smoke printed before the balance-report
+        # fake-node teardown fix. Godot logs two at WARNING level, so the scan
+        # must not depend on the ERROR prefix.
+        text = (
+            "ERROR: 3 RID allocations of type 'P11GodotBody2D' were leaked at exit.\n"
+            'WARNING: 6 RIDs of type "CanvasItem" were leaked.\n'
+            "WARNING: ObjectDB instances leaked at exit (run with --verbose ...).\n"
+            "ERROR: 1 resources still in use at exit (run with --verbose ...).\n")
+        self.assertEqual(len(verify.scan_lifecycle_leaks(text)), 4)
+
+
+class UnexpectedErrorTests(unittest.TestCase):
+    def test_allowlisted_json_corruption_is_ok(self):
+        # The corruption-recovery checks legitimately print this.
+        text = "ERROR: Parse JSON failed. Error at line 0: Expected key\n"
+        self.assertEqual(verify.scan_unexpected_errors(text), [])
+
+    def test_leak_and_fatal_lines_not_double_reported(self):
+        text = ("ERROR: 3 RID allocations of type 'X' were leaked at exit.\n"
+                "SCRIPT ERROR: Parse Error\n")
+        self.assertEqual(verify.scan_unexpected_errors(text), [])
+
+    def test_genuine_error_is_flagged(self):
+        self.assertEqual(
+            len(verify.scan_unexpected_errors("ERROR: Some genuine engine failure\n")), 1)
+
+
 class ValidateResultTests(unittest.TestCase):
     def test_clean_source_result_passes(self):
         data = make_result(["a", "b", "c"])
@@ -170,6 +202,27 @@ class EvaluateRunTests(unittest.TestCase):
                 "SRC", 0, "SCRIPT ERROR: Compile Error\nSMOKE PASS\n", path,
                 expected_commit=COMMIT)
             self.assertTrue(any("fatal marker" in m for m in msgs))
+
+    def test_lifecycle_leak_with_pass_json_fails(self):
+        # rc == 0 and JSON says PASS, but the process leaked at exit -> fail closed.
+        with ResultFixture(make_result(["a", "b"])) as path:
+            out = ("ERROR: 3 RID allocations of type 'X' were leaked at exit.\n"
+                   "SMOKE PASS\n")
+            msgs = verify.evaluate_run("SRC", 0, out, path, expected_commit=COMMIT)
+            self.assertTrue(any("lifecycle leak" in m for m in msgs))
+
+    def test_unexpected_error_with_pass_json_fails(self):
+        with ResultFixture(make_result(["a", "b"])) as path:
+            out = "ERROR: unexpected engine failure\nSMOKE PASS\n"
+            msgs = verify.evaluate_run("SRC", 0, out, path, expected_commit=COMMIT)
+            self.assertTrue(any("unexpected Godot error" in m for m in msgs))
+
+    def test_allowlisted_json_error_does_not_fail_run(self):
+        with ResultFixture(make_result(["a", "b"])) as path:
+            out = "ERROR: Parse JSON failed. Error at line 0: Expected key\nSMOKE PASS\n"
+            self.assertEqual(
+                verify.evaluate_run("SRC", 0, out, path, expected_commit=COMMIT,
+                                    require_zero_skips=True), [])
 
     def test_stale_missing_result_fails(self):
         # prepare_results deletes any prior file; if the run writes none, the

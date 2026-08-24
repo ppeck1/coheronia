@@ -71,6 +71,33 @@ FATAL_MARKERS = (
     "Nonexistent function",
 )
 
+# Lifecycle-leak substrings Godot prints AT EXIT when something it allocated
+# outlives the process: a node removed from the tree but never freed, an RID
+# never released, or a Resource still referenced. A clean smoke frees everything
+# it creates, so ANY of these is a real leak and fails the run even when the
+# results JSON says PASS. (Distinct from FATAL_MARKERS, which are compile/parse
+# failures; these are runtime ownership defects.)
+LIFECYCLE_LEAK_MARKERS = (
+    "were leaked",                    # "N RID allocations of type '...' were leaked at exit." / "N RIDs of type \"...\" were leaked."
+    "ObjectDB instances leaked",      # "ObjectDB instances leaked at exit (...)"
+    "Leaked instance:",               # per-instance --verbose detail
+    "resources still in use at exit",
+    "Resource still in use:",         # per-resource --verbose detail
+)
+
+# Engine "ERROR:" lines that are INTENTIONALLY produced by a named smoke check
+# and are therefore allowed. Keep this minimal and cite the owning check: every
+# other "ERROR:" line in Godot output is treated as an unexpected engine error
+# and fails the run, so genuine errors stay conspicuous instead of scrolling past
+# in a green log. This is the ONLY sanctioned way to silence an engine error.
+ALLOWED_ERROR_SUBSTRINGS = (
+    # smoke_persistence.gd (checks r02_atomic_write_backup_recover_quarantine and
+    # r02_shell_world_integrity) writes deliberately corrupt JSON to prove the
+    # atomic-write loader recovers from the .bak and quarantines the bad primary;
+    # the loader logs "Parse JSON failed ..." by design when it reads that file.
+    "Parse JSON failed",
+)
+
 # Keys the smoke result writer (smoke_test.gd:_write_result_file) always emits.
 REQUIRED_RESULT_KEYS = (
     "result", "passed", "total", "failed", "skipped",
@@ -102,6 +129,42 @@ def scan_fatal_markers(output: str) -> list[str]:
     """Return the confirmed-fatal markers present in captured Godot output."""
     text = output or ""
     return [marker for marker in FATAL_MARKERS if marker in text]
+
+
+def scan_lifecycle_leaks(output: str) -> list[str]:
+    """Return exit-time lifecycle-leak lines (leaked RIDs / ObjectDB instances /
+    resources still in use) in captured Godot output.
+
+    A clean smoke run leaks nothing, so any hit here is a real ownership defect
+    that fails the run even when the results JSON says PASS. Godot logs some of
+    these at WARNING level, so this scan is intentionally independent of the
+    ERROR/WARNING prefix.
+    """
+    text = output or ""
+    return [line.strip() for line in text.splitlines()
+            if any(marker in line for marker in LIFECYCLE_LEAK_MARKERS)]
+
+
+def scan_unexpected_errors(output: str) -> list[str]:
+    """Return Godot "ERROR:" lines that are neither an allowlisted intentional
+    diagnostic, an already-classified lifecycle leak, nor a fatal marker.
+
+    These are unexpected engine errors; failing on them keeps a genuine runtime
+    error conspicuous instead of letting it scroll past under a PASS-shaped log.
+    """
+    text = output or ""
+    hits: list[str] = []
+    for raw in text.splitlines():
+        if "ERROR:" not in raw:
+            continue
+        if any(marker in raw for marker in FATAL_MARKERS):
+            continue  # already reported by scan_fatal_markers
+        if any(marker in raw for marker in LIFECYCLE_LEAK_MARKERS):
+            continue  # already reported (more specifically) by scan_lifecycle_leaks
+        if any(allowed in raw for allowed in ALLOWED_ERROR_SUBSTRINGS):
+            continue  # intentional, asserted by a named smoke check
+        hits.append(raw.strip())
+    return hits
 
 
 def _is_int(value: object) -> bool:
@@ -251,6 +314,15 @@ def evaluate_run(
     markers = scan_fatal_markers(output)
     if markers:
         failures.append(f"{tag}: fatal marker(s) in Godot output: {markers}")
+    leaks = scan_lifecycle_leaks(output)
+    if leaks:
+        failures.append(
+            f"{tag}: lifecycle leak(s) at exit ({len(leaks)}): {leaks[:6]}")
+    unexpected = scan_unexpected_errors(output)
+    if unexpected:
+        failures.append(
+            f"{tag}: unexpected Godot error line(s) ({len(unexpected)}): "
+            f"{unexpected[:6]}")
 
     if not results_path.exists():
         failures.append(

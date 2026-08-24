@@ -109,7 +109,7 @@ func run_report() -> Dictionary:
 		else:
 			latencies[id] = null
 	var final_status := _contract_statuses(model, contract_ids)
-	return {
+	var report := {
 		"metadata": {
 			"scenario_id": SCENARIO_ID,
 			"policy": POLICY_NAME,
@@ -129,6 +129,17 @@ func run_report() -> Dictionary:
 		"bottlenecks": _final_bottlenecks(final_status, latencies),
 		"proposed_tuning": _proposed_tuning(final_status, latencies),
 	}
+	# The Fake* scenario stand-ins are unparented Node/CharacterBody2D/Node2D
+	# instances created with .new(); the report dict above is fully materialized
+	# (sorted copies + value ints), so freeing them here releases their physics
+	# body / canvas-item RIDs and the InventoryData resource instead of leaking
+	# them at process exit. This report runs inside the smoke, so an unfreed fake
+	# surfaces as a "RID allocations leaked at exit" / "resources still in use"
+	# diagnostic. model and rng are RefCounted and free on scope exit.
+	player.free()
+	hall.free()
+	game.free()
+	return report
 
 
 func normalized_payload(report: Dictionary) -> Dictionary:

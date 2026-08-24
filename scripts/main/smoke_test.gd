@@ -193,6 +193,18 @@ func _check_res_fixture(name: String, ok: bool, detail: String = "") -> void:
 	print("SMOKE %s: %s%s" % ["PASS" if ok else "FAIL", name, (" — " + detail) if detail != "" else ""])
 
 
+## Write a smoke fixture PNG under res:// only when res:// is writable
+## (source/editor). In an exported PCK res:// is read-only, so the paired
+## _check_res_fixture check is skipped there anyway; skipping the write too keeps
+## the exported-smoke log free of the inherent, misleading engine error
+## "Can't save PNG at path: 'res://...'". No-op under an exported template build;
+## unchanged in source. The read-backs already tolerate the absent file.
+func _res_write_png(img: Image, res_path: String) -> void:
+	if OS.has_feature("template"):
+		return
+	img.save_png(res_path)
+
+
 func _run() -> void:
 	_start_ms = Time.get_ticks_msec()
 	var root: Node2D = get_parent()
@@ -2168,7 +2180,7 @@ func _run() -> void:
 	# explicit visual_assets override), and the fallback returns on removal.
 	var _fq07_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	_fq07_img.fill(Color(1.0, 0.0, 1.0))
-	_fq07_img.save_png("res://art/generated/blocks/smoke_tmp_dirt.png")
+	_res_write_png(_fq07_img, "res://art/generated/blocks/smoke_tmp_dirt.png")
 	BlockRegistry.visual_assets["categories"]["blocks"]["dirt"] = \
 		"art/generated/blocks/smoke_tmp_dirt.png"
 	BlockRegistry.clear_visual_cache()
@@ -2187,7 +2199,7 @@ func _run() -> void:
 	# (d) an explicit item override wins; removal returns to convention art.
 	var _fq07_item_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	_fq07_item_img.fill(Color(0.0, 1.0, 1.0))
-	_fq07_item_img.save_png("res://art/generated/items/smoke_tmp_wood.png")
+	_res_write_png(_fq07_item_img, "res://art/generated/items/smoke_tmp_wood.png")
 	BlockRegistry.visual_assets["categories"]["items"]["wood"] = \
 		"art/generated/items/smoke_tmp_wood.png"
 	BlockRegistry.clear_visual_cache()
@@ -2621,7 +2633,7 @@ func _run() -> void:
 		var _fq09v_src: Image = _fq09v_img_b
 		if "_a" in _fq09v_path or "_01" in _fq09v_path:
 			_fq09v_src = _fq09v_img_a
-		_fq09v_src.save_png(_fq09v_path)
+		_res_write_png(_fq09v_src, _fq09v_path)
 	BlockRegistry.visual_assets["categories"]["blocks"]["town_hall_core"] = [
 		"art/generated/blocks/smoke_tmp_dirt_a.png",
 		"art/generated/blocks/smoke_tmp_dirt_b.png"]
@@ -2875,7 +2887,7 @@ func _run() -> void:
 	var _fq09c_cel_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	_fq09c_cel_img.fill(Color(0.2, 0.6, 0.9))
 	for _fq09c_cp2 in _fq09c_cels:
-		_fq09c_cel_img.save_png(_fq09c_cp2)
+		_res_write_png(_fq09c_cel_img, _fq09c_cp2)
 	BlockRegistry.visual_assets["categories"]["opening"]["opening_01_first_star"] = [
 		"art/generated/opening/smoke_tmp_cel_a.png",
 		"art/generated/opening/smoke_tmp_cel_b.png"]
@@ -3314,7 +3326,7 @@ func _run() -> void:
 	var _fq09w_no_art: bool = BlockRegistry.visual_texture("back_walls", "smoke_tmp_wall") == null
 	var _fq09w_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	_fq09w_img.fill(Color(0.3, 0.25, 0.2))
-	_fq09w_img.save_png(_fq09w_tmp)
+	_res_write_png(_fq09w_img, _fq09w_tmp)
 	BlockRegistry.clear_visual_cache()
 	var _fq09w_with_art: bool = BlockRegistry.visual_texture("back_walls", "smoke_tmp_wall") != null
 	DirAccess.remove_absolute(_fq09w_tmp)
