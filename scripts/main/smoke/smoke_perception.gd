@@ -6,6 +6,7 @@ extends Node
 ## exactly as before.
 
 const PerceptionScript := preload("res://scripts/world/perception.gd")
+const SubjectScript := preload("res://scripts/entities/subject.gd")   # E2E resonance target
 
 
 func run(ctx) -> void:
@@ -99,9 +100,13 @@ func run(ctx) -> void:
 		"seen=%s unseen=%s no_vis=%s dims=%s" % [str(_rt_seen), str(_rt_unseen),
 			str(_rt_no_visible), str(_rt_dims)])
 
-	# --- Live-world wiring: off by default (COHERONIA_PERCEPTION unset), so the API
-	# is inert until enabled. Enable it, seed LOS at the player, verify the player's
-	# own cell is visible and the seen set persists, then RESTORE the shared world.
+	# --- Live-world wiring: the world-level veil API is inert until enable_perception()
+	# is called. In NORMAL gameplay game_root enables it per the `fog_of_war` world rule
+	# (default ON — see perception_fog_rule_default_contract); the deterministic
+	# smoke/screenshot/HUD-QA harnesses deliberately SUPPRESS that default (they never
+	# auto-enable it), so this check drives it explicitly, seeds LOS at the player,
+	# verifies the player's cell is visible and the seen set persists, then RESTORES the
+	# shared world.
 	var _off_default: bool = not world.perception_enabled() \
 		and world.perception_serialized().is_empty()
 	# Snapshot entity visibility so enabling the veil (which hides off-screen
@@ -234,3 +239,176 @@ func run(ctx) -> void:
 		_sh_owned and _sh_visible and _sh_clear and _sh_onscreen,
 		"owned=%s vis=%s clear=%s onscreen=%s sh=%s ev=%s" % [str(_sh_owned),
 			str(_sh_visible), str(_sh_clear), str(_sh_onscreen), str(_sh_rect), str(_ev_rect)])
+
+	# --- fog_of_war world-rule contract: normal gameplay defaults ON; an explicit
+	# saved/custom false stays OFF. game_root._perception_should_enable() suppresses the
+	# default under the smoke/screenshot/HUD-QA harnesses — it does NOT change this rule.
+	var _fog_default: bool = WorldConfig.new({}).rule("fog_of_war")
+	var _fog_custom_off: bool = WorldConfig.new({"rules": {"fog_of_war": false}}).rule("fog_of_war")
+	harness._check("perception_fog_rule_default_contract",
+		_fog_default and not _fog_custom_off,
+		"default=%s custom_off=%s" % [str(_fog_default), str(_fog_custom_off)])
+
+	# --- End-to-end Attunement through the veil. Stage an ore cell, an enemy, an NPC
+	# (subject), and a dropped item INSIDE the visible resonance region but behind a
+	# solid wall (out of line of sight). Assert the full contract: hidden before the
+	# pulse; a pulse highlights all four categories and force-shows the dynamic three
+	# THROUGH the veil while the ore joins the terrain batch; the fog itself is NOT
+	# lifted; re-pulsing refreshes rather than stacking; and after the pulse expires the
+	# highlights clear, the forced-visible set empties, and the three re-hide. Restores
+	# the shared world (terrain, player, entity visibility) exactly for later modules.
+	var _e2e_vis_snap: Array = []
+	for _e2e_grp in ["threats", "subjects", "item_drops"]:
+		for _e2e_n in get_tree().get_nodes_in_group(_e2e_grp):
+			if _e2e_n is Node2D:
+				_e2e_vis_snap.append([_e2e_n, (_e2e_n as Node2D).visible])
+	var _e2e_layer = root._resonance_layer
+	var _e2e_player_pos: Vector2 = player.global_position
+	var _e2e_hall: Vector2i = world.hall_info.get("center_cell", Vector2i(int(world.width / 2.0), 0))
+	var _e2e_x: int = _e2e_hall.x - 14
+	var _e2e_prow: int = int(world.surface.get(_e2e_x, _e2e_hall.y)) - 1   # air row just above ground
+	var _e2e_pcell := Vector2i(_e2e_x, _e2e_prow)
+	var _e2e_wall: Array = [Vector2i(_e2e_x + 3, _e2e_prow), Vector2i(_e2e_x + 3, _e2e_prow - 1)]
+	var _e2e_ore_cell := Vector2i(_e2e_x + 6, _e2e_prow)
+	var _e2e_enemy_cell := Vector2i(_e2e_x + 6, _e2e_prow - 1)
+	var _e2e_subj_cell := Vector2i(_e2e_x + 7, _e2e_prow)
+	var _e2e_item_cell := Vector2i(_e2e_x + 5, _e2e_prow)
+	var _e2e_touched: Array = _e2e_wall.duplicate()
+	_e2e_touched.append(_e2e_ore_cell)
+	var _e2e_orig: Dictionary = {}
+	for _tc in _e2e_touched:
+		_e2e_orig[_tc] = str(world.cells.get(_tc, ""))   # "" == was air (absent)
+	var _e2e_ore_id: String = str(world.ORE_IDS[4]) if world.ORE_IDS.size() > 4 else str(world.ORE_IDS[0])
+	# enable the veil, seat the player, clear any stale forced-visible set, centre camera.
+	world.enable_perception()
+	world.set_perception_force_visible({})
+	player.global_position = world.cell_center(_e2e_pcell)
+	player.velocity = Vector2.ZERO
+	var _e2e_cam: Camera2D = player.get_node("Camera2D")
+	_e2e_cam.reset_smoothing()
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	# build the occluding wall + the ore vein behind it.
+	for _wc in _e2e_wall:
+		world.cells[_wc] = "stone"
+		world._set_tile(_wc, "stone")
+	world.cells[_e2e_ore_cell] = _e2e_ore_id
+	world._set_tile(_e2e_ore_cell, _e2e_ore_id)
+	world.update_perception(_e2e_pcell, 16)
+	# stage the dynamic three behind the wall.
+	var _e2e_enemy: Node = root.spawn_enemy_for_test("surface_slime")
+	var _e2e_subj = SubjectScript.new()
+	world.add_child(_e2e_subj)                       # _ready() joins the "subjects" group
+	_e2e_subj.set_physics_process(false); _e2e_subj.set_process(false)
+	var _e2e_item: Node = world.spawn_item_drop(world.cell_center(_e2e_item_cell), "wood", 1)
+	if _e2e_enemy != null and _e2e_enemy is Node2D:
+		(_e2e_enemy as Node2D).global_position = world.cell_center(_e2e_enemy_cell)
+		_e2e_enemy.set_physics_process(false); _e2e_enemy.set_process(false)
+		if "velocity" in _e2e_enemy:
+			_e2e_enemy.set("velocity", Vector2.ZERO)
+	(_e2e_subj as Node2D).global_position = world.cell_center(_e2e_subj_cell)
+	for _gn in [_e2e_enemy, _e2e_subj, _e2e_item]:
+		if _gn != null:
+			world.gate_entity_visibility(_gn)
+	world.refresh_entity_visibility()
+	var _e2e_enemy_iid: int = _e2e_enemy.get_instance_id() if _e2e_enemy != null else 0
+	var _e2e_subj_iid: int = _e2e_subj.get_instance_id()
+	var _e2e_item_iid: int = _e2e_item.get_instance_id() if _e2e_item != null else 0
+	# BEFORE: the four target cells are out of LOS and the dynamic three are hidden.
+	var _e2e_cells_unseen: bool = not world.perception_is_visible(_e2e_ore_cell) \
+		and not world.perception_is_visible(_e2e_enemy_cell) \
+		and not world.perception_is_visible(_e2e_subj_cell) \
+		and not world.perception_is_visible(_e2e_item_cell)
+	var _e2e_hidden_before: bool = _e2e_enemy != null and not (_e2e_enemy as Node2D).visible \
+		and not (_e2e_subj as Node2D).visible \
+		and _e2e_item != null and not (_e2e_item as Node2D).visible
+	# FIRE the pulse.
+	root._on_attunement_resonance()
+	var _e2e_hl_enemy = root._resonance_highlights.get(_e2e_enemy_iid)
+	var _e2e_hl_subj = root._resonance_highlights.get(_e2e_subj_iid)
+	var _e2e_hl_item = root._resonance_highlights.get(_e2e_item_iid)
+	var _e2e_marked: bool = is_instance_valid(_e2e_hl_enemy) and is_instance_valid(_e2e_hl_subj) \
+		and is_instance_valid(_e2e_hl_item)
+	# ore joins the terrain resonance batch, in the ore category colour.
+	var _e2e_ore_center: Vector2 = world.cell_center(_e2e_ore_cell)
+	var _e2e_ore_in_batch := false
+	if root._resonance_terrain_node != null and is_instance_valid(root._resonance_terrain_node):
+		for _be in root._resonance_terrain_node._cells:
+			if (_be[0] as Vector2).is_equal_approx(_e2e_ore_center):
+				_e2e_ore_in_batch = (_be[1] as Color).is_equal_approx(root.RESONANCE_ORE_COLOR)
+				break
+	# the dynamic three are force-shown THROUGH the veil.
+	var _e2e_forced_visible: bool = (_e2e_enemy as Node2D).visible \
+		and (_e2e_subj as Node2D).visible and (_e2e_item as Node2D).visible
+	# the fog itself is NOT lifted — the underlying cells stay out of LOS.
+	var _e2e_fog_intact: bool = not world.perception_is_visible(_e2e_ore_cell) \
+		and not world.perception_is_visible(_e2e_enemy_cell) \
+		and not world.perception_is_visible(_e2e_subj_cell)
+	# RE-PULSE refreshes, does not stack (same highlight count + same nodes).
+	var _e2e_hl_count: int = root._resonance_highlights.size()
+	root._on_attunement_resonance()
+	var _e2e_no_stack: bool = root._resonance_highlights.size() == _e2e_hl_count \
+		and root._resonance_highlights.get(_e2e_enemy_iid) == _e2e_hl_enemy \
+		and root._resonance_highlights.get(_e2e_item_iid) == _e2e_hl_item
+	# EXPIRE: age each highlight past its life, drop the pulse, reconcile visibility.
+	var _e2e_dur: float = root._resonance_duration()
+	for _hk in root._resonance_highlights.keys():
+		var _hn = root._resonance_highlights[_hk]
+		if is_instance_valid(_hn):
+			_hn._process(_e2e_dur + 1.0)
+	if root._resonance_terrain_node != null and is_instance_valid(root._resonance_terrain_node):
+		root._resonance_terrain_node._process(_e2e_dur + 1.0)
+	root._advance_resonance_travel(_e2e_dur + 1.0)
+	await get_tree().process_frame
+	root._reconcile_resonance_visibility()
+	world.refresh_entity_visibility()
+	var _e2e_hl_gone: bool = not is_instance_valid(_e2e_hl_enemy) \
+		and not is_instance_valid(_e2e_hl_subj) and not is_instance_valid(_e2e_hl_item)
+	var _e2e_force_empty: bool = world._force_visible_ids.is_empty()
+	var _e2e_hidden_after: bool = _e2e_enemy != null and not (_e2e_enemy as Node2D).visible \
+		and not (_e2e_subj as Node2D).visible \
+		and _e2e_item != null and not (_e2e_item as Node2D).visible
+	# CLEANUP — free the staged three, clear the layer/state, restore terrain, player,
+	# the veil, and the entity-visibility snapshot so later modules are undisturbed.
+	for _fn in [_e2e_enemy, _e2e_subj, _e2e_item]:
+		if _fn != null and is_instance_valid(_fn):
+			for _g in ["threats", "subjects", "item_drops"]:
+				if _fn.is_in_group(_g):
+					_fn.remove_from_group(_g)
+			_fn.queue_free()
+	root._resonance_remaining = 0.0
+	root._resonance_terrain_node = null
+	root._resonance_highlights.clear()
+	if _e2e_layer != null:
+		for _rc in _e2e_layer.get_children():
+			_rc.queue_free()
+	root._status_effects.clear()
+	root._refresh_status_hud()
+	for _tc in _e2e_touched:
+		var _o: String = str(_e2e_orig[_tc])
+		if _o == "":
+			world.cells.erase(_tc); world._set_tile(_tc, "air")
+		else:
+			world.cells[_tc] = _o; world._set_tile(_tc, _o)
+	world.disable_perception()
+	if player.has_method("teleport"):
+		player.teleport(_e2e_player_pos)
+	else:
+		player.global_position = _e2e_player_pos
+		player.velocity = Vector2.ZERO
+	await get_tree().process_frame
+	for _entry in _e2e_vis_snap:
+		if is_instance_valid(_entry[0]):
+			(_entry[0] as Node2D).visible = _entry[1]
+	if root.settlement != null and root.settlement.has_method("compute"):
+		root.settlement.compute()
+	if root.has_method("_refresh_threat_display"):
+		root._refresh_threat_display()
+	harness._check("perception_resonance_e2e_through_fog",
+		_e2e_cells_unseen and _e2e_hidden_before and _e2e_marked and _e2e_ore_in_batch \
+		and _e2e_forced_visible and _e2e_fog_intact and _e2e_no_stack \
+		and _e2e_hl_gone and _e2e_force_empty and _e2e_hidden_after,
+		"unseen=%s hid0=%s marked=%s ore=%s forced=%s fog=%s nostack=%s gone=%s empty=%s hid1=%s" % [
+			str(_e2e_cells_unseen), str(_e2e_hidden_before), str(_e2e_marked), str(_e2e_ore_in_batch),
+			str(_e2e_forced_visible), str(_e2e_fog_intact), str(_e2e_no_stack),
+			str(_e2e_hl_gone), str(_e2e_force_empty), str(_e2e_hidden_after)])

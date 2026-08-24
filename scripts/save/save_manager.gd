@@ -128,8 +128,9 @@ func apply_state(state: Dictionary) -> bool:
 	# FQ-15: restore the discovered map bands (compact, presentation/nav only).
 	game_root.apply_map_revealed(state.get("map_revealed", []))
 	# Perception + Resonance: stash the restored seen set; world.enable_perception
-	# (game_root setup, only when COHERONIA_PERCEPTION=1) adopts it. Missing key
-	# (legacy save / feature off) leaves the character to re-reveal as they move.
+	# (called by game_root per the `fog_of_war` world rule — ON by default, suppressed
+	# under the dev harnesses) adopts it. Missing key (legacy save / fog off) leaves the
+	# character to re-reveal as they move.
 	world.set_perception_seen_pending(state.get("perception_seen", {}))
 
 	var p: Dictionary = state.get("player", {})

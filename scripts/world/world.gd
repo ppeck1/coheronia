@@ -91,8 +91,9 @@ var _sky_tex_dirty := true
 
 # Perception + Resonance arc: the tile-aligned perception veil. `_perception` is the
 # pure LOS + seen-memory model; `_perception_tex` is a width*height R8 mask the shared
-# cave material samples. Opt-in (COHERONIA_PERCEPTION=1 -> game_root calls
-# enable_perception) so existing screenshots/smoke stay byte-identical by default.
+# cave material samples. game_root calls enable_perception() per the `fog_of_war` world
+# rule (ON by default for gameplay; the dev harnesses suppress it so their evidence and
+# curated screenshots stay byte-identical).
 var _perception: RefCounted
 var _perception_img: Image
 var _perception_tex: ImageTexture
@@ -1022,8 +1023,8 @@ func set_sky_admission(dir: Vector2, strength: float) -> void:
 
 ## Perception + Resonance: turn on the tile-aligned perception veil. Rides on the
 ## shared cave material (so it is A/B-off wherever the cave shader is off), and adopts
-## any restored seen memory. Called by game_root only when COHERONIA_PERCEPTION=1, so
-## the default build is byte-identical to before.
+## any restored seen memory. game_root calls this per the `fog_of_war` world rule (ON by
+## default; suppressed under the smoke/screenshot/HUD-QA harnesses).
 func enable_perception() -> void:
 	if _cave_material == null:
 		return

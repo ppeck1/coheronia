@@ -18,7 +18,7 @@ unrelated `d008589` F3-debug commit was deliberately excluded); the arc also sti
 on `feat/perception-veil`. The combined branch is **not merged to main and not pushed**.
 Plan: `C:\Users\peckm\.claude\plans\vivid-plotting-cosmos.md` (operator-local).
 
-**What it adds (integrated branch: windowed source smoke 572/572, Windows export 566/566):**
+**What it adds (integrated branch: windowed source smoke 575/575, Windows export 569/569):**
 - **Fog of war** — a 360° line-of-sight veil (recursive shadowcasting + corner-pinch
   propagation, `scripts/world/perception.gd`) grading each cell VISIBLE / REMEMBERED
   (persisted silhouette) / UNSEEN, rendered by the shared `cave_depth.gdshader` with a
@@ -38,6 +38,22 @@ Plan: `C:\Users\peckm\.claude\plans\vivid-plotting-cosmos.md` (operator-local).
 (operator choice); the Phase C **Prospector** variant EXTENDS ore-sense (range/depth/
 through-rock), it is not the only ore sense. Resonance duration is intentionally longer
 than the data-driven light pulse; `RESONANCE_DURATION_SEC` is the single authority.
+
+**Perception verification — what proves what (do not conflate):**
+- `perception_seen_roundtrip` is a **pure serialization** test (base64 encode → decode of
+  the seen-set; no world/save involved).
+- `perception_resonance_e2e_through_fog` is the **live end-to-end** contract: staged ore +
+  enemy + NPC + item behind a solid wall, out of LOS but in the visible region — a pulse
+  highlights all four categories and force-shows the dynamic three **through** the veil
+  (fog itself NOT lifted), re-pulsing refreshes without stacking, and on expiry the
+  highlights clear, the forced-visible set empties, and the three re-hide.
+- `perception_fog_rule_default_contract` pins `WorldConfig.new({}).rule("fog_of_war") ==
+  true` and an explicit custom `false` staying false.
+- **Actual save/reload evidence** of remembered terrain is the `42d_remembered_after_reload`
+  capture (serialize the seen-set → reload into a fresh veil → previously-seen terrain
+  renders as dimmed REMEMBERED, not black) plus the `save_manager` `perception_seen` wiring.
+  Staged reveal frames: `42a_fog_targets_hidden` → `42b_resonance_reveals` →
+  `42c_resonance_expired` under `docs/screenshots/`.
 
 **Remaining:** Phase C (Calling detection variants — Prospector/Trailseeker/Warden/etc.,
 hooks already stubbed), Phase D (balance: pulse cost/regen/range/duration), refresh

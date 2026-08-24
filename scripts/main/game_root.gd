@@ -38,7 +38,8 @@ const STORM_TINT := Color(0.55, 0.58, 0.66)
 # torches/lanterns/the pulse stay the readable local lights.
 const CAVE_TINT := Color(0.10, 0.11, 0.16)
 const CAVE_FADE_CELLS := 6.0   # smooth band below the local sky line
-# Perception + Resonance (opt-in via COHERONIA_PERCEPTION=1). Sight radius in cells:
+# Perception + Resonance (fog-of-war veil; ON by default via the `fog_of_war` world rule,
+# suppressed under the dev harnesses). Sight radius in cells:
 # a base LOS range, widened in open daylight and pinched at night/underground. These
 # are prototype values, tuned in the Phase A readability playtest.
 const PERCEPTION_RADIUS_BASE := 18
@@ -222,8 +223,9 @@ func _ready() -> void:
 	# local sky line (minus the viewer's depth), so a mined cross-section viewed
 	# from the surface finally reads dark instead of lit-from-the-surface.
 	world.enable_cave_depth_shading(CAVE_TINT, CAVE_FADE_CELLS)
-	# Perception + Resonance arc (Phase A): opt-in so the default build / existing
-	# screenshots + smoke stay byte-identical. A restored seen set was stashed into
+	# Perception + Resonance arc: the veil follows the `fog_of_war` world rule (ON by
+	# default; the dev harnesses suppress it so their evidence stays byte-identical). A
+	# restored seen set was stashed into
 	# world by apply_state above; enable_perception adopts it, then we seed LOS from
 	# the player's spawn cell.
 	if _perception_should_enable():
@@ -983,9 +985,11 @@ func _advance_time(delta: float) -> void:
 			float(_perception_radius()) * _ts, PERCEPTION_EDGE_TILES * _ts)
 
 
-## Perception is on when the map's "fog_of_war" cheat rule is set, or forced by the
-## COHERONIA_PERCEPTION dev env override. Default rule is OFF, so existing maps and
-## the smoke/screenshot builds are unchanged until a map opts in.
+## Perception (the fog-of-war veil) is on when the map's `fog_of_war` world rule is set —
+## which DEFAULTS ON for ordinary gameplay (see world_settings.json defaults) — or is
+## force-enabled by the COHERONIA_PERCEPTION dev override. The deterministic dev harnesses
+## (smoke / screenshot tour / HUD QA) SUPPRESS that default below unless the override is
+## set, so the baseline fog never perturbs their evidence or curated screenshots.
 func _perception_should_enable() -> bool:
 	if OS.get_environment("COHERONIA_PERCEPTION") == "1":
 		return true

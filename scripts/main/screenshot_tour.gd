@@ -687,6 +687,86 @@ func _shoot_perception(root: Node2D, world: Node2D, player: CharacterBody2D, hud
 		await get_tree().physics_frame
 	await _shot("41_resonance_pulse")
 
+	# --- Staged behind-wall evidence: the targets sit OUT of line of sight behind a
+	# solid stone wall (not merely nearby inside a big radius). Proves a pulse reveals
+	# the enemy, NPC, item, and ore vein THROUGH the veil, that they re-hide on expiry,
+	# and that remembered terrain survives a serialize/reload of the seen-set.
+	world.setup(4242)
+	root._position_actors()
+	hud.visible = false                # isolate the staged targets from HUD chrome
+	world.enable_perception()
+	world.set_perception_force_visible({})
+	world.fluid_paused = true           # keep any nearby liquid out of the carved chamber
+	var s_uc: Vector2i = world.hall_info["center_cell"]
+	# Carve a wide UNDERGROUND room (unseen rock reads dark, so the veil is dramatic),
+	# then split it with a full-height solid wall: the player + a torch light the near
+	# half; the ore vein, enemy, NPC, and dropped item sit in the UNSEEN far half.
+	var s_home := Vector2i(s_uc.x, int(world.hall_info["ground_y"]) + 16)
+	for s_ry in range(-3, 4):
+		for s_rx in range(-5, 10):
+			world.break_block(s_home + Vector2i(s_rx, s_ry))
+	var s_floor := s_home.y + 3          # bottom air row (rests on solid below)
+	world.place_block(s_home + Vector2i(-4, 3), "torch")
+	for s_wy in range(-3, 4):
+		var s_wc: Vector2i = s_home + Vector2i(3, s_wy)
+		world.cells[s_wc] = "stone"; world._set_tile(s_wc, "stone")
+	var s_ore := Vector2i(s_home.x + 6, s_floor)
+	world.cells[s_ore] = "iron_ore"; world._set_tile(s_ore, "iron_ore")
+	player.global_position = world.cell_center(Vector2i(s_home.x - 3, s_floor))
+	player.velocity = Vector2.ZERO
+	cam.zoom = Vector2(2.1, 2.1)
+	cam.reset_smoothing()
+	for _sp in range(6):
+		await get_tree().physics_frame
+	world.update_perception(world.cell_of(player.global_position), 16)
+	var s_ts := float(world.tile_size())
+	var s_enemy: Node = root.spawn_enemy_for_test("surface_slime")
+	var s_subj: Node = root._spawn_citizen("farmhand")
+	var s_item: Node = world.spawn_item_drop(world.cell_center(Vector2i(s_home.x + 5, s_floor)), "wood", 2)
+	for s_pair in [[s_enemy, Vector2i(s_home.x + 6, s_floor - 1)], [s_subj, Vector2i(s_home.x + 7, s_floor)]]:
+		var s_nn: Node = s_pair[0]
+		if s_nn != null and s_nn is Node2D:
+			(s_nn as Node2D).global_position = world.cell_center(s_pair[1])
+			s_nn.set_physics_process(false); s_nn.set_process(false)
+	for s_gn in [s_enemy, s_subj, s_item]:
+		if s_gn != null:
+			world.gate_entity_visibility(s_gn)
+	world.refresh_entity_visibility()
+	root.canvas_modulate.color = root.ambient_target_color()
+	world.set_perception_view(player.global_position, 16.0 * s_ts, root.PERCEPTION_EDGE_TILES * s_ts)
+	await _shot("42a_fog_targets_hidden")
+	root._on_attunement_resonance()
+	for _sp2 in range(10):
+		await get_tree().physics_frame
+	await _shot("42b_resonance_reveals")
+	# Expire the pulse deterministically (age highlights past their life), then reconcile.
+	var s_dur: float = root._resonance_duration()
+	for s_hk in root._resonance_highlights.keys():
+		var s_hn = root._resonance_highlights[s_hk]
+		if is_instance_valid(s_hn):
+			s_hn._process(s_dur + 1.0)
+	if root._resonance_terrain_node != null and is_instance_valid(root._resonance_terrain_node):
+		root._resonance_terrain_node._process(s_dur + 1.0)
+	root._advance_resonance_travel(s_dur + 1.0)
+	await get_tree().process_frame
+	root._reconcile_resonance_visibility()
+	world.refresh_entity_visibility()
+	await _shot("42c_resonance_expired")
+	# Remembered terrain after a save/reload of the seen-set: serialize the seen-set,
+	# reload it into a FRESH veil, then tighten sight so the room seen at radius 16 is
+	# now out of LOS. Without persistence it would read black (unseen); with the reloaded
+	# seen-set it renders as dimmed REMEMBERED terrain — the save/reload proof, in-frame.
+	var s_blob: Dictionary = world.perception_serialized()
+	world.disable_perception()
+	world.enable_perception()
+	world.set_perception_seen_pending(s_blob)
+	var s_here: Vector2i = world.cell_of(player.global_position)
+	world.update_perception(s_here, 3)
+	world.set_perception_view(player.global_position, 3.0 * s_ts, root.PERCEPTION_EDGE_TILES * s_ts)
+	for _sp3 in range(4):
+		await get_tree().physics_frame
+	await _shot("42d_remembered_after_reload")
+
 
 func _shot(shot_name: String) -> void:
 	for i in range(20):
