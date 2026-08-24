@@ -464,8 +464,23 @@ def run_exported_smoke(artifact: Path) -> bool:
     return not failures
 
 
+def project_version() -> str:
+    """Read application/config/version from project.godot — the single semantic
+    version source (the export presets carry the numeric PE quad separately).
+    Returns '0.0.0' if unset so build metadata never lies about the version."""
+    try:
+        for line in (ROOT / "project.godot").read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("config/version"):
+                return stripped.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+    return "0.0.0"
+
+
 def write_build_info(dirpath: Path, preset: str) -> None:
     info = {
+        "version": project_version(),
         "commit": commit_hash(),
         "built_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "godot": "4.6.1.stable",
