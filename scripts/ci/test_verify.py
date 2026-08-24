@@ -104,10 +104,12 @@ class LifecycleLeakTests(unittest.TestCase):
 
 
 class UnexpectedErrorTests(unittest.TestCase):
-    def test_allowlisted_json_corruption_is_ok(self):
-        # The corruption-recovery checks legitimately print this.
+    def test_no_allowlist_json_error_is_flagged(self):
+        # There is deliberately no allowlist: corrupt-save recovery is silent at
+        # the source (game_state uses JSON.new().parse()), so a surviving
+        # "Parse JSON failed" ERROR is unexpected and must be flagged.
         text = "ERROR: Parse JSON failed. Error at line 0: Expected key\n"
-        self.assertEqual(verify.scan_unexpected_errors(text), [])
+        self.assertEqual(len(verify.scan_unexpected_errors(text)), 1)
 
     def test_leak_and_fatal_lines_not_double_reported(self):
         text = ("ERROR: 3 RID allocations of type 'X' were leaked at exit.\n"
@@ -217,12 +219,12 @@ class EvaluateRunTests(unittest.TestCase):
             msgs = verify.evaluate_run("SRC", 0, out, path, expected_commit=COMMIT)
             self.assertTrue(any("unexpected Godot error" in m for m in msgs))
 
-    def test_allowlisted_json_error_does_not_fail_run(self):
+    def test_json_error_now_fails_run(self):
+        # With the allowlist removed, a "Parse JSON failed" ERROR fails the run.
         with ResultFixture(make_result(["a", "b"])) as path:
             out = "ERROR: Parse JSON failed. Error at line 0: Expected key\nSMOKE PASS\n"
-            self.assertEqual(
-                verify.evaluate_run("SRC", 0, out, path, expected_commit=COMMIT,
-                                    require_zero_skips=True), [])
+            msgs = verify.evaluate_run("SRC", 0, out, path, expected_commit=COMMIT)
+            self.assertTrue(any("unexpected Godot error" in m for m in msgs))
 
     def test_stale_missing_result_fails(self):
         # prepare_results deletes any prior file; if the run writes none, the
@@ -253,6 +255,33 @@ class EvaluateRunTests(unittest.TestCase):
                 verify.evaluate_run("EXPORT", 0, "SMOKE PASS\n", path,
                                     expected_commit=COMMIT,
                                     exact_skip_allowlist=allow), [])
+
+
+class ProjectVersionTests(unittest.TestCase):
+    def test_valid_prerelease(self):
+        self.assertEqual(
+            verify.parse_project_version('config/version="0.7.0-alpha"'), "0.7.0-alpha")
+
+    def test_valid_plain(self):
+        self.assertEqual(
+            verify.parse_project_version('[application]\nconfig/version="1.2.3"\n'), "1.2.3")
+
+    def test_missing_key_raises(self):
+        with self.assertRaises(ValueError):
+            verify.parse_project_version('config/name="Coheronia"\nconfig/features="4.6"\n')
+
+    def test_malformed_raises(self):
+        with self.assertRaises(ValueError):
+            verify.parse_project_version('config/version="0.7"\n')
+
+    def test_empty_value_raises(self):
+        with self.assertRaises(ValueError):
+            verify.parse_project_version('config/version=""\n')
+
+    def test_does_not_match_config_features(self):
+        # A near-miss key must not be mistaken for config/version.
+        with self.assertRaises(ValueError):
+            verify.parse_project_version('config/version_note="1.0.0"\n')
 
 
 class PrepareResultsTests(unittest.TestCase):

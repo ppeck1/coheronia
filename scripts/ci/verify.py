@@ -41,6 +41,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -85,18 +86,13 @@ LIFECYCLE_LEAK_MARKERS = (
     "Resource still in use:",         # per-resource --verbose detail
 )
 
-# Engine "ERROR:" lines that are INTENTIONALLY produced by a named smoke check
-# and are therefore allowed. Keep this minimal and cite the owning check: every
-# other "ERROR:" line in Godot output is treated as an unexpected engine error
-# and fails the run, so genuine errors stay conspicuous instead of scrolling past
-# in a green log. This is the ONLY sanctioned way to silence an engine error.
-ALLOWED_ERROR_SUBSTRINGS = (
-    # smoke_persistence.gd (checks r02_atomic_write_backup_recover_quarantine and
-    # r02_shell_world_integrity) writes deliberately corrupt JSON to prove the
-    # atomic-write loader recovers from the .bak and quarantines the bad primary;
-    # the loader logs "Parse JSON failed ..." by design when it reads that file.
-    "Parse JSON failed",
-)
+# NOTE: there is intentionally NO allowlist of "expected" engine ERROR lines.
+# A substring allowlist could not tell WHERE an error originated, so it would
+# also excuse an unrelated failure of the same shape. Instead, any code path that
+# legitimately hits a recoverable error must stay silent at the source (e.g.
+# game_state._json_object_or_null uses JSON.new().parse() so corrupt-save recovery
+# emits no engine error). Every "ERROR:" line in Godot output is therefore treated
+# as unexpected and fails the run.
 
 # Keys the smoke result writer (smoke_test.gd:_write_result_file) always emits.
 REQUIRED_RESULT_KEYS = (
@@ -146,11 +142,11 @@ def scan_lifecycle_leaks(output: str) -> list[str]:
 
 
 def scan_unexpected_errors(output: str) -> list[str]:
-    """Return Godot "ERROR:" lines that are neither an allowlisted intentional
-    diagnostic, an already-classified lifecycle leak, nor a fatal marker.
-
-    These are unexpected engine errors; failing on them keeps a genuine runtime
-    error conspicuous instead of letting it scroll past under a PASS-shaped log.
+    """Return Godot "ERROR:" lines that are not an already-classified lifecycle
+    leak or fatal marker. There is no allowlist: recoverable paths must be silent
+    at the source, so any surviving "ERROR:" line is unexpected and fails the run,
+    keeping a genuine runtime error conspicuous instead of scrolling past a green
+    log.
     """
     text = output or ""
     hits: list[str] = []
@@ -161,8 +157,6 @@ def scan_unexpected_errors(output: str) -> list[str]:
             continue  # already reported by scan_fatal_markers
         if any(marker in raw for marker in LIFECYCLE_LEAK_MARKERS):
             continue  # already reported (more specifically) by scan_lifecycle_leaks
-        if any(allowed in raw for allowed in ALLOWED_ERROR_SUBSTRINGS):
-            continue  # intentional, asserted by a named smoke check
         hits.append(raw.strip())
     return hits
 
@@ -464,18 +458,35 @@ def run_exported_smoke(artifact: Path) -> bool:
     return not failures
 
 
+# SemVer-ish: MAJOR.MINOR.PATCH with an optional -prerelease label (e.g.
+# "0.7.0-alpha"). Anything else is malformed and must fail the release build.
+_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$")
+
+
+def parse_project_version(text: str) -> str:
+    """Extract + validate application/config/version from project.godot text.
+
+    Raises ValueError when the key is absent or the value is malformed. A release
+    build must never carry fabricated/placeholder version metadata, so this fails
+    closed rather than defaulting.
+    """
+    for line in text.splitlines():
+        key, sep, rhs = line.strip().partition("=")
+        if sep and key.strip() == "config/version":
+            value = rhs.strip().strip('"')
+            if not _VERSION_RE.match(value):
+                raise ValueError(
+                    f"project.godot config/version is malformed: {value!r}")
+            return value
+    raise ValueError("project.godot has no application/config/version")
+
+
 def project_version() -> str:
-    """Read application/config/version from project.godot — the single semantic
+    """Read + validate the semantic version from project.godot — the single
     version source (the export presets carry the numeric PE quad separately).
-    Returns '0.0.0' if unset so build metadata never lies about the version."""
-    try:
-        for line in (ROOT / "project.godot").read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if stripped.startswith("config/version"):
-                return stripped.split("=", 1)[1].strip().strip('"')
-    except OSError:
-        pass
-    return "0.0.0"
+    Raises on missing/malformed/unreadable so a bad release fails fast."""
+    return parse_project_version(
+        (ROOT / "project.godot").read_text(encoding="utf-8"))
 
 
 def write_build_info(dirpath: Path, preset: str) -> None:

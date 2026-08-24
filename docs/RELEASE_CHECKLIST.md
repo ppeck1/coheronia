@@ -5,11 +5,18 @@ day-to-day status lives in [`HANDOFF.md`](HANDOFF.md). Nothing here is executed
 automatically — a human runs it and confirms each gate. Do **not** tag while any
 required gate is red.
 
-Semantic version source of truth: `application/config/version` in
-`project.godot` (currently `0.7.0-alpha`). The Windows PE numeric quad lives in
-`export_presets.cfg` (`application/file_version` / `product_version`,
-`0.7.0.0`). `build/build_info.json` echoes the semantic version + commit at
-export time. Keep the three in agreement; bump them together.
+One version, three encodings — keep them in lockstep (bump together):
+
+| Encoding | Location | v0.7 value |
+|---|---|---|
+| Semantic (source of truth) | `project.godot` `application/config/version` | `0.7.0-alpha` |
+| Windows PE numeric quad | `export_presets.cfg` `file_version` / `product_version` | `0.7.0.0` |
+| Git tag | prerelease tag | `v0.7.0-alpha` |
+
+`build/build_info.json` echoes the semantic version + commit at export time
+(the verifier now *fails the build* if `config/version` is missing or malformed,
+so the metadata can never be silently fabricated). The PE quad is the numeric-only
+form of the same version (no `-alpha` label — Windows requires four integers).
 
 ## 1. Required CI checks (green before anything else)
 
@@ -64,8 +71,8 @@ lines. (Linux export: same with `--export-preset "Linux/X11"` on Linux.)
 
 ## 6. Version metadata
 
-- `project.godot` `config/version`, `export_presets.cfg` file/product version,
-  and the intended git tag agree (`0.7.0-alpha` / `0.7.0.0` / `v0.7-alpha`).
+- The three encodings above match: semantic `0.7.0-alpha` (`project.godot`), PE
+  quad `0.7.0.0` (`export_presets.cfg`), git tag `v0.7.0-alpha`.
 - `build/build_info.json` shows the expected `version` + release `commit`.
 
 ## 7. Changelog + known issues
@@ -78,7 +85,7 @@ lines. (Linux export: same with `--export-preset "Linux/X11"` on Linux.)
 ## 8. Tag / prerelease
 
 - Only after **all** gates above are green:
-  - `git tag -a v0.7-alpha -m "Coheronia v0.7-alpha"`
+  - `git tag -a v0.7.0-alpha -m "Coheronia v0.7.0-alpha"`
   - Push the tag; create a GitHub **prerelease** (mark "pre-release").
   - Attach the CI-built Linux + Windows artifacts (`coheronia`,
     `coheronia.exe`, `.pck`, `build_info.json`).
@@ -86,7 +93,7 @@ lines. (Linux export: same with `--export-preset "Linux/X11"` on Linux.)
 ## 9. Rollback
 
 - A prerelease is non-destructive: delete the GitHub release and
-  `git push --delete origin v0.7-alpha` to retract. No user saves are affected
+  `git push --delete origin v0.7.0-alpha` to retract. No user saves are affected
   (save format unchanged). If a bad commit reached `main`, revert forward with a
   new commit rather than rewriting history.
 
