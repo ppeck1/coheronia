@@ -29,6 +29,11 @@ func _run() -> void:
 		print("SHOTS complete (celestial) -> user://shots")
 		get_tree().quit(0)
 		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "perc":
+		await _shoot_perception(root, world, player, hud)
+		print("SHOTS complete (perception) -> user://shots")
+		get_tree().quit(0)
+		return
 	world.setup(4242)
 	root._position_actors()
 	player.get_node("Camera2D").reset_smoothing()
@@ -600,6 +605,60 @@ func _shoot_celestial(root: Node2D, world: Node2D, player: CharacterBody2D, hud:
 	cel._redraw_sky()
 	cam.reset_smoothing()
 	await _shot("36_shaft_occlusion")
+
+
+## Perception + Resonance showcase: the fog veil underground, then an Attunement
+## resonance pulse lighting up the objects of interest through it.
+func _shoot_perception(root: Node2D, world: Node2D, player: CharacterBody2D, hud: CanvasLayer) -> void:
+	world.setup(4242)
+	root._position_actors()
+	var cam: Camera2D = player.get_node("Camera2D")
+	cam.zoom = Vector2(1.7, 1.7)
+	world.enable_perception()
+	var uc: Vector2i = world.hall_info["center_cell"]
+	var ugy: int = world.hall_info["ground_y"]
+	# Carve a small underground room with a torch, and seat the player in it.
+	var home := Vector2i(uc.x, ugy + 14)
+	for ry in range(-2, 3):
+		for rx in range(-4, 5):
+			world.break_block(home + Vector2i(rx, ry))
+	world.place_block(home + Vector2i(-3, 2), "torch")
+	player.global_position = world.cell_center(home)
+	player.velocity = Vector2.ZERO
+	root.canvas_modulate.color = root.ambient_target_color()
+	cam.reset_smoothing()
+	var ts := float(world.tile_size())
+	var radius := 16
+	# Reveal an adjacent spot first so some terrain reads as REMEMBERED, then here.
+	world.update_perception(home + Vector2i(-9, 0), radius)
+	world.update_perception(world.cell_of(player.global_position), radius)
+	world.set_perception_view(player.global_position, float(radius) * ts, root.PERCEPTION_EDGE_TILES * ts)
+	await _shot("40_perception_veil")
+
+	# Resonance on the surface by the hall, where a pulse lights up the most: the town
+	# hall + settlers (green), dropped items (gold), and a staged enemy (red).
+	root.time_of_day = 0.3
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	cam.zoom = Vector2(1.5, 1.5)
+	var surface_cell := Vector2i(uc.x, ugy - 2)
+	player.global_position = world.cell_center(surface_cell)
+	player.velocity = Vector2.ZERO
+	cam.reset_smoothing()
+	var surf_radius := 22
+	world.update_perception(world.cell_of(player.global_position), surf_radius)
+	world.set_perception_view(player.global_position, float(surf_radius) * ts, root.PERCEPTION_EDGE_TILES * ts)
+	world.spawn_item_drop(world.cell_center(Vector2i(uc.x - 4, ugy - 2)), "wood", 3)
+	world.spawn_item_drop(world.cell_center(Vector2i(uc.x + 3, ugy - 2)), "iron_ore", 2)
+	var en: Node = root.spawn_enemy_for_test("surface_slime")
+	if en != null and en is Node2D:
+		(en as Node2D).global_position = world.cell_center(Vector2i(uc.x + 6, ugy - 2))
+	for _i in range(10):
+		await get_tree().physics_frame
+	root._on_attunement_resonance()
+	for _j in range(12):
+		await get_tree().physics_frame
+	await _shot("41_resonance_pulse")
 
 
 func _shot(shot_name: String) -> void:

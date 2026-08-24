@@ -65,6 +65,7 @@ var _stock_empty_label: Label
 var _save_label: Label   # no longer built (FQ-19); kept for the null-guarded setter
 var _has_save_hint := false
 var _debug_label: Label
+var _debug_settlement_text := ""   # C/L/R inputs block, refreshed on settlement compute
 var _top_left_box: Control
 # FQ-21 contract v2: the primary dock is one native-size layered kit whose
 # decorative chrome and runtime-content rectangles come from JSON. The sliced
@@ -100,6 +101,7 @@ var _module_toolbar: Control
 var _command_center_panel: PanelContainer
 # FQ-14: compact, state-driven current-goal panel (top-center; toggle_goals hides it).
 var _goal_panel: PanelContainer
+var _status_hud: Control   # timed status-effect countdown stack (owned here; pinned below the crest)
 var _goal_label: Label
 var _goal_hint: Label
 var _goal_progress: ProgressBar   # FQ-19: milestone strip (index/total)
@@ -124,6 +126,7 @@ const InventorySlotCellScript := preload("res://scripts/ui/inventory_slot_cell.g
 var _skill_panel: PanelContainer
 # FQ-15: map/minimap panel (M); hidden until opened, fed a snapshot by game_root.
 const MapPanelScript := preload("res://scripts/ui/map_panel.gd")
+const StatusEffectsHudScript := preload("res://scripts/ui/status_effects_hud.gd")
 # R-06.1: stateless painted-chrome / theme resolver + slicer-geometry parsers.
 const HudChrome := preload("res://scripts/ui/hud/hud_chrome.gd")
 # R-06.2: stateless HUD edit-mode geometry math (measure / min-max / grip / clamp).
@@ -208,6 +211,7 @@ const HUD_LAYOUT_VERSION := 7
 func _ready() -> void:
 	_hud_visual_theme = _initial_hud_visual_theme()
 	_build_top_left()
+	_build_status_hud()
 	_build_bottom_left()
 	_wire_hotbar_clicks()
 	_build_command_center_widget()
@@ -251,6 +255,11 @@ func _process(_delta: float) -> void:
 		return
 	if Input.is_action_just_pressed("debug_overlay"):
 		_debug_label.visible = not _debug_label.visible
+	if _debug_label != null and _debug_label.visible:
+		# Live frame/scale diagnostics on top of the C/L/R block, so the source of any
+		# residual motion shimmer (frame pacing vs fractional pixel scale) is measurable
+		# rather than guessed — compare the numbers across two worlds while jumping.
+		_debug_label.text = _debug_frame_diagnostics() + "\n" + _debug_settlement_text
 	if Input.is_action_just_pressed("toggle_goals"):
 		_toggle_goal_module()
 
@@ -2361,6 +2370,30 @@ func _make_item_tile(parent: Control, item_id: String, count: int,
 ## Map/Events zone (their default bottom is 236) so the three surfaces can
 ## never collide. Fixed child order is the display priority: selected item,
 ## save toast, interaction prompt. Every entry autowraps and auto-hides.
+func _build_status_hud() -> void:
+	_status_hud = StatusEffectsHudScript.new()
+	_status_hud.name = "StatusEffectsHud"
+	_status_hud.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	add_child(_status_hud)
+
+
+## Drive the timed status-effect stack (game_root owns the model) and pin it just BELOW
+## the crest on the LEFT, so it never collides with the top-right Events module.
+func update_status_effects(effects: Array) -> void:
+	if _status_hud == null:
+		return
+	var below := 12.0
+	if _top_left_box != null and _top_left_box.visible:
+		below = _top_left_box.get_global_rect().end.y + 10.0
+	_status_hud.position = Vector2(12.0, below)
+	_status_hud.set_effects(effects)
+
+
+## Test/inspection accessor for the status-effect widget.
+func status_hud() -> Control:
+	return _status_hud
+
+
 func _build_context_stack() -> void:
 	_context_stack = VBoxContainer.new()
 	_context_stack.anchor_left = 1.0
@@ -3886,9 +3919,40 @@ func _build_debug_overlay() -> void:
 	_debug_label.offset_left = -300
 	_debug_label.offset_top = -220
 	_debug_label.offset_right = -12
+	_debug_label.offset_top = -320   # taller: frame-diag block sits above the C/L/R block
 	_debug_label.visible = false
 	_debug_label.add_theme_font_size_override("font_size", 12)
 	add_child(_debug_label)
+
+
+## Live per-frame diagnostics for the motion-smoothness investigation. Reports the two
+## independent things that make pixel-art motion look jittery: (1) FRAME PACING — actual
+## fps vs the physics tick, and the current interpolation fraction (physics interpolation
+## only hides the physics/render gap when fps is high and steady; a heavy world that
+## drops or varies fps still stutters); and (2) PIXEL SCALE — the on-screen size of one
+## world texel = window-stretch scale × camera zoom. A NON-integer texel scale means
+## nearest-neighbour sampling shifts texels by a screen pixel at slightly different times
+## as the camera pans, i.e. shimmer independent of any transform jitter. Compare these
+## numbers between the two worlds while jumping to see which one actually differs.
+func _debug_frame_diagnostics() -> String:
+	var vp := get_viewport()
+	var cam: Camera2D = vp.get_camera_2d() if vp != null else null
+	var zoom: float = cam.zoom.x if cam != null else 0.0
+	var win: Vector2i = DisplayServer.window_get_size()
+	var vps: Vector2 = vp.get_visible_rect().size if vp != null else Vector2.ZERO
+	var stretch: float = vp.get_final_transform().get_scale().x if vp != null else 1.0
+	var texel: float = stretch * zoom
+	var frac: bool = not is_equal_approx(texel, roundf(texel))
+	return "\n".join([
+		"— frame diag (F3) —",
+		"fps %d  phys %d  maxfps %d" % [int(Engine.get_frames_per_second()),
+			Engine.physics_ticks_per_second, Engine.max_fps],
+		"vsync %d  interpF %.2f" % [int(DisplayServer.window_get_vsync_mode()),
+			Engine.get_physics_interpolation_fraction()],
+		"win %dx%d  vp %dx%d" % [win.x, win.y, int(round(vps.x)), int(round(vps.y))],
+		"zoom %.3f  stretch %.3f" % [zoom, stretch],
+		"texel %.3fpx %s" % [texel, "FRACTIONAL <-- shimmers" if frac else "(integer, crisp)"],
+	])
 
 
 func _label(parent: Control, text: String) -> Label:
@@ -3930,7 +3994,7 @@ func update_settlement(coherence: float, load_value: float, resilience: float,
 	var lines := ["C/L/R inputs:"]
 	for key in inputs:
 		lines.append("  %s = %.1f" % [key, inputs[key]])
-	_debug_label.text = "\n".join(lines)
+	_debug_settlement_text = "\n".join(lines)   # composed with frame diag per-frame (F3)
 	_refresh_stock()
 	if _town_panel.visible:
 		refresh_town_panel()

@@ -37,6 +37,10 @@ func collect_state() -> Dictionary:
 
 		"liquid_level": world.serialize_liquid_level(),   # LQ-1: disturbed liquid fills
 		"map_revealed": game_root.map_revealed_serialized(),
+		# Perception + Resonance: persistent remembered-terrain "seen" set. Additive and
+		# optional — empty/absent when perception is off, so older saves and the default
+		# build are unaffected (no SAVE_VERSION bump). Reloaded via set_perception_seen_pending.
+		"perception_seen": world.perception_serialized(),
 		# World-owned settlement progression only (base XP + level). The character's
 		# personal XP/level/skills live in shell.json, not here.
 		"progression": game_root.world_progression_state(),
@@ -123,6 +127,10 @@ func apply_state(state: Dictionary) -> bool:
 
 	# FQ-15: restore the discovered map bands (compact, presentation/nav only).
 	game_root.apply_map_revealed(state.get("map_revealed", []))
+	# Perception + Resonance: stash the restored seen set; world.enable_perception
+	# (game_root setup, only when COHERONIA_PERCEPTION=1) adopts it. Missing key
+	# (legacy save / feature off) leaves the character to re-reveal as they move.
+	world.set_perception_seen_pending(state.get("perception_seen", {}))
 
 	var p: Dictionary = state.get("player", {})
 	player.health = float(p.get("health", 100.0))
@@ -174,5 +182,7 @@ func apply_state(state: Dictionary) -> bool:
 func apply_player_position(state: Dictionary) -> void:
 	var p: Dictionary = state.get("player", {})
 	if p.has("x") and p.has("y"):
-		player.global_position = Vector2(float(p["x"]), float(p["y"]))
-		player.velocity = Vector2.ZERO
+		# Interpolation-safe restore: teleport() resets the body's interpolation snapshot
+		# and the camera smoothing so a loaded save snaps to the saved spot instead of
+		# sweeping there from wherever the player last stood.
+		player.teleport(Vector2(float(p["x"]), float(p["y"])))

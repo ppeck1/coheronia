@@ -8,10 +8,111 @@ the Metal Ladder, the Calling system) are archived in
 [`docs/HANDOFF_ARCHIVE.md`](HANDOFF_ARCHIVE.md); the dated milestone list lives in
 [`README.md`](../README.md#changelog).
 
+## Active arc — Perception + Resonance (operator-approved feature exception)
+
+**NEXT INSTANCE — start here.** An explicit, **operator-authorized exception** to the
+S-07 "no-new-mechanics" boundary below: a deliberate final feature arc before
+v0.7-alpha, then stabilization resumes. It lives on branch **`feat/perception-veil`**
+(pushed to origin, **not merged to main**; a draft PR runs Linux + Windows CI). Plan:
+`C:\Users\peckm\.claude\plans\vivid-plotting-cosmos.md` (operator-local).
+
+**What it adds (windowed smoke 570/570):**
+- **Fog of war** — a 360° line-of-sight veil (recursive shadowcasting + corner-pinch
+  propagation, `scripts/world/perception.gd`) grading each cell VISIBLE / REMEMBERED
+  (persisted silhouette) / UNSEEN, rendered by the shared `cave_depth.gdshader` with a
+  soft radial rim. World rule **`fog_of_war` defaults ON** (unchecked in world settings
+  to disable; the smoke/screenshot/HUD-QA harnesses are guarded off). Save gains an
+  additive optional `perception_seen` — **no `SAVE_VERSION` / `gen_version` bump.**
+- **Attunement resonance pulse (R)** — the formerly-inert pulse now lights up on-screen
+  objects of interest (enemies red, settlers + hall green, items/ore gold, doors/
+  stations cyan, hazards amber) THROUGH the veil and out of sight, via a silhouette
+  recolor shader for entities + a batched fill for terrain, on a ~10 s countdown.
+- **Status-effect HUD** (`scripts/ui/status_effects_hud.gd`, owned by `hud.gd`) — a
+  generic timed-effect stack; resonance is the first consumer.
+- **Ancestry dark-sight** — sight radius is a composable resolver with a dark-adapted
+  ancestry bonus + gear/weather/Calling hooks (stubbed at 1.0).
+
+**Decisions on record (reviewer-flagged):** ore stays in the **universal** pulse
+(operator choice); the Phase C **Prospector** variant EXTENDS ore-sense (range/depth/
+through-rock), it is not the only ore sense. Resonance duration is intentionally longer
+than the data-driven light pulse; `RESONANCE_DURATION_SEC` is the single authority.
+
+**Remaining:** Phase C (Calling detection variants — Prospector/Trailseeker/Warden/etc.,
+hooks already stubbed), Phase D (balance: pulse cost/regen/range/duration), refresh
+showcase screenshots, land the PR green, then merge. **Known limit:** sun/torch light
+still leaks through 1×1 diagonal block seams — pre-existing 2D lighting, not the veil
+(documented in `docs/wiki/known_issues.md`).
+
+### Above-ground camera/player jitter fix (2026-08-21)
+
+Follows the resonance-contour jitter fix in `917e045`. **Root cause:** the player
+(`CharacterBody2D`) moves in `_physics_process`, but the project had **no 2D physics
+interpolation**, so the body's transform only advanced at the physics tick while the
+player-owned `Camera2D` (position smoothing, default IDLE process callback) re-followed
+every *render* frame. The static world was drawn against a smoothly-moving camera while
+the player stepped at 60 Hz, so the character shimmered against the terrain — worst
+during **jumping** (gravity swings the vertical velocity every frame, so the smoothing
+lag oscillates) and on any monitor whose refresh ≠ 60 Hz.
+
+**Fix (smallest coherent, smoothing preserved) — TWO paired settings, both required:**
+1. enable engine-level 2D physics interpolation (`physics/common/physics_interpolation=true`)
+   so every node's render transform is interpolated between physics ticks; and
+2. set the player `Camera2D.process_callback = Physics` (`process_callback = 0` in
+   `Player.tscn`). This is load-bearing: with interpolation ON but the camera left at the
+   **default IDLE**, its smoothing runs on the *render* clock over non-interpolated
+   positions while the player renders interpolated — the two diverge and the character
+   still jitters, worst while jumping. Smoothing on the physics clock is then interpolated
+   consistently with the player, so they stay locked. (Interpolation alone did **not** fix
+   it — the IDLE camera was the remaining cause.)
+
+Camera **position smoothing is kept ON** (the fix does *not* disable it — see tradeoff below).
+
+A **fog-of-war-only** residual remained after the camera pairing (jittery in a
+`fog_of_war` world, clean without it): the perception veil's per-pixel FOV rim
+(`cave_depth.gdshader`, a world-space circle around `perception_origin`) was fed the
+player's *stepped* logical `global_position` every render frame, so its edge shimmered
+against the interpolated player/terrain. Fixed by feeding the **interpolated** render
+position: `player.render_global_position()` reconstructs the drawn position from the last
+two physics snapshots via `Engine.get_physics_interpolation_fraction()` (Godot 4.6 has no
+public 2D interpolated-transform getter), reset by `teleport()`. Non-fog worlds have no
+per-frame position uniform, which is why they never jittered. Every direct `global_position` relocation now routes through
+the interpolation-safe **`player.teleport()`** (resets the body + camera interpolation
+snapshot and camera smoothing) so a teleport snaps instead of sweeping: respawn,
+save/load restore, and world entry (`game_root._position_actors`). Freshly-added nodes
+(FX, spawned settlers) auto-reset on add; the screenshot tour / smoke frame captures
+`await` ≥1 physics frame before capturing, so they self-heal without per-site resets.
+
+**Rejected hypotheses:** disabling camera smoothing (removes the smooth follow the game
+wants, and the task's own constraint); quantizing the authoritative physics position
+(would damage collision/movement); moving the build preview into the world canvas — with
+interpolation on, its `follow_viewport` layer derives from the same interpolated camera
+transform as the world canvas and the cell-snapped ghost stays pixel-locked, so it was
+left where it is to keep dodging the underground `CanvasModulate` dimming.
+
+**Tradeoffs / remaining limits:**
+- *Camera smoothing speed* becomes mildly framerate-dependent above 60 Hz under
+  interpolation (upstream [godot#95869](https://github.com/godotengine/godot/issues/95869));
+  it is a feel nuance, not the jitter, and only above 60 Hz.
+- *Fractional view zoom* (`view_zoom` default **1.25**, 0.125 steps, 1.0–3.0) still maps
+  nearest-neighbour texels to non-integer screen pixels, so a faint pixel *shimmer* can
+  remain on fast motion at non-integer zooms — a **separate** issue from the physics
+  jitter. Left fractional to preserve the existing settings/save-compat surface; switching
+  to integer-snapped zoom is a product decision (documented in `display_settings.gd`), not
+  done silently here. Integer zooms (1.0, 2.0, 3.0) are crispest.
+
+**Regression coverage:** `jitter_physics_interpolation_and_safe_teleport`
+(`smoke_settings.gd`) guards that interpolation stays ON, camera smoothing stays ON, and
+`teleport()` repositions + clears velocity. **Manual/windowed check (temporal smoothness
+is not screenshot-testable):** run windowed at 60 Hz vsync; hold left/right and jump
+repeatedly above ground while watching the parallax sky and terrain edges — the character
+must stay rock-steady against the world with no per-frame shimmer. Repeat at zoom 1.0 and
+2.0 (`+`/`-`) and after F9 load and a death/respawn — none should sweep the camera in.
+Windowed smoke **571/571**, verify PASS.
+
 ## Current arc — S-07 stabilization (toward v0.7-alpha)
 
-**NEXT INSTANCE — start here.** The active arc is **stabilization and
-truthfulness**, not new mechanics. Its authority is
+**Paused for the Perception + Resonance arc above; resumes once it merges.** The S-07
+arc is **stabilization and truthfulness**, not new mechanics. Its authority is
 [`docs/WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md`](WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md).
 The game is behaviourally stable and honestly documented; the remaining work is
 release hardening, maintainability, presentation polish, and one measured balance

@@ -52,6 +52,7 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 
 | Bucket | Effect | Value |
 |---|---|---|
+| player_effects | dark_sight | 2 |
 | player_effects | health_bonus | 25 |
 | player_effects | stamina_endurance_mult | 1.1 |
 | player_effects | tree_clearing_speed_mult | 1.15 |

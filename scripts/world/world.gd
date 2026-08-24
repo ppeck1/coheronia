@@ -89,12 +89,29 @@ var _sky_img: Image
 var _sky_tex: ImageTexture
 var _sky_tex_dirty := true
 
+# Perception + Resonance arc: the tile-aligned perception veil. `_perception` is the
+# pure LOS + seen-memory model; `_perception_tex` is a width*height R8 mask the shared
+# cave material samples. Opt-in (COHERONIA_PERCEPTION=1 -> game_root calls
+# enable_perception) so existing screenshots/smoke stay byte-identical by default.
+var _perception: RefCounted
+var _perception_img: Image
+var _perception_tex: ImageTexture
+var _perception_buf: PackedByteArray = PackedByteArray()
+var _perception_enabled := false
+var _perception_mask_dirty := false        # mask texture needs re-upload
+var _perception_los_dirty := false         # LOS needs recompute (terrain changed)
+var _perception_last_origin := Vector2i.ZERO
+var _perception_radius := 20
+var _perception_seen_pending: Dictionary = {}   # restored seen set, adopted on enable
+var _force_visible_ids: Dictionary = {}          # entities a resonance pulse keeps visible
+
 const BackdropScript := preload("res://scripts/world/world_backdrop.gd")
 const ItemDropScript := preload("res://scripts/entities/item_drop.gd")   # R-08 slice 3
 const FluidSimScript := preload("res://scripts/world/fluid_sim.gd")      # LQ-1 liquid physics
 const LavaBubblesScript := preload("res://scripts/world/lava_bubbles.gd") # LQ-2c rising-bubble overlay
 const LightingScript := preload("res://scripts/world/lighting.gd")        # shared soft-glow authoring
 const CaveDepthShader := preload("res://shaders/cave_depth.gdshader")      # per-column depth darkening
+const PerceptionScript := preload("res://scripts/world/perception.gd")     # LOS + seen-memory veil model
 const WALL_MATERIALS := {"dirt_wall": "dirt", "stone_wall": "stone"}
 
 const BLOCK_COLORS := {
@@ -174,6 +191,14 @@ func _process(delta: float) -> void:
 	_tick_lava_glow(delta)   # LQ-2b: slow flicker on molten lights
 	if _cave_material != null and _sky_tex_dirty:
 		_rebuild_sky_texture()   # refresh the depth shader's per-column sky line
+	if _perception_enabled:
+		# A dig/place/door change (flagged in _set_tile) re-runs LOS from the last
+		# origin so opening a wall reveals what is now behind it this frame.
+		if _perception_los_dirty:
+			_perception_los_dirty = false
+			_recompute_perception()
+		if _perception_mask_dirty:
+			_rebuild_perception_texture()
 	if _lava_bubbles != null:
 		_lava_bubbles.tick(delta)   # LQ-2c: rising/bursting lava bubbles
 
@@ -950,6 +975,7 @@ func enable_cave_depth_shading(cave_tint: Color, fade_cells: float) -> void:
 	_cave_material.shader = CaveDepthShader
 	_cave_material.set_shader_parameter("tile_size", float(tile_size()))
 	_cave_material.set_shader_parameter("world_width", float(width))
+	_cave_material.set_shader_parameter("world_height", float(height))
 	_cave_material.set_shader_parameter("cave_fade_cells", maxf(fade_cells, 0.001))
 	_cave_material.set_shader_parameter("cave_tint", cave_tint)
 	_cave_material.set_shader_parameter("viewer_darkness", 0.0)
@@ -992,6 +1018,189 @@ func set_sky_admission(dir: Vector2, strength: float) -> void:
 	var d := dir.normalized() if dir.length() > 0.0 else Vector2(0.0, -1.0)
 	_cave_material.set_shader_parameter("sky_dir", d)
 	_cave_material.set_shader_parameter("sky_admit_strength", clampf(strength, 0.0, 1.0))
+
+
+## Perception + Resonance: turn on the tile-aligned perception veil. Rides on the
+## shared cave material (so it is A/B-off wherever the cave shader is off), and adopts
+## any restored seen memory. Called by game_root only when COHERONIA_PERCEPTION=1, so
+## the default build is byte-identical to before.
+func enable_perception() -> void:
+	if _cave_material == null:
+		return
+	_perception = PerceptionScript.new(width, height)
+	if not _perception_seen_pending.is_empty():
+		_perception.call("load_from", _perception_seen_pending)
+		_perception_seen_pending = {}
+	_perception_enabled = true
+	_cave_material.set_shader_parameter("perception_enabled", 1.0)
+	_perception_los_dirty = true
+	_perception_mask_dirty = true
+	# Gate any entity the moment it spawns (else a fresh off-screen enemy/settler/drop
+	# stays visible through the fog until the next LOS recompute).
+	if not get_tree().node_added.is_connected(_on_perception_node_added):
+		get_tree().node_added.connect(_on_perception_node_added)
+
+
+func perception_enabled() -> bool:
+	return _perception_enabled
+
+
+## Turn the veil back off and restore every hidden entity (a clean A/B / settings
+## toggle, and how the smoke suite restores the shared world after testing).
+func disable_perception() -> void:
+	if not _perception_enabled:
+		return
+	_perception_enabled = false
+	if _cave_material != null:
+		_cave_material.set_shader_parameter("perception_enabled", 0.0)
+	if get_tree().node_added.is_connected(_on_perception_node_added):
+		get_tree().node_added.disconnect(_on_perception_node_added)
+	for grp in ["threats", "subjects", "item_drops"]:
+		for n in get_tree().get_nodes_in_group(grp):
+			if n is Node2D:
+				(n as Node2D).visible = true
+	for cell in _lights:   # un-gate every dynamic light
+		_lights[cell].enabled = true
+
+
+## Perception state of a cell (perception.gd UNSEEN/REMEMBERED/VISIBLE); UNSEEN when
+## the veil is off. Used by the resonance pulse (Phase B) and the smoke suite.
+func perception_state_at(cell: Vector2i) -> int:
+	if _perception == null:
+		return 0
+	return int(_perception.call("state_at", cell))
+
+
+func perception_is_visible(cell: Vector2i) -> bool:
+	return _perception != null and bool(_perception.call("is_visible", cell))
+
+
+## Feed the perception model the character's current cell + sight radius. Called by
+## game_root when the player crosses a tile boundary (and once right after enable).
+func update_perception(origin: Vector2i, radius: int) -> void:
+	if not _perception_enabled or _perception == null:
+		return
+	_perception_last_origin = origin
+	_perception_radius = maxi(radius, 1)
+	_recompute_perception()
+
+
+## Feed the shader the character's continuous world position + sight radius (pixels)
+## so the FOV rim glides smoothly per-pixel between tile-cross recomputes. Cheap —
+## three uniform writes; called every frame by game_root while perception is on.
+func set_perception_view(origin_px: Vector2, radius_px: float, edge_px: float) -> void:
+	if _cave_material == null or not _perception_enabled:
+		return
+	_cave_material.set_shader_parameter("perception_origin", origin_px)
+	_cave_material.set_shader_parameter("perception_radius_px", maxf(radius_px, 0.0))
+	_cave_material.set_shader_parameter("perception_edge_px", maxf(edge_px, 1.0))
+
+
+## Re-run LOS from the cached origin/radius (also used after a terrain change).
+func _recompute_perception() -> void:
+	if not _perception_enabled or _perception == null:
+		return
+	_perception.call("recompute", _perception_last_origin, _perception_radius,
+		Callable(self, "is_solid_at"))
+	_perception_mask_dirty = true
+	_apply_entity_visibility()
+	_apply_light_visibility()
+
+
+## Creatures and loose items require CURRENT sight (remembered terrain does not), so
+## hide any grouped entity standing in a non-visible cell. Cheap: a few dozen nodes.
+func _apply_entity_visibility() -> void:
+	if not _perception_enabled or _perception == null:
+		return
+	for grp in ["threats", "subjects", "item_drops"]:
+		for n in get_tree().get_nodes_in_group(grp):
+			if n is Node2D:
+				var c := cell_of((n as Node2D).global_position)
+				# An active resonance highlight keeps an out-of-sight entity visible so
+				# the pulse can reveal what you cannot currently see (its whole point).
+				(n as Node2D).visible = bool(_perception.call("is_visible", c)) \
+					or _force_visible_ids.has(n.get_instance_id())
+
+
+## Perception + Resonance: ids of entities to keep visible even when out of line of
+## sight (the resonance pulse's temporary reveal). Set by game_root each frame.
+func set_perception_force_visible(ids: Dictionary) -> void:
+	_force_visible_ids = ids
+
+
+## Re-evaluate entity visibility now (used when the forced-visible set changes between
+## the tile-cross recomputes).
+func refresh_entity_visibility() -> void:
+	_apply_entity_visibility()
+
+
+## A node just entered the tree — if perception is on, gate it once its _ready has run
+## (that is when entities add themselves to their group), so it never flashes visible.
+func _on_perception_node_added(node: Node) -> void:
+	if _perception_enabled and node is Node2D:
+		call_deferred("gate_entity_visibility", node)
+
+
+## Set one entity's visibility from perception right now (visible only if its cell is in
+## sight, or it is force-shown by a resonance pulse). No-op for non-entities / fog off.
+func gate_entity_visibility(node: Node) -> void:
+	if not _perception_enabled or _perception == null or not is_instance_valid(node):
+		return
+	if not (node is Node2D):
+		return
+	for grp in ["threats", "subjects", "item_drops"]:
+		if node.is_in_group(grp):
+			var c := cell_of((node as Node2D).global_position)
+			(node as Node2D).visible = bool(_perception.call("is_visible", c)) \
+				or _force_visible_ids.has(node.get_instance_id())
+			return
+
+
+## Source-gate dynamic lights: a torch/lava PointLight2D shines only while its own
+## cell is currently visible, so a remembered/hidden light doesn't glow through the
+## veil and no per-fragment cut is needed (which is what sliced torch glows). Cheap —
+## one bool per placed light.
+func _apply_light_visibility() -> void:
+	if not _perception_enabled or _perception == null:
+		return
+	for cell in _lights:
+		_lights[cell].enabled = bool(_perception.call("is_visible", cell))
+
+
+## Rebuild the width*height R8 veil mask and hand it to the cave material. Built from
+## the model's byte buffer (not per-pixel set_pixel) so a big world stays cheap.
+func _rebuild_perception_texture() -> void:
+	_perception_mask_dirty = false
+	if _cave_material == null or _perception == null:
+		return
+	_perception.call("fill_mask", _perception_buf)
+	if _perception_buf.size() != width * height:
+		return
+	_perception_img = Image.create_from_data(maxi(width, 1), maxi(height, 1),
+		false, Image.FORMAT_R8, _perception_buf)
+	if _perception_tex == null:
+		_perception_tex = ImageTexture.create_from_image(_perception_img)
+	else:
+		_perception_tex.update(_perception_img)
+	_cave_material.set_shader_parameter("perception_tex", _perception_tex)
+
+
+## Save form of the persistent seen set (empty when perception is off — nothing to
+## persist). Additive world-save field; missing on load = all-unseen.
+func perception_serialized() -> Dictionary:
+	if _perception == null:
+		return {}
+	return _perception.call("serialize")
+
+
+## Stash a restored seen set to adopt when perception is enabled (apply_state runs
+## before enable_perception during game_root setup).
+func set_perception_seen_pending(data) -> void:
+	_perception_seen_pending = data if data is Dictionary else {}
+	if _perception_enabled and _perception != null and not _perception_seen_pending.is_empty():
+		_perception.call("load_from", _perception_seen_pending)
+		_perception_seen_pending = {}
+		_perception_mask_dirty = true
 
 
 ## Repaint the one-texel-per-column sky-line texture (R = first solid y in tiles)
@@ -1075,6 +1284,8 @@ func _make_wall_texture(wall_id: String, base_block: String, t: int) -> ImageTex
 func _set_tile(cell: Vector2i, block_id: String) -> void:
 	_sky_line.erase(cell.x)   # FQ-09W: any block change re-derives that column's skylight
 	_sky_tex_dirty = true     # ...and the depth-shader's sky-line texture with it
+	if _perception_enabled:
+		_perception_los_dirty = true   # changed occlusion -> re-run LOS this frame
 	# _block_textures guarantees at least one source per known block; the
 	# is_empty guard makes that invariant explicit rather than an index crash.
 	if block_id == "air" or (_source_ids.get(block_id, []) as Array).is_empty():
@@ -1147,16 +1358,17 @@ func _update_light(cell: Vector2i, block_id: String) -> void:
 		# and shadowless (neighbouring cells blend into one continuous wash) and its
 		# energy scales with the cell's fill level (a thin film glows faintly, a
 		# brim-full pool glows fully). _tick_lava_glow adds a slow flicker.
-		light.texture_scale = (radius * float(tile_size()) * 1.6) / float(_light_texture.width)
+		light.texture_scale = (radius * float(tile_size()) * 2.1) / float(_light_texture.width)
 		light.color = Color(1.0, 0.5, 0.2)
 		light.shadow_enabled = false
 		light.energy = _lava_light_energy(liquid_level.get(cell, 1.0))
 	else:
-		light.texture_scale = (radius * 2.0) / float(_light_texture.width)
-		# Softened hard (1.3 -> 1.0 -> 0.65): a torch/lantern additively lights nearby
-		# stone and characters, so even 1.0 still blew out the surfaces right next to
-		# it (operator: still too harsh). The glow reach is unchanged.
-		light.energy = 0.65
+		light.texture_scale = (radius * 2.5) / float(_light_texture.width)
+		# Softened hard (1.3 -> 1.0 -> 0.65), then lifted to 0.85 with a wider reach
+		# (2.0 -> 2.5): under the perception veil the darker periphery made torches read
+		# weak, so the pool is now broader and a touch brighter without the old
+		# adjacent-stone blowout.
+		light.energy = 0.85
 		light.color = Color(1.0, 0.85, 0.6)
 		# S-07.1c-fix: a torch/lantern is a SHADOWLESS soft glow (like lava). With
 		# shadows on, the solid blocks the torch is carved into occlude its own light:
@@ -1172,7 +1384,7 @@ func _update_light(cell: Vector2i, block_id: String) -> void:
 ## shared flicker phase. Level-scaled (a faint film .. a full glow) with a soft
 ## floor so even a sliver still reads as molten.
 func _lava_light_energy(level: float) -> float:
-	var by_level := 0.32 * clampf(level, 0.25, 1.0)   # softened from 0.5 (harsh on stone)
+	var by_level := 0.5 * clampf(level, 0.25, 1.0)   # lifted back to 0.5 for a stronger molten wash
 	return by_level * (0.9 + 0.1 * sin(_lava_glow_phase))
 
 

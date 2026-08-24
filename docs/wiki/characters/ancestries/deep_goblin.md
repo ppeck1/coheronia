@@ -28,6 +28,7 @@ No authored ancestry body art is currently attached to this entry.
 
 | Bucket | Effect | Value |
 |---|---|---|
+| player_effects | dark_sight | 7 |
 | player_effects | cave_crawl_speed_mult | 1.3 |
 | player_effects | scrap_recovery_mult | 1.25 |
 | player_effects | trap_bonus_underground | 1.2 |

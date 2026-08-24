@@ -52,6 +52,7 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 
 | Bucket | Effect | Value |
 |---|---|---|
+| player_effects | dark_sight | 3 |
 | player_effects | hitbox_reduction | 0.7 |
 | player_effects | trap_cost_reduction | 0.7 |
 | player_effects | material_recovery_chance | 0.25 |
