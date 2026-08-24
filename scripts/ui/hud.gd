@@ -4170,17 +4170,11 @@ func update_inventory() -> void:
 		var extra: int = player.inventory.count(extra_id)
 		if extra > 0:
 			parts.append("%s ×%d" % [BlockRegistry.display_name(extra_id).capitalize(), extra])
-	var _axe_hb_str := ("tier %d" % player.axe_tier) if player.axe_tier > 0 else "none"
-	# FQ-04: weapon/armor state in the toolbelt line.
-	var equipped: Dictionary = player.equipped_dict()
-	var _weapon_id: String = str(equipped.get("weapon", ""))
-	var _offhand_id: String = str(equipped.get("offhand_weapon", ""))
-	var _weapon_str: String = BlockRegistry.equipment_item_display_name(_weapon_id) \
-		if _weapon_id != "" else "none"
-	var _offhand_str: String = BlockRegistry.equipment_item_display_name(_offhand_id) \
-		if _offhand_id != "" else "none"
-	parts.append("Pick tier %d · Axe %s · Weapon %s · Stowed %s · Armor %d" % [
-		player.tool_tier, _axe_hb_str, _weapon_str, _offhand_str, int(player.armor_total())])
+	# Phase C-B: the persistent "Pick tier · Axe · Weapon · Stowed · Armor" loadout
+	# summary was removed from the dock — it duplicated the live equipment grid, tiers,
+	# and armor readouts in the Inventory and Character panels. The dock summary line now
+	# carries only the at-a-glance ore/food resource counts (above). Loadout state,
+	# tooltips, and equipment behaviour are unchanged and remain in Inventory/Character.
 	_hotbar_label.text = "  ".join(parts)
 	_refresh_stock()
 	if _inv_panel != null and _inv_panel.visible:

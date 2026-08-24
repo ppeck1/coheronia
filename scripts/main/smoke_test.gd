@@ -4087,6 +4087,39 @@ func _run() -> void:
 		"slots=%d pickaxe=%s weapon=%s" % [hud.equipment_slot_count(),
 			hud.equipment_slot_item("pickaxe"), hud.equipment_slot_item("weapon")])
 
+	# Phase C-A: the dock stays CENTRED on the viewport at any width — the central
+	# hotbar is centred (within 2 logical px) and the left/right outer orb gaps match
+	# (within 2 px) — at 1280x720, 1600x900, 1920x1000 (wide expand), and 640x360, and
+	# after a live resize (measured on live global rects; the window is restored).
+	var _dc_orig_size: Vector2i = DisplayServer.window_get_size()
+	var _dc_ok := true
+	var _dc_detail := ""
+	for _dc_sz in [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1000), Vector2i(640, 360)]:
+		DisplayServer.window_set_size(_dc_sz)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var _dc_w: float = get_viewport().get_visible_rect().size.x
+		var _dc_center: float = _dc_w * 0.5
+		var _dc_hb_off := 999.0
+		if hud._hotbar_slots.size() >= 2:
+			var _dc_first: Rect2 = (hud._hotbar_slots[0] as Control).get_global_rect()
+			var _dc_last: Rect2 = (hud._hotbar_slots[hud._hotbar_slots.size() - 1] as Control).get_global_rect()
+			_dc_hb_off = absf((_dc_first.position.x + _dc_last.end.x) * 0.5 - _dc_center)
+		var _dc_gap_diff := 999.0
+		var _dc_hfill: Control = hud._health_vessel_fill
+		var _dc_afill: Control = hud._attunement_vessel_fill
+		if _dc_hfill != null and _dc_afill != null:
+			var _dc_lgap: float = _dc_hfill.get_global_rect().position.x
+			var _dc_rgap: float = _dc_w - _dc_afill.get_global_rect().end.x
+			_dc_gap_diff = absf(_dc_lgap - _dc_rgap)
+		if _dc_hb_off > 2.0 or _dc_gap_diff > 2.0:
+			_dc_ok = false
+		_dc_detail += "[%dx%d hb_off=%.1f gap_diff=%.1f]" % [_dc_sz.x, _dc_sz.y, _dc_hb_off, _dc_gap_diff]
+	DisplayServer.window_set_size(_dc_orig_size)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check("hud_dock_centered_symmetric", _dc_ok, _dc_detail)
+
 	# S-07.4: the inventory/loadout policy moved to HudInventoryRules must stay
 	# behaviour-identical through hud.gd's delegating wrappers AND produce the
 	# expected policy results (layout removal, empty-slot, valid-index, tool-slot,
