@@ -12,6 +12,7 @@ const HudChrome := preload("res://scripts/ui/hud/hud_chrome.gd")   # R-06.1
 const HousingScript := preload("res://scripts/settlement/housing.gd")   # M2-B
 const CelestialScript := preload("res://scripts/world/celestial.gd")   # M5-A
 const HudEditGeometry := preload("res://scripts/ui/hud/hud_edit_geometry.gd")   # R-06.2
+const HudInventoryRulesScript := preload("res://scripts/ui/hud/hud_inventory_rules.gd")   # S-07.4
 const SmokeAudio := preload("res://scripts/main/smoke/smoke_audio.gd")   # S-07.3
 const SmokeContracts := preload("res://scripts/main/smoke/smoke_contracts.gd")   # S-07.3
 const SmokeSettlerCrew := preload("res://scripts/main/smoke/smoke_settler_crew.gd")   # S-07.3
@@ -4034,6 +4035,42 @@ func _run() -> void:
 		_fq09_board_equipment_ok,
 		"slots=%d pickaxe=%s weapon=%s" % [hud.equipment_slot_count(),
 			hud.equipment_slot_item("pickaxe"), hud.equipment_slot_item("weapon")])
+
+	# S-07.4: the inventory/loadout policy moved to HudInventoryRules must stay
+	# behaviour-identical through hud.gd's delegating wrappers AND produce the
+	# expected policy results (layout removal, empty-slot, valid-index, tool-slot,
+	# deterministic sort, item + equipment tooltips, equipment-slot order).
+	var _hir := HudInventoryRulesScript
+	var _hir_layout: Array = ["dirt", "wood", "dirt", ""]
+	var _hir_removed: Array = hud._layout_without_item(_hir_layout, "dirt")
+	var _hir_slot := {"id": "weapon", "display_name": "Weapon"}
+	var _hir_parity: bool = \
+		_hir_removed == _hir.layout_without_item(_hir_layout, "dirt") \
+		and hud._first_empty_layout_index(_hir_layout) == _hir.first_empty_layout_index(_hir_layout) \
+		and hud._valid_layout_index(2, _hir_layout) == _hir.valid_layout_index(2, _hir_layout) \
+		and hud._is_tool_slot("pickaxe") == _hir.is_tool_slot("pickaxe") \
+		and hud._inventory_sort_key("wood") == _hir.inventory_sort_key("wood") \
+		and hud._item_tooltip("wood") == _hir.item_tooltip("wood") \
+		and hud._equipment_short_label("weapon", "") == _hir.equipment_short_label("weapon", "") \
+		and hud._equipment_tooltip(_hir_slot, "") == _hir.equipment_tooltip(_hir_slot, "") \
+		and hud._equipment_board_slots() == _hir.equipment_board_slots()
+	var _hir_board: Array = _hir.equipment_board_slots()
+	var _hir_correct: bool = \
+		_hir_removed == ["", "wood", "", ""] \
+		and _hir.first_empty_layout_index(_hir_layout) == 3 \
+		and _hir.first_empty_layout_index(["a", "b"]) == 2 \
+		and not _hir.valid_layout_index(4, _hir_layout) \
+		and _hir.is_tool_slot("pickaxe") and _hir.is_tool_slot("axe") \
+		and not _hir.is_tool_slot("weapon") \
+		and _hir.inventory_sort_key("dirt") < _hir.inventory_sort_key("iron_ore") \
+		and _hir.item_tooltip("wood").begins_with(BlockRegistry.display_name("wood")) \
+		and _hir.equipment_tooltip(_hir_slot, "").ends_with("Empty") \
+		and _hir_board.size() == hud.equipment_slot_count() \
+		and str(_hir_board[0].get("id", "")) == "weapon"
+	_check("s07_hud_inventory_rules_delegates", _hir_parity and _hir_correct,
+		"parity=%s correct=%s removed=%s empty=%d slots=%d" % [str(_hir_parity),
+			str(_hir_correct), str(_hir_removed),
+			_hir.first_empty_layout_index(_hir_layout), _hir_board.size()])
 	var _fq09_board_dock_ok: bool = hud.dock_slot_item(0) == "dirt" \
 		and hud.dock_slot_count(0) == 7 \
 		and hud.dock_slot_item(1) == "wood" \
