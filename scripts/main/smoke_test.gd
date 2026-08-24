@@ -27,6 +27,7 @@ const SmokeGoalPanel := preload("res://scripts/main/smoke/smoke_goal_panel.gd") 
 const SmokeEquipment := preload("res://scripts/main/smoke/smoke_equipment.gd")   # S-07.3
 const SmokeLiquidTraits := preload("res://scripts/main/smoke/smoke_liquid_traits.gd")   # S-07.3
 const SmokeSettings := preload("res://scripts/main/smoke/smoke_settings.gd")   # S-07.3
+const SmokePerception := preload("res://scripts/main/smoke/smoke_perception.gd")   # Perception + Resonance
 const SubjectScript := preload("res://scripts/entities/subject.gd")   # S-07.1c defender marker
 # Pinned fingerprints of the seed-2024 medium v3/v4 generated cell maps (see
 # _cells_fingerprint). Any future gen change that perturbs an older world trips
@@ -1554,6 +1555,12 @@ func _run() -> void:
 	add_child(_smoke_enemies)
 	await _smoke_enemies.run(_ctx)
 	_smoke_enemies.queue_free()
+
+	# --- Perception + Resonance: LOS veil + remembered-terrain memory ---
+	var _smoke_perception := SmokePerception.new()
+	add_child(_smoke_perception)
+	await _smoke_perception.run(_ctx)
+	_smoke_perception.queue_free()
 
 	# --- FQ-14: state-driven goal panel ---
 	# S-07.3: order-preserving extraction to scripts/main/smoke/smoke_goal_panel.gd.

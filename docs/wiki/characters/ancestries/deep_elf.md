@@ -29,6 +29,7 @@ No authored ancestry body art is currently attached to this entry.
 | Bucket | Effect | Value |
 |---|---|---|
 | player_effects | dark_vision | True |
+| player_effects | dark_sight | 8 |
 | player_effects | mushroom_harvest_mult | 1.2 |
 | player_effects | crystal_harvest_mult | 1.2 |
 | player_effects | underground_movement_mult | 1.1 |
