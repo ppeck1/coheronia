@@ -140,13 +140,22 @@ This **closeout A** added, on top of those:
 
 ## Recommended next
 
-- **Latest shipped — 2026-08-18 operator bug-fix & polish pass (origin/main `87d5b4b`).**
-  Five play-tested fixes, no balance change: menu-scroll wheel no longer re-zooms the
-  world; the `lava_slime` bubbles at one-at-a-time on a random 2.4–5.0 s gap; generated
-  liquid pools are fully sealed against the non-solid faces the fluid sim flows through
-  (`gen_version 4→5`, gated); caverns/buildings admit sun/moon light through openings via
-  a cave-shader line-of-sight march; and the skill tree is a clickable **constellation**.
-  Windowed smoke **552/552** clean.
+- **Current `main` — `05ec3ae`; windowed source smoke 559/559 (0 skips), Windows export
+  smoke 553/553 (6 `res://` skips), verify PASS.** Since the 2026-08-18 operator polish
+  pass (`87d5b4b`, five play-tested fixes, no balance change), `main` advanced with two
+  presentation features — no gameplay/save/gen change: the **Genesis-style FM/PSG music
+  suite** (`c5c9777`) and the **data-driven biome parallax backdrop + softer lighting**
+  (`dc7cdfb`), plus a README refresh (`05ec3ae`).
+- **In progress — S-07 verification-cleanliness slice (branch `s07-stabilize-b-plus`,
+  not merged).** "Clean" now means clean: the canonical smoke leaves **no exit-time
+  RID/ObjectDB/resource leaks and no focus warning**. The balance-report `Fake*`
+  stand-ins are freed after the report is built; the fq20 command-chip check asserts
+  non-focusability without calling `grab_focus()` on a `FOCUS_NONE` control; and the
+  read-only `res://` smoke-fixture writes are skipped in an exported PCK (their checks
+  already skip there). The verifier (`scripts/ci/verify.py`) now **fails on any
+  lifecycle leak or unexpected Godot `ERROR` line**, with a minimal named-test allowlist
+  (only the r02 corrupt-JSON recovery diagnostic); covered by
+  `scripts/ci/test_verify.py` (self-tested).
 - **Release sequence toward v0.7-alpha (in order):** (1) add focused regression guards
   for the five 2026-08-18 fixes — including explicit `gen_version` v3/v4/v5 compatibility
   coverage — so the behaviour isn't resting on older broad checks; (2) rerun CI to green

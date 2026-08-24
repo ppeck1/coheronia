@@ -35,9 +35,11 @@ and pull request (`.github/workflows/ci.yml`); a red gate blocks the change.
 - **Data-driven first.** Prefer JSON definitions under `data/` for items,
   equipment, recipes, ores, and similar content over hard-coded values.
 - **Cover new system boundaries with smoke checks** in
-  `scripts/main/smoke_test.gd`, especially anything touching save/load. The
-  source smoke must stay green (currently 351/351, zero skips); the exported
-  smoke skips only the six read-only `res://` fixture checks.
+  `scripts/main/smoke_test.gd` (or the focused `scripts/main/smoke/*.gd`
+  modules), especially anything touching save/load. The source smoke must stay
+  green with zero skips; the exported smoke skips only the six read-only
+  `res://` fixture checks. CI is the current pass/fail evidence — the check
+  count only ever rises, so it is not pinned here.
 - **Keep the build export-safe.** Load shipped resources through
   `ResourceLoader` (imported assets are remapped in an exported PCK); raw
   `FileAccess`/`Image.load_from_file` on a `res://` path fails after export.

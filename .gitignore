@@ -40,3 +40,15 @@ audio/**/*.zip
 .codex/
 .claude/
 __pycache__/
+
+# Local-only operator material: the workstation Godot binary, design/asset dumps,
+# ad-hoc diagnostic logs, and one-off screenshots. These stay on disk — the rules
+# only keep them out of the repo (they are not deleted).
+/godot_bin/
+/Coheronia_Dump/
+/.codex-remote-attachments/
+/godot_check.log
+/godot_check.log.err
+/screenshot.*.jpg
+/screenshot.*.png
+/_*.log
