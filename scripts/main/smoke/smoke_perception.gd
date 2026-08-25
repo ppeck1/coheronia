@@ -301,6 +301,12 @@ func run(ctx) -> void:
 	world.add_child(_e2e_subj)                       # _ready() joins the "subjects" group
 	_e2e_subj.set_physics_process(false); _e2e_subj.set_process(false)
 	var _e2e_item: Node = world.spawn_item_drop(world.cell_center(_e2e_item_cell), "wood", 1)
+	if _e2e_item != null and _e2e_item is Node2D:
+		# Pin the drop and freeze its physics/bob so it can't drift into a visible cell
+		# during the awaited expiry frames (else it re-shows via is_visible, not force).
+		(_e2e_item as Node2D).global_position = world.cell_center(_e2e_item_cell)
+		_e2e_item.set_physics_process(false)
+		_e2e_item.set_process(false)
 	if _e2e_enemy != null and _e2e_enemy is Node2D:
 		(_e2e_enemy as Node2D).global_position = world.cell_center(_e2e_enemy_cell)
 		_e2e_enemy.set_physics_process(false); _e2e_enemy.set_process(false)
@@ -359,7 +365,12 @@ func run(ctx) -> void:
 	if root._resonance_terrain_node != null and is_instance_valid(root._resonance_terrain_node):
 		root._resonance_terrain_node._process(_e2e_dur + 1.0)
 	root._advance_resonance_travel(_e2e_dur + 1.0)
-	await get_tree().process_frame
+	# Let the aged highlight nodes' queue_free() actually flush before reconciling — a
+	# single frame is enough in the editor renderer but not always under the exported
+	# build, where the deferred free lands a frame or two later (else _reconcile would
+	# still see a valid highlight and keep its entity force-visible).
+	for _e2e_ef in range(6):
+		await get_tree().process_frame
 	root._reconcile_resonance_visibility()
 	world.refresh_entity_visibility()
 	var _e2e_hl_gone: bool = not is_instance_valid(_e2e_hl_enemy) \

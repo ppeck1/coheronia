@@ -278,7 +278,6 @@ def main() -> int:
             "icon_rect": [11, 16, 32, 32],
             "label_rect": [3, 66, 48, 28],
         },
-        "selected_item_chip_rect": [176, 8, 246, 32],
         "mining_progress_rect": [550, 28, 180, 10],
     }
     text = json.dumps(layout, indent=2) + "\n"

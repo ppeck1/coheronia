@@ -4120,6 +4120,42 @@ func _run() -> void:
 	await get_tree().process_frame
 	_check("hud_dock_centered_symmetric", _dc_ok, _dc_detail)
 
+	# Phase C review-correction: there is NO persistent summary surface above the dock.
+	# The SelectedItemChip node and its rect are gone from the runtime and BOTH layouts;
+	# giving the player ore+food produces no persistent label/chrome; the five slot counts
+	# still update. (The transient _ctx_item_panel toast is a separate, unaffected node.)
+	var _nss_inv_before: Dictionary = player.inventory.to_dict()
+	var _nss_no_node: bool = hud.find_child("SelectedItemChip", true, false) == null
+	var _nss_no_rect := true
+	for _nss_path in ["res://art/source_templates/hud_dock/hud_dock_layout.json",
+			"res://art/generated/ui_painted/hud_dock_layout.json"]:
+		var _nss_f := FileAccess.open(_nss_path, FileAccess.READ)
+		if _nss_f != null:
+			if "selected_item_chip_rect" in _nss_f.get_as_text():
+				_nss_no_rect = false
+			_nss_f.close()
+	player.inventory.from_dict({"dirt": 6, "wood": 3, "stone": 2, "ore": 4, "food": 8})
+	player.selected_slot = 0
+	player.inventory_changed.emit()
+	hud.update_inventory()
+	var _nss_no_text := true
+	for _nss_lbl in hud.find_children("*", "Label", true, false):
+		var _nss_l := _nss_lbl as Label
+		if _nss_l != null and _nss_l.visible \
+				and ("Food ×" in _nss_l.text or "Ore ×" in _nss_l.text):
+			_nss_no_text = false
+	var _nss_counts_ok := true
+	for _nss_i in range(5):
+		if hud.hotbar_slot_count(_nss_i) != player.inventory.count(player.hotbar[_nss_i]):
+			_nss_counts_ok = false
+	player.inventory.from_dict(_nss_inv_before)
+	player.inventory_changed.emit()
+	hud.update_inventory()
+	_check("hud_no_persistent_summary_surface",
+		_nss_no_node and _nss_no_rect and _nss_no_text and _nss_counts_ok,
+		"no_node=%s no_rect=%s no_text=%s counts=%s" % [str(_nss_no_node),
+			str(_nss_no_rect), str(_nss_no_text), str(_nss_counts_ok)])
+
 	# S-07.4: the inventory/loadout policy moved to HudInventoryRules must stay
 	# behaviour-identical through hud.gd's delegating wrappers AND produce the
 	# expected policy results (layout removal, empty-slot, valid-index, tool-slot,

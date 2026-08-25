@@ -752,10 +752,12 @@ func _shoot_perception(root: Node2D, world: Node2D, player: CharacterBody2D, hud
 	root._reconcile_resonance_visibility()
 	world.refresh_entity_visibility()
 	await _shot("42c_resonance_expired")
-	# Remembered terrain after a save/reload of the seen-set: serialize the seen-set,
-	# reload it into a FRESH veil, then tighten sight so the room seen at radius 16 is
-	# now out of LOS. Without persistence it would read black (unseen); with the reloaded
-	# seen-set it renders as dimmed REMEMBERED terrain — the save/reload proof, in-frame.
+	# Remembered terrain reconstructed from the SEEN-SET blob (the same Dictionary the
+	# SaveManager persists to disk under `perception_seen`): serialize it, reload it into
+	# a FRESH veil, then tighten sight so the room seen at radius 16 is now out of LOS.
+	# Without the reloaded seen-set it would read black (unseen); with it, the room renders
+	# as dimmed REMEMBERED terrain. NOTE: this is an in-memory seen-set serialize/reload,
+	# NOT a full SaveManager disk save/load (hence the accurate filename).
 	var s_blob: Dictionary = world.perception_serialized()
 	world.disable_perception()
 	world.enable_perception()
@@ -765,7 +767,7 @@ func _shoot_perception(root: Node2D, world: Node2D, player: CharacterBody2D, hud
 	world.set_perception_view(player.global_position, 3.0 * s_ts, root.PERCEPTION_EDGE_TILES * s_ts)
 	for _sp3 in range(4):
 		await get_tree().physics_frame
-	await _shot("42d_remembered_after_reload")
+	await _shot("42d_remembered_after_seenset_reload")
 
 
 func _shot(shot_name: String) -> void:

@@ -49,11 +49,13 @@ than the data-driven light pulse; `RESONANCE_DURATION_SEC` is the single authori
   highlights clear, the forced-visible set empties, and the three re-hide.
 - `perception_fog_rule_default_contract` pins `WorldConfig.new({}).rule("fog_of_war") ==
   true` and an explicit custom `false` staying false.
-- **Actual save/reload evidence** of remembered terrain is the `42d_remembered_after_reload`
-  capture (serialize the seen-set → reload into a fresh veil → previously-seen terrain
-  renders as dimmed REMEMBERED, not black) plus the `save_manager` `perception_seen` wiring.
-  Staged reveal frames: `42a_fog_targets_hidden` → `42b_resonance_reveals` →
-  `42c_resonance_expired` under `docs/screenshots/`.
+- The `42d_remembered_after_seenset_reload` capture is an **in-memory seen-set
+  serialize→reload reconstruction** (the same `perception_seen` Dictionary the SaveManager
+  persists), NOT a disk save/load — previously-seen terrain renders as dimmed REMEMBERED
+  rather than black. The **actual disk save/load** of `perception_seen` is the
+  `save_manager` wiring (world save writes the key; load restores it via
+  `set_perception_seen_pending`). Staged reveal frames: `42a_fog_targets_hidden` →
+  `42b_resonance_reveals` → `42c_resonance_expired` under `docs/screenshots/`.
 
 **Remaining:** Phase C (Calling detection variants — Prospector/Trailseeker/Warden/etc.,
 hooks already stubbed), Phase D (balance: pulse cost/regen/range/duration), refresh

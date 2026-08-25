@@ -189,7 +189,6 @@ def validate_layout(layout: dict, sizes: dict[str, tuple[int, int]]) -> list[str
         for key in ("icon_rect", "label_rect"):
             _rect_inside(button_content.get(key), button_size, f"button_content.{key}")
 
-        _rect_inside(layout.get("selected_item_chip_rect"), native, "selected_item_chip_rect")
         _rect_inside(layout.get("mining_progress_rect"), native, "mining_progress_rect")
     except (TypeError, ValueError) as exc:
         errors.append(f"layout: {exc}")

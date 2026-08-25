@@ -39,7 +39,6 @@ var _bar_values: Dictionary = {}  # "coherence"/"load"/"resilience" -> Label
 var _time_label: Label
 var _stock_label: Label
 var _progression_label: Label
-var _hotbar_label: Label
 var _mine_bar: ProgressBar
 var _log_label: Label
 var _event_panel: PanelContainer
@@ -1275,17 +1274,10 @@ func _build_hud_kit(layout: Dictionary) -> void:
 	_add_kit_button(band, buttons.get("town_hall"), "Town Hall",
 		"button_icon_town_hall", button_content, func(): toggle_town_panel())
 
-	var summary := PanelContainer.new()
-	summary.name = "SelectedItemChip"
-	summary.add_theme_stylebox_override("panel", _chip_style())
-	_place(summary, _json_rect(layout.get("selected_item_chip_rect")))
-	summary.z_index = 5
-	summary.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	band.add_child(summary)
-	_hotbar_label = Label.new()
-	_hotbar_label.add_theme_font_size_override("font_size", 11)
-	_hotbar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	summary.add_child(_hotbar_label)
+	# Phase C review-correction: the persistent SelectedItemChip summary surface (and its
+	# _hotbar_label) is removed from the dock entirely — no persistent box occupies that
+	# space. Live per-slot counts, selection, and tooltips live in the five hotbar slots;
+	# the transient _ctx_item_panel toast still flashes the selected item on change.
 	_mine_bar = ProgressBar.new()
 	_mine_bar.name = "MiningProgress"
 	_mine_bar.show_percentage = false
@@ -1591,9 +1583,7 @@ func _build_bottom_left() -> void:
 		func(): toggle_skill_panel())
 	_add_dock_action_button(nav_right, "Town Hall", "button_town_hall",
 		func(): toggle_town_panel())
-	_hotbar_label = _label(box, "")
-	_hotbar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hotbar_label.add_theme_font_size_override("font_size", 12)
+	# Phase C review-correction: no persistent summary label above the dock.
 	var hint := _label(box, "LMB mine · RMB place · E town hall · C craft · O goals · M map · F5 save · F9 load")
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 11)
@@ -2196,15 +2186,7 @@ func _build_dock_band(geometry: Dictionary) -> void:
 
 	# --- command center chips between the pedestals, under the plate.
 
-	# --- floating summary chip above the plate (mockup floating-chip style).
-	var summary_chip := PanelContainer.new()
-	summary_chip.add_theme_stylebox_override("panel", _chip_style())
-	summary_chip.position = Vector2(left_size.x + 8.0, 2.0)
-	summary_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	band.add_child(summary_chip)
-	_hotbar_label = Label.new()
-	_hotbar_label.add_theme_font_size_override("font_size", 11)
-	summary_chip.add_child(_hotbar_label)
+	# Phase C review-correction: no persistent summary chip above the plate.
 
 	# --- mining progress floats above the band center (blueprint position).
 	_mine_bar = ProgressBar.new()
@@ -4165,17 +4147,9 @@ func update_inventory() -> void:
 		if i < _hotbar_cells.size():
 			_hotbar_cells[i].add_theme_constant_override("margin_top", 0 if selected else 3)
 			_hotbar_cells[i].add_theme_constant_override("margin_bottom", 3 if selected else 0)
-	var parts: Array[String] = []
-	for extra_id in ["ore", "food"]:
-		var extra: int = player.inventory.count(extra_id)
-		if extra > 0:
-			parts.append("%s ×%d" % [BlockRegistry.display_name(extra_id).capitalize(), extra])
-	# Phase C-B: the persistent "Pick tier · Axe · Weapon · Stowed · Armor" loadout
-	# summary was removed from the dock — it duplicated the live equipment grid, tiers,
-	# and armor readouts in the Inventory and Character panels. The dock summary line now
-	# carries only the at-a-glance ore/food resource counts (above). Loadout state,
-	# tooltips, and equipment behaviour are unchanged and remain in Inventory/Character.
-	_hotbar_label.text = "  ".join(parts)
+	# Phase C review-correction: there is no persistent summary/ore/food surface above the
+	# dock. Loadout and resource state live in the Inventory/Character panels and the live
+	# per-slot counts; the transient _ctx_item_panel toast flashes the selected item.
 	_refresh_stock()
 	if _inv_panel != null and _inv_panel.visible:
 		_refresh_inventory_panel()
