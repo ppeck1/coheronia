@@ -163,16 +163,21 @@ func run(ctx) -> void:
 			str(_fq19_event_survives_close), str(_fq19_docked), str(_fq19_stack_clear),
 			str(_fq19_size_ok), str(_fq19_event_rect), str(_fq19_map_rect), str(_fq19_viewport)])
 	hud.update_time(5, true, 2)
-	# Phase C: the compact wing clock is the abbreviated "Day <n>, <HHMM>" form; the rich
-	# phase/threat detail is retained in the Events popup header (not globally simplified).
+	# Phase C: the docked header shows the day (journal) + military time (clock) as separate
+	# icon+value groups with "Day <n>"/"Time HH:MM" tooltips; the rich phase/threat detail is
+	# retained in the Events popup header (not globally simplified).
 	var _fq19_header: String = hud._events_docked_time_detail()
-	var _fq19_time_ok: bool = hud._time_label == null and hud._event_time_label != null \
-		and hud._event_time_label.text.begins_with("Day 5,") \
-		and not hud._event_time_label.text.contains("Night") \
+	var _fq19_time_ok: bool = hud._time_label == null \
+		and hud._event_day_value != null and hud._event_day_value.text == "5" \
+		and not hud._event_day_value.text.contains("Day") \
+		and hud._event_time_value != null \
+		and hud._event_day_group.tooltip_text == "Day 5" \
 		and _fq19_header.contains("Day 5") and _fq19_header.contains("Night")
 	harness._check("fq19_events_time_header_live", _fq19_time_ok,
-		"crest_time=%s compact=%s detail=%s" % [str(hud._time_label != null),
-			str(hud._event_time_label.text if hud._event_time_label != null else "missing"),
+		"crest_time=%s day=%s time=%s tip=%s detail=%s" % [str(hud._time_label != null),
+			str(hud._event_day_value.text if hud._event_day_value != null else "missing"),
+			str(hud._event_time_value.text if hud._event_time_value != null else "missing"),
+			str(hud._event_day_group.tooltip_text if hud._event_day_group != null else "missing"),
 			_fq19_header])
 
 	# FQ-19: exact clock — the fraction maps onto the settlement clock
@@ -769,21 +774,24 @@ func run(ctx) -> void:
 			str(_gi_no_titles)]
 	harness._check("hud_dock_gauge_instruments", _gi_ok, _gi_detail)
 
-	# Phase C visual slice: the dock-specific compact clock formatter and its live use —
-	# "Day <n>, <HHMM>" (zero-padded 24h, no colon, no phase/moon/threat).
-	var _cf_fmt: bool = hud._format_dock_clock(1, 0, 0) == "Day 1, 0000" \
-		and hud._format_dock_clock(8, 9, 5) == "Day 8, 0905" \
-		and hud._format_dock_clock(98, 11, 24) == "Day 98, 1124" \
-		and hud._format_dock_clock(999, 23, 59) == "Day 999, 2359"
+	# Phase C visual slice: the header day + military-time formatter and its live use —
+	# the day is the bare number beside the journal icon; the time is "HHMM" (zero-padded,
+	# 24h, no colon) beside the clock icon; the group tooltips carry "Day <n>"/"Time HH:MM".
+	var _cf_fmt: bool = hud._format_mil_time(0, 0) == "0000" \
+		and hud._format_mil_time(9, 5) == "0905" \
+		and hud._format_mil_time(11, 24) == "1124" \
+		and hud._format_mil_time(23, 59) == "2359"
 	var _cf_live := true
 	var _cf_sample := "-"
 	if hud._right_wing != null:
-		hud.update_time(98, false, 3, 0.2507)   # -> 11:24
+		hud.update_time(98, false, 3, 0.279)   # -> day 98, 12:00
 		await get_tree().process_frame
-		_cf_sample = hud._event_time_label.text
-		_cf_live = _cf_sample.begins_with("Day 98, ") and not _cf_sample.contains(":") \
-			and not _cf_sample.contains("Night") and not _cf_sample.contains("threat") \
-			and _cf_sample.length() == "Day 98, 1124".length()
+		_cf_sample = "%s / %s" % [hud._event_day_value.text, hud._event_time_value.text]
+		_cf_live = hud._event_day_value.text == "98" and hud._event_time_value.text == "1200" \
+			and not hud._event_time_value.text.contains(":") \
+			and not hud._event_day_value.text.contains("Day") \
+			and hud._event_day_group.tooltip_text == "Day 98" \
+			and hud._event_time_group.tooltip_text == "Time 12:00"
 	harness._check("hud_dock_clock_format", _cf_fmt and _cf_live,
 		"fmt=%s live=%s sample=%s" % [str(_cf_fmt), str(_cf_live), _cf_sample])
 
@@ -797,13 +805,13 @@ func run(ctx) -> void:
 	if hud._right_wing != null:
 		hud._log_entries.clear()
 		hud.log_event("First settlers raise the very first timber wall of the young camp",
-			"First wall raised")
+			"First wall raised", "build")
 		hud.log_event("A roaming merchant caravan is spotted approaching from the north",
-			"Caravan spotted")
+			"Caravan spotted", "settler")
 		hud.log_event("Raiders are massing beyond the tree line to the far eastern side",
-			"Raiders massing east")
+			"Raiders massing east", "warning")
 		hud.log_event("The night watch reports distant torches along the eastern ridge",
-			"Torches to the east")
+			"Torches to the east", "warning")
 		await get_tree().process_frame
 		var _es_order: bool = hud._event_lines[0].text == "Torches to the east" \
 			and hud._event_lines[1].text == "Raiders massing east" \
@@ -815,9 +823,20 @@ func run(ctx) -> void:
 		var _es_history: bool = hud._log_entries.size() == 4 \
 			and str(hud._log_entries[0]["full"]).contains("first timber wall") \
 			and hud._log_label.text.contains("first timber wall")
-		var _es_tooltip: bool = hud._event_lines[0].tooltip_text.contains("distant torches")
+		# The full original message is exposed on hover (both the row and the line label).
+		var _es_tooltip: bool = hud._event_lines[0].tooltip_text.contains("distant torches") \
+			and (hud._event_lines[0].get_parent() as Control).tooltip_text.contains("distant torches")
 		var _es_authored: bool = hud._event_lines[1].text == "Raiders massing east" \
 			and not hud._event_lines[1].text.begins_with("Raiders are massing")
+		# Each visible row leads with its authored category icon; the icon flows from the
+		# paired entry's "icon" field, and distinct categories are distinct textures.
+		var _es_icons: bool = hud._event_icons.size() == 3 \
+			and hud._event_icons[0].visible and hud._event_icons[0].texture != null \
+			and hud._event_icons[0].texture == hud._event_icon_texture("warning") \
+			and hud._event_icons[2].texture == hud._event_icon_texture("settler") \
+			and str(hud._log_entries[3].get("icon", "")) == "warning" \
+			and hud._event_icon_texture("warning") != hud._event_icon_texture("build") \
+			and hud._event_icon_texture("warning") != hud._event_icon_texture("generic")
 		var _es_oneline := true
 		for _es_l in hud._event_lines:
 			var _esl: Label = _es_l
@@ -825,7 +844,8 @@ func run(ctx) -> void:
 					or _esl.text_overrun_behavior != TextServer.OVERRUN_TRIM_ELLIPSIS \
 					or not _esl.clip_text:
 				_es_oneline = false
-		# Unauthored long message -> conservative word-boundary fallback (no mid-word cut).
+		# Unauthored long message -> conservative word-boundary fallback (no mid-word cut),
+		# generic category icon, and the two unused rows hide their icons.
 		var _es_full := "Reinforcements arriving shortly from the western outpost garrison"
 		hud._log_entries.clear()
 		hud.log_event(_es_full)
@@ -834,16 +854,19 @@ func run(ctx) -> void:
 		var _es_core := _es_fb.trim_suffix("…")
 		var _es_fallback: bool = _es_fb.length() < _es_full.length() and _es_fb.ends_with("…") \
 			and _es_full.begins_with(_es_core) \
-			and (_es_core.length() == _es_full.length() or _es_full[_es_core.length()] == " ")
+			and (_es_core.length() == _es_full.length() or _es_full[_es_core.length()] == " ") \
+			and hud._event_icons[0].texture == hud._event_icon_texture("generic") \
+			and not hud._event_icons[1].visible and not hud._event_icons[2].visible
 		_es_ok = _es_order and _es_excluded and _es_history and _es_tooltip and _es_authored \
-			and _es_oneline and _es_fallback
-		_es_detail = "order=%s excluded=%s history=%s tooltip=%s authored=%s oneline=%s fallback=%s fb=\"%s\"" % [
+			and _es_icons and _es_oneline and _es_fallback
+		_es_detail = "order=%s excluded=%s history=%s tooltip=%s authored=%s icons=%s oneline=%s fallback=%s fb=\"%s\"" % [
 			str(_es_order), str(_es_excluded), str(_es_history), str(_es_tooltip), str(_es_authored),
-			str(_es_oneline), str(_es_fallback), _es_fb]
+			str(_es_icons), str(_es_oneline), str(_es_fallback), _es_fb]
 	harness._check("hud_dock_event_summaries", _es_ok, _es_detail)
 
-	# FQ-20: the dock is the command center — five module toggle chips live
-	# inside the dock panel, drive the modules, and mirror external changes.
+	# FQ-20: the dock is the command center — the module toggle chips live inside the dock
+	# panel, drive the modules, and mirror external changes. Phase C: only Goal/Map/Edit
+	# remain, and the framed tray is shrunk to hug those three (no reserved void).
 	var _fq20_module_rect: Rect2 = hud._command_center_panel.get_global_rect() \
 		if hud._command_center_panel != null else Rect2()
 	var _fq20_dock_rect: Rect2 = hud._bottom_dock.get_global_rect() \
@@ -868,6 +891,35 @@ func run(ctx) -> void:
 		and not hud._command_toggles.has("Events") \
 		and hud._command_toggles.has("Goal") and hud._command_toggles.has("Map") \
 		and hud._command_toggles.has("Edit")
+	# Compact-tray geometry: the framed tray hugs its three buttons — its centre matches the
+	# dock centre, the button union is centred in the tray with near-equal, bounded interior
+	# gaps, and every button is fully contained. (Native placement, so this holds at every
+	# resolution; the full-dock QA screenshots prove it visually.)
+	var _fq20_dock_center := _fq20_dock_rect.get_center().x
+	var _fq20_tray_center := _fq20_module_rect.get_center().x
+	var _fq20_first: Rect2 = (hud._command_toggles["Goal"] as Control).get_global_rect()
+	var _fq20_last: Rect2 = (hud._command_toggles["Edit"] as Control).get_global_rect()
+	var _fq20_union_center := (_fq20_first.position.x + _fq20_last.end.x) * 0.5
+	var _fq20_gap_left := _fq20_first.position.x - _fq20_module_rect.position.x
+	var _fq20_gap_right := _fq20_module_rect.end.x - _fq20_last.end.x
+	var _fq20_contains := true
+	for _fq20_btn_name in ["Goal", "Map", "Edit"]:
+		if not _fq20_module_rect.encloses((hud._command_toggles[_fq20_btn_name] as Control).get_global_rect()):
+			_fq20_contains = false
+	var _fq20_tray_geo: bool = absf(_fq20_tray_center - _fq20_dock_center) <= 1.0 \
+		and absf(_fq20_union_center - _fq20_tray_center) <= 1.0 \
+		and absf(_fq20_gap_left - _fq20_gap_right) <= 1.5 \
+		and _fq20_gap_left <= 20.0 and _fq20_gap_right <= 20.0 \
+		and _fq20_gap_left >= 2.0 and _fq20_gap_right >= 2.0 \
+		and _fq20_contains
+	# Reset/restore returns the tray to the compact authoritative rect (JSON), not the old
+	# five-button width. Positions are dock-native (integer), so compare locally.
+	hud._restore_native_module_toolbar_rect()
+	var _fq20_reset_rect := Rect2(hud._command_center_panel.position, hud._command_center_panel.size)
+	var _fq20_reset_ok: bool = _fq20_reset_rect.is_equal_approx(Rect2(535, 132, 210, 44))
+	# The floating (non-kit) fallback panel (anchored 364px wide) still accommodates all
+	# five controls at their fallback 54px width + 4px gaps inside its 7px content margins.
+	var _fq20_fallback_fits: bool = (5.0 * 54.0 + 4.0 * 4.0) <= (364.0 - 2.0 * 7.0)
 	var _fq20_cc_ok: bool = hud._module_toolbar != null \
 		and hud._command_center_panel != null \
 		and hud._command_center_panel.is_ancestor_of(hud._module_toolbar) \
@@ -875,7 +927,8 @@ func run(ctx) -> void:
 		and _fq20_dock_owned \
 		and _fq20_module_clear \
 		and hud._command_toggles.size() == 3 \
-		and _fq20_no_crest_events
+		and _fq20_no_crest_events \
+		and _fq20_tray_geo and _fq20_reset_ok and _fq20_fallback_fits
 	# The Goal chip drives + mirrors its module (toggle, then restore).
 	var _fq20_goal_chip: Button = hud._command_toggles.get("Goal")
 	var _fq20_cc_before: bool = hud._goal_panel.visible
@@ -914,11 +967,12 @@ func run(ctx) -> void:
 	harness._check("fq20_docked_command_center",
 		_fq20_cc_ok and _fq20_cc_toggled and _fq20_cc_restored and _fq20_cc_synced
 		and _fq20_map_chip_opens and _fq20_map_chip_closes and _fq20_map_chip_no_focus,
-		"dock_owned=%s clear=%s rect=%s toggled=%s restored=%s synced=%s map_chip=%s/%s no_focus=%s" % [
-			str(_fq20_dock_owned), str(_fq20_module_clear), _fq20_module_rect,
-			str(_fq20_cc_toggled), str(_fq20_cc_restored), str(_fq20_cc_synced),
-			str(_fq20_map_chip_opens), str(_fq20_map_chip_closes),
-			str(_fq20_map_chip_no_focus)])
+		"count=%d no_ce=%s tray_geo=%s gaps=%.1f/%.1f dcen=%.1f tcen=%.1f ucen=%.1f reset=%s fb5=%s toggled=%s synced=%s map=%s/%s nofocus=%s" % [
+			hud._command_toggles.size(), str(_fq20_no_crest_events), str(_fq20_tray_geo),
+			_fq20_gap_left, _fq20_gap_right, _fq20_dock_center, _fq20_tray_center,
+			_fq20_union_center, str(_fq20_reset_ok), str(_fq20_fallback_fits),
+			str(_fq20_cc_toggled), str(_fq20_cc_synced),
+			str(_fq20_map_chip_opens), str(_fq20_map_chip_closes), str(_fq20_map_chip_no_focus)])
 
 	# FQ-19: resource vessels — masked liquid fill plus the damage / recovery /
 	# zero / regeneration / use-pulse / full-core effect states. Overlay tints

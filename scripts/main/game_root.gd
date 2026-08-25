@@ -241,7 +241,7 @@ func _ready() -> void:
 	hud.update_attunement(player.attunement, player.max_attunement())
 	hud.update_breath(player.breath, player.max_breath())
 	_refresh_hud_progression()
-	log_event("Welcome to Coheronia. Shelter and light the Town Hall.")
+	log_event("Welcome to Coheronia. Shelter and light the Town Hall.", "Welcome", "crest")
 	hud.set_save_hint(save_manager.has_save())
 	settlement.compute()
 	contracts.evaluate()   # R-09: latch any active contract already satisfied on load
@@ -555,10 +555,10 @@ func _refresh_goals() -> void:
 		var goal: Dictionary = _goal_tracker.current()
 		hud.update_goal(goal)
 		if newly and not bool(goal.get("all_done", false)):
-			log_event("Goal: %s" % str(goal.get("text", "")), "New goal")
+			log_event("Goal: %s" % str(goal.get("text", "")), "New goal", "goal")
 		elif newly:
 			log_event("All starting goals complete — the settlement stands.",
-				"All goals complete")
+				"Goals complete", "goal")
 
 
 ## FQ-15: everything the map panel needs, computed on demand (when the panel is
@@ -668,7 +668,8 @@ func _wire_references() -> void:
 
 func _wire_signals() -> void:
 	player.inventory_changed.connect(hud.update_inventory)
-	player.items_picked_up.connect(hud.notify_pickup)   # R-08 slice 3: pickup toast
+	# Routine ground pickups refresh inventory/hotbar counts (via inventory_changed); they
+	# no longer raise a screen-space toast, so there is no HUD listener on items_picked_up.
 	player.health_changed.connect(hud.update_health)
 	player.attunement_changed.connect(hud.update_attunement)
 	player.breath_changed.connect(hud.update_breath)
@@ -1370,7 +1371,7 @@ func _advance_storm(delta: float) -> void:
 		town_hall.queue_redraw()
 	if storm_time_left <= 0.0:
 		storm_active = false
-		log_event("The storm passes.", "Storm passes")
+		log_event("The storm passes.", "Storm passes", "storm")
 		if player.health > 0.0:
 			award_xp("storm_survived")
 		settlement.compute()
@@ -1380,7 +1381,7 @@ func start_storm() -> void:
 	storm_active = true
 	storm_time_left = STORM_DURATION
 	log_event("A storm batters the settlement! Exposed structures take damage.",
-		"Storm hits settlement")
+		"Storm hits", "storm")
 	settlement.compute()
 
 
@@ -1407,9 +1408,9 @@ func _on_nightfall() -> void:
 	if spawn_count > 0:
 		log_event("Night falls. Pressure rises (%d threat%s approaching)." % [
 			spawn_count, "" if spawn_count == 1 else "s"],
-			"Night: %d threat%s" % [spawn_count, "" if spawn_count == 1 else "s"])
+			"Night: %d threat%s" % [spawn_count, "" if spawn_count == 1 else "s"], "warning")
 	else:
-		log_event("Night falls.")
+		log_event("Night falls.", "Nightfall", "dawn")
 	for i in range(spawn_count):
 		_spawn_surface_slime(i)
 	_maybe_spawn_thornrat()
@@ -1455,7 +1456,8 @@ func _on_dawn() -> void:
 		# Fix 5: spare underground enemies — cave crawlers persist through dawn.
 		if threat.family != "underground":
 			threat.queue_free()
-	log_event("Dawn breaks. The pressure recedes." if survived > 0 else "Dawn breaks.")
+	log_event("Dawn breaks. The pressure recedes." if survived > 0 else "Dawn breaks.",
+		"Dawn", "dawn")
 	award_xp("night_survived")
 	consume_daily_food()
 	sync_roster_to_population()   # M3-B: the visible roster tracks the population authority
@@ -1485,11 +1487,11 @@ func consume_daily_food() -> void:
 	var result: Dictionary = town_hall.consume_food(daily_food_need())
 	if result["eaten"] >= result["needed"]:
 		log_event("Settlers ate %d food from the stockpile." % result["eaten"],
-			"Ate %d food" % result["eaten"])
+			"%d consumed" % result["eaten"], "food")
 		award_xp("subject_fed")
 	else:
 		log_event("Food shortage! Settlers needed %d food, found %d. Gather berries." % [
-			result["needed"], result["eaten"]], "Food shortage")
+			result["needed"], result["eaten"]], "Shortage", "food")
 	_update_population(result, coherence_at_dawn)
 
 
@@ -1501,13 +1503,13 @@ func _update_population(meal: Dictionary, coherence_at_dawn: float) -> void:
 		if town_hall.population > 1:
 			town_hall.population -= 1
 			log_event("A settler left after going hungry. Population is now %d." % town_hall.population,
-				"A settler left")
+				"Settler left", "settler")
 	elif coherence_at_dawn >= growth_threshold() and food_ok \
 			and town_hall.population < mini(effective_population_cap(), housing_capacity()):
 		# M2-B: growth needs BOTH the base-level cap and available housing.
 		town_hall.population += 1
 		log_event("Drawn by a thriving settlement, a settler arrived. Population is now %d." % town_hall.population,
-			"A settler arrived")
+			"Settler arrived", "settler")
 	town_hall.stockpile_changed.emit()
 
 
@@ -1553,7 +1555,7 @@ func _maybe_spawn_raider() -> void:
 	var spawn_x: int = hall_cell.x + side * 35
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("WARNING: A raider approaches the settlement!", "Raider approaching")
+	log_event("WARNING: A raider approaches the settlement!", "Raider incoming", "warning")
 	music_event.emit("raid_warning")
 
 
@@ -1581,7 +1583,7 @@ func _maybe_spawn_thornrat() -> void:
 	var spawn_x: int = hall_cell.x + side * 18
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("A Thornrat skitters toward the crops.", "Thornrat near crops")
+	log_event("A Thornrat skitters toward the crops.", "Thornrat", "warning")
 
 
 ## FQ-13: a torchbearer raider joins later raids (its own, later spawn_rule). It
@@ -1610,7 +1612,7 @@ func _maybe_spawn_torchbearer() -> void:
 	var spawn_x: int = hall_cell.x + side * 38
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("WARNING: A Torchbearer moves to burn the Town Hall!", "Torchbearer incoming")
+	log_event("WARNING: A Torchbearer moves to burn the Town Hall!", "Torchbearer", "warning")
 	music_event.emit("raid_warning")
 
 
@@ -1640,7 +1642,7 @@ func _maybe_spawn_sapper() -> void:
 	var spawn_x: int = hall_cell.x + side * 40
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("WARNING: A Sapper moves to breach the settlement walls!", "Sapper at the walls")
+	log_event("WARNING: A Sapper moves to breach the settlement walls!", "Sapper", "warning")
 	music_event.emit("raid_warning")
 
 
@@ -1792,7 +1794,7 @@ func spawn_enemy_for_test(enemy_id: String) -> Node:
 
 
 func _on_threat_died() -> void:
-	log_event("A threat was destroyed.", "Threat destroyed")
+	log_event("A threat was destroyed.", "Threat down", "warning")
 	award_xp("enemy_defeated")
 	# Snapshot the assault state WITH this dying threat still counted, so the
 	# deferred refresh (after its queue_free) can tell whether this defeat is the
@@ -1829,7 +1831,7 @@ func _refresh_threat_display() -> void:
 		if restore > 0.0:
 			player.heal(restore)
 			player.restore_attunement(restore)
-			log_event("The assault is repelled — you catch your breath.", "Assault repelled")
+			log_event("The assault is repelled — you catch your breath.", "Repelled", "warning")
 	_assault_before_death = false
 
 
@@ -1914,7 +1916,7 @@ func _on_repair_requested() -> void:
 func _on_build_station_requested(station_id: String) -> void:
 	var station_name := str(BlockRegistry.station_def(station_id).get("display_name", station_id))
 	if town_hall.build_station(station_id):
-		log_event("Built the %s." % station_name, "Built %s" % station_name)
+		log_event("Built the %s." % station_name, "Built %s" % station_name, "build")
 		award_xp("tool_crafted")
 		contracts.evaluate()   # R-09: station_built reads live station state
 		_craft_confirm_fx(town_hall.global_position)
@@ -2012,9 +2014,9 @@ func _craft_confirm_fx(at: Vector2) -> void:
 
 
 ## Forward an event to the HUD. `compact_summary` is an optional short label the docked
-## Events wing shows in place of the full message (which is kept for the popup/tooltip).
-func log_event(message: String, compact_summary: String = "") -> void:
-	hud.log_event(message, compact_summary)
+## Events wing shows in place of the full message; `icon_id` picks its category glyph.
+func log_event(message: String, compact_summary: String = "", icon_id: String = "") -> void:
+	hud.log_event(message, compact_summary, icon_id)
 
 
 func load_game() -> bool:
@@ -2434,7 +2436,7 @@ func claim_contract(id: String) -> bool:
 	var res: Dictionary = contracts.claim(id)
 	if bool(res.get("ok", false)):
 		log_event("Contract complete: %s" % str(contracts.definition(id).get("title", id)),
-			"Contract complete")
+			"Contract done", "goal")
 		_refresh_hud_progression()
 	return bool(res.get("ok", false))
 
@@ -2617,7 +2619,7 @@ func _check_base_level() -> void:
 		if _meets_base_level_requires(bl.get("requires", {})):
 			base_level = next_lv
 			var name_str: String = _base_level_display_name()
-			log_event("Settlement advanced to %s!" % name_str, "Advanced: %s" % name_str)
+			log_event("Settlement advanced to %s!" % name_str, "Advanced", "build")
 			music_event.emit("base_advance")
 			_refresh_hud_progression()
 		break

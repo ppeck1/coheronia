@@ -145,7 +145,6 @@ func _run() -> void:
 		player.get_node("Camera2D").reset_smoothing()
 		for i in range(34):
 			await get_tree().physics_frame        # let them fall and settle on the ground
-		hud.notify_pickup({"wood": 3, "stone": 2})
 		root.log_event("Loose drops settle on the ground, ready to gather.")
 		await _shot("17_ground_drops")
 		for _d in get_tree().get_nodes_in_group("item_drops"):

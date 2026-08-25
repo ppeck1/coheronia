@@ -4025,11 +4025,13 @@ func _run() -> void:
 	# entries (selection change / save / interaction), auto-hide, and a top
 	# edge pinned dynamically below the live Map/Events zone. Runs after the
 	# music suite because the auto-hide assertions wait in real time.
+	# The stack holds exactly the three intended entries, asserted by identity (no pickup
+	# toast — routine pickups update inventory only).
 	var _fq19x_order_ok: bool = hud._context_stack != null \
+		and hud._context_stack.get_child_count() == 3 \
 		and hud._context_stack.get_child(0) == hud._ctx_item_panel \
 		and hud._context_stack.get_child(1) == hud._ctx_save_panel \
-		and hud._context_stack.get_child(2) == hud._ctx_interact_panel \
-		and hud._context_stack.get_child(3) == hud._ctx_pickup_panel   # R-08 slice 3
+		and hud._context_stack.get_child(2) == hud._ctx_interact_panel
 	var _fq19x_slot0: int = player.selected_slot
 	player.selected_slot = (player.selected_slot + 1) % 5
 	hud.update_inventory()

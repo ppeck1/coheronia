@@ -53,6 +53,12 @@ var _event_popup: PanelContainer
 # read the single latest message; all three docked lines live in _event_lines.
 var _event_compact_label: Label
 var _event_lines: Array[Label] = []
+var _event_icons: Array[TextureRect] = []
+# Docked Events header: two icon+value groups (journal day, clock time).
+var _event_day_value: Label
+var _event_time_value: Label
+var _event_day_group: Control
+var _event_time_group: Control
 # Docked crest gauge columns + their full names (for live tooltips).
 var _crest_columns: Dictionary = {}
 var _crest_full_names: Dictionary = {}
@@ -195,9 +201,6 @@ var _ctx_item_label: Label
 var _ctx_save_panel: PanelContainer
 var _ctx_interact_panel: PanelContainer
 var _ctx_interact_label: Label
-var _ctx_pickup_panel: PanelContainer          # R-08 slice 3: "+N Item" pickup toast
-var _ctx_pickup_label: Label
-var _ctx_pickup_counts: Dictionary = {}         # item_id -> running total while the toast shows
 var _ctx_tweens: Dictionary = {}   # PanelContainer -> Tween
 var _ctx_last_item := ""
 var _hud_widgets: Dictionary = {}
@@ -293,9 +296,10 @@ func _process(_delta: float) -> void:
 ## toolbar. `_module_toolbar` keeps its name as the row's identity.
 func _build_command_center(parent: Control) -> void:
 	if _hud_kit_active:
+		# Width is derived from the actual button count in _layout_command_toolbar so the
+		# framed tray hugs its contents (no reserved void); height matches the dock rail.
 		_module_toolbar = Control.new()
-		_module_toolbar.custom_minimum_size = Vector2(340, 32)
-		_module_toolbar.size = Vector2(340, 32)
+		_module_toolbar.custom_minimum_size = Vector2(0, 32)
 	else:
 		var row := HBoxContainer.new()
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -324,7 +328,7 @@ func _build_command_center_widget() -> void:
 		var layout := _load_hud_kit_layout()
 		var rect := _json_rect(layout.get("module_toolbar_rect"))
 		if rect == Rect2():
-			rect = Rect2(Vector2(458.0, 132.0), Vector2(364.0, 44.0))
+			rect = Rect2(Vector2(535.0, 132.0), Vector2(210.0, 44.0))
 		_place(_command_center_panel, rect)
 		_command_center_panel.z_index = 6
 		_bottom_dock.add_child(_command_center_panel)
@@ -367,20 +371,25 @@ func _add_command_toggle_with_state(text: String, action: Callable) -> void:
 	_layout_command_toolbar()
 
 
+## Native (kit-path) tray layout: size the framed tray to its actual buttons and centre
+## them. The inner width is DERIVED from the live button count / width / gap / interior
+## pad, so removing the Crest/Events chips shrinks the tray around Goal/Map/Edit instead
+## of leaving a reserved void. The outer panel rect stays the JSON authority.
 func _layout_command_toolbar() -> void:
 	if _module_toolbar == null or _module_toolbar is HBoxContainer:
 		return
-	var button_size := Vector2(58, 24)
-	var gap := 4.0
 	var count := _module_toolbar.get_child_count()
-	var total_width := button_size.x * count + gap * maxf(float(count - 1), 0.0)
-	var start_x := maxf((_module_toolbar.custom_minimum_size.x - total_width) * 0.5, 0.0)
+	var total_width := TRAY_BUTTON.x * count + TRAY_GAP * maxf(float(count - 1), 0.0)
+	# The tray hugs its contents: button union + one interior pad each side.
+	var inner_width := total_width + TRAY_INTERIOR * 2.0
+	_module_toolbar.custom_minimum_size = Vector2(inner_width, TRAY_BUTTON.y + 8.0)
+	var start_x := maxf((inner_width - total_width) * 0.5, 0.0)
 	for i in range(count):
 		var button := _module_toolbar.get_child(i) as Button
 		if button == null:
 			continue
-		button.position = Vector2(start_x + float(i) * (button_size.x + gap), 4.0)
-		button.size = button_size
+		button.position = Vector2(start_x + float(i) * (TRAY_BUTTON.x + TRAY_GAP), 4.0)
+		button.size = TRAY_BUTTON
 
 
 ## Mirror the live open/closed state onto the toggle chips (no signals).
@@ -1482,6 +1491,11 @@ func _build_hud_kit(layout: Dictionary) -> void:
 
 const WING_WOOD_MARGIN := 5.0   # wooden perimeter left visible around the socket
 const WING_SOCKET_PAD := 4.0    # inset from the socket bevel to the live content
+# Command-tray (Goal/Map/Edit) geometry — the framed tray is derived from these so it
+# hugs its actual buttons rather than reserving a fixed five-button width.
+const TRAY_BUTTON := Vector2(58, 24)   # toggle-chip geometry (unchanged)
+const TRAY_GAP := 4.0                  # inter-button spacing (unchanged)
+const TRAY_INTERIOR := 7.0             # interior pad each side (matches the chip frame)
 # Content width inside a 128px wing socket: 128 - 2*(margin + pad). The compact clock
 # and event lines size to this so concise summaries fit without ellipsis.
 const WING_LINE_WIDTH := 110.0
@@ -2722,11 +2736,9 @@ func _build_context_stack() -> void:
 	_ctx_interact_panel = _make_context_entry()
 	_ctx_interact_label = _ctx_interact_panel.get_child(0) as Label
 	_ctx_interact_label.add_theme_color_override("font_color", Color(0.89, 0.75, 0.43))
-	# R-08 slice 3: the pickup toast is appended last so the fixed FQ-19 priority
-	# order (item, save, interact) at the top of the stack is unchanged.
-	_ctx_pickup_panel = _make_context_entry()
-	_ctx_pickup_label = _ctx_pickup_panel.get_child(0) as Label
-	_ctx_pickup_label.add_theme_color_override("font_color", Color(0.60, 0.86, 0.52))
+	# Routine ground-item collection does not raise a screen-space toast; pickups update
+	# the inventory/hotbar counts directly. The contextual stack keeps only the item,
+	# save, and interaction entries.
 
 
 func _make_context_entry() -> PanelContainer:
@@ -2780,25 +2792,6 @@ func notify_saved() -> void:
 		_show_context_entry(_ctx_save_panel, 2.2)
 
 
-## R-08 slice 3: a "+N Item" pickup toast, fired when the player sweeps loose
-## items off the ground (player.items_picked_up). While the toast is still
-## showing, further pickups accumulate into it -- walking across a scattered pile
-## reads as one growing "+12 Stone" rather than a flicker of separate toasts. The
-## tally resets once the toast has faded and a fresh pickup arrives.
-func notify_pickup(items: Dictionary) -> void:
-	if _ctx_pickup_panel == null or items.is_empty():
-		return
-	if not _ctx_pickup_panel.visible:
-		_ctx_pickup_counts.clear()
-	for id in items:
-		_ctx_pickup_counts[id] = int(_ctx_pickup_counts.get(id, 0)) + int(items[id])
-	var parts: Array[String] = []
-	for id in _ctx_pickup_counts:
-		parts.append("+%d %s" % [int(_ctx_pickup_counts[id]), BlockRegistry.display_name(str(id))])
-	_ctx_pickup_label.text = ", ".join(parts)
-	_show_context_entry(_ctx_pickup_panel, 1.9)
-
-
 ## FQ-19: contextual interaction prompt; empty text hides it.
 func set_interaction_prompt(text: String) -> void:
 	if _ctx_interact_panel == null:
@@ -2849,43 +2842,95 @@ func _build_log() -> void:
 	event_box.add_child(_log_label)
 
 
-## Phase C visual slice: compact LIVE Events in the right wing socket — the dock clock
-## ("Day <n>, <HHMM>") above the three most-recent event lines (newest first, each one
-## line, independently ellipsised). The full history + rich time header live in the
-## click-opened popup; the compact view never reduces the underlying history.
+## One header group: a 12px authored icon + a value label, tooltipped as a unit
+## (MOUSE_FILTER_PASS so the click still reaches the wing). Value label is child 1.
+func _wing_header_group(icon_id: String, tip: String) -> HBoxContainer:
+	var grp := HBoxContainer.new()
+	grp.add_theme_constant_override("separation", 2)
+	grp.mouse_filter = Control.MOUSE_FILTER_PASS
+	grp.tooltip_text = tip
+	var icon := TextureRect.new()
+	icon.texture = _painted_texture(icon_id)
+	icon.custom_minimum_size = Vector2(12, 12)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grp.add_child(icon)
+	var val := Label.new()
+	val.add_theme_font_size_override("font_size", 11)
+	val.add_theme_color_override("font_color", Color(0.94, 0.90, 0.74))
+	val.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grp.add_child(val)
+	return grp
+
+
+## The category icon texture for an event `icon_id` (empty -> generic fallback).
+func _event_icon_texture(icon_id: String) -> Texture2D:
+	var wanted := icon_id if not icon_id.is_empty() else "generic"
+	var tex := _painted_texture("wing_evt_%s" % wanted)
+	if tex == null:
+		tex = _painted_texture("wing_evt_generic")
+	return tex
+
+
+## Phase C visual slice: a compact journal in the right wing socket. A centred header of
+## two icon+value groups (journal day, clock military-time) sits above the three most
+## recent events, each a leading category icon + a short summary (newest first, one line,
+## left-aligned). The full history + rich date/time live in the click-opened popup; the
+## compact view never reduces the underlying history.
 func _build_events_docked() -> void:
 	var cluster := VBoxContainer.new()
 	cluster.add_theme_constant_override("separation", 2)
 	cluster.alignment = BoxContainer.ALIGNMENT_CENTER
 	cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_right_wing_box.add_child(cluster)
-	_event_time_label = Label.new()
-	_event_time_label.text = _format_dock_clock(1, 0, 0)
-	_event_time_label.add_theme_color_override("font_color", Color(0.87, 0.79, 0.53))
-	_event_time_label.add_theme_font_size_override("font_size", 13)
-	_event_time_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_event_time_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_event_time_label.clip_text = true
-	_event_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_event_time_label.custom_minimum_size = Vector2(WING_LINE_WIDTH, 0)
-	_event_time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cluster.add_child(_event_time_label)
-	# Three most-recent event lines: left-aligned for consistent scanning, a readable
-	# size, one line each. They carry short authored summaries that normally fit, so
-	# ellipsis is only a safety fallback. MOUSE_FILTER_PASS shows the full-message
-	# tooltip on hover while the click still reaches the wing and opens the popup.
+	# Header: [journal] <day>   [clock] <HHMM>, centred, icons most prominent.
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 9)
+	header.alignment = BoxContainer.ALIGNMENT_CENTER
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cluster.add_child(header)
+	_event_day_group = _wing_header_group("wing_hdr_day", "Day 1")
+	_event_day_value = _event_day_group.get_child(1) as Label
+	header.add_child(_event_day_group)
+	_event_time_group = _wing_header_group("wing_hdr_time", "Time 00:00")
+	_event_time_value = _event_time_group.get_child(1) as Label
+	header.add_child(_event_time_group)
+	# A restrained one-pixel dark-brass divider under the header (not a frame).
+	var divider := ColorRect.new()
+	divider.color = Color(0.30, 0.22, 0.11, 0.85)
+	divider.custom_minimum_size = Vector2(WING_LINE_WIDTH * 0.72, 1)
+	divider.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cluster.add_child(divider)
+	# Three event rows: leading category icon + a short left-aligned summary (font 9). Each
+	# row is MOUSE_FILTER_PASS so hovering shows the full-message tooltip while the click
+	# still reaches the wing and opens the popup. Ellipsis is only a safety fallback.
 	_event_lines.clear()
+	_event_icons.clear()
 	for _i in range(3):
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 3)
+		row.custom_minimum_size = Vector2(WING_LINE_WIDTH, 0)
+		row.mouse_filter = Control.MOUSE_FILTER_PASS
+		cluster.add_child(row)
+		var icon := TextureRect.new()
+		icon.custom_minimum_size = Vector2(12, 12)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(icon)
 		var line := Label.new()
-		line.add_theme_font_size_override("font_size", 10)
-		line.add_theme_color_override("font_color", Color(0.95, 0.90, 0.80))
+		line.add_theme_font_size_override("font_size", 9)
+		line.add_theme_color_override("font_color", Color(0.93, 0.88, 0.78))
 		line.autowrap_mode = TextServer.AUTOWRAP_OFF
 		line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		line.clip_text = true
 		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		line.custom_minimum_size = Vector2(WING_LINE_WIDTH, 0)
-		line.mouse_filter = Control.MOUSE_FILTER_PASS
-		cluster.add_child(line)
+		line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(line)
+		_event_icons.append(icon)
 		_event_lines.append(line)
 	_event_compact_label = _event_lines[0]
 	# Full scrolling log in the click-opened popup.
@@ -4479,11 +4524,11 @@ func _clock_text(fraction: float) -> String:
 	return "%02d:%02d" % [hm[0], hm[1]]
 
 
-## Phase C: the dock-wing compact clock — "Day <n>, <HHMM>" (zero-padded, 24-hour, no
-## colon, no phase/moon/threat). Dock-specific so the full popup header keeps its rich
-## "Day 5 • Dusk 18:42 • <moon>" form and threat suffix.
-func _format_dock_clock(day: int, hour: int, minute: int) -> String:
-	return "Day %d, %02d%02d" % [day, hour, minute]
+## Phase C: the dock-wing header military time — "HHMM" (zero-padded, 24-hour, no colon).
+## The day is shown separately beside its journal icon; the full popup header keeps the
+## rich "Day 5 • Dusk 18:42 • <moon>" form and threat suffix.
+func _format_mil_time(hour: int, minute: int) -> String:
+	return "%02d%02d" % [hour, minute]
 
 
 func update_time(day: int, is_night: bool, threat_count: int = 0,
@@ -4513,23 +4558,29 @@ func update_time(day: int, is_night: bool, threat_count: int = 0,
 		text += "  ⚠ %d threat%s active" % [threat_count, "" if threat_count == 1 else "s"]
 	if _time_label != null:
 		_time_label.text = text
-	# Phase C: the docked wing clock is the compact "Day <n>, <HHMM>" form (no phase,
-	# moon, or threat); the floating fallback keeps the full header text. Keyed off the
-	# Events wing itself, not the Crest wing — the two must stay independent.
-	if _event_time_label != null:
-		if _right_wing != null:
-			var ch := 12
-			var cm := 0
-			if time_fraction >= 0.0:
-				var hm := _clock_hm(time_fraction)
-				ch = int(hm[0])
-				cm = int(hm[1])
-			elif is_night:
-				ch = 0
-				cm = 0
-			_event_time_label.text = _format_dock_clock(day, ch, cm)
-		else:
-			_event_time_label.text = text
+	# Phase C: the docked Events header shows the day (journal) and military time (clock)
+	# as separate icon+value groups (no phase/moon/threat); the floating fallback keeps
+	# the full header text. Keyed off the Events wing, not the Crest wing — independent.
+	if _right_wing != null:
+		var ch := 12
+		var cm := 0
+		if time_fraction >= 0.0:
+			var hm := _clock_hm(time_fraction)
+			ch = int(hm[0])
+			cm = int(hm[1])
+		elif is_night:
+			ch = 0
+			cm = 0
+		if _event_day_value != null:
+			_event_day_value.text = str(day)
+		if _event_time_value != null:
+			_event_time_value.text = _format_mil_time(ch, cm)
+		if _event_day_group != null:
+			_event_day_group.tooltip_text = "Day %d" % day
+		if _event_time_group != null:
+			_event_time_group.tooltip_text = "Time %02d:%02d" % [ch, cm]
+	elif _event_time_label != null:
+		_event_time_label.text = text
 	# The Events popup keeps the full rich header (phase, HH:MM, moon, threats).
 	if _event_detail_time_label != null:
 		_event_detail_time_label.text = text
@@ -4596,11 +4647,11 @@ func update_inventory() -> void:
 ## Record an event. `compact_summary` is an optional short label for the docked wing;
 ## when omitted, a conservative word-boundary fallback derives one. The full `message`
 ## is always kept verbatim for the popup and the hover tooltip.
-func log_event(message: String, compact_summary: String = "") -> void:
+func log_event(message: String, compact_summary: String = "", icon_id: String = "") -> void:
 	var compact := compact_summary.strip_edges()
 	if compact.is_empty():
 		compact = _compact_event_fallback(message)
-	_log_entries.append({"full": message, "compact": compact})
+	_log_entries.append({"full": message, "compact": compact, "icon": icon_id})
 	if _log_entries.size() > 6:
 		_log_entries = _log_entries.slice(_log_entries.size() - 6)
 	_log_label.text = _full_log_text()
@@ -4646,12 +4697,24 @@ func _compact_event_fallback(message: String) -> String:
 func _refresh_event_lines() -> void:
 	for i in range(_event_lines.size()):
 		var idx := _log_entries.size() - 1 - i
+		var row := _event_lines[i].get_parent() as Control
 		if idx >= 0:
-			_event_lines[i].text = str(_log_entries[idx]["compact"])
-			_event_lines[i].tooltip_text = str(_log_entries[idx]["full"])
+			var entry: Dictionary = _log_entries[idx]
+			var full := str(entry["full"])
+			_event_lines[i].text = str(entry["compact"])
+			_event_lines[i].tooltip_text = full
+			if row != null:
+				row.tooltip_text = full   # hover anywhere on the row -> full message
+			if i < _event_icons.size():
+				_event_icons[i].texture = _event_icon_texture(str(entry.get("icon", "")))
+				_event_icons[i].visible = true
 		else:
 			_event_lines[i].text = ""
 			_event_lines[i].tooltip_text = ""
+			if row != null:
+				row.tooltip_text = ""
+			if i < _event_icons.size():
+				_event_icons[i].visible = false
 
 
 func toggle_town_panel() -> void:

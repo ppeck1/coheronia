@@ -136,55 +136,79 @@ func _run() -> void:
 		"note": "Directional swing-arc FX (F10) sweeping right at the player."})
 
 	# Phase C visual slice: freeze the sim (so the live clock cannot overwrite the forced
-	# readout), then drive the docked wings with deterministic worst-case data — 3-digit
-	# gauge values, the widest 3-digit-day compact clock, and three long event lines that
-	# each ellipsise independently.
+	# readout), then drive the docked wings with deterministic data — mixed gauge heights,
+	# the icon+value journal header, and a normal + a threat-heavy event set (each with a
+	# leading category icon and a concise summary).
 	get_tree().paused = true
-	# Mixed gauge values prove the bottom-to-top fill reaches distinct heights (the
-	# all-100 containment case is covered by the automated smoke contract instead).
-	hud.update_settlement(80.0, 13.0, 77.0, {}, [])
-	hud.update_time(999, false, 5, 0.789)   # -> "Day 999, 2358" (widest 3-digit day)
-	# Full messages persist for the popup/tooltip; the wing shows the authored summaries.
-	hud.log_event("A caravan of weary traders reaches the north gate seeking shelter",
-		"Caravan at north gate")
-	hud.log_event("Storm clouds gather over the eastern ridge — secure every roof now",
-		"Storm approaching")
-	hud.log_event("Raiders are massing at the far eastern gate — brace every wall now",
-		"Raiders massing east")
-	# (Exact target-example summaries above, to prove they fit without ellipsis.)
-
-	# Crop each wooden wing (+ its neighbouring orb/button) at every target size so fit and
-	# overlap can be judged at native pixels, and after a live resize.
-	for _wsz in [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1000), Vector2i(640, 360)]:
+	hud.update_settlement(80.0, 13.0, 77.0, {}, [])   # distinct bottom-to-top heights
+	hud.update_time(104, false, 0, 0.0086)            # -> journal 104, clock ~0611
+	# Normal journal set (newest first: food, dawn, welcome).
+	hud._log_entries.clear()
+	hud.log_event("Welcome to Coheronia. Shelter and light the Town Hall.", "Welcome", "crest")
+	hud.log_event("Dawn breaks. The pressure recedes.", "Dawn", "dawn")
+	hud.log_event("Settlers ate 1 food from the stockpile.", "1 consumed", "food")
+	for _wsz in [Vector2i(640, 360), Vector2i(1280, 720), Vector2i(1920, 1000)]:
 		DisplayServer.window_set_size(_wsz)
 		for _wi in range(12):
 			await get_tree().process_frame
 		await RenderingServer.frame_post_draw
-		var _img := get_viewport().get_texture().get_image()
-		# The captured texture is at the PHYSICAL window resolution while control global
-		# rects are in LOGICAL (stretch) space, so map by the physical/logical ratio.
-		var _logical: Vector2 = get_viewport().get_visible_rect().size
-		var _sc := Vector2(float(_img.get_width()), float(_img.get_height())) \
-			/ Vector2(maxf(1.0, _logical.x), maxf(1.0, _logical.y))
-		for _pair in [["left", hud.find_child("LeftWing", true, false)],
-				["right", hud.find_child("RightWing", true, false)]]:
-			var _n = _pair[1]
-			if _n == null:
-				continue
-			var _gr: Rect2 = (_n as Control).get_global_rect()
-			var _px: Vector2 = _gr.position * _sc
-			var _pz: Vector2 = _gr.size * _sc
-			var _crop := Rect2i(int(_px.x) - 64, int(_px.y) - 24, int(_pz.x) + 128, int(_pz.y) + 48)
-			_crop = _crop.intersection(Rect2i(Vector2i.ZERO, _img.get_size()))
-			if _crop.size.x <= 0 or _crop.size.y <= 0:
-				continue
-			_img.get_region(_crop).save_png("%s/wing_%s_%dx%d.png" % [QA_DIR, _pair[0], _wsz.x, _wsz.y])
+		_capture_wing(hud.find_child("LeftWing", true, false),
+			"wing_left_%dx%d" % [_wsz.x, _wsz.y])
+		_capture_wing(hud.find_child("RightWing", true, false),
+			"wing_right_%dx%d" % [_wsz.x, _wsz.y])
+	# Threat-heavy right-wing set (newest first: raiders, storm, settler).
+	hud._log_entries.clear()
+	hud.log_event("Drawn by a thriving settlement, a settler arrived. Population is now 5.",
+		"Settler arrived", "settler")
+	hud.log_event("Storm clouds gather over the eastern ridge — secure every roof now",
+		"Approaching", "storm")
+	hud.log_event("WARNING: A raider approaches the settlement!", "Raiders east", "warning")
+	for _wsz_t in [Vector2i(640, 360), Vector2i(1280, 720), Vector2i(1920, 1000)]:
+		DisplayServer.window_set_size(_wsz_t)
+		for _wi_t in range(12):
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		_capture_wing(hud.find_child("RightWing", true, false),
+			"wing_right_threat_%dx%d" % [_wsz_t.x, _wsz_t.y])
+	# Full-dock screenshots (the whole bottom dock in context) so the compact Goal/Map/Edit
+	# command tray can be judged at every target resolution. Restore the normal journal set.
+	hud._log_entries.clear()
+	hud.log_event("Welcome to Coheronia. Shelter and light the Town Hall.", "Welcome", "crest")
+	hud.log_event("Dawn breaks. The pressure recedes.", "Dawn", "dawn")
+	hud.log_event("Settlers ate 1 food from the stockpile.", "1 consumed", "food")
+	for _wsz_d in [Vector2i(640, 360), Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1000)]:
+		DisplayServer.window_set_size(_wsz_d)
+		for _wi_d in range(12):
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(
+			"%s/dock_full_%dx%d.png" % [QA_DIR, _wsz_d.x, _wsz_d.y])
 	DisplayServer.window_set_size(Vector2i(1280, 720))
 	get_tree().paused = false
 
 	_write_manifest(hud)
 	print("HUD_QA complete -> %s" % QA_DIR)
 	get_tree().quit(0)
+
+
+## Crop a wing (+ its neighbouring orb/button) from the current frame and save it. The
+## captured texture is at the PHYSICAL window resolution while control global rects are in
+## LOGICAL (stretch) space, so map by the physical/logical ratio.
+func _capture_wing(node: Node, out_name: String) -> void:
+	if node == null:
+		return
+	var img := get_viewport().get_texture().get_image()
+	var logical: Vector2 = get_viewport().get_visible_rect().size
+	var sc := Vector2(float(img.get_width()), float(img.get_height())) \
+		/ Vector2(maxf(1.0, logical.x), maxf(1.0, logical.y))
+	var gr: Rect2 = (node as Control).get_global_rect()
+	var px: Vector2 = gr.position * sc
+	var pz: Vector2 = gr.size * sc
+	var crop := Rect2i(int(px.x) - 64, int(px.y) - 24, int(pz.x) + 128, int(pz.y) + 48)
+	crop = crop.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+	if crop.size.x <= 0 or crop.size.y <= 0:
+		return
+	img.get_region(crop).save_png("%s/%s.png" % [QA_DIR, out_name])
 
 
 func _stage_settlement(root: Node2D, world: Node2D, player: CharacterBody2D, hall: Node2D) -> void:

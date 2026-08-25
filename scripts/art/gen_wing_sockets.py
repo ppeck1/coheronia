@@ -45,6 +45,19 @@ LOAD_HI = (244, 202, 116, 255)
 RES = (74, 124, 206, 255)
 RES_HI = (156, 206, 244, 255)
 
+# Event-category palette (shared, restrained). Icons are distinguished by silhouette;
+# colour is only a secondary cue.
+BRASS = (152, 112, 52, 255)
+STEEL = (126, 136, 152, 255)
+STEEL_HI = (186, 194, 208, 255)
+AMBER = (240, 196, 96, 255)
+FOOD = (198, 84, 66, 255)
+LEAF = (96, 176, 96, 255)
+SUN = (245, 200, 92, 255)
+WARN = (232, 182, 72, 255)
+STORM = (150, 160, 176, 255)
+PERSON = (184, 194, 208, 255)
+
 
 def _rings(d: ImageDraw.ImageDraw, size: int,
         colors: list[tuple[int, int, int, int]],
@@ -111,11 +124,129 @@ def wing_icon_resilience() -> Image.Image:
     return img
 
 
+# --- Events journal icon family (12x12, silhouette-first, reusable categories) ---------
+
+def _e() -> tuple[Image.Image, ImageDraw.ImageDraw]:
+    img = Image.new("RGBA", (12, 12), CLEAR)
+    return img, ImageDraw.Draw(img)
+
+
+def wing_hdr_day() -> Image.Image:
+    # Calendar/journal page — the settlement day.
+    img, d = _e()
+    d.rectangle([2, 1, 9, 10], fill=STEEL_HI, outline=EDGE)
+    d.rectangle([2, 1, 9, 2], fill=BRASS_DK)          # header band
+    for y in (5, 7, 9):
+        d.line([(4, y), (7, y)], fill=EDGE)           # ruled lines
+    return img
+
+
+def wing_hdr_time() -> Image.Image:
+    # Clock face — military time.
+    img, d = _e()
+    d.ellipse([1, 1, 10, 10], fill=STEEL_HI, outline=EDGE)
+    d.line([(6, 6), (6, 3)], fill=EDGE)               # minute hand
+    d.line([(6, 6), (8, 6)], fill=EDGE)               # hour hand
+    d.point((6, 6), fill=EDGE)
+    return img
+
+
+def wing_evt_food() -> Image.Image:
+    # Apple — food / consumption.
+    img, d = _e()
+    d.ellipse([2, 3, 9, 10], fill=FOOD, outline=EDGE)
+    d.line([(6, 2), (6, 3)], fill=BRASS)
+    d.polygon([(6, 1), (8, 1), (7, 3)], fill=LEAF, outline=EDGE)   # leaf
+    return img
+
+
+def wing_evt_dawn() -> Image.Image:
+    # Sun over a horizon — dawn / daybreak.
+    img, d = _e()
+    d.ellipse([3, 3, 8, 8], fill=SUN, outline=EDGE)
+    d.line([(0, 10), (11, 10)], fill=EDGE)            # horizon
+    for x, y in [(1, 3), (10, 3), (5, 0)]:
+        d.point((x, y), fill=SUN)                     # rays
+    return img
+
+
+def wing_evt_warning() -> Image.Image:
+    # Warning triangle — threats / raids.
+    img, d = _e()
+    d.polygon([(6, 1), (11, 10), (1, 10)], fill=WARN, outline=EDGE)
+    d.line([(6, 4), (6, 7)], fill=EDGE)
+    d.point((6, 9), fill=EDGE)
+    return img
+
+
+def wing_evt_storm() -> Image.Image:
+    # Cloud with a bolt — weather / storms.
+    img, d = _e()
+    d.ellipse([1, 2, 7, 7], fill=STORM, outline=EDGE)
+    d.ellipse([4, 3, 10, 8], fill=STORM, outline=EDGE)
+    d.line([(6, 7), (4, 10)], fill=AMBER)
+    d.line([(4, 10), (6, 9)], fill=AMBER)
+    d.line([(6, 9), (5, 11)], fill=AMBER)             # lightning bolt
+    return img
+
+
+def wing_evt_settler() -> Image.Image:
+    # Person — settlers / population.
+    img, d = _e()
+    d.ellipse([4, 1, 7, 4], fill=PERSON, outline=EDGE)               # head
+    d.polygon([(3, 10), (8, 10), (7, 5), (4, 5)], fill=PERSON, outline=EDGE)
+    return img
+
+
+def wing_evt_build() -> Image.Image:
+    # Hammer — construction.
+    img, d = _e()
+    d.rectangle([4, 1, 10, 4], fill=STEEL, outline=EDGE)             # head
+    d.rectangle([6, 4, 7, 10], fill=BRASS, outline=EDGE)            # handle
+    return img
+
+
+def wing_evt_goal() -> Image.Image:
+    # Scroll — goals / contracts.
+    img, d = _e()
+    d.rectangle([3, 2, 8, 9], fill=STEEL_HI, outline=EDGE)
+    d.rectangle([3, 2, 8, 3], fill=BRASS_DK)          # top roll
+    d.rectangle([3, 8, 8, 9], fill=BRASS_DK)          # bottom roll
+    d.line([(4, 5), (7, 5)], fill=EDGE)
+    return img
+
+
+def wing_evt_crest() -> Image.Image:
+    # Crest diamond — welcome / settlement identity.
+    img, d = _e()
+    d.polygon([(6, 1), (10, 6), (6, 11), (2, 6)], fill=BRASS_HI, outline=EDGE)
+    d.point((6, 6), fill=EDGE)
+    return img
+
+
+def wing_evt_generic() -> Image.Image:
+    # Small pip — generic event fallback.
+    img, d = _e()
+    d.polygon([(6, 3), (9, 6), (6, 9), (3, 6)], fill=STEEL, outline=EDGE)
+    return img
+
+
 BUILDERS = {
     "wing_socket_frame": wing_socket_frame,
     "wing_icon_coherence": wing_icon_coherence,
     "wing_icon_load": wing_icon_load,
     "wing_icon_resilience": wing_icon_resilience,
+    "wing_hdr_day": wing_hdr_day,
+    "wing_hdr_time": wing_hdr_time,
+    "wing_evt_food": wing_evt_food,
+    "wing_evt_dawn": wing_evt_dawn,
+    "wing_evt_warning": wing_evt_warning,
+    "wing_evt_storm": wing_evt_storm,
+    "wing_evt_settler": wing_evt_settler,
+    "wing_evt_build": wing_evt_build,
+    "wing_evt_goal": wing_evt_goal,
+    "wing_evt_crest": wing_evt_crest,
+    "wing_evt_generic": wing_evt_generic,
 }
 
 

@@ -8,7 +8,7 @@ signal attunement_changed(attunement: float, max_attunement: float)
 signal breath_changed(breath: float, max_breath: float)   # underwater air supply
 signal attunement_pulsed   # FQ-09U3: fires only when a pulse actually casts
 signal mined(block_id: String, drops: Dictionary)
-signal items_picked_up(items: Dictionary)   # R-08 slice 3: {item_id: count} swept off the ground
+signal items_picked_up(items: Dictionary)   # {item_id: count} swept off the ground (gameplay)
 signal crafted(recipe_id: String)
 signal placed(block_id: String)
 signal player_event(message: String)
@@ -616,7 +616,7 @@ func collect_ground_drops() -> bool:
 			d.queue_free()
 	if not picked.is_empty():
 		inventory_changed.emit()
-		items_picked_up.emit(picked)   # HUD raises a "+N Item" pickup toast
+		items_picked_up.emit(picked)   # gameplay signal (no HUD toast listener)
 	return not picked.is_empty()
 
 
