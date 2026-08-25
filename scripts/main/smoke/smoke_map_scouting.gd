@@ -862,20 +862,28 @@ func run(ctx) -> void:
 				or _fq20_module_rect.intersects(_fq20_clear_control.get_global_rect()):
 			_fq20_module_clear = false
 			break
+	# Phase C: Crest/Events are docked into the wings (opened by clicking the wing), so
+	# their redundant toolbar chips are removed — the toolbar keeps Goal / Map / Edit.
+	var _fq20_no_crest_events: bool = not hud._command_toggles.has("Crest") \
+		and not hud._command_toggles.has("Events") \
+		and hud._command_toggles.has("Goal") and hud._command_toggles.has("Map") \
+		and hud._command_toggles.has("Edit")
 	var _fq20_cc_ok: bool = hud._module_toolbar != null \
 		and hud._command_center_panel != null \
 		and hud._command_center_panel.is_ancestor_of(hud._module_toolbar) \
 		and hud._bottom_dock.is_ancestor_of(hud._module_toolbar) \
 		and _fq20_dock_owned \
 		and _fq20_module_clear \
-		and hud._command_toggles.size() == 5
-	var _fq20_crest_chip: Button = hud._command_toggles.get("Crest")
-	var _fq20_cc_before: bool = hud._top_left_box.visible
-	_fq20_crest_chip.button_pressed = not _fq20_crest_chip.button_pressed
-	var _fq20_cc_toggled: bool = hud._top_left_box.visible != _fq20_cc_before \
-		and _fq20_crest_chip.button_pressed == hud._top_left_box.visible
-	_fq20_crest_chip.button_pressed = not _fq20_crest_chip.button_pressed
-	var _fq20_cc_restored: bool = hud._top_left_box.visible == _fq20_cc_before
+		and hud._command_toggles.size() == 3 \
+		and _fq20_no_crest_events
+	# The Goal chip drives + mirrors its module (toggle, then restore).
+	var _fq20_goal_chip: Button = hud._command_toggles.get("Goal")
+	var _fq20_cc_before: bool = hud._goal_panel.visible
+	_fq20_goal_chip.button_pressed = not _fq20_goal_chip.button_pressed
+	var _fq20_cc_toggled: bool = hud._goal_panel.visible != _fq20_cc_before \
+		and _fq20_goal_chip.button_pressed == hud._goal_panel.visible
+	_fq20_goal_chip.button_pressed = not _fq20_goal_chip.button_pressed
+	var _fq20_cc_restored: bool = hud._goal_panel.visible == _fq20_cc_before
 	hud._toggle_goal_module()
 	var _fq20_cc_synced: bool = (hud._command_toggles["Goal"] as Button).button_pressed \
 		== hud._goal_panel.visible

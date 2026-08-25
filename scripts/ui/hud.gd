@@ -302,9 +302,14 @@ func _build_command_center(parent: Control) -> void:
 		row.add_theme_constant_override("separation", 4)
 		_module_toolbar = row
 	parent.add_child(_module_toolbar)
-	_add_command_toggle("Crest", func(): _toggle_top_left_module())
+	# Phase C: when the Crest/Events readouts are docked into the wings, clicking a wing
+	# opens its module, so the redundant Crest/Events toolbar chips are removed. The
+	# floating fallback keeps them (there are no wings there to click).
+	if _left_wing == null:
+		_add_command_toggle("Crest", func(): _toggle_top_left_module())
 	_add_command_toggle("Goal", func(): _toggle_goal_module())
-	_add_command_toggle("Events", func(): _toggle_event_module())
+	if _right_wing == null:
+		_add_command_toggle("Events", func(): _toggle_event_module())
 	_add_command_toggle_with_state("Map", func(pressed: bool): set_map_open(pressed))
 	_add_command_toggle("Edit", func(): toggle_hud_edit_mode())
 
