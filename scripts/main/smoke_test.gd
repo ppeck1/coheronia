@@ -3854,8 +3854,11 @@ func _run() -> void:
 	# reset restores the crest to its default size, which is exactly what the
 	# reset assertion below verifies.
 	hud.reset_hud_layout()
-	var _fq17_before_pos: Vector2 = hud._hud_widgets["crest"].position
-	var _fq17_before_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
+	# Phase C: the HUD-edit subject is the Goal panel — a still-free-floating widget —
+	# because Crest/Events are now docked into the dock wings and are intentionally NOT
+	# movable HUD-edit widgets (ownership covered by hud_dock_wings_ownership below).
+	var _fq17_before_pos: Vector2 = hud._hud_widgets["goal"].position
+	var _fq17_before_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["goal"])
 	hud.toggle_hud_edit_mode()
 	await get_tree().process_frame
 	var _fq17_enter_ok: bool = hud.is_hud_edit_mode() and GameState.hud_edit_mode \
@@ -3868,31 +3871,31 @@ func _run() -> void:
 		and _fq17_edit_panel_rect.end.y <= _fq17_dock_rect.position.y - 8.0 \
 		and absf(_fq17_edit_panel_rect.get_center().x
 			- get_viewport().get_visible_rect().size.x / 2.0) <= 1.0
-	hud._toggle_top_left_module()
-	var _fq17_visibility_saved: bool = not bool(GameState.profile["hud_layout"]["crest"]["visible"])
-	hud._toggle_top_left_module()
-	hud._hud_edit_selected = "crest"
+	hud._toggle_goal_module()
+	var _fq17_visibility_saved: bool = not bool(GameState.profile["hud_layout"]["goal"]["visible"])
+	hud._toggle_goal_module()
+	hud._hud_edit_selected = "goal"
 	hud._nudge_hud_widget(Vector2(8, 0))
 	hud._scale_hud_widget(0.25)
-	var _fq17_scaled_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
-	var _fq17_move_size_ok: bool = hud._hud_widgets["crest"].position != _fq17_before_pos \
-		and hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+	var _fq17_scaled_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["goal"])
+	var _fq17_move_size_ok: bool = hud._hud_widgets["goal"].position != _fq17_before_pos \
+		and hud._hud_widgets["goal"].scale.is_equal_approx(Vector2.ONE) \
 		and _fq17_scaled_size.x > _fq17_before_size.x
 	# FQ-20/FQ-22 continuous grip resize: absolute size factor, clamped to
 	# [0.5, 2.0], while Control.scale remains one.
-	hud._resize_hud_widget("crest", 1.37)
-	var _fq20_resized_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
-	var _fq20_resize_ok: bool = hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+	hud._resize_hud_widget("goal", 1.37)
+	var _fq20_resized_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["goal"])
+	var _fq20_resize_ok: bool = hud._hud_widgets["goal"].scale.is_equal_approx(Vector2.ONE) \
 		and is_equal_approx(_fq20_resized_size.x, roundf(_fq17_before_size.x * 1.37))
-	hud._resize_hud_widget("crest", 9.0)
-	var _fq20_clamped_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
-	var _fq20_clamp_ok: bool = hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+	hud._resize_hud_widget("goal", 9.0)
+	var _fq20_clamped_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["goal"])
+	var _fq20_clamp_ok: bool = hud._hud_widgets["goal"].scale.is_equal_approx(Vector2.ONE) \
 		and _fq20_clamped_size.x <= roundf(_fq17_before_size.x * 2.0)
-	var _fq20_grip_ok: bool = hud._hud_grip_rect("crest").size.x > 0.0
+	var _fq20_grip_ok: bool = hud._hud_grip_rect("goal").size.x > 0.0
 	hud.reset_hud_layout()
-	var _fq17_reset_ok: bool = hud._hud_widgets["crest"].position == hud._hud_default_positions["crest"] \
-		and hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
-		and hud._hud_widget_size(hud._hud_widgets["crest"]) == _fq17_before_size
+	var _fq17_reset_ok: bool = hud._hud_widgets["goal"].position == hud._hud_default_positions["goal"] \
+		and hud._hud_widgets["goal"].scale.is_equal_approx(Vector2.ONE) \
+		and hud._hud_widget_size(hud._hud_widgets["goal"]) == _fq17_before_size
 	var _fq17_escape := InputEventKey.new()
 	_fq17_escape.keycode = KEY_ESCAPE
 	_fq17_escape.pressed = true
@@ -3907,8 +3910,8 @@ func _run() -> void:
 			str(_fq17_enter_ok), str(_fq17_visibility_saved), str(_fq17_move_size_ok),
 			str(_fq20_resize_ok), str(_fq20_clamp_ok), str(_fq20_grip_ok),
 			str(_fq17_reset_ok), _fq17_before_size, _fq17_scaled_size,
-			_fq20_resized_size, _fq20_clamped_size, hud._hud_widgets["crest"].scale,
-			_fq17_before_pos, hud._hud_widgets["crest"].position,
+			_fq20_resized_size, _fq20_clamped_size, hud._hud_widgets["goal"].scale,
+			_fq17_before_pos, hud._hud_widgets["goal"].position,
 			str(_fq17_panel_above_dock), _fq17_edit_panel_rect, _fq17_dock_rect,
 			str(_fq17_overlay_off)])
 
@@ -4037,13 +4040,17 @@ func _run() -> void:
 		and hud._ctx_interact_label.text == "[E] Town Hall"
 	hud.set_interaction_prompt("")
 	var _fq19x_prompt_off: bool = not hud._ctx_interact_panel.visible
-	if hud._event_panel != null:
-		hud._event_panel.visible = true
+	if hud._events_module() != null:
+		hud._events_module().visible = true
 	hud.set_interaction_prompt("[E] Town Hall")
 	await get_tree().process_frame
 	var _fq19x_stack_rect: Rect2 = hud._context_stack.get_global_rect()
-	var _fq19x_ev_rect: Rect2 = hud._event_panel.get_global_rect()
-	var _fq19x_clear: bool = _fq19x_stack_rect.position.y >= _fq19x_ev_rect.end.y
+	# Phase C: with Events docked at the bottom (no top-right floating panel) the
+	# contextual stack must simply not overlap the events surface; the docked events wing
+	# lives in the dock far below the top-right stack, so containment holds trivially.
+	var _fq19x_ev_rect: Rect2 = hud._events_module().get_global_rect() if hud._events_module() != null else Rect2()
+	var _fq19x_clear: bool = not _fq19x_stack_rect.intersects(_fq19x_ev_rect) \
+		and (hud._event_panel == null or _fq19x_stack_rect.position.y >= _fq19x_ev_rect.end.y)
 	hud.set_interaction_prompt("")
 	# Auto-hide: the save toast holds 2.2s then fades 0.4s; the item entry
 	# holds 2.5s. Both must be gone shortly after.

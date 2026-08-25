@@ -36,6 +36,17 @@ var _status_label: Label
 # FQ-19: framed crest — title row plus per-bar numeric value labels.
 var _crest_title: Label
 var _bar_values: Dictionary = {}  # "coherence"/"load"/"resilience" -> Label
+# Phase C: Crest/Events docked as compact readouts in the wooden dock wings. The wings
+# hold the live compact view; clicking a wing opens the full-detail popup above it (one at
+# a time). Null wings == a fallback dock is active and the modules stay free-floating.
+var _left_wing: Control
+var _right_wing: Control
+var _left_wing_box: VBoxContainer
+var _right_wing_box: VBoxContainer
+var _crest_popup: PanelContainer
+var _event_popup: PanelContainer
+var _event_compact_label: Label
+var _open_wing_popup: PanelContainer
 var _time_label: Label
 var _stock_label: Label
 var _progression_label: Label
@@ -209,9 +220,11 @@ const HUD_LAYOUT_VERSION := 7
 
 func _ready() -> void:
 	_hud_visual_theme = _initial_hud_visual_theme()
+	# Phase C: build the dock (and its wings) FIRST so _build_top_left / _build_log can
+	# dock the Crest / Events readouts into the wings when the kit path is active.
+	_build_bottom_left()
 	_build_top_left()
 	_build_status_hud()
-	_build_bottom_left()
 	_wire_hotbar_clicks()
 	_build_command_center_widget()
 	_build_log()
@@ -355,7 +368,7 @@ func _sync_command_center() -> void:
 	var states := {
 		"Crest": _top_left_box != null and _top_left_box.visible,
 		"Goal": _goal_panel != null and _goal_panel.visible,
-		"Events": _event_panel != null and _event_panel.visible,
+		"Events": _events_module() != null and _events_module().visible,
 		"Map": map_open(),
 		"Edit": _hud_edit_mode,
 	}
@@ -365,14 +378,19 @@ func _sync_command_center() -> void:
 
 func _register_hud_widgets() -> void:
 	_hud_widgets = {
-		"crest": _top_left_box,
 		"goal": _goal_panel,
-		"events": _event_panel if _event_panel != null else _log_label,
 		"map": _map_panel,
 		"modules": _command_center_panel,
 		"dock": _bottom_dock,
 		"npc": _npc_panel,   # the settler info panel — movable/resizable when open
 	}
+	# Phase C: Crest / Events are movable HUD-edit widgets ONLY when free-floating (fallback
+	# dock). Docked into the wings they are part of the dock and must not be draggable, so
+	# they are left out of the registry (the register loop skips missing ids).
+	if _left_wing == null:
+		_hud_widgets["crest"] = _top_left_box
+	if _right_wing == null:
+		_hud_widgets["events"] = _event_panel if _event_panel != null else _log_label
 	for widget_id in HUD_WIDGET_IDS:
 		var control: Control = _hud_widgets.get(widget_id)
 		if control == null:
@@ -598,6 +616,22 @@ func _clamp_hud_widget(control: Control) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	# Phase C: an open wing detail popup closes on Escape or a click OUTSIDE it and its
+	# wings (re-clicking the same wing toggles it closed via that wing's gui_input). Runs
+	# regardless of edit mode; a click over a wing is left for the wing to handle.
+	if _open_wing_popup != null:
+		if event is InputEventKey and (event as InputEventKey).pressed \
+				and (event as InputEventKey).keycode == KEY_ESCAPE:
+			_close_wing_popups()
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+			var _wp: Vector2 = (event as InputEventMouseButton).position
+			var _over_wing := _open_wing_popup.get_global_rect().has_point(_wp) \
+				or (_left_wing != null and _left_wing.get_global_rect().has_point(_wp)) \
+				or (_right_wing != null and _right_wing.get_global_rect().has_point(_wp))
+			if not _over_wing:
+				_close_wing_popups()
 	if not _hud_edit_mode:
 		return
 	if event is InputEventKey and event.pressed and not event.echo \
@@ -798,9 +832,16 @@ func _toggle_goal_module() -> void:
 	_sync_command_center()
 
 
+## Phase C: the Events module is the free-floating panel (fallback dock) or the right dock
+## wing (kit path). The Crest module is likewise _top_left_box (= left wing when kit).
+func _events_module() -> Control:
+	return _event_panel if _event_panel != null else _right_wing
+
+
 func _toggle_event_module() -> void:
-	if _event_panel != null:
-		_event_panel.visible = not _event_panel.visible
+	var ev := _events_module()
+	if ev != null:
+		ev.visible = not ev.visible
 		_save_hud_layout()
 	_sync_command_center()
 
@@ -951,8 +992,12 @@ func _add_corner_medallion(panel: Control) -> void:
 
 
 func _build_top_left() -> void:
-	# FQ-19 blueprint crest: one framed settlement panel — name/level title,
-	# a chip+bar+value row per C/L/R resource, then status/stores/XP lines.
+	if _left_wing_box != null:
+		_build_crest_docked()
+		return
+	# FQ-19 blueprint crest (fallback dock only — the kit path docks the compact Crest into
+	# the left wing): one framed settlement panel — name/level title, a chip+bar+value row
+	# per C/L/R resource, then status/stores/XP lines.
 	var crest := PanelContainer.new()
 	_top_left_box = crest
 	crest.position = Vector2(16, 14)
@@ -979,6 +1024,81 @@ func _build_top_left() -> void:
 	_progression_label = _label(box, "Lv.1 Camp  XP: 0/100")
 	_progression_label.add_theme_font_size_override("font_size", 11)
 	_progression_label.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
+
+
+## Phase C: compact LIVE Crest in the left wing — three abbreviated pressure rows whose
+## bars/values ARE the real _bars/_bar_values (update_settlement drives them). The full
+## detail (title, status, stockpile, XP) lives in a click-opened popup above the wing.
+func _build_crest_docked() -> void:
+	_top_left_box = _left_wing
+	_wing_crest_row(_left_wing_box, "coherence", "Coh", Color(0.35, 0.75, 0.40))
+	_wing_crest_row(_left_wing_box, "load", "Load", Color(0.85, 0.45, 0.30))
+	_wing_crest_row(_left_wing_box, "resilience", "Res", Color(0.35, 0.55, 0.85))
+	_crest_popup = _make_wing_popup()
+	var pbox := VBoxContainer.new()
+	pbox.add_theme_constant_override("separation", 3)
+	(_crest_popup.get_child(0) as Control).add_child(pbox)
+	_crest_title = Label.new()
+	_crest_title.text = "◆ Camp · Lv.1"
+	_crest_title.add_theme_font_size_override("font_size", 14)
+	_crest_title.add_theme_color_override("font_color", Color(0.89, 0.75, 0.43))
+	pbox.add_child(_crest_title)
+	_status_label = _label(pbox, "Status: —")
+	_status_label.add_theme_font_size_override("font_size", 11)
+	_stock_label = _label(pbox, "Town Hall: empty")
+	_stock_label.add_theme_font_size_override("font_size", 11)
+	_progression_label = _label(pbox, "Lv.1 Camp  XP: 0/100")
+	_progression_label.add_theme_font_size_override("font_size", 11)
+	_progression_label.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
+	_wire_wing_click(_left_wing, _crest_popup)
+
+
+## Phase C: a hidden framed detail popup a wing opens ON CLICK, floated above the dock
+## (child of the HUD, z above the dock). Child 0 is the content host to add rows into.
+func _make_wing_popup() -> PanelContainer:
+	var popup := PanelContainer.new()
+	popup.visible = false
+	popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	popup.z_index = 60
+	popup.custom_minimum_size = Vector2(248, 0)
+	_module_content_host(popup, "ornate")
+	add_child(popup)
+	return popup
+
+
+## Phase C: click a wing to toggle its detail popup (only one open at a time). Hover does
+## NOT open it. Closing is handled by _close_wing_popups (Esc / outside click / re-click).
+func _wire_wing_click(wing: Control, popup: PanelContainer) -> void:
+	wing.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed \
+				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			if _open_wing_popup == popup:
+				_close_wing_popups()
+			else:
+				_close_wing_popups()
+				_position_wing_popup(wing, popup)
+				popup.visible = true
+				_open_wing_popup = popup)
+
+
+## Place `popup` directly above `wing`, clamped inside the viewport and never over the
+## bottom HUD controls (the dock). The wing tracks the centred dock, so read its live rect.
+func _position_wing_popup(wing: Control, popup: PanelContainer) -> void:
+	var wr: Rect2 = wing.get_global_rect()
+	var ps: Vector2 = popup.get_combined_minimum_size()
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var x := clampf(wr.position.x - 8.0, 4.0, maxf(4.0, vp.x - ps.x - 4.0))
+	var y := maxf(4.0, wr.position.y - ps.y - 8.0)   # above the wing => above the dock
+	popup.position = Vector2(x, y)
+
+
+## Phase C: close any open wing detail popup (single-open invariant).
+func _close_wing_popups() -> void:
+	if _crest_popup != null:
+		_crest_popup.visible = false
+	if _event_popup != null:
+		_event_popup.visible = false
+	_open_wing_popup = null
 
 
 ## FQ-19 crest resource row: color chip, name, slim bar, right-aligned value.
@@ -1302,6 +1422,98 @@ func _build_hud_kit(layout: Dictionary) -> void:
 		"attunement": {"crystal_center": attune_fill_rect.get_center(),
 			"crystal_diameter": int(attune_fill_rect.size.x), "fill": attune_fill},
 	}
+
+	# Phase C: create the two dock-wing hosts (compact, chrome-less, vertically centered).
+	# _build_top_left / _build_log populate them with the LIVE Crest / Events readouts once
+	# the dock exists; null wings mean a fallback dock is active and those modules float.
+	if _json_rect(layout.get("left_wing_safe_rect")).size != Vector2.ZERO:
+		_left_wing_box = _wing_root(band, _json_rect(layout.get("left_wing_safe_rect")), "LeftWing")
+		_left_wing = _left_wing_box.get_parent()
+		_right_wing_box = _wing_root(band, _json_rect(layout.get("right_wing_safe_rect")), "RightWing")
+		_right_wing = _right_wing_box.get_parent()
+
+
+## A chrome-less wing host: a clipped Control at `rect` (mouse STOP so it can be clicked to
+## open its detail popup) with a vertically-centered VBox. Returns the VBox to add rows to;
+## the wooden dock supplies the backdrop (no PanelContainer chrome).
+func _wing_root(parent: Control, rect: Rect2, node_name: String) -> VBoxContainer:
+	var root := Control.new()
+	root.name = node_name
+	_place(root, rect)
+	root.clip_contents = true
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.z_index = 5
+	parent.add_child(root)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 3)
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Center the whole content block vertically within the safe rect (rows keep their
+	# spacing; no row is centered independently and no child expands to fill).
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(box)
+	return box
+
+
+## A compact LIVE crest row: color marker + abbreviated name + short bar + right-aligned
+## value. Registers the bar/value in _bars/_bar_values under `key` so update_settlement
+## drives them directly — the wing shows the real model, not a duplicate copy.
+func _wing_crest_row(box: VBoxContainer, key: String, name_text: String, color: Color) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(row)
+	var marker := ColorRect.new()
+	marker.color = color
+	marker.custom_minimum_size = Vector2(8, 8)
+	marker.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(marker)
+	var name_lbl := Label.new()
+	name_lbl.text = name_text
+	name_lbl.add_theme_font_size_override("font_size", 11)
+	name_lbl.add_theme_color_override("font_color", Color(0.86, 0.80, 0.66))
+	name_lbl.custom_minimum_size = Vector2(30, 0)
+	row.add_child(name_lbl)
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.max_value = 100.0
+	bar.value = 50.0
+	bar.custom_minimum_size = Vector2(24, 7)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.add_theme_stylebox_override("background", _wing_bar_style(Color(0.10, 0.08, 0.06, 0.75)))
+	bar.add_theme_stylebox_override("fill", _wing_bar_style(Color(color.r, color.g, color.b, 0.9)))
+	row.add_child(bar)
+	var val_lbl := Label.new()
+	val_lbl.text = "50"
+	val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	val_lbl.add_theme_font_size_override("font_size", 11)
+	val_lbl.add_theme_color_override("font_color", Color(0.92, 0.90, 0.82))
+	val_lbl.custom_minimum_size = Vector2(26, 0)
+	row.add_child(val_lbl)
+	_bars[key] = bar
+	_bar_values[key] = val_lbl
+
+
+## A compact single line that ellipsises rather than wrapping or expanding the surface.
+func _wing_line(box: VBoxContainer, text: String, color: Color) -> Label:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", color)
+	lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	lbl.clip_text = true
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(lbl)
+	return lbl
+
+
+func _wing_bar_style(bg: Color) -> StyleBox:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.set_corner_radius_all(2)
+	return sb
 
 
 func _kit_layer(parent: Control, node_name: String, asset_id: String,
@@ -2360,7 +2572,9 @@ func update_status_effects(effects: Array) -> void:
 	if _status_hud == null:
 		return
 	var below := 12.0
-	if _top_left_box != null and _top_left_box.visible:
+	# Pin just below the FLOATING crest; when the crest is DOCKED into the bottom dock wing
+	# it must not follow it off-screen, so the status stack stays near the top-left.
+	if _left_wing == null and _top_left_box != null and _top_left_box.visible:
 		below = _top_left_box.get_global_rect().end.y + 10.0
 	_status_hud.position = Vector2(12.0, below)
 	_status_hud.set_effects(effects)
@@ -2478,6 +2692,9 @@ func set_interaction_prompt(text: String) -> void:
 
 
 func _build_log() -> void:
+	if _right_wing_box != null:
+		_build_events_docked()
+		return
 	_event_panel = PanelContainer.new()
 	_event_panel.anchor_left = 1.0
 	_event_panel.anchor_right = 1.0
@@ -2510,6 +2727,37 @@ func _build_log() -> void:
 	_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	event_box.add_child(_log_label)
+
+
+## Phase C: compact LIVE Events in the right wing — the real clock (_event_time_label,
+## abbreviated) + the single most recent log line (_event_compact_label; log_event sets
+## both it and the full _log_label). The full scrolling log lives in a click-opened popup.
+func _build_events_docked() -> void:
+	_event_time_label = Label.new()
+	_event_time_label.text = "Day 1 · Day"
+	_event_time_label.add_theme_color_override("font_color", Color(0.80, 0.72, 0.48))
+	_event_time_label.add_theme_font_size_override("font_size", 12)
+	_event_time_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_event_time_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_event_time_label.clip_text = true
+	_event_time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_right_wing_box.add_child(_event_time_label)
+	_event_compact_label = _wing_line(_right_wing_box, "", Color(0.96, 0.86, 0.72))
+	# Full scrolling log in the click-opened popup.
+	_event_popup = _make_wing_popup()
+	var pbox := VBoxContainer.new()
+	pbox.add_theme_constant_override("separation", 3)
+	(_event_popup.get_child(0) as Control).add_child(pbox)
+	var title := _label(pbox, "EVENTS")
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_log_label = Label.new()
+	_log_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_log_label.add_theme_color_override("font_color", Color(0.95, 0.93, 0.85))
+	_log_label.add_theme_font_size_override("font_size", 12)
+	_log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pbox.add_child(_log_label)
+	_wire_wing_click(_right_wing, _event_popup)
 
 
 ## Citizen info panel: name, ancestry, role (with a change button), days alive, and
@@ -4160,6 +4408,9 @@ func log_event(message: String) -> void:
 	if _log_lines.size() > 6:
 		_log_lines = _log_lines.slice(_log_lines.size() - 6)
 	_log_label.text = "\n".join(_log_lines)
+	# Phase C: the right dock wing shows the single most recent line (the popup has all).
+	if _event_compact_label != null:
+		_event_compact_label.text = message
 	# FQ-19: a growing events panel pushes the contextual stack down with it.
 	_position_context_stack.call_deferred()
 

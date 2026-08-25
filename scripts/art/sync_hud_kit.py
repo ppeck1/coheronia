@@ -88,8 +88,8 @@ def _rect_inside(
 def validate_layout(layout: dict, sizes: dict[str, tuple[int, int]]) -> list[str]:
     errors: list[str] = []
     try:
-        if int(layout.get("version", 0)) != 2:
-            raise ValueError("layout version must be 2")
+        if int(layout.get("version", 0)) != 3:
+            raise ValueError("layout version must be 3")
         visual_variants = layout.get("visual_variants")
         if not isinstance(visual_variants, dict):
             raise ValueError("visual_variants must describe optional themed assets")
@@ -190,6 +190,23 @@ def validate_layout(layout: dict, sizes: dict[str, tuple[int, int]]) -> list[str
             _rect_inside(button_content.get(key), button_size, f"button_content.{key}")
 
         _rect_inside(layout.get("mining_progress_rect"), native, "mining_progress_rect")
+        # Phase C: the compact Crest (left) / Events (right) readouts live entirely inside
+        # these wooden-wing safe rectangles — no overlap with orbs, buttons, slots, etc.
+        left_wing = _rect_inside(layout.get("left_wing_safe_rect"), native, "left_wing_safe_rect")
+        right_wing = _rect_inside(layout.get("right_wing_safe_rect"), native, "right_wing_safe_rect")
+        # Each wing must sit in the raw wooden gap with >=8px padding from the neighbouring
+        # orb frame and nav button, and must not run into the top/bottom rails.
+        if left_wing[0] < 168 + 8:
+            raise ValueError("left_wing_safe_rect must keep >=8px from the health frame (x>=176)")
+        if left_wing[0] + left_wing[2] > 313 - 8:
+            raise ValueError("left_wing_safe_rect must keep >=8px from the Inventory button (x+w<=305)")
+        if right_wing[0] < 967 + 8:
+            raise ValueError("right_wing_safe_rect must keep >=8px from the Town Hall button (x>=975)")
+        if right_wing[0] + right_wing[2] > 1112 - 8:
+            raise ValueError("right_wing_safe_rect must keep >=8px from the attunement frame (x+w<=1104)")
+        for label, wing in (("left_wing_safe_rect", left_wing), ("right_wing_safe_rect", right_wing)):
+            if wing[1] < 52 or wing[1] + wing[3] > 148:
+                raise ValueError(f"{label} must stay on the wooden surface (y>=52, y+h<=148)")
     except (TypeError, ValueError) as exc:
         errors.append(f"layout: {exc}")
     return errors

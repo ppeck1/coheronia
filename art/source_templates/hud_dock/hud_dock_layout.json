@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "visual_variants": {
     "separator": "__",
     "selection": "character.hud_visual_theme, then character.species",
@@ -396,5 +396,17 @@
     28,
     180,
     10
+  ],
+  "left_wing_safe_rect": [
+    176,
+    56,
+    128,
+    88
+  ],
+  "right_wing_safe_rect": [
+    976,
+    56,
+    128,
+    88
   ]
 }

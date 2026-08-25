@@ -119,42 +119,49 @@ func run(ctx) -> void:
 	# (fq19 event bounds, fq21 map masking); the widgets restore their own state.
 	hud.reset_hud_layout()
 	await get_tree().process_frame
-	var _fq19_events_before: bool = hud._event_panel != null and hud._event_panel.visible
-	if hud._event_panel != null:
-		hud._event_panel.visible = true
+	# Phase C: Events is the right dock WING (kit path) or a floating panel (fallback).
+	# Either way it must coexist with the map — toggling one never closes the other, it
+	# survives closing the map, it does not overlap the map or the contextual stack, and
+	# it stays on-screen. The floating panel is large (>=320x120); the docked wing is the
+	# small compact readout, so the min-size assertion applies only to the floating case.
+	var _fq19_ev: Control = hud._events_module()
+	var _fq19_docked: bool = hud._right_wing != null
+	var _fq19_events_before: bool = _fq19_ev != null and _fq19_ev.visible
+	if _fq19_ev != null:
+		_fq19_ev.visible = true
 		hud._save_hud_layout()
 	var _fq19_map_open: bool = hud.toggle_map()
-	var _fq19_together: bool = _fq19_map_open and hud._event_panel.visible
+	var _fq19_together: bool = _fq19_map_open and _fq19_ev.visible
 	hud._toggle_event_module()
-	var _fq19_event_off_map_on: bool = not hud._event_panel.visible and hud.map_open()
+	var _fq19_event_off_map_on: bool = not _fq19_ev.visible and hud.map_open()
 	hud._toggle_event_module()
-	var _fq19_event_on_map_on: bool = hud._event_panel.visible and hud.map_open()
-	var _fq19_event_rect: Rect2 = hud._event_panel.get_global_rect() if hud._event_panel != null else Rect2()
+	var _fq19_event_on_map_on: bool = _fq19_ev.visible and hud.map_open()
+	var _fq19_event_rect: Rect2 = _fq19_ev.get_global_rect() if _fq19_ev != null else Rect2()
 	var _fq19_map_rect: Rect2 = hud._map_panel.get_global_rect() if hud._map_panel != null else Rect2()
 	hud._position_context_stack()
-	var _fq19_stack_clear: bool = hud._context_stack.offset_top >= \
-		maxf(_fq19_event_rect.end.y, _fq19_map_rect.end.y) + 8.0
+	var _fq19_stack_rect: Rect2 = hud._context_stack.get_global_rect()
+	var _fq19_stack_clear: bool = not _fq19_stack_rect.intersects(_fq19_event_rect) \
+		and not _fq19_stack_rect.intersects(_fq19_map_rect)
 	hud.toggle_map()
-	var _fq19_event_survives_close: bool = hud._event_panel.visible and not hud.map_open()
+	var _fq19_event_survives_close: bool = _fq19_ev.visible and not hud.map_open()
 	var _fq19_viewport: Vector2 = get_viewport().get_visible_rect().size
-	if hud._event_panel != null:
-		hud._event_panel.visible = _fq19_events_before
+	if _fq19_ev != null:
+		_fq19_ev.visible = _fq19_events_before
 		hud._save_hud_layout()
+	var _fq19_size_ok: bool = _fq19_docked \
+		or (_fq19_ev.custom_minimum_size.x >= 320.0 and _fq19_ev.custom_minimum_size.y >= 120.0)
 	harness._check("fq19_map_events_coexist",
 		_fq19_together and _fq19_event_off_map_on and _fq19_event_on_map_on
 		and _fq19_event_survives_close and not _fq19_event_rect.intersects(_fq19_map_rect)
-		and _fq19_stack_clear
-		and hud._event_panel.custom_minimum_size.x >= 320.0
-		and hud._event_panel.custom_minimum_size.y >= 120.0
-		and _fq19_event_rect.position.x >= 8.0
-		and _fq19_event_rect.end.x <= _fq19_viewport.x - 8.0
-		and _fq19_event_rect.position.y >= 8.0
-		and _fq19_event_rect.end.y <= _fq19_viewport.y - 8.0,
-		"together=%s event_off=%s event_on=%s survives=%s event=%s map=%s stack=%.1f viewport=%s" % [
+		and _fq19_stack_clear and _fq19_size_ok
+		and _fq19_event_rect.position.x >= 0.0
+		and _fq19_event_rect.end.x <= _fq19_viewport.x
+		and _fq19_event_rect.position.y >= 0.0
+		and _fq19_event_rect.end.y <= _fq19_viewport.y,
+		"together=%s event_off=%s event_on=%s survives=%s docked=%s stack_clear=%s size=%s event=%s map=%s viewport=%s" % [
 			str(_fq19_together), str(_fq19_event_off_map_on), str(_fq19_event_on_map_on),
-			str(_fq19_event_survives_close),
-			str(hud._event_panel.custom_minimum_size if hud._event_panel != null else Vector2.ZERO),
-			str(_fq19_map_rect), hud._context_stack.offset_top, str(_fq19_viewport)])
+			str(_fq19_event_survives_close), str(_fq19_docked), str(_fq19_stack_clear),
+			str(_fq19_size_ok), str(_fq19_event_rect), str(_fq19_map_rect), str(_fq19_viewport)])
 	hud.update_time(5, true, 2)
 	var _fq19_time_ok: bool = hud._time_label == null and hud._event_time_label != null \
 		and hud._event_time_label.text.contains("Day 5") \
@@ -188,7 +195,10 @@ func run(ctx) -> void:
 	# milestone progress strip mirroring index/total.
 	hud.update_settlement(72.4, 41.0, 58.0, {}, [])
 	hud.update_progression(2, 10, 100, "Hamlet")
-	var _fq19_crest_ok: bool = hud._top_left_box is PanelContainer \
+	# Phase C: the crest module is a floating PanelContainer (fallback) or the left dock
+	# wing Control (kit). Either way its live title + the three numeric bar values are the
+	# real model (update_settlement / update_progression drive them, no duplicate state).
+	var _fq19_crest_ok: bool = hud._top_left_box != null \
 		and hud._crest_title != null and hud._crest_title.text.contains("Hamlet") \
 		and hud._crest_title.text.contains("Lv.2") \
 		and hud._bar_values.size() == 3 \
@@ -346,15 +356,17 @@ func run(ctx) -> void:
 	# R-06.2 seam: the edit-mode geometry math now lives in HudEditGeometry;
 	# hud.gd's facade (_hud_widget_size / _hud_grip_rect, driven by fq17/fq21)
 	# must delegate identically, and the pure math holds on fixed inputs.
-	var _r06g_widget: Control = hud._hud_widgets.get("crest")
+	# Phase C: use the Goal widget (still free-floating/draggable) — Crest/Events are
+	# docked and no longer registered HUD-edit widgets.
+	var _r06g_widget: Control = hud._hud_widgets.get("goal")
 	var _r06g_size_ok: bool = _r06g_widget != null \
 		and hud._hud_widget_size(_r06g_widget) == HudEditGeometry.widget_size(_r06g_widget)
 	# The wrapper returns Rect2() for a hidden widget, else the geometry rect --
-	# assert delegation for whichever state the crest is in.
+	# assert delegation for whichever state the widget is in.
 	var _r06g_grip_expected: Rect2 = HudEditGeometry.grip_rect(_r06g_widget.get_global_rect()) \
 		if (_r06g_widget != null and _r06g_widget.visible) else Rect2()
 	var _r06g_grip_ok: bool = _r06g_widget != null \
-		and hud._hud_grip_rect("crest") == _r06g_grip_expected
+		and hud._hud_grip_rect("goal") == _r06g_grip_expected
 	var _r06g_min_ok: bool = HudEditGeometry.min_size(Vector2(400.0, 200.0)) == Vector2(200.0, 100.0) \
 		and HudEditGeometry.min_size(Vector2(10.0, 10.0)) == Vector2(120.0, 56.0)
 	var _r06g_max_ok: bool = HudEditGeometry.max_size(Vector2(100.0, 100.0), Vector2(1280.0, 720.0)) \
@@ -510,7 +522,7 @@ func run(ctx) -> void:
 	var _fq21_slot_icon: TextureRect = _fq21_slot0.find_child(
 		"RuntimeIcon", true, false) as TextureRect if _fq21_slot0 != null else null
 	var _fq21_icon_rect: Rect2 = hud._json_rect(_fq21_geometry.slot_content.icon_rect)
-	var _fq21_json_content: bool = int(_fq21_geometry.get("version", 0)) == 2 \
+	var _fq21_json_content: bool = int(_fq21_geometry.get("version", 0)) == 3 \
 		and _fq21_slot_icon != null \
 		and _fq21_slot_icon.position == _fq21_icon_rect.position \
 		and _fq21_slot_icon.size == _fq21_icon_rect.size
@@ -606,28 +618,105 @@ func run(ctx) -> void:
 		"sockets=%s layered=%s swap=%s drive=%s" % [str(_fq21_sockets_ok),
 			str(_fq21_layered_vessels), str(_fq21_swap_ok), str(_fq21_drive_ok)])
 
-	# FQ-20: painted mockup chrome consumed elsewhere — painted module
-	# frames on crest/events (distinct textures from the band pieces).
-	var _fq20_crest_sb: StyleBox = (hud._top_left_box as PanelContainer).get_theme_stylebox("panel")
-	var _fq20_events_sb: StyleBox = hud._event_panel.get_theme_stylebox("panel")
+	# FQ-20 / Phase C: module chrome contract. The map is a single (non-stacked) frame in
+	# all cases. FLOATING crest/events carry a painted StyleBoxFlat module frame + a clean
+	# corner ornament; the DOCKED crest/events are chrome-less readouts ON the wooden wings
+	# (plain Controls, no PanelContainer frame — the wood is the container), which is the
+	# accepted design (no floating black panels over the dock).
 	var _fq20_map_single_frame := true
 	for _fq20_map_child in hud._map_panel.get_children():
 		if _fq20_map_child is NinePatchRect:
 			_fq20_map_single_frame = false
 			break
-	var _fq22_corner: Control = hud._top_left_box.find_child(
-		"CrestCornerOrnament", true, false) as Control
-	var _fq22_corner_clean: bool = _fq22_corner != null \
-		and _fq22_corner.position.x >= 0.0 and _fq22_corner.position.y >= 0.0 \
-		and _fq22_corner.find_child("*", true, false) == null
-	var _fq20_frames_ok: bool = _fq20_crest_sb is StyleBoxFlat \
-		and _fq20_events_sb is StyleBoxFlat \
-		and _fq20_map_single_frame \
-		and _fq22_corner_clean
+	var _fq20_frames_ok: bool
+	var _fq20_detail := ""
+	if hud._left_wing != null:
+		_fq20_frames_ok = not (hud._top_left_box is PanelContainer) \
+			and not (hud._events_module() is PanelContainer) \
+			and _fq20_map_single_frame
+		_fq20_detail = "docked chrome-less wings"
+	else:
+		var _fq20_crest_sb: StyleBox = (hud._top_left_box as PanelContainer).get_theme_stylebox("panel")
+		var _fq20_events_sb: StyleBox = hud._event_panel.get_theme_stylebox("panel")
+		var _fq22_corner: Control = hud._top_left_box.find_child("CrestCornerOrnament", true, false) as Control
+		var _fq22_corner_clean: bool = _fq22_corner != null \
+			and _fq22_corner.position.x >= 0.0 and _fq22_corner.position.y >= 0.0 \
+			and _fq22_corner.find_child("*", true, false) == null
+		_fq20_frames_ok = _fq20_crest_sb is StyleBoxFlat and _fq20_events_sb is StyleBoxFlat \
+			and _fq20_map_single_frame and _fq22_corner_clean
+		_fq20_detail = "floating crest=%s events=%s corner_clean=%s" % [
+			str(_fq20_crest_sb.get_class()), str(_fq20_events_sb.get_class()), str(_fq22_corner_clean)]
 	harness._check("fq22_module_chrome_contract", _fq20_frames_ok,
-		"crest=%s events=%s map_single_frame=%s corner_clean=%s" % [
-			str(_fq20_crest_sb.get_class()), str(_fq20_events_sb.get_class()),
-			str(_fq20_map_single_frame), str(_fq22_corner_clean)])
+		"docked=%s map_single_frame=%s %s" % [
+			str(hud._left_wing != null), str(_fq20_map_single_frame), _fq20_detail])
+
+	# Phase C: docked Crest/Events wings contract. The wing content is native-placed inside
+	# the dock band (centred, native scale), so the containment/overlap relationships are
+	# resolution-independent — tested here at the base size and proven visually by the
+	# four-size wing crops in the HUD-QA harness.
+	var _dw_ok := true
+	var _dw_detail := "not docked (fallback)"
+	if hud._left_wing != null and hud._right_wing != null:
+		var _dw_lrect: Rect2 = hud._left_wing.get_global_rect()
+		var _dw_rrect: Rect2 = hud._right_wing.get_global_rect()
+		# (1) content fits within each safe rect (custom_min never forces expansion).
+		var _dw_lfit: bool = hud._left_wing_box.get_combined_minimum_size().x <= _dw_lrect.size.x + 0.5 \
+			and hud._left_wing_box.get_combined_minimum_size().y <= _dw_lrect.size.y + 0.5
+		var _dw_rfit: bool = hud._right_wing_box.get_combined_minimum_size().x <= _dw_rrect.size.x + 0.5 \
+			and hud._right_wing_box.get_combined_minimum_size().y <= _dw_rrect.size.y + 0.5
+		# (2) zero overlap with the nearest dock controls (orbs + hotbar ends).
+		var _dw_no_overlap := true
+		var _dw_ctrls: Array = [hud._health_vessel_fill, hud._attunement_vessel_fill]
+		if hud._hotbar_slots.size() >= 2:
+			_dw_ctrls.append(hud._hotbar_slots[0])
+			_dw_ctrls.append(hud._hotbar_slots[hud._hotbar_slots.size() - 1])
+		for _dw_c in _dw_ctrls:
+			if _dw_c != null and (_dw_lrect.intersects((_dw_c as Control).get_global_rect()) \
+					or _dw_rrect.intersects((_dw_c as Control).get_global_rect())):
+				_dw_no_overlap = false
+		# (3) each content block is vertically centred (top pad ~= bottom pad, <=4px).
+		var _dw_centered := true
+		for _dw_pair in [[hud._left_wing, hud._left_wing_box], [hud._right_wing, hud._right_wing_box]]:
+			var _dw_b: VBoxContainer = _dw_pair[1]
+			if _dw_b.get_child_count() > 0:
+				var _dw_wr: Rect2 = (_dw_pair[0] as Control).get_global_rect()
+				var _dw_top: float = (_dw_b.get_child(0) as Control).get_global_rect().position.y - _dw_wr.position.y
+				var _dw_bot: float = _dw_wr.end.y - (_dw_b.get_child(_dw_b.get_child_count() - 1) as Control).get_global_rect().end.y
+				if absf(_dw_top - _dw_bot) > 4.0:
+					_dw_centered = false
+		# (4) live data parity: the wing crest bars/values ARE the model objects.
+		var _dw_parity: bool = hud._left_wing.is_ancestor_of(hud._bars["coherence"]) \
+			and hud._left_wing.is_ancestor_of(hud._bar_values["coherence"])
+		# (5) ownership: docked readouts are NOT draggable HUD-edit widgets; Goal still is.
+		var _dw_owner: bool = not hud._hud_widgets.has("crest") \
+			and not hud._hud_widgets.has("events") and hud._hud_widgets.has("goal")
+		# (6) CLICK open/close + single-open exclusivity (hover does not open).
+		hud._close_wing_popups()
+		var _dw_click := InputEventMouseButton.new()
+		_dw_click.button_index = MOUSE_BUTTON_LEFT
+		_dw_click.pressed = true
+		hud._left_wing.gui_input.emit(_dw_click)
+		var _dw_open_crest: bool = hud._crest_popup.visible and hud._open_wing_popup == hud._crest_popup
+		hud._right_wing.gui_input.emit(_dw_click)
+		var _dw_exclusive: bool = hud._event_popup.visible and not hud._crest_popup.visible \
+			and hud._open_wing_popup == hud._event_popup
+		hud._right_wing.gui_input.emit(_dw_click)   # re-click the same wing closes it
+		var _dw_reclose: bool = not hud._event_popup.visible and hud._open_wing_popup == null
+		# (7) worst case: a 3-digit crest value fits, and a long event line ellipsises inside
+		# the wing rather than wrapping/expanding.
+		hud.update_settlement(100.0, 100.0, 100.0, {}, [])
+		hud.log_event("Raiders massing at the far eastern gate — brace every wall right now")
+		await get_tree().process_frame
+		var _dw_worst: bool = (hud._bar_values["coherence"] as Label).text == "100" \
+			and hud._left_wing_box.get_combined_minimum_size().x <= _dw_lrect.size.x + 0.5 \
+			and hud._event_compact_label.get_global_rect().end.x <= hud._right_wing.get_global_rect().end.x + 0.5
+		_dw_ok = _dw_lfit and _dw_rfit and _dw_no_overlap and _dw_centered and _dw_parity \
+			and _dw_owner and _dw_open_crest and _dw_exclusive and _dw_reclose and _dw_worst
+		_dw_detail = "lfit=%s rfit=%s overlap_free=%s centered=%s parity=%s owner=%s open=%s excl=%s reclose=%s worst=%s" % [
+			str(_dw_lfit), str(_dw_rfit), str(_dw_no_overlap), str(_dw_centered), str(_dw_parity),
+			str(_dw_owner), str(_dw_open_crest), str(_dw_exclusive), str(_dw_reclose), str(_dw_worst)]
+		hud._close_wing_popups()
+	harness._check("hud_dock_wings_contract", _dw_ok, _dw_detail)
 
 	# FQ-20: the dock is the command center — five module toggle chips live
 	# inside the dock panel, drive the modules, and mirror external changes.

@@ -135,6 +135,34 @@ func _run() -> void:
 	_records.append({"name": "16_swing_arc", "path": "%s/16_swing_arc.png" % QA_DIR,
 		"note": "Directional swing-arc FX (F10) sweeping right at the player."})
 
+	# Phase C geometry proof: crop each wooden wing (+ its neighbouring orb/button) at every
+	# target size so fit and overlap can be judged at native pixels, and after a live resize.
+	for _wsz in [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1000), Vector2i(640, 360)]:
+		DisplayServer.window_set_size(_wsz)
+		for _wi in range(12):
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var _img := get_viewport().get_texture().get_image()
+		# The captured texture is at the PHYSICAL window resolution while control global
+		# rects are in LOGICAL (stretch) space, so map by the physical/logical ratio.
+		var _logical: Vector2 = get_viewport().get_visible_rect().size
+		var _sc := Vector2(float(_img.get_width()), float(_img.get_height())) \
+			/ Vector2(maxf(1.0, _logical.x), maxf(1.0, _logical.y))
+		for _pair in [["left", hud.find_child("LeftWingMock", true, false)],
+				["right", hud.find_child("RightWingMock", true, false)]]:
+			var _n = _pair[1]
+			if _n == null:
+				continue
+			var _gr: Rect2 = (_n as Control).get_global_rect()
+			var _px: Vector2 = _gr.position * _sc
+			var _pz: Vector2 = _gr.size * _sc
+			var _crop := Rect2i(int(_px.x) - 64, int(_px.y) - 24, int(_pz.x) + 128, int(_pz.y) + 48)
+			_crop = _crop.intersection(Rect2i(Vector2i.ZERO, _img.get_size()))
+			if _crop.size.x <= 0 or _crop.size.y <= 0:
+				continue
+			_img.get_region(_crop).save_png("%s/wing_%s_%dx%d.png" % [QA_DIR, _pair[0], _wsz.x, _wsz.y])
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+
 	_write_manifest(hud)
 	print("HUD_QA complete -> %s" % QA_DIR)
 	get_tree().quit(0)
@@ -180,7 +208,8 @@ func _prepare_hud(root: Node2D, hud: CanvasLayer, map_open: bool, events_open: b
 	hud.set_map_open(map_open)
 	if map_open:
 		hud.update_map(root.map_snapshot())
-	if hud._event_panel.visible != events_open:
+	var _ev: Control = hud._events_module()
+	if _ev != null and _ev.visible != events_open:
 		hud._toggle_event_module()
 	hud.set_interaction_prompt("")
 	hud._sync_command_center()
@@ -206,7 +235,7 @@ func _shot(shot_name: String, note: String, hud: CanvasLayer) -> void:
 		"note": note,
 		"hud_edit": hud.is_hud_edit_mode(),
 		"map_open": hud.map_open(),
-		"events_open": hud._event_panel.visible,
+		"events_open": hud._events_module() != null and hud._events_module().visible,
 		"crest_open": hud._top_left_box.visible,
 		"goal_visible": hud.goal_panel_visible(),
 		"dock_rect": _rect_to_array(hud._bottom_dock.get_global_rect()),

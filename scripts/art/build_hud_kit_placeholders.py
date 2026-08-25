@@ -168,7 +168,7 @@ def main() -> int:
 
     required_assets = sorted(assets)
     layout = {
-        "version": 2,
+        "version": 3,
         "native_size": [W, H],
         "required_assets": required_assets,
         "asset_sizes": {
@@ -279,6 +279,8 @@ def main() -> int:
             "label_rect": [3, 66, 48, 28],
         },
         "mining_progress_rect": [550, 28, 180, 10],
+        "left_wing_safe_rect": [176, 56, 128, 88],
+        "right_wing_safe_rect": [976, 56, 128, 88],
     }
     text = json.dumps(layout, indent=2) + "\n"
     for directory in (SOURCE, GENERATED):
