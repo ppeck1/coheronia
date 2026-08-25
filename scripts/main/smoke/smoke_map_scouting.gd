@@ -163,24 +163,29 @@ func run(ctx) -> void:
 			str(_fq19_event_survives_close), str(_fq19_docked), str(_fq19_stack_clear),
 			str(_fq19_size_ok), str(_fq19_event_rect), str(_fq19_map_rect), str(_fq19_viewport)])
 	hud.update_time(5, true, 2)
+	# Phase C: the compact wing clock is the abbreviated "Day <n>, <HHMM>" form; the rich
+	# phase/threat detail is retained in the Events popup header (not globally simplified).
+	var _fq19_header: String = hud._events_docked_time_detail()
 	var _fq19_time_ok: bool = hud._time_label == null and hud._event_time_label != null \
-		and hud._event_time_label.text.contains("Day 5") \
-		and hud._event_time_label.text.contains("Night")
+		and hud._event_time_label.text.begins_with("Day 5,") \
+		and not hud._event_time_label.text.contains("Night") \
+		and _fq19_header.contains("Day 5") and _fq19_header.contains("Night")
 	harness._check("fq19_events_time_header_live", _fq19_time_ok,
-		"crest_time=%s header=%s" % [str(hud._time_label != null),
-			str(hud._event_time_label.text if hud._event_time_label != null else "missing")])
+		"crest_time=%s compact=%s detail=%s" % [str(hud._time_label != null),
+			str(hud._event_time_label.text if hud._event_time_label != null else "missing"),
+			_fq19_header])
 
 	# FQ-19: exact clock — the fraction maps onto the settlement clock
 	# (day 06:00-20:00, night wraps 20:00-06:00) with dawn/day/dusk/night
-	# phase words in the events header.
+	# phase words in the (full) events header, retained in the popup when docked.
 	hud.update_time(5, true, 0, 0.7)
-	var _fq19c_night: String = hud._event_time_label.text
+	var _fq19c_night: String = hud._events_docked_time_detail()
 	hud.update_time(5, false, 0, 0.05)
-	var _fq19c_dawn: String = hud._event_time_label.text
+	var _fq19c_dawn: String = hud._events_docked_time_detail()
 	hud.update_time(5, false, 0, 0.3)
-	var _fq19c_day: String = hud._event_time_label.text
+	var _fq19c_day: String = hud._events_docked_time_detail()
 	hud.update_time(5, false, 0, 0.6)
-	var _fq19c_dusk: String = hud._event_time_label.text
+	var _fq19c_dusk: String = hud._events_docked_time_detail()
 	hud.update_time(root.day_count, root.is_night, 0, root.time_of_day)
 	harness._check("fq19_events_exact_clock",
 		_fq19c_night.contains("• Night 21:2")
@@ -620,9 +625,9 @@ func run(ctx) -> void:
 
 	# FQ-20 / Phase C: module chrome contract. The map is a single (non-stacked) frame in
 	# all cases. FLOATING crest/events carry a painted StyleBoxFlat module frame + a clean
-	# corner ornament; the DOCKED crest/events are chrome-less readouts ON the wooden wings
-	# (plain Controls, no PanelContainer frame — the wood is the container), which is the
-	# accepted design (no floating black panels over the dock).
+	# corner ornament; the DOCKED crest/events are plain Control wings (NOT floating
+	# PanelContainer panels) whose readouts sit in an integrated recessed instrument socket
+	# — the accepted design (built into the wooden dock, no floating black panels over it).
 	var _fq20_map_single_frame := true
 	for _fq20_map_child in hud._map_panel.get_children():
 		if _fq20_map_child is NinePatchRect:
@@ -650,20 +655,29 @@ func run(ctx) -> void:
 		"docked=%s map_single_frame=%s %s" % [
 			str(hud._left_wing != null), str(_fq20_map_single_frame), _fq20_detail])
 
-	# Phase C: docked Crest/Events wings contract. The wing content is native-placed inside
-	# the dock band (centred, native scale), so the containment/overlap relationships are
-	# resolution-independent — tested here at the base size and proven visually by the
-	# four-size wing crops in the HUD-QA harness.
+	# Phase C: docked Crest/Events wings contract. Wing content is native-placed inside the
+	# dock band (centred, native scale), so containment/overlap are resolution-independent —
+	# tested here at the base size and proven visually by the four-size HUD-QA wing crops.
 	var _dw_ok := true
 	var _dw_detail := "not docked (fallback)"
 	if hud._left_wing != null and hud._right_wing != null:
 		var _dw_lrect: Rect2 = hud._left_wing.get_global_rect()
 		var _dw_rrect: Rect2 = hud._right_wing.get_global_rect()
-		# (1) content fits within each safe rect (custom_min never forces expansion).
-		var _dw_lfit: bool = hud._left_wing_box.get_combined_minimum_size().x <= _dw_lrect.size.x + 0.5 \
-			and hud._left_wing_box.get_combined_minimum_size().y <= _dw_lrect.size.y + 0.5
-		var _dw_rfit: bool = hud._right_wing_box.get_combined_minimum_size().x <= _dw_rrect.size.x + 0.5 \
-			and hud._right_wing_box.get_combined_minimum_size().y <= _dw_rrect.size.y + 0.5
+		# (1) socket containment: each socket sits inside its wing leaving a wooden margin,
+		# and the content host + its content fit inside the socket interior.
+		var _dw_lsock: Rect2 = hud._left_socket.get_global_rect()
+		var _dw_rsock: Rect2 = hud._right_socket.get_global_rect()
+		var _dw_socket_in: bool = _dw_lrect.encloses(_dw_lsock) and _dw_rrect.encloses(_dw_rsock) \
+			and _dw_lsock.position.x - _dw_lrect.position.x >= 3.0 \
+			and _dw_rsock.position.x - _dw_rrect.position.x >= 3.0 \
+			and _dw_lsock.position.y - _dw_lrect.position.y >= 3.0
+		var _dw_host_in: bool = _dw_lsock.encloses(hud._left_wing_box.get_global_rect()) \
+			and _dw_rsock.encloses(hud._right_wing_box.get_global_rect())
+		# content never overflows the socket interior (custom_min never forces expansion).
+		var _dw_lfit: bool = hud._left_wing_box.get_combined_minimum_size().x <= hud._left_wing_box.size.x + 0.5 \
+			and hud._left_wing_box.get_combined_minimum_size().y <= hud._left_wing_box.size.y + 0.5
+		var _dw_rfit: bool = hud._right_wing_box.get_combined_minimum_size().x <= hud._right_wing_box.size.x + 0.5 \
+			and hud._right_wing_box.get_combined_minimum_size().y <= hud._right_wing_box.size.y + 0.5
 		# (2) zero overlap with the nearest dock controls (orbs + hotbar ends).
 		var _dw_no_overlap := true
 		var _dw_ctrls: Array = [hud._health_vessel_fill, hud._attunement_vessel_fill]
@@ -674,19 +688,19 @@ func run(ctx) -> void:
 			if _dw_c != null and (_dw_lrect.intersects((_dw_c as Control).get_global_rect()) \
 					or _dw_rrect.intersects((_dw_c as Control).get_global_rect())):
 				_dw_no_overlap = false
-		# (3) each content block is vertically centred (top pad ~= bottom pad, <=4px).
+		# (3) the content cluster is vertically centred within its host (top pad ~= bottom).
 		var _dw_centered := true
-		for _dw_pair in [[hud._left_wing, hud._left_wing_box], [hud._right_wing, hud._right_wing_box]]:
-			var _dw_b: VBoxContainer = _dw_pair[1]
-			if _dw_b.get_child_count() > 0:
-				var _dw_wr: Rect2 = (_dw_pair[0] as Control).get_global_rect()
-				var _dw_top: float = (_dw_b.get_child(0) as Control).get_global_rect().position.y - _dw_wr.position.y
-				var _dw_bot: float = _dw_wr.end.y - (_dw_b.get_child(_dw_b.get_child_count() - 1) as Control).get_global_rect().end.y
-				if absf(_dw_top - _dw_bot) > 4.0:
+		for _dw_host in [hud._left_wing_box, hud._right_wing_box]:
+			var _dw_hc: Control = _dw_host
+			if _dw_hc.get_child_count() > 0:
+				var _dw_hr: Rect2 = _dw_hc.get_global_rect()
+				var _dw_cl: Rect2 = (_dw_hc.get_child(0) as Control).get_global_rect()
+				if absf((_dw_cl.position.y - _dw_hr.position.y) - (_dw_hr.end.y - _dw_cl.end.y)) > 4.0:
 					_dw_centered = false
-		# (4) live data parity: the wing crest bars/values ARE the model objects.
+		# (4) live data parity + bottom-to-top gauges: the wing bars/values ARE the model.
 		var _dw_parity: bool = hud._left_wing.is_ancestor_of(hud._bars["coherence"]) \
-			and hud._left_wing.is_ancestor_of(hud._bar_values["coherence"])
+			and hud._left_wing.is_ancestor_of(hud._bar_values["coherence"]) \
+			and (hud._bars["coherence"] as ProgressBar).fill_mode == ProgressBar.FILL_BOTTOM_TO_TOP
 		# (5) ownership: docked readouts are NOT draggable HUD-edit widgets; Goal still is.
 		var _dw_owner: bool = not hud._hud_widgets.has("crest") \
 			and not hud._hud_widgets.has("events") and hud._hud_widgets.has("goal")
@@ -702,21 +716,131 @@ func run(ctx) -> void:
 			and hud._open_wing_popup == hud._event_popup
 		hud._right_wing.gui_input.emit(_dw_click)   # re-click the same wing closes it
 		var _dw_reclose: bool = not hud._event_popup.visible and hud._open_wing_popup == null
-		# (7) worst case: a 3-digit crest value fits, and a long event line ellipsises inside
-		# the wing rather than wrapping/expanding.
+		# (7) all-100 containment retained: 3-digit values fit without forcing expansion.
 		hud.update_settlement(100.0, 100.0, 100.0, {}, [])
-		hud.log_event("Raiders massing at the far eastern gate — brace every wall right now")
 		await get_tree().process_frame
 		var _dw_worst: bool = (hud._bar_values["coherence"] as Label).text == "100" \
-			and hud._left_wing_box.get_combined_minimum_size().x <= _dw_lrect.size.x + 0.5 \
-			and hud._event_compact_label.get_global_rect().end.x <= hud._right_wing.get_global_rect().end.x + 0.5
-		_dw_ok = _dw_lfit and _dw_rfit and _dw_no_overlap and _dw_centered and _dw_parity \
-			and _dw_owner and _dw_open_crest and _dw_exclusive and _dw_reclose and _dw_worst
-		_dw_detail = "lfit=%s rfit=%s overlap_free=%s centered=%s parity=%s owner=%s open=%s excl=%s reclose=%s worst=%s" % [
-			str(_dw_lfit), str(_dw_rfit), str(_dw_no_overlap), str(_dw_centered), str(_dw_parity),
-			str(_dw_owner), str(_dw_open_crest), str(_dw_exclusive), str(_dw_reclose), str(_dw_worst)]
+			and hud._left_wing_box.get_combined_minimum_size().x <= hud._left_wing_box.size.x + 0.5
+		_dw_ok = _dw_socket_in and _dw_host_in and _dw_lfit and _dw_rfit and _dw_no_overlap \
+			and _dw_centered and _dw_parity and _dw_owner and _dw_open_crest and _dw_exclusive \
+			and _dw_reclose and _dw_worst
+		_dw_detail = "socket_in=%s host_in=%s lfit=%s rfit=%s overlap_free=%s centered=%s parity=%s owner=%s open=%s excl=%s reclose=%s worst=%s" % [
+			str(_dw_socket_in), str(_dw_host_in), str(_dw_lfit), str(_dw_rfit), str(_dw_no_overlap),
+			str(_dw_centered), str(_dw_parity), str(_dw_owner), str(_dw_open_crest), str(_dw_exclusive),
+			str(_dw_reclose), str(_dw_worst)]
 		hud._close_wing_popups()
 	harness._check("hud_dock_wings_contract", _dw_ok, _dw_detail)
+
+	# Phase C visual slice: the left wing's three vertical instruments — mixed values map to
+	# distinct bottom-to-top heights, exact values, per-metric authored icons (silhouette,
+	# not colour alone), live "<name>: <value>" tooltips, and NO persistent Coh/Load/Res
+	# titles (the icon + tooltip carry identity).
+	var _gi_ok := true
+	var _gi_detail := "not docked (fallback)"
+	if hud._left_wing != null:
+		hud.update_settlement(80.0, 13.0, 77.0, {}, [])
+		await get_tree().process_frame
+		var _gi_vals: bool = (hud._bar_values["coherence"] as Label).text == "80" \
+			and (hud._bar_values["load"] as Label).text == "13" \
+			and (hud._bar_values["resilience"] as Label).text == "77"
+		var _gi_fill := true
+		var _gi_distinct: bool = (hud._bars["load"] as ProgressBar).value \
+				< (hud._bars["coherence"] as ProgressBar).value - 20.0 \
+			and (hud._bars["load"] as ProgressBar).value \
+				< (hud._bars["resilience"] as ProgressBar).value - 20.0
+		var _gi_tips := true
+		for _gi_k in ["coherence", "load", "resilience"]:
+			if (hud._bars[_gi_k] as ProgressBar).fill_mode != ProgressBar.FILL_BOTTOM_TO_TOP:
+				_gi_fill = false
+			var _gi_col: Control = hud._crest_columns[_gi_k]
+			var _gi_full: String = str(hud._crest_full_names[_gi_k])
+			var _gi_num := str(int(round((hud._bars[_gi_k] as ProgressBar).value)))
+			if not _gi_col.tooltip_text.contains(_gi_full) or not _gi_col.tooltip_text.contains(_gi_num):
+				_gi_tips = false
+		var _gi_icons: bool = hud._left_wing.find_children("*", "TextureRect", true, false).size() >= 3
+		var _gi_no_titles := true
+		for _gi_lbl in hud._left_wing.find_children("*", "Label", true, false):
+			var _gi_t: String = (_gi_lbl as Label).text
+			if _gi_t == "Coh" or _gi_t == "Load" or _gi_t == "Res":
+				_gi_no_titles = false
+		_gi_ok = _gi_vals and _gi_fill and _gi_distinct and _gi_tips and _gi_icons and _gi_no_titles
+		_gi_detail = "vals=%s fill=%s distinct=%s tips=%s icons=%s no_titles=%s" % [
+			str(_gi_vals), str(_gi_fill), str(_gi_distinct), str(_gi_tips), str(_gi_icons),
+			str(_gi_no_titles)]
+	harness._check("hud_dock_gauge_instruments", _gi_ok, _gi_detail)
+
+	# Phase C visual slice: the dock-specific compact clock formatter and its live use —
+	# "Day <n>, <HHMM>" (zero-padded 24h, no colon, no phase/moon/threat).
+	var _cf_fmt: bool = hud._format_dock_clock(1, 0, 0) == "Day 1, 0000" \
+		and hud._format_dock_clock(8, 9, 5) == "Day 8, 0905" \
+		and hud._format_dock_clock(98, 11, 24) == "Day 98, 1124" \
+		and hud._format_dock_clock(999, 23, 59) == "Day 999, 2359"
+	var _cf_live := true
+	var _cf_sample := "-"
+	if hud._right_wing != null:
+		hud.update_time(98, false, 3, 0.2507)   # -> 11:24
+		await get_tree().process_frame
+		_cf_sample = hud._event_time_label.text
+		_cf_live = _cf_sample.begins_with("Day 98, ") and not _cf_sample.contains(":") \
+			and not _cf_sample.contains("Night") and not _cf_sample.contains("threat") \
+			and _cf_sample.length() == "Day 98, 1124".length()
+	harness._check("hud_dock_clock_format", _cf_fmt and _cf_live,
+		"fmt=%s live=%s sample=%s" % [str(_cf_fmt), str(_cf_live), _cf_sample])
+
+	# Phase C visual slice: the three-most-recent compact event lines. Newest first; the
+	# fourth-oldest is excluded from the compact view but the full history is preserved in
+	# the popup; authored summaries are used verbatim (not prefix slices); an unauthored
+	# long message falls back to a word-boundary summary; each line is one-line/ellipsised;
+	# the full original message is exposed on hover.
+	var _es_ok := true
+	var _es_detail := "not docked (fallback)"
+	if hud._right_wing != null:
+		hud._log_entries.clear()
+		hud.log_event("First settlers raise the very first timber wall of the young camp",
+			"First wall raised")
+		hud.log_event("A roaming merchant caravan is spotted approaching from the north",
+			"Caravan spotted")
+		hud.log_event("Raiders are massing beyond the tree line to the far eastern side",
+			"Raiders massing east")
+		hud.log_event("The night watch reports distant torches along the eastern ridge",
+			"Torches to the east")
+		await get_tree().process_frame
+		var _es_order: bool = hud._event_lines[0].text == "Torches to the east" \
+			and hud._event_lines[1].text == "Raiders massing east" \
+			and hud._event_lines[2].text == "Caravan spotted"
+		var _es_excluded := true
+		for _es_line in hud._event_lines:
+			if (_es_line as Label).text == "First wall raised":
+				_es_excluded = false
+		var _es_history: bool = hud._log_entries.size() == 4 \
+			and str(hud._log_entries[0]["full"]).contains("first timber wall") \
+			and hud._log_label.text.contains("first timber wall")
+		var _es_tooltip: bool = hud._event_lines[0].tooltip_text.contains("distant torches")
+		var _es_authored: bool = hud._event_lines[1].text == "Raiders massing east" \
+			and not hud._event_lines[1].text.begins_with("Raiders are massing")
+		var _es_oneline := true
+		for _es_l in hud._event_lines:
+			var _esl: Label = _es_l
+			if _esl.autowrap_mode != TextServer.AUTOWRAP_OFF \
+					or _esl.text_overrun_behavior != TextServer.OVERRUN_TRIM_ELLIPSIS \
+					or not _esl.clip_text:
+				_es_oneline = false
+		# Unauthored long message -> conservative word-boundary fallback (no mid-word cut).
+		var _es_full := "Reinforcements arriving shortly from the western outpost garrison"
+		hud._log_entries.clear()
+		hud.log_event(_es_full)
+		await get_tree().process_frame
+		var _es_fb: String = hud._event_lines[0].text
+		var _es_core := _es_fb.trim_suffix("…")
+		var _es_fallback: bool = _es_fb.length() < _es_full.length() and _es_fb.ends_with("…") \
+			and _es_full.begins_with(_es_core) \
+			and (_es_core.length() == _es_full.length() or _es_full[_es_core.length()] == " ")
+		_es_ok = _es_order and _es_excluded and _es_history and _es_tooltip and _es_authored \
+			and _es_oneline and _es_fallback
+		_es_detail = "order=%s excluded=%s history=%s tooltip=%s authored=%s oneline=%s fallback=%s fb=\"%s\"" % [
+			str(_es_order), str(_es_excluded), str(_es_history), str(_es_tooltip), str(_es_authored),
+			str(_es_oneline), str(_es_fallback), _es_fb]
+	harness._check("hud_dock_event_summaries", _es_ok, _es_detail)
 
 	# FQ-20: the dock is the command center — five module toggle chips live
 	# inside the dock panel, drive the modules, and mirror external changes.

@@ -135,8 +135,26 @@ func _run() -> void:
 	_records.append({"name": "16_swing_arc", "path": "%s/16_swing_arc.png" % QA_DIR,
 		"note": "Directional swing-arc FX (F10) sweeping right at the player."})
 
-	# Phase C geometry proof: crop each wooden wing (+ its neighbouring orb/button) at every
-	# target size so fit and overlap can be judged at native pixels, and after a live resize.
+	# Phase C visual slice: freeze the sim (so the live clock cannot overwrite the forced
+	# readout), then drive the docked wings with deterministic worst-case data — 3-digit
+	# gauge values, the widest 3-digit-day compact clock, and three long event lines that
+	# each ellipsise independently.
+	get_tree().paused = true
+	# Mixed gauge values prove the bottom-to-top fill reaches distinct heights (the
+	# all-100 containment case is covered by the automated smoke contract instead).
+	hud.update_settlement(80.0, 13.0, 77.0, {}, [])
+	hud.update_time(999, false, 5, 0.789)   # -> "Day 999, 2358" (widest 3-digit day)
+	# Full messages persist for the popup/tooltip; the wing shows the authored summaries.
+	hud.log_event("A caravan of weary traders reaches the north gate seeking shelter",
+		"Caravan at north gate")
+	hud.log_event("Storm clouds gather over the eastern ridge — secure every roof now",
+		"Storm approaching")
+	hud.log_event("Raiders are massing at the far eastern gate — brace every wall now",
+		"Raiders massing east")
+	# (Exact target-example summaries above, to prove they fit without ellipsis.)
+
+	# Crop each wooden wing (+ its neighbouring orb/button) at every target size so fit and
+	# overlap can be judged at native pixels, and after a live resize.
 	for _wsz in [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1000), Vector2i(640, 360)]:
 		DisplayServer.window_set_size(_wsz)
 		for _wi in range(12):
@@ -148,8 +166,8 @@ func _run() -> void:
 		var _logical: Vector2 = get_viewport().get_visible_rect().size
 		var _sc := Vector2(float(_img.get_width()), float(_img.get_height())) \
 			/ Vector2(maxf(1.0, _logical.x), maxf(1.0, _logical.y))
-		for _pair in [["left", hud.find_child("LeftWingMock", true, false)],
-				["right", hud.find_child("RightWingMock", true, false)]]:
+		for _pair in [["left", hud.find_child("LeftWing", true, false)],
+				["right", hud.find_child("RightWing", true, false)]]:
 			var _n = _pair[1]
 			if _n == null:
 				continue
@@ -162,6 +180,7 @@ func _run() -> void:
 				continue
 			_img.get_region(_crop).save_png("%s/wing_%s_%dx%d.png" % [QA_DIR, _pair[0], _wsz.x, _wsz.y])
 	DisplayServer.window_set_size(Vector2i(1280, 720))
+	get_tree().paused = false
 
 	_write_manifest(hud)
 	print("HUD_QA complete -> %s" % QA_DIR)

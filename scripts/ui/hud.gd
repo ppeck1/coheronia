@@ -41,11 +41,21 @@ var _bar_values: Dictionary = {}  # "coherence"/"load"/"resilience" -> Label
 # a time). Null wings == a fallback dock is active and the modules stay free-floating.
 var _left_wing: Control
 var _right_wing: Control
-var _left_wing_box: VBoxContainer
-var _right_wing_box: VBoxContainer
+# Phase C visual slice: the wing content now lives inside a recessed instrument
+# socket, so the "box" is the centred content host filling the socket interior.
+var _left_wing_box: Control
+var _right_wing_box: Control
+var _left_socket: NinePatchRect
+var _right_socket: NinePatchRect
 var _crest_popup: PanelContainer
 var _event_popup: PanelContainer
+# The newest compact event line (alias of _event_lines[0]) kept for callers that
+# read the single latest message; all three docked lines live in _event_lines.
 var _event_compact_label: Label
+var _event_lines: Array[Label] = []
+# Docked crest gauge columns + their full names (for live tooltips).
+var _crest_columns: Dictionary = {}
+var _crest_full_names: Dictionary = {}
 var _open_wing_popup: PanelContainer
 var _time_label: Label
 var _stock_label: Label
@@ -54,7 +64,14 @@ var _mine_bar: ProgressBar
 var _log_label: Label
 var _event_panel: PanelContainer
 var _event_time_label: Label
-var _log_lines: Array[String] = []
+# The rich time header inside the Events popup (phase + HH:MM + moon + threats); the
+# docked wing clock stays compact while the full view keeps the detail.
+var _event_detail_time_label: Label
+# Single paired event history: each entry is {"full": <original message>, "compact":
+# <short wing summary>}. Never split into two arrays that could drift. The popup shows
+# the full messages; the docked wing shows the compact summaries (with the full text on
+# hover). The full history is never overwritten or shortened.
+var _log_entries: Array[Dictionary] = []
 var _town_panel: PanelContainer
 # Citizen info panel (click a settler, or a Town Hall roster row, to open it).
 var _npc_panel: PanelContainer
@@ -838,6 +855,15 @@ func _events_module() -> Control:
 	return _event_panel if _event_panel != null else _right_wing
 
 
+## The full rich time header text (phase + HH:MM + moon + threats). Docked: the Events
+## popup header; floating: the events time label. The docked wing clock stays compact,
+## so this exposes the retained detail (for tests and any future consumer).
+func _events_docked_time_detail() -> String:
+	if _event_detail_time_label != null:
+		return _event_detail_time_label.text
+	return _event_time_label.text if _event_time_label != null else ""
+
+
 func _toggle_event_module() -> void:
 	var ev := _events_module()
 	if ev != null:
@@ -1031,9 +1057,19 @@ func _build_top_left() -> void:
 ## detail (title, status, stockpile, XP) lives in a click-opened popup above the wing.
 func _build_crest_docked() -> void:
 	_top_left_box = _left_wing
-	_wing_crest_row(_left_wing_box, "coherence", "Coh", Color(0.35, 0.75, 0.40))
-	_wing_crest_row(_left_wing_box, "load", "Load", Color(0.85, 0.45, 0.30))
-	_wing_crest_row(_left_wing_box, "resilience", "Res", Color(0.35, 0.55, 0.85))
+	# Phase C visual slice: three evenly-spaced vertical instrument gauges (icon /
+	# bottom-to-top fill / exact value), centred as one cluster inside the socket.
+	# No persistent "Coh/Load/Res" titles — the icon + tooltip carry the identity.
+	var cluster := HBoxContainer.new()
+	cluster.add_theme_constant_override("separation", 10)
+	cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_left_wing_box.add_child(cluster)
+	_wing_gauge_column(cluster, "coherence", "Coherence",
+		"wing_icon_coherence", Color(0.35, 0.75, 0.40))
+	_wing_gauge_column(cluster, "load", "Load",
+		"wing_icon_load", Color(0.85, 0.45, 0.30))
+	_wing_gauge_column(cluster, "resilience", "Resilience",
+		"wing_icon_resilience", Color(0.35, 0.55, 0.85))
 	_crest_popup = _make_wing_popup()
 	var pbox := VBoxContainer.new()
 	pbox.add_theme_constant_override("separation", 3)
@@ -1427,16 +1463,32 @@ func _build_hud_kit(layout: Dictionary) -> void:
 	# _build_top_left / _build_log populate them with the LIVE Crest / Events readouts once
 	# the dock exists; null wings mean a fallback dock is active and those modules float.
 	if _json_rect(layout.get("left_wing_safe_rect")).size != Vector2.ZERO:
-		_left_wing_box = _wing_root(band, _json_rect(layout.get("left_wing_safe_rect")), "LeftWing")
+		var left_socket: Array = []
+		_left_wing_box = _wing_root(band, _json_rect(layout.get("left_wing_safe_rect")),
+			"LeftWing", left_socket)
 		_left_wing = _left_wing_box.get_parent()
-		_right_wing_box = _wing_root(band, _json_rect(layout.get("right_wing_safe_rect")), "RightWing")
+		_left_socket = left_socket[0]
+		var right_socket: Array = []
+		_right_wing_box = _wing_root(band, _json_rect(layout.get("right_wing_safe_rect")),
+			"RightWing", right_socket)
 		_right_wing = _right_wing_box.get_parent()
+		_right_socket = right_socket[0]
 
 
-## A chrome-less wing host: a clipped Control at `rect` (mouse STOP so it can be clicked to
-## open its detail popup) with a vertically-centered VBox. Returns the VBox to add rows to;
-## the wooden dock supplies the backdrop (no PanelContainer chrome).
-func _wing_root(parent: Control, rect: Rect2, node_name: String) -> VBoxContainer:
+const WING_WOOD_MARGIN := 5.0   # wooden perimeter left visible around the socket
+const WING_SOCKET_PAD := 4.0    # inset from the socket bevel to the live content
+# Content width inside a 128px wing socket: 128 - 2*(margin + pad). The compact clock
+# and event lines size to this so concise summaries fit without ellipsis.
+const WING_LINE_WIDTH := 110.0
+
+
+## Phase C visual slice: a wing = an interactive root (captures the click) holding
+## a recessed 9-slice instrument socket (a wooden perimeter is left visible around
+## it) whose interior hosts a CenterContainer. The socket makes the readout look
+## built into the dock; the CenterContainer centres the whole content cluster.
+## Returns the content host; the socket ref is stored via `socket_out`.
+func _wing_root(parent: Control, rect: Rect2, node_name: String,
+		socket_out: Array) -> CenterContainer:
 	var root := Control.new()
 	root.name = node_name
 	_place(root, rect)
@@ -1444,15 +1496,78 @@ func _wing_root(parent: Control, rect: Rect2, node_name: String) -> VBoxContaine
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.z_index = 5
 	parent.add_child(root)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 3)
-	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	# Center the whole content block vertically within the safe rect (rows keep their
-	# spacing; no row is centered independently and no child expands to fill).
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(box)
-	return box
+	# Recessed instrument socket, inset so a wooden perimeter stays visible; the
+	# 9-slice keeps its brass bevel crisp at every window size.
+	var socket := NinePatchRect.new()
+	socket.name = node_name + "Socket"
+	socket.texture = _painted_texture("wing_socket_frame")
+	socket.patch_margin_left = 6
+	socket.patch_margin_top = 6
+	socket.patch_margin_right = 6
+	socket.patch_margin_bottom = 6
+	socket.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	socket.z_index = 1
+	_place(socket, Rect2(Vector2(WING_WOOD_MARGIN, WING_WOOD_MARGIN),
+		rect.size - Vector2(WING_WOOD_MARGIN, WING_WOOD_MARGIN) * 2.0))
+	root.add_child(socket)
+	socket_out.append(socket)
+	# Content host: fills the socket interior (inset past the bevel) and centres
+	# its single child cluster both axes, so containment is intrinsic.
+	var host := CenterContainer.new()
+	host.name = node_name + "Content"
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.z_index = 2
+	var pad := WING_WOOD_MARGIN + WING_SOCKET_PAD
+	_place(host, Rect2(Vector2(pad, pad), rect.size - Vector2(pad, pad) * 2.0))
+	root.add_child(host)
+	return host
+
+
+## Phase C visual slice: one vertical instrument gauge — authored metric icon, a
+## bottom-to-top fill bar, and the exact numeric value beneath it. Registers the bar
+## and value in _bars/_bar_values under `key` so update_settlement drives them
+## directly (no duplicate model). The column is MOUSE_FILTER_PASS so hovering shows
+## its "<full name>: <value>" tooltip while the click still reaches the wing root and
+## opens the full Crest detail. Icons differ by silhouette, not colour alone.
+func _wing_gauge_column(parent: Control, key: String, full_name: String,
+		icon_id: String, color: Color) -> void:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 3)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.mouse_filter = Control.MOUSE_FILTER_PASS
+	col.tooltip_text = "%s: 50" % full_name
+	parent.add_child(col)
+	var icon := TextureRect.new()
+	icon.texture = _painted_texture(icon_id)
+	icon.custom_minimum_size = Vector2(16, 16)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(icon)
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.max_value = 100.0
+	bar.value = 50.0
+	bar.fill_mode = ProgressBar.FILL_BOTTOM_TO_TOP
+	bar.custom_minimum_size = Vector2(11, 30)
+	bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_theme_stylebox_override("background", _wing_bar_style(Color(0.10, 0.08, 0.06, 0.85)))
+	bar.add_theme_stylebox_override("fill", _wing_bar_style(Color(color.r, color.g, color.b, 0.95)))
+	col.add_child(bar)
+	var val := Label.new()
+	val.text = "50"
+	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	val.add_theme_font_size_override("font_size", 11)
+	val.add_theme_color_override("font_color", Color(0.94, 0.92, 0.84))
+	val.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	val.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(val)
+	_bars[key] = bar
+	_bar_values[key] = val
+	_crest_columns[key] = col
+	_crest_full_names[key] = full_name
 
 
 ## A compact LIVE crest row: color marker + abbreviated name + short bar + right-aligned
@@ -2729,20 +2844,45 @@ func _build_log() -> void:
 	event_box.add_child(_log_label)
 
 
-## Phase C: compact LIVE Events in the right wing — the real clock (_event_time_label,
-## abbreviated) + the single most recent log line (_event_compact_label; log_event sets
-## both it and the full _log_label). The full scrolling log lives in a click-opened popup.
+## Phase C visual slice: compact LIVE Events in the right wing socket — the dock clock
+## ("Day <n>, <HHMM>") above the three most-recent event lines (newest first, each one
+## line, independently ellipsised). The full history + rich time header live in the
+## click-opened popup; the compact view never reduces the underlying history.
 func _build_events_docked() -> void:
+	var cluster := VBoxContainer.new()
+	cluster.add_theme_constant_override("separation", 2)
+	cluster.alignment = BoxContainer.ALIGNMENT_CENTER
+	cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_right_wing_box.add_child(cluster)
 	_event_time_label = Label.new()
-	_event_time_label.text = "Day 1 · Day"
-	_event_time_label.add_theme_color_override("font_color", Color(0.80, 0.72, 0.48))
-	_event_time_label.add_theme_font_size_override("font_size", 12)
+	_event_time_label.text = _format_dock_clock(1, 0, 0)
+	_event_time_label.add_theme_color_override("font_color", Color(0.87, 0.79, 0.53))
+	_event_time_label.add_theme_font_size_override("font_size", 13)
 	_event_time_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_event_time_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_event_time_label.clip_text = true
+	_event_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_event_time_label.custom_minimum_size = Vector2(WING_LINE_WIDTH, 0)
 	_event_time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_right_wing_box.add_child(_event_time_label)
-	_event_compact_label = _wing_line(_right_wing_box, "", Color(0.96, 0.86, 0.72))
+	cluster.add_child(_event_time_label)
+	# Three most-recent event lines: left-aligned for consistent scanning, a readable
+	# size, one line each. They carry short authored summaries that normally fit, so
+	# ellipsis is only a safety fallback. MOUSE_FILTER_PASS shows the full-message
+	# tooltip on hover while the click still reaches the wing and opens the popup.
+	_event_lines.clear()
+	for _i in range(3):
+		var line := Label.new()
+		line.add_theme_font_size_override("font_size", 10)
+		line.add_theme_color_override("font_color", Color(0.95, 0.90, 0.80))
+		line.autowrap_mode = TextServer.AUTOWRAP_OFF
+		line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		line.clip_text = true
+		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		line.custom_minimum_size = Vector2(WING_LINE_WIDTH, 0)
+		line.mouse_filter = Control.MOUSE_FILTER_PASS
+		cluster.add_child(line)
+		_event_lines.append(line)
+	_event_compact_label = _event_lines[0]
 	# Full scrolling log in the click-opened popup.
 	_event_popup = _make_wing_popup()
 	var pbox := VBoxContainer.new()
@@ -2750,6 +2890,15 @@ func _build_events_docked() -> void:
 	(_event_popup.get_child(0) as Control).add_child(pbox)
 	var title := _label(pbox, "EVENTS")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	# The full view keeps the rich time header (phase + HH:MM + moon phase + threats); the
+	# compact wing clock is the abbreviated "Day <n>, <HHMM>" form only.
+	_event_detail_time_label = Label.new()
+	_event_detail_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_event_detail_time_label.add_theme_color_override("font_color", Color(0.80, 0.72, 0.48))
+	_event_detail_time_label.add_theme_font_size_override("font_size", 12)
+	_event_detail_time_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_event_detail_time_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pbox.add_child(_event_detail_time_label)
 	_log_label = Label.new()
 	_log_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_log_label.add_theme_color_override("font_color", Color(0.95, 0.93, 0.85))
@@ -4130,6 +4279,10 @@ func update_settlement(coherence: float, load_value: float, resilience: float,
 	for key in _bar_values:
 		if _bars.has(key):
 			(_bar_values[key] as Label).text = str(int(round(_bars[key].value)))
+	# Keep the docked gauge tooltips (accessible full names) in step with the value.
+	for key in _crest_columns:
+		(_crest_columns[key] as Control).tooltip_text = "%s: %d" % [
+			str(_crest_full_names.get(key, key)), int(round(_bars[key].value))]
 	_status_label.text = "Status: %s" % (", ".join(labels) if not labels.is_empty() else "—")
 	var lines := ["C/L/R inputs:"]
 	for key in inputs:
@@ -4300,7 +4453,9 @@ const CLOCK_DAWN_END := 0.08
 const CLOCK_DUSK_START := 0.55
 
 
-func _clock_text(fraction: float) -> String:
+## The (hour, minute) of a day fraction — shared by the full "HH:MM" header and the
+## compact dock clock so both read the same time from one mapping.
+func _clock_hm(fraction: float) -> Array:
 	var f := clampf(fraction, 0.0, 1.0)
 	var hours: float
 	if f < CLOCK_NIGHT_START:
@@ -4311,7 +4466,19 @@ func _clock_text(fraction: float) -> String:
 			hours -= 24.0
 	var h := int(hours)
 	var m := int((hours - float(h)) * 60.0)
-	return "%02d:%02d" % [h, m]
+	return [h, m]
+
+
+func _clock_text(fraction: float) -> String:
+	var hm := _clock_hm(fraction)
+	return "%02d:%02d" % [hm[0], hm[1]]
+
+
+## Phase C: the dock-wing compact clock — "Day <n>, <HHMM>" (zero-padded, 24-hour, no
+## colon, no phase/moon/threat). Dock-specific so the full popup header keeps its rich
+## "Day 5 • Dusk 18:42 • <moon>" form and threat suffix.
+func _format_dock_clock(day: int, hour: int, minute: int) -> String:
+	return "Day %d, %02d%02d" % [day, hour, minute]
 
 
 func update_time(day: int, is_night: bool, threat_count: int = 0,
@@ -4341,8 +4508,26 @@ func update_time(day: int, is_night: bool, threat_count: int = 0,
 		text += "  ⚠ %d threat%s active" % [threat_count, "" if threat_count == 1 else "s"]
 	if _time_label != null:
 		_time_label.text = text
+	# Phase C: the docked wing clock is the compact "Day <n>, <HHMM>" form (no phase,
+	# moon, or threat); the floating fallback keeps the full header text. Keyed off the
+	# Events wing itself, not the Crest wing — the two must stay independent.
 	if _event_time_label != null:
-		_event_time_label.text = text
+		if _right_wing != null:
+			var ch := 12
+			var cm := 0
+			if time_fraction >= 0.0:
+				var hm := _clock_hm(time_fraction)
+				ch = int(hm[0])
+				cm = int(hm[1])
+			elif is_night:
+				ch = 0
+				cm = 0
+			_event_time_label.text = _format_dock_clock(day, ch, cm)
+		else:
+			_event_time_label.text = text
+	# The Events popup keeps the full rich header (phase, HH:MM, moon, threats).
+	if _event_detail_time_label != null:
+		_event_detail_time_label.text = text
 
 
 ## FQ-19: the persistent dock save line moved out of the dock (the controls
@@ -4403,16 +4588,65 @@ func update_inventory() -> void:
 		_refresh_inventory_panel()
 
 
-func log_event(message: String) -> void:
-	_log_lines.append(message)
-	if _log_lines.size() > 6:
-		_log_lines = _log_lines.slice(_log_lines.size() - 6)
-	_log_label.text = "\n".join(_log_lines)
-	# Phase C: the right dock wing shows the single most recent line (the popup has all).
-	if _event_compact_label != null:
-		_event_compact_label.text = message
+## Record an event. `compact_summary` is an optional short label for the docked wing;
+## when omitted, a conservative word-boundary fallback derives one. The full `message`
+## is always kept verbatim for the popup and the hover tooltip.
+func log_event(message: String, compact_summary: String = "") -> void:
+	var compact := compact_summary.strip_edges()
+	if compact.is_empty():
+		compact = _compact_event_fallback(message)
+	_log_entries.append({"full": message, "compact": compact})
+	if _log_entries.size() > 6:
+		_log_entries = _log_entries.slice(_log_entries.size() - 6)
+	_log_label.text = _full_log_text()
+	# Phase C: the right dock wing shows the three most-recent compact summaries (newest
+	# first, full text on hover); the popup keeps the full history. One paired model.
+	_refresh_event_lines()
 	# FQ-19: a growing events panel pushes the contextual stack down with it.
 	_position_context_stack.call_deferred()
+
+
+## The full, unabridged history text (newest at the bottom) for the events popup.
+func _full_log_text() -> String:
+	var lines: Array[String] = []
+	for entry in _log_entries:
+		lines.append(str(entry["full"]))
+	return "\n".join(lines)
+
+
+## Word-boundary fallback for events without an authored compact summary: keep whole
+## words up to a small budget and append an ellipsis only if words had to be dropped.
+## This is a safety net — the important long-form events carry authored summaries.
+func _compact_event_fallback(message: String) -> String:
+	const BUDGET := 20
+	var clean := message.strip_edges()
+	if clean.length() <= BUDGET:
+		return clean
+	var out := ""
+	for word in clean.split(" ", false):
+		var candidate: String = word if out.is_empty() else out + " " + word
+		if candidate.length() > BUDGET:
+			break
+		out = candidate
+	if out.is_empty():   # a single word longer than the whole budget
+		out = clean.substr(0, BUDGET)
+	if out.length() < clean.length():
+		out += "…"
+	return out
+
+
+## Phase C: fill the docked event lines from the tail of the history, newest first —
+## compact summary as the line text, the full original message as the hover tooltip.
+## Lines past the available history stay blank (fewer than three events shows fewer).
+func _refresh_event_lines() -> void:
+	for i in range(_event_lines.size()):
+		var idx := _log_entries.size() - 1 - i
+		if idx >= 0:
+			_event_lines[i].text = str(_log_entries[idx]["compact"])
+			_event_lines[i].tooltip_text = str(_log_entries[idx]["full"])
+		else:
+			_event_lines[i].text = ""
+			_event_lines[i].tooltip_text = ""
 
 
 func toggle_town_panel() -> void:
