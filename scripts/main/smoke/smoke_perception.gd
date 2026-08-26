@@ -415,11 +415,17 @@ func run(ctx) -> void:
 		root.settlement.compute()
 	if root.has_method("_refresh_threat_display"):
 		root._refresh_threat_display()
-	harness._check("perception_resonance_e2e_through_fog",
-		_e2e_cells_unseen and _e2e_hidden_before and _e2e_marked and _e2e_ore_in_batch \
-		and _e2e_forced_visible and _e2e_fog_intact and _e2e_no_stack \
-		and _e2e_hl_gone and _e2e_force_empty and _e2e_hidden_after,
-		"unseen=%s hid0=%s marked=%s ore=%s forced=%s fog=%s nostack=%s gone=%s empty=%s hid1=%s" % [
-			str(_e2e_cells_unseen), str(_e2e_hidden_before), str(_e2e_marked), str(_e2e_ore_in_batch),
-			str(_e2e_forced_visible), str(_e2e_fog_intact), str(_e2e_no_stack),
-			str(_e2e_hl_gone), str(_e2e_force_empty), str(_e2e_hidden_after)])
+	var _e2e_ok: bool = _e2e_cells_unseen and _e2e_hidden_before and _e2e_marked \
+		and _e2e_ore_in_batch and _e2e_forced_visible and _e2e_fog_intact and _e2e_no_stack \
+		and _e2e_hl_gone and _e2e_force_empty and _e2e_hidden_after
+	var _e2e_detail := "unseen=%s hid0=%s marked=%s ore=%s forced=%s fog=%s nostack=%s gone=%s empty=%s hid1=%s" % [
+		str(_e2e_cells_unseen), str(_e2e_hidden_before), str(_e2e_marked), str(_e2e_ore_in_batch),
+		str(_e2e_forced_visible), str(_e2e_fog_intact), str(_e2e_no_stack),
+		str(_e2e_hl_gone), str(_e2e_force_empty), str(_e2e_hidden_after)]
+	# Diagnostic: this check protects a feature that recently regressed and fails rarely and
+	# non-deterministically. Print the complete field breakdown on failure so the next local
+	# or CI occurrence is actionable straight from the log (before the results JSON is
+	# overwritten by a later run).
+	if not _e2e_ok:
+		print("SMOKE_FIELD_BREAKDOWN perception_resonance_e2e_through_fog: %s" % _e2e_detail)
+	harness._check("perception_resonance_e2e_through_fog", _e2e_ok, _e2e_detail)
