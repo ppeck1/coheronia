@@ -170,6 +170,21 @@ func _run() -> void:
 		await RenderingServer.frame_post_draw
 		_capture_wing(hud.find_child("RightWing", true, false),
 			"wing_right_threat_%dx%d" % [_wsz_t.x, _wsz_t.y])
+	# Nightfall icon states (newest first): plain nightfall uses the crescent-moon night
+	# icon, threat-bearing nightfall uses the warning icon, and dawn uses the sun icon —
+	# proving night and dawn are visibly distinct.
+	hud._log_entries.clear()
+	hud.log_event("Dawn breaks. The pressure recedes.", "Dawn", "dawn")
+	hud.log_event("Night falls. Pressure rises (2 threats approaching).",
+		"Night: 2 threats", "warning")
+	hud.log_event("Night falls.", "Nightfall", "night")
+	for _wsz_n in [Vector2i(640, 360), Vector2i(1280, 720), Vector2i(1920, 1000)]:
+		DisplayServer.window_set_size(_wsz_n)
+		for _wi_n in range(12):
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		_capture_wing(hud.find_child("RightWing", true, false),
+			"wing_right_night_%dx%d" % [_wsz_n.x, _wsz_n.y])
 	# Full-dock screenshots (the whole bottom dock in context) so the compact Goal/Map/Edit
 	# command tray can be judged at every target resolution. Restore the normal journal set.
 	hud._log_entries.clear()

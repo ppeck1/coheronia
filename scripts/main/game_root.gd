@@ -1410,7 +1410,7 @@ func _on_nightfall() -> void:
 			spawn_count, "" if spawn_count == 1 else "s"],
 			"Night: %d threat%s" % [spawn_count, "" if spawn_count == 1 else "s"], "warning")
 	else:
-		log_event("Night falls.", "Nightfall", "dawn")
+		log_event("Night falls.", "Nightfall", "night")
 	for i in range(spawn_count):
 		_spawn_surface_slime(i)
 	_maybe_spawn_thornrat()

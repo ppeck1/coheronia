@@ -864,6 +864,36 @@ func run(ctx) -> void:
 			str(_es_icons), str(_es_oneline), str(_es_fallback), _es_fb]
 	harness._check("hud_dock_event_summaries", _es_ok, _es_detail)
 
+	# Phase C: event-icon category mapping. Mirrors the exact (summary, icon) pairs
+	# game_root emits — plain nightfall uses the crescent-moon NIGHT icon, threat-bearing
+	# nightfall uses the WARNING icon, and dawn uses the DAWN icon. Night, dawn, warning,
+	# and the header clock-face icon are all distinct textures (a sun/clock must never
+	# stand in for nightfall).
+	var _im_ok := true
+	var _im_detail := "not docked (fallback)"
+	if hud._right_wing != null:
+		hud._log_entries.clear()
+		hud.log_event("Dawn breaks. The pressure recedes.", "Dawn", "dawn")
+		hud.log_event("Night falls. Pressure rises (2 threats approaching).",
+			"Night: 2 threats", "warning")
+		hud.log_event("Night falls.", "Nightfall", "night")
+		await get_tree().process_frame
+		# rows newest first: night, warning (threat nightfall), dawn.
+		var _im_rows: bool = hud._event_icons[0].texture == hud._event_icon_texture("night") \
+			and hud._event_icons[1].texture == hud._event_icon_texture("warning") \
+			and hud._event_icons[2].texture == hud._event_icon_texture("dawn")
+		var _im_entry: bool = str(hud._log_entries[2].get("icon", "")) == "night" \
+			and str(hud._log_entries[1].get("icon", "")) == "warning" \
+			and str(hud._log_entries[0].get("icon", "")) == "dawn"
+		var _im_distinct: bool = hud._event_icon_texture("night") != null \
+			and hud._event_icon_texture("night") != hud._event_icon_texture("dawn") \
+			and hud._event_icon_texture("night") != hud._event_icon_texture("warning") \
+			and hud._event_icon_texture("night") != hud._painted_texture("wing_hdr_time")
+		_im_ok = _im_rows and _im_entry and _im_distinct
+		_im_detail = "rows=%s entry=%s distinct=%s" % [
+			str(_im_rows), str(_im_entry), str(_im_distinct)]
+	harness._check("hud_dock_event_icon_mapping", _im_ok, _im_detail)
+
 	# FQ-20: the dock is the command center — the module toggle chips live inside the dock
 	# panel, drive the modules, and mirror external changes. Phase C: only Goal/Map/Edit
 	# remain, and the framed tray is shrunk to hug those three (no reserved void).
@@ -917,9 +947,12 @@ func run(ctx) -> void:
 	hud._restore_native_module_toolbar_rect()
 	var _fq20_reset_rect := Rect2(hud._command_center_panel.position, hud._command_center_panel.size)
 	var _fq20_reset_ok: bool = _fq20_reset_rect.is_equal_approx(Rect2(535, 132, 210, 44))
-	# The floating (non-kit) fallback panel (anchored 364px wide) still accommodates all
-	# five controls at their fallback 54px width + 4px gaps inside its 7px content margins.
-	var _fq20_fallback_fits: bool = (5.0 * 54.0 + 4.0 * 4.0) <= (364.0 - 2.0 * 7.0)
+	# Arithmetic capacity contract (NOT an instantiated render): the floating (non-kit)
+	# fallback panel is anchored to a fixed 364px width, and five fallback chips (54px each
+	# + 4px gaps = 286px) fit inside its content box (364 - 2*7 = 350px). This guards the
+	# fallback width against being shrunk below the five-button need; it does not build the
+	# fallback HUD, which the docked kit path replaces here.
+	var _fq20_fallback_capacity: bool = (5.0 * 54.0 + 4.0 * 4.0) <= (364.0 - 2.0 * 7.0)
 	var _fq20_cc_ok: bool = hud._module_toolbar != null \
 		and hud._command_center_panel != null \
 		and hud._command_center_panel.is_ancestor_of(hud._module_toolbar) \
@@ -928,7 +961,7 @@ func run(ctx) -> void:
 		and _fq20_module_clear \
 		and hud._command_toggles.size() == 3 \
 		and _fq20_no_crest_events \
-		and _fq20_tray_geo and _fq20_reset_ok and _fq20_fallback_fits
+		and _fq20_tray_geo and _fq20_reset_ok and _fq20_fallback_capacity
 	# The Goal chip drives + mirrors its module (toggle, then restore).
 	var _fq20_goal_chip: Button = hud._command_toggles.get("Goal")
 	var _fq20_cc_before: bool = hud._goal_panel.visible
@@ -967,10 +1000,10 @@ func run(ctx) -> void:
 	harness._check("fq20_docked_command_center",
 		_fq20_cc_ok and _fq20_cc_toggled and _fq20_cc_restored and _fq20_cc_synced
 		and _fq20_map_chip_opens and _fq20_map_chip_closes and _fq20_map_chip_no_focus,
-		"count=%d no_ce=%s tray_geo=%s gaps=%.1f/%.1f dcen=%.1f tcen=%.1f ucen=%.1f reset=%s fb5=%s toggled=%s synced=%s map=%s/%s nofocus=%s" % [
+		"count=%d no_ce=%s tray_geo=%s gaps=%.1f/%.1f dcen=%.1f tcen=%.1f ucen=%.1f reset=%s fb_capacity=%s toggled=%s synced=%s map=%s/%s nofocus=%s" % [
 			hud._command_toggles.size(), str(_fq20_no_crest_events), str(_fq20_tray_geo),
 			_fq20_gap_left, _fq20_gap_right, _fq20_dock_center, _fq20_tray_center,
-			_fq20_union_center, str(_fq20_reset_ok), str(_fq20_fallback_fits),
+			_fq20_union_center, str(_fq20_reset_ok), str(_fq20_fallback_capacity),
 			str(_fq20_cc_toggled), str(_fq20_cc_synced),
 			str(_fq20_map_chip_opens), str(_fq20_map_chip_closes), str(_fq20_map_chip_no_focus)])
 

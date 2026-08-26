@@ -170,6 +170,17 @@ def wing_evt_dawn() -> Image.Image:
     return img
 
 
+def wing_evt_night() -> Image.Image:
+    # Crescent moon (+ a small star) — nightfall. Distinct from the dawn sun and the
+    # full-disk clock face by silhouette.
+    img, d = _e()
+    d.ellipse([2, 1, 10, 10], fill=STEEL_HI, outline=EDGE)   # moon disk
+    d.ellipse([5, 0, 13, 9], fill=CLEAR)                      # carve the crescent
+    d.point((3, 3), fill=EDGE)                                # inner rim shading
+    d.point((10, 2), fill=STEEL_HI)                           # star
+    return img
+
+
 def wing_evt_warning() -> Image.Image:
     # Warning triangle — threats / raids.
     img, d = _e()
@@ -240,6 +251,7 @@ BUILDERS = {
     "wing_hdr_time": wing_hdr_time,
     "wing_evt_food": wing_evt_food,
     "wing_evt_dawn": wing_evt_dawn,
+    "wing_evt_night": wing_evt_night,
     "wing_evt_warning": wing_evt_warning,
     "wing_evt_storm": wing_evt_storm,
     "wing_evt_settler": wing_evt_settler,
