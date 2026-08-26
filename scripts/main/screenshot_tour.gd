@@ -106,7 +106,8 @@ func _run() -> void:
 	# R-08: the visible farmhand settler at work -- a mature crop by the hall, the
 	# settler beside it (frozen for a clean compose), and the harvest in the event
 	# log. The subject is a concrete actor over the unchanged abstract population.
-	if not hud._event_panel.visible:
+	var _ev_mod: Control = hud._events_module()
+	if _ev_mod != null and not _ev_mod.visible:
 		hud._toggle_event_module()
 	var _subjects: Array = get_tree().get_nodes_in_group("subjects")
 	var farmhand: Node2D = null
@@ -150,9 +151,9 @@ func _run() -> void:
 		for _d in get_tree().get_nodes_in_group("item_drops"):
 			_d.queue_free()
 
-	# Independent top modules: Map and Events remain visible together, with
-	# the contextual stack positioned below the taller surface.
-	if not hud._event_panel.visible:
+	# Independent modules: the Map and the docked Events journal both visible together.
+	var _ev_mod2: Control = hud._events_module()
+	if _ev_mod2 != null and not _ev_mod2.visible:
 		hud._toggle_event_module()
 	hud.toggle_map()
 	hud.update_map(root.map_snapshot())
