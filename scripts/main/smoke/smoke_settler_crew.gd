@@ -383,35 +383,34 @@ func run(ctx) -> void:
 		and int(hud._inv_grid_counts.get("wood", -1)) == player.inventory.count("wood")
 	if not _r08n_was_open:
 		hud.toggle_inventory_panel()
-	# The contextual stack holds exactly the three intended entries (item/save/interact) by
-	# identity, and none carries a "+N <Item>" pickup line.
-	var _r08n_entries: bool = hud._context_stack.get_child_count() == 3 \
-		and hud._context_stack.get_child(0) == hud._ctx_item_panel \
-		and hud._context_stack.get_child(1) == hud._ctx_save_panel \
-		and hud._context_stack.get_child(2) == hud._ctx_interact_panel
+	# No pickup toast surface exists: the pickup HUD listener is gone AND the whole legacy
+	# contextual popup stack is removed, so no floating "+N <Item>" line can appear. Scan
+	# every visible HUD label OUTSIDE the dock/inventory (which legitimately show counts).
 	var _r08n_stone_name := BlockRegistry.display_name("stone")
-	var _r08n_no_toast := true
-	for _r08n_child in hud._context_stack.get_children():
-		var _r08n_lbl := (_r08n_child as PanelContainer).get_child(0) as Label
-		if _r08n_lbl != null and "+" in _r08n_lbl.text and _r08n_stone_name in _r08n_lbl.text:
-			_r08n_no_toast = false
-	# Other contextual entries still function (save confirmation shows on demand).
-	hud.notify_saved()
-	var _r08n_other: bool = hud._ctx_save_panel.visible
+	var _r08n_scan := func() -> bool:
+		for _r08n_l in hud.find_children("*", "Label", true, false):
+			var _r08n_lab: Label = _r08n_l
+			if _r08n_lab == null or not _r08n_lab.is_visible_in_tree():
+				continue
+			if (hud._bottom_dock != null and hud._bottom_dock.is_ancestor_of(_r08n_lab)) \
+					or (hud._inv_panel != null and hud._inv_panel.is_ancestor_of(_r08n_lab)):
+				continue
+			if "+" in _r08n_lab.text and _r08n_stone_name in _r08n_lab.text:
+				return false
+		return true
+	var _r08n_api_gone: bool = not hud.has_method("notify_pickup") \
+		and not hud.has_method("notify_saved") and not hud.has_method("_build_context_stack")
+	var _r08n_no_toast: bool = _r08n_scan.call()
 	# Repeated pickup is likewise toast-free.
 	world.spawn_item_drop(player.global_position, "stone", 2)
 	player.collect_ground_drops()
-	var _r08n_repeat := true
-	for _r08n_c2 in hud._context_stack.get_children():
-		var _r08n_l2 := (_r08n_c2 as PanelContainer).get_child(0) as Label
-		if _r08n_l2 != null and "+" in _r08n_l2.text and _r08n_stone_name in _r08n_l2.text:
-			_r08n_repeat = false
+	var _r08n_repeat: bool = _r08n_scan.call()
 	harness._check("r08_pickup_updates_inventory_no_toast",
-		_r08n_collected and _r08n_qty and _r08n_ui and _r08n_entries and _r08n_no_toast \
-		and _r08n_other and _r08n_repeat,
-		"collected=%s qty=%s ui=%s entries=%s no_toast=%s other=%s repeat=%s" % [
-			str(_r08n_collected), str(_r08n_qty), str(_r08n_ui), str(_r08n_entries),
-			str(_r08n_no_toast), str(_r08n_other), str(_r08n_repeat)])
+		_r08n_collected and _r08n_qty and _r08n_ui and _r08n_api_gone and _r08n_no_toast \
+		and _r08n_repeat,
+		"collected=%s qty=%s ui=%s api_gone=%s no_toast=%s repeat=%s" % [
+			str(_r08n_collected), str(_r08n_qty), str(_r08n_ui), str(_r08n_api_gone),
+			str(_r08n_no_toast), str(_r08n_repeat)])
 
 	harness._r08_clear_ground_drops()
 	player.global_position = _r08g_player_pos

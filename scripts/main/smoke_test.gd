@@ -4021,56 +4021,73 @@ func _run() -> void:
 			str(_pr06_fig_ok), str(_pr06_slots_shown), str(_pr06_missing_slots),
 			str(_pr06_live_ok), str(_pr06_no_baked)])
 
-	# FQ-19: contextual right-band stack — fixed priority order, event-driven
-	# entries (selection change / save / interaction), auto-hide, and a top
-	# edge pinned dynamically below the live Map/Events zone. Runs after the
-	# music suite because the auto-hide assertions wait in real time.
-	# The stack holds exactly the three intended entries, asserted by identity (no pickup
-	# toast — routine pickups update inventory only).
-	var _fq19x_order_ok: bool = hud._context_stack != null \
-		and hud._context_stack.get_child_count() == 3 \
-		and hud._context_stack.get_child(0) == hud._ctx_item_panel \
-		and hud._context_stack.get_child(1) == hud._ctx_save_panel \
-		and hud._context_stack.get_child(2) == hud._ctx_interact_panel
-	var _fq19x_slot0: int = player.selected_slot
-	player.selected_slot = (player.selected_slot + 1) % 5
+	# Negative surface contract (replaces the old positive contextual-stack test): the
+	# legacy top-right contextual popup surface is fully removed. Its producer/infra methods
+	# no longer exist, and NO floating "<Item> ×N" / "[E] Town Hall" / "✓ Game saved" popup
+	# appears after any producing action — while the underlying actions still work and the
+	# docked journal stays functional. Do not re-introduce the surface to satisfy this.
+	var _ns_api_gone: bool = not hud.has_method("notify_saved") \
+		and not hud.has_method("set_interaction_prompt") \
+		and not hud.has_method("_build_context_stack") \
+		and not hud.has_method("_make_context_entry") \
+		and not hud.has_method("_show_context_entry") \
+		and not hud.has_method("_position_context_stack")
+	# Scan every visible HUD label OUTSIDE the dock (hotbar counts) and inventory board
+	# (both legitimately show "×N") for any floating popup text. Returns the offender.
+	var _ns_scan := func() -> String:
+		for _l in hud.find_children("*", "Label", true, false):
+			var _lab: Label = _l
+			if _lab == null or not _lab.is_visible_in_tree():
+				continue
+			if (hud._bottom_dock != null and hud._bottom_dock.is_ancestor_of(_lab)) \
+					or (hud._inv_panel != null and hud._inv_panel.is_ancestor_of(_lab)):
+				continue
+			var _t: String = _lab.text
+			if _t == "[E] Town Hall" or _t == "✓ Game saved" or _t.contains(" ×"):
+				return _t
+		return ""
+	var _ns_start_clear: bool = _ns_scan.call() == ""
+	# Selection changes, INCLUDING a zero-quantity stack, raise no popup and still update.
+	var _ns_slot0: int = player.selected_slot
+	var _ns_sel_clear := true
+	for _ns_rep in range(2):                      # repeated passes
+		for _ns_s in range(player.hotbar.size()):
+			player.selected_slot = _ns_s
+			hud.update_inventory()
+			if _ns_scan.call() != "":
+				_ns_sel_clear = false
+	var _ns_sel_works: bool = hud._hotbar_selected == player.selected_slot
+	player.selected_slot = _ns_slot0
 	hud.update_inventory()
-	var _fq19x_item_ok: bool = hud._ctx_item_panel.visible \
-		and hud._ctx_item_label.text != ""
-	hud.notify_saved()
-	var _fq19x_save_ok: bool = hud._ctx_save_panel.visible
-	hud.set_interaction_prompt("[E] Town Hall")
-	var _fq19x_prompt_on: bool = hud._ctx_interact_panel.visible \
-		and hud._ctx_interact_label.text == "[E] Town Hall"
-	hud.set_interaction_prompt("")
-	var _fq19x_prompt_off: bool = not hud._ctx_interact_panel.visible
-	if hud._events_module() != null:
-		hud._events_module().visible = true
-	hud.set_interaction_prompt("[E] Town Hall")
+	# F5 save path: the save machinery serializes state and the docked journal records the
+	# save (exactly as the F5 handler does on success), with no toast produced. (Disk-write
+	# success is covered by the dedicated save/load contracts; the smoke sandbox has no
+	# persisted shell, so we assert the serialization contract here.)
+	var _ns_state: Dictionary = root.save_manager.collect_state()
+	root.log_event("Game saved (F5).")   # the real F5 success branch's journal line
 	await get_tree().process_frame
-	var _fq19x_stack_rect: Rect2 = hud._context_stack.get_global_rect()
-	# Phase C: with Events docked at the bottom (no top-right floating panel) the
-	# contextual stack must simply not overlap the events surface; the docked events wing
-	# lives in the dock far below the top-right stack, so containment holds trivially.
-	var _fq19x_ev_rect: Rect2 = hud._events_module().get_global_rect() if hud._events_module() != null else Rect2()
-	var _fq19x_clear: bool = not _fq19x_stack_rect.intersects(_fq19x_ev_rect) \
-		and (hud._event_panel == null or _fq19x_stack_rect.position.y >= _fq19x_ev_rect.end.y)
-	hud.set_interaction_prompt("")
-	# Auto-hide: the save toast holds 2.2s then fades 0.4s; the item entry
-	# holds 2.5s. Both must be gone shortly after.
-	await get_tree().create_timer(3.4).timeout
-	var _fq19x_autohide: bool = not hud._ctx_save_panel.visible \
-		and not hud._ctx_item_panel.visible
-	player.selected_slot = _fq19x_slot0
-	hud.update_inventory()
-	_check("fq19_contextual_stack",
-		_fq19x_order_ok and _fq19x_item_ok and _fq19x_save_ok
-		and _fq19x_prompt_on and _fq19x_prompt_off and _fq19x_clear
-		and _fq19x_autohide,
-		"order=%s item=%s save=%s prompt=%s/%s clear=%s autohide=%s" % [
-			str(_fq19x_order_ok), str(_fq19x_item_ok), str(_fq19x_save_ok),
-			str(_fq19x_prompt_on), str(_fq19x_prompt_off), str(_fq19x_clear),
-			str(_fq19x_autohide)])
+	# The newest journal entry is the save line (the history caps at 6, so assert identity,
+	# not a growing count).
+	var _ns_save_ok: bool = not _ns_state.is_empty() \
+		and str(hud._log_entries[hud._log_entries.size() - 1].get("full", "")).contains("Game saved") \
+		and _ns_scan.call() == ""
+	# Town Hall interaction still opens the correct screen; no "[E] Town Hall" prompt.
+	if hud.town_panel_open():
+		hud.toggle_town_panel()
+	hud.toggle_town_panel()
+	var _ns_town_ok: bool = hud.town_panel_open() and _ns_scan.call() == ""
+	hud.toggle_town_panel()
+	# The docked right-wing journal remains functional.
+	hud.log_event("Contextual surface removal probe.", "Probe", "generic")
+	await get_tree().process_frame
+	var _ns_journal_ok: bool = hud._events_module() != null \
+		and hud._event_lines.size() == 3 and hud._event_lines[0].text == "Probe"
+	_check("fq19_no_contextual_popup_surface",
+		_ns_api_gone and _ns_start_clear and _ns_sel_clear and _ns_sel_works \
+		and _ns_save_ok and _ns_town_ok and _ns_journal_ok,
+		"api_gone=%s start=%s sel=%s sel_works=%s save=%s town=%s journal=%s offender=\"%s\"" % [
+			str(_ns_api_gone), str(_ns_start_clear), str(_ns_sel_clear), str(_ns_sel_works),
+			str(_ns_save_ok), str(_ns_town_ok), str(_ns_journal_ok), _ns_scan.call()])
 
 	# (b) the inventory panel opens (I binding covered by input_actions_bound)
 	# and its icon grid mirrors the counts.
@@ -4134,7 +4151,8 @@ func _run() -> void:
 	# Phase C review-correction: there is NO persistent summary surface above the dock.
 	# The SelectedItemChip node and its rect are gone from the runtime and BOTH layouts;
 	# giving the player ore+food produces no persistent label/chrome; the five slot counts
-	# still update. (The transient _ctx_item_panel toast is a separate, unaffected node.)
+	# still update. (There is no floating selected-item popup either — see the negative
+	# contextual-surface contract above.)
 	var _nss_inv_before: Dictionary = player.inventory.to_dict()
 	var _nss_no_node: bool = hud.find_child("SelectedItemChip", true, false) == null
 	var _nss_no_rect := true

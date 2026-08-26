@@ -746,11 +746,6 @@ func _process(delta: float) -> void:
 		if _map_refresh_timer >= 0.3:
 			_map_refresh_timer = 0.0
 			hud.update_map(map_snapshot())
-	# FQ-19: contextual interaction prompt — shown only while the Town Hall is
-	# actually in interact range and no modal panel already owns the screen.
-	var _near_hall: bool = not hud.town_panel_open() \
-		and player.global_position.distance_to(town_hall.global_position) <= INTERACT_RANGE
-	hud.set_interaction_prompt("[E] Town Hall" if _near_hall else "")
 	if GameState.workzone_mode and _workzone_preview != null:
 		_workzone_preview.queue_redraw()   # follow the aim cell while dragging the zone
 
@@ -769,7 +764,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		if save_manager.save_game():
 			log_event("Game saved (F5).")
 			hud.set_save_hint(true)
-			hud.notify_saved()
 		else:
 			log_event("Save failed.")
 	elif event.is_action_pressed("load_game"):
@@ -892,7 +886,6 @@ func _on_pause_save() -> void:
 	if ok:
 		log_event("Game saved.")
 		hud.set_save_hint(true)
-		hud.notify_saved()
 	else:
 		log_event("Save failed.")
 	if _pause_menu != null:

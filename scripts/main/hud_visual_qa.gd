@@ -269,7 +269,6 @@ func _prepare_hud(root: Node2D, hud: CanvasLayer, map_open: bool, events_open: b
 	var _ev: Control = hud._events_module()
 	if _ev != null and _ev.visible != events_open:
 		hud._toggle_event_module()
-	hud.set_interaction_prompt("")
 	hud._sync_command_center()
 
 

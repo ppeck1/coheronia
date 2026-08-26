@@ -156,7 +156,6 @@ func _run() -> void:
 		hud._toggle_event_module()
 	hud.toggle_map()
 	hud.update_map(root.map_snapshot())
-	hud.set_interaction_prompt("[E] Town Hall")
 	await _shot("14_map_events_together")
 	hud.toggle_map()
 

@@ -192,17 +192,6 @@ var _dock_assignment_row: HBoxContainer
 var _selected_item_detail: Label
 var _stock_grid: GridContainer
 var _stock_grid_counts: Dictionary = {}  # item_id -> displayed count
-# FQ-19: contextual right-band stack — entries appear only when relevant
-# (blueprint: selected item, save toast, interaction prompt), auto-hide, and
-# stack in fixed priority order so they can never overlap each other.
-var _context_stack: VBoxContainer
-var _ctx_item_panel: PanelContainer
-var _ctx_item_label: Label
-var _ctx_save_panel: PanelContainer
-var _ctx_interact_panel: PanelContainer
-var _ctx_interact_label: Label
-var _ctx_tweens: Dictionary = {}   # PanelContainer -> Tween
-var _ctx_last_item := ""
 var _hud_widgets: Dictionary = {}
 var _hud_default_positions: Dictionary = {}
 var _hud_edit_panel: PanelContainer
@@ -248,7 +237,6 @@ func _ready() -> void:
 	_wire_hotbar_clicks()
 	_build_command_center_widget()
 	_build_log()
-	_build_context_stack()
 	_build_town_panel()
 	_build_npc_panel()
 	_build_inventory_panel()
@@ -958,27 +946,6 @@ func _module_content_host(panel: PanelContainer, kind: String = "plain") -> Pane
 
 ## FQ-20: small chip framing (contextual entries, command-center toggles) —
 ## the painted mockup chip when present, else the code-drawn strip.
-func _chip_style(tint: Color = Color.WHITE) -> StyleBox:
-	var painted: Texture2D = _painted_texture("chip_frame")
-	if painted != null:
-		var psb := StyleBoxTexture.new()
-		psb.texture = painted
-		psb.set_texture_margin_all(6)
-		psb.content_margin_left = 12
-		psb.content_margin_right = 12
-		psb.content_margin_top = 7
-		psb.content_margin_bottom = 7
-		psb.modulate_color = tint
-		return psb
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.06, 0.09, 0.86)
-	sb.border_color = Color(0.55, 0.42, 0.24, 0.9) * tint
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(3)
-	sb.set_content_margin_all(5)
-	return sb
-
-
 ## The module toggles live inside a 44px dock rail. Keep this compact so the
 ## controls do not grow past the native kit rectangle and clip at the viewport.
 func _command_chip_style(tint: Color = Color.WHITE) -> StyleBox:
@@ -1447,7 +1414,7 @@ func _build_hud_kit(layout: Dictionary) -> void:
 	# Phase C review-correction: the persistent SelectedItemChip summary surface (and its
 	# _hotbar_label) is removed from the dock entirely — no persistent box occupies that
 	# space. Live per-slot counts, selection, and tooltips live in the five hotbar slots;
-	# the transient _ctx_item_panel toast still flashes the selected item on change.
+	# there is no floating selected-item popup.
 	_mine_bar = ProgressBar.new()
 	_mine_bar.name = "MiningProgress"
 	_mine_bar.show_percentage = false
@@ -2717,91 +2684,6 @@ func update_status_effects(effects: Array) -> void:
 ## Test/inspection accessor for the status-effect widget.
 func status_hud() -> Control:
 	return _status_hud
-
-
-func _build_context_stack() -> void:
-	_context_stack = VBoxContainer.new()
-	_context_stack.anchor_left = 1.0
-	_context_stack.anchor_right = 1.0
-	_context_stack.offset_left = -252.0
-	_context_stack.offset_right = -12.0
-	_context_stack.offset_top = 244.0
-	_context_stack.add_theme_constant_override("separation", 4)
-	_context_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_context_stack)
-	_ctx_item_panel = _make_context_entry()
-	_ctx_item_label = _ctx_item_panel.get_child(0) as Label
-	_ctx_save_panel = _make_context_entry()
-	(_ctx_save_panel.get_child(0) as Label).text = "✓ Game saved"
-	_ctx_interact_panel = _make_context_entry()
-	_ctx_interact_label = _ctx_interact_panel.get_child(0) as Label
-	_ctx_interact_label.add_theme_color_override("font_color", Color(0.89, 0.75, 0.43))
-	# Routine ground-item collection does not raise a screen-space toast; pickups update
-	# the inventory/hotbar counts directly. The contextual stack keeps only the item,
-	# save, and interaction entries.
-
-
-func _make_context_entry() -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.visible = false
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_theme_stylebox_override("panel", _chip_style())
-	var label := Label.new()
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", 12)
-	panel.add_child(label)
-	_context_stack.add_child(panel)
-	return panel
-
-
-## The events panel grows with its log content, so the stack top is pinned
-## dynamically just below whichever of Map/Events is currently visible.
-func _position_context_stack() -> void:
-	if _context_stack == null:
-		return
-	var top := 244.0
-	if _event_panel != null and _event_panel.visible:
-		top = maxf(top, _event_panel.get_global_rect().end.y + 8.0)
-	if _map_panel != null and _map_panel.visible:
-		top = maxf(top, _map_panel.get_global_rect().end.y + 8.0)
-	_context_stack.offset_top = top
-	_context_stack.offset_bottom = top
-
-
-## Show a contextual entry; when hold_seconds > 0 it fades out and hides after
-## the hold (one-shot toast), otherwise it stays until explicitly hidden.
-func _show_context_entry(panel: PanelContainer, hold_seconds: float) -> void:
-	_position_context_stack()
-	var running: Tween = _ctx_tweens.get(panel)
-	if running != null and running.is_valid():
-		running.kill()
-	panel.modulate = Color(1, 1, 1, 1)
-	panel.visible = true
-	if hold_seconds > 0.0:
-		var tween := create_tween()
-		tween.tween_interval(hold_seconds)
-		tween.tween_property(panel, "modulate:a", 0.0, 0.4)
-		tween.tween_callback(func(): panel.visible = false)
-		_ctx_tweens[panel] = tween
-
-
-## FQ-19: one-shot save toast (fired by the actual F5 save, not boot state).
-func notify_saved() -> void:
-	if _ctx_save_panel != null:
-		_show_context_entry(_ctx_save_panel, 2.2)
-
-
-## FQ-19: contextual interaction prompt; empty text hides it.
-func set_interaction_prompt(text: String) -> void:
-	if _ctx_interact_panel == null:
-		return
-	if text == "":
-		_ctx_interact_panel.visible = false
-		return
-	if _ctx_interact_label.text != text or not _ctx_interact_panel.visible:
-		_ctx_interact_label.text = text
-		_show_context_entry(_ctx_interact_panel, 0.0)
 
 
 func _build_log() -> void:
@@ -4587,8 +4469,8 @@ func update_time(day: int, is_night: bool, threat_count: int = 0,
 
 
 ## FQ-19: the persistent dock save line moved out of the dock (the controls
-## hint already teaches F5/F9); the state is kept for any future consumer and
-## the actual save action fires the contextual notify_saved() toast instead.
+## hint already teaches F5/F9); the state is kept for any future consumer. Save
+## outcomes surface through the pause menu and the docked Events journal, not a toast.
 func set_save_hint(has_save: bool) -> void:
 	_has_save_hint = has_save
 	if _save_label != null:
@@ -4602,19 +4484,8 @@ func update_inventory() -> void:
 	# FQ-09: slot tiles carry the per-item info; the text line keeps extras
 	# and the tool/gear summary.
 	_hotbar_selected = player.selected_slot
-	# FQ-19: contextual selected-item entry — announced only when the live
-	# selection actually changes, then it fades out on its own.
-	if player.selected_slot < player.hotbar.size():
-		var selected_id: String = str(player.hotbar[player.selected_slot])
-		var announce := "%d:%s" % [player.selected_slot, selected_id]
-		if announce != _ctx_last_item:
-			var first := _ctx_last_item == ""
-			_ctx_last_item = announce
-			if selected_id != "" and _ctx_item_panel != null and not first:
-				_ctx_item_label.text = "%s ×%d" % [
-					BlockRegistry.display_name(selected_id),
-					player.inventory.count(selected_id)]
-				_show_context_entry(_ctx_item_panel, 2.5)
+	# The selected hotbar border, slot icon, and per-slot count are the only selection
+	# feedback — no floating "<Item> ×N" popup.
 	for i in range(_hotbar_slots.size()):
 		if i >= player.hotbar.size():
 			continue
@@ -4637,8 +4508,8 @@ func update_inventory() -> void:
 			_hotbar_cells[i].add_theme_constant_override("margin_top", 0 if selected else 3)
 			_hotbar_cells[i].add_theme_constant_override("margin_bottom", 3 if selected else 0)
 	# Phase C review-correction: there is no persistent summary/ore/food surface above the
-	# dock. Loadout and resource state live in the Inventory/Character panels and the live
-	# per-slot counts; the transient _ctx_item_panel toast flashes the selected item.
+	# dock, and no floating selected-item popup. Loadout and resource state live in the
+	# Inventory/Character panels and the live per-slot counts.
 	_refresh_stock()
 	if _inv_panel != null and _inv_panel.visible:
 		_refresh_inventory_panel()
@@ -4658,8 +4529,6 @@ func log_event(message: String, compact_summary: String = "", icon_id: String = 
 	# Phase C: the right dock wing shows the three most-recent compact summaries (newest
 	# first, full text on hover); the popup keeps the full history. One paired model.
 	_refresh_event_lines()
-	# FQ-19: a growing events panel pushes the contextual stack down with it.
-	_position_context_stack.call_deferred()
 
 
 ## The full, unabridged history text (newest at the bottom) for the events popup.

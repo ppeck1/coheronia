@@ -138,10 +138,6 @@ func run(ctx) -> void:
 	var _fq19_event_on_map_on: bool = _fq19_ev.visible and hud.map_open()
 	var _fq19_event_rect: Rect2 = _fq19_ev.get_global_rect() if _fq19_ev != null else Rect2()
 	var _fq19_map_rect: Rect2 = hud._map_panel.get_global_rect() if hud._map_panel != null else Rect2()
-	hud._position_context_stack()
-	var _fq19_stack_rect: Rect2 = hud._context_stack.get_global_rect()
-	var _fq19_stack_clear: bool = not _fq19_stack_rect.intersects(_fq19_event_rect) \
-		and not _fq19_stack_rect.intersects(_fq19_map_rect)
 	hud.toggle_map()
 	var _fq19_event_survives_close: bool = _fq19_ev.visible and not hud.map_open()
 	var _fq19_viewport: Vector2 = get_viewport().get_visible_rect().size
@@ -153,14 +149,14 @@ func run(ctx) -> void:
 	harness._check("fq19_map_events_coexist",
 		_fq19_together and _fq19_event_off_map_on and _fq19_event_on_map_on
 		and _fq19_event_survives_close and not _fq19_event_rect.intersects(_fq19_map_rect)
-		and _fq19_stack_clear and _fq19_size_ok
+		and _fq19_size_ok
 		and _fq19_event_rect.position.x >= 0.0
 		and _fq19_event_rect.end.x <= _fq19_viewport.x
 		and _fq19_event_rect.position.y >= 0.0
 		and _fq19_event_rect.end.y <= _fq19_viewport.y,
-		"together=%s event_off=%s event_on=%s survives=%s docked=%s stack_clear=%s size=%s event=%s map=%s viewport=%s" % [
+		"together=%s event_off=%s event_on=%s survives=%s docked=%s size=%s event=%s map=%s viewport=%s" % [
 			str(_fq19_together), str(_fq19_event_off_map_on), str(_fq19_event_on_map_on),
-			str(_fq19_event_survives_close), str(_fq19_docked), str(_fq19_stack_clear),
+			str(_fq19_event_survives_close), str(_fq19_docked),
 			str(_fq19_size_ok), str(_fq19_event_rect), str(_fq19_map_rect), str(_fq19_viewport)])
 	hud.update_time(5, true, 2)
 	# Phase C: the docked header shows the day (journal) + military time (clock) as separate
