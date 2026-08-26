@@ -379,6 +379,30 @@ func run(ctx) -> void:
 	var _e2e_hidden_after: bool = _e2e_enemy != null and not (_e2e_enemy as Node2D).visible \
 		and not (_e2e_subj as Node2D).visible \
 		and _e2e_item != null and not (_e2e_item as Node2D).visible
+	# Diagnostic-only: sample the immediate post-refresh state of each staged entity (before
+	# cleanup) so an intermittent hid1 failure can identify WHICH entity stayed visible and
+	# the surrounding perception state. No await / retry / polling / assertion change here.
+	# Highlight validity is precomputed to bools so no (by-now freed) highlight reference is
+	# ever copied into an array/typed var, and each entity is read through an untyped param.
+	var _e2e_diag_one := func(nm: String, en, iid: int, grp: String, hlv: bool) -> String:
+		var vis := "freed/null"
+		var cell := Vector2i.ZERO
+		var pvis := false
+		var ingroup := false
+		if en != null and is_instance_valid(en):
+			vis = str((en as Node2D).visible)
+			cell = world.cell_of((en as Node2D).global_position)
+			pvis = world.perception_is_visible(cell)
+			ingroup = (en as Node).is_in_group(grp)
+		return " | %s: vis=%s grp=%s cell=%s cell_pvis=%s forced_id=%s hl_valid=%s" % [
+			nm, vis, str(ingroup), str(cell), str(pvis),
+			str(world._force_visible_ids.has(iid)), str(hlv)]
+	var _e2e_ent_diag: String = "player_cell=%s player_pos=%s forced_last=%s" % [
+		str(world.cell_of(player.global_position)), str(player.global_position),
+		str(root._resonance_forced_last)] \
+		+ str(_e2e_diag_one.call("enemy", _e2e_enemy, _e2e_enemy_iid, "threats", is_instance_valid(_e2e_hl_enemy))) \
+		+ str(_e2e_diag_one.call("subj", _e2e_subj, _e2e_subj_iid, "subjects", is_instance_valid(_e2e_hl_subj))) \
+		+ str(_e2e_diag_one.call("item", _e2e_item, _e2e_item_iid, "item_drops", is_instance_valid(_e2e_hl_item)))
 	# CLEANUP — free the staged three, clear the layer/state, restore terrain, player,
 	# the veil, and the entity-visibility snapshot so later modules are undisturbed.
 	for _fn in [_e2e_enemy, _e2e_subj, _e2e_item]:
@@ -418,10 +442,10 @@ func run(ctx) -> void:
 	var _e2e_ok: bool = _e2e_cells_unseen and _e2e_hidden_before and _e2e_marked \
 		and _e2e_ore_in_batch and _e2e_forced_visible and _e2e_fog_intact and _e2e_no_stack \
 		and _e2e_hl_gone and _e2e_force_empty and _e2e_hidden_after
-	var _e2e_detail := "unseen=%s hid0=%s marked=%s ore=%s forced=%s fog=%s nostack=%s gone=%s empty=%s hid1=%s" % [
+	var _e2e_detail := "unseen=%s hid0=%s marked=%s ore=%s forced=%s fog=%s nostack=%s gone=%s empty=%s hid1=%s || %s" % [
 		str(_e2e_cells_unseen), str(_e2e_hidden_before), str(_e2e_marked), str(_e2e_ore_in_batch),
 		str(_e2e_forced_visible), str(_e2e_fog_intact), str(_e2e_no_stack),
-		str(_e2e_hl_gone), str(_e2e_force_empty), str(_e2e_hidden_after)]
+		str(_e2e_hl_gone), str(_e2e_force_empty), str(_e2e_hidden_after), _e2e_ent_diag]
 	# Diagnostic: this check protects a feature that recently regressed and fails rarely and
 	# non-deterministically. Print the complete field breakdown on failure so the next local
 	# or CI occurrence is actionable straight from the log (before the results JSON is
