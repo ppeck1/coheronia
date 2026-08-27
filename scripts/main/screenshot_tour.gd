@@ -34,6 +34,11 @@ func _run() -> void:
 		print("SHOTS complete (perception) -> user://shots")
 		get_tree().quit(0)
 		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "craft":
+		await _shoot_craft(root, world, player, root.town_hall)
+		print("SHOTS complete (craft) -> user://shots")
+		get_tree().quit(0)
+		return
 	world.setup(4242)
 	root._position_actors()
 	player.get_node("Camera2D").reset_smoothing()
@@ -430,6 +435,48 @@ func _run() -> void:
 
 	print("SHOTS complete -> user://shots")
 	get_tree().quit(0)
+
+
+## Crafting-menu redesign shots (COHERONIA_SHOTS_FOCUS=craft): the icon-led
+## recipe book at 1280x720 (Hand grid with the Wooden Platform recipe selected,
+## then a locked-station build card) and at 640x360 (legibility). The window is
+## resized live (canvas_items/expand stretch, so the viewport + panel reflow).
+func _shoot_craft(root: Node2D, world: Node2D, player: CharacterBody2D, hall: Node2D) -> void:
+	world.setup(4242)
+	root._position_actors()
+	player.get_node("Camera2D").reset_smoothing()
+	player.inventory.from_dict({
+		"wood": 40, "stone": 40, "ore": 8, "coal": 8, "food": 6, "wood_platform": 3})
+	player.inventory_changed.emit()
+	hall.stockpile = {
+		"wood": 40, "stone": 40, "coal": 12, "iron_ingot": 8,
+		"copper_ore": 6, "tin_ore": 6, "ore": 8}
+	hall.stockpile_changed.emit()
+	hall.stations_built = {"workbench": true, "furnace": false, "anvil": false}
+	var win := get_window()
+
+	win.size = Vector2i(1280, 720)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	root._craft_panel.open()
+	root._craft_panel._selected_station = "hand"
+	root._craft_panel._selected_recipe_id = "craft_wood_platform"
+	root._craft_panel.refresh()
+	await _shot("15_crafting")
+
+	root._craft_panel._selected_station = "furnace"   # locked -> build card
+	root._craft_panel.refresh()
+	await _shot("15b_crafting_locked_station")
+
+	win.size = Vector2i(640, 360)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	root._craft_panel._refit()
+	root._craft_panel._selected_station = "hand"
+	root._craft_panel._selected_recipe_id = "craft_torch"
+	root._craft_panel.refresh()
+	await _shot("15c_crafting_640")
+	root._craft_panel.close()
 
 
 ## Item-wiring shots (renewable tree loop + placeable deep blocks). Split out so a
