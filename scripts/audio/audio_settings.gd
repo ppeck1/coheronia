@@ -9,6 +9,15 @@ extends RefCounted
 const MUSIC_BUS := "Music"
 const SFX_BUS := "SFX"
 
+## Authored music calibration trim (dB), applied to the Music bus ONLY, on top
+## of the user's Music Volume and any temporary stinger duck. The rendered
+## assets and the user's stored Music Volume are untouched; this constant is the
+## single authority for "how loud is 100% music" so a Music Volume of 1.0 means
+## the intended, calibrated game-music level rather than raw asset amplitude.
+## Resolved Music-bus dB = _to_db(music_volume) + MUSIC_TRIM_DB + music_duck_db.
+## SFX is deliberately NOT trimmed. See docs/VARIABLE_MATRIX.md.
+const MUSIC_TRIM_DB := -12.0
+
 
 static func music_volume(profile: Dictionary) -> float:
 	return clampf(float(profile.get("music_volume", 1.0)), 0.0, 1.0)
@@ -33,7 +42,7 @@ static func apply(profile: Dictionary, music_duck_db: float = 0.0) -> void:
 	_ensure_bus(MUSIC_BUS)
 	_ensure_bus(SFX_BUS)
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index(MUSIC_BUS),
-		_to_db(music_volume(profile)) + music_duck_db)
+		_to_db(music_volume(profile)) + MUSIC_TRIM_DB + music_duck_db)
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index(SFX_BUS),
 		_to_db(sfx_volume(profile)))
 

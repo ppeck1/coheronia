@@ -12,6 +12,10 @@ func run(ctx) -> void:
 	var harness = ctx.harness
 	var root = ctx.root
 	var player = ctx.player
+	# Authored music calibration trim — the single authority for "how loud is
+	# 100% music". Referenced (not hard-coded) so this suite tracks the constant.
+	var _audio_settings: GDScript = load("res://scripts/audio/audio_settings.gd")
+	var _music_trim: float = _audio_settings.MUSIC_TRIM_DB
 	# --- FQ-09U1: adaptive context music foundation ---
 	# The state machine is asserted deterministically (direct evaluate calls
 	# with synthetic snapshots and explicit deltas — no wall-clock waits);
@@ -375,7 +379,7 @@ func run(ctx) -> void:
 		_fq09u3_mid_release > _fq09u3_duck_attacking
 		and is_equal_approx(_fq09u_dir.duck_db(), 0.0)
 		and absf(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music"))
-			- linear_to_db(1.0)) < 0.01,
+			- (linear_to_db(1.0) + _music_trim)) < 0.01,
 		"attack=%.1f mid=%.1f final=%.2f" % [_fq09u3_duck_attacking,
 			_fq09u3_mid_release, _fq09u_dir.duck_db()])
 
@@ -419,7 +423,7 @@ func run(ctx) -> void:
 	_fq09u3_as.apply(GameState.profile)
 	var _fq09u3_music_db: float = AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music"))
 	var _fq09u3_sfx_db: float = AudioServer.get_bus_volume_db(AudioServer.get_bus_index("SFX"))
-	var _fq09u3_vol_ok: bool = absf(_fq09u3_music_db - linear_to_db(0.5)) < 0.01 \
+	var _fq09u3_vol_ok: bool = absf(_fq09u3_music_db - (linear_to_db(0.5) + _music_trim)) < 0.01 \
 		and absf(_fq09u3_sfx_db - linear_to_db(0.25)) < 0.01 \
 		and is_equal_approx(float(GameState.profile.get("music_volume", -1.0)), 0.5)
 	_fq09u3_as.set_music_volume(GameState.profile, _fq09u3_prev_music)
@@ -442,4 +446,77 @@ func run(ctx) -> void:
 	harness._check("fq09u3_world_save_clean",
 		_fq09u3_keys == "" and root.load_game(),
 		("keys: " + _fq09u3_keys) if _fq09u3_keys != "" else "no audio keys in the world save")
+
+	# --- authored music calibration trim (MUSIC_TRIM_DB) ---
+	# The Music bus sits a fixed authored trim below the user's linear level, so
+	# a Music Volume of 100% means the calibrated game-music level, not raw asset
+	# amplitude. SFX is never trimmed; mute stays silent; the stinger duck is
+	# additive on top of the calibrated baseline. Direct AudioSettings.apply()
+	# calls (deterministic; the player's real levels are restored after).
+	var _mus_idx := AudioServer.get_bus_index("Music")
+	var _sfx_idx := AudioServer.get_bus_index("SFX")
+	var _fq09uc_prev_m: float = _audio_settings.music_volume(GameState.profile)
+	var _fq09uc_prev_s: float = _audio_settings.sfx_volume(GameState.profile)
+
+	# (a) full volume, no duck: Music == 0 dB + trim (== the trim itself);
+	# SFX at full is untrimmed (0 dB).
+	_audio_settings.set_music_volume(GameState.profile, 1.0)
+	_audio_settings.set_sfx_volume(GameState.profile, 1.0)
+	_audio_settings.apply(GameState.profile)
+	var _fq09uc_full_m := AudioServer.get_bus_volume_db(_mus_idx)
+	var _fq09uc_full_s := AudioServer.get_bus_volume_db(_sfx_idx)
+	harness._check("fq09uc_music_trim_full_volume",
+		absf(_fq09uc_full_m - (linear_to_db(1.0) + _music_trim)) < 0.01
+		and absf(_fq09uc_full_m - _music_trim) < 0.01
+		and absf(_fq09uc_full_s - linear_to_db(1.0)) < 0.01,
+		"music_db=%.2f (want trim %.2f) sfx_db=%.2f (untrimmed 0.0)" % [
+			_fq09uc_full_m, _music_trim, _fq09uc_full_s])
+
+	# (b) half volume: linear conversion applies IN ADDITION to the trim.
+	_audio_settings.set_music_volume(GameState.profile, 0.5)
+	_audio_settings.apply(GameState.profile)
+	harness._check("fq09uc_music_trim_scales_with_volume",
+		absf(AudioServer.get_bus_volume_db(_mus_idx) - (linear_to_db(0.5) + _music_trim)) < 0.01,
+		"music_db=%.2f want %.2f" % [AudioServer.get_bus_volume_db(_mus_idx),
+			linear_to_db(0.5) + _music_trim])
+
+	# (c) mute stays effectively silent (trim never lifts a muted bus).
+	_audio_settings.set_music_volume(GameState.profile, 0.0)
+	_audio_settings.apply(GameState.profile)
+	harness._check("fq09uc_music_mute_silent",
+		AudioServer.get_bus_volume_db(_mus_idx) <= -80.0,
+		"muted music_db=%.2f (<= -80)" % AudioServer.get_bus_volume_db(_mus_idx))
+
+	# (d) the stinger duck is additive on the calibrated baseline and releases
+	# back to exactly the calibrated user level (trim + volume, no duck).
+	_audio_settings.set_music_volume(GameState.profile, 1.0)
+	_audio_settings.apply(GameState.profile, -9.0)
+	var _fq09uc_ducked := AudioServer.get_bus_volume_db(_mus_idx)
+	_audio_settings.apply(GameState.profile, 0.0)
+	var _fq09uc_released := AudioServer.get_bus_volume_db(_mus_idx)
+	harness._check("fq09uc_duck_additive_on_calibrated",
+		absf(_fq09uc_ducked - (linear_to_db(1.0) + _music_trim + (-9.0))) < 0.01
+		and absf(_fq09uc_released - (linear_to_db(1.0) + _music_trim)) < 0.01,
+		"ducked=%.2f released=%.2f trim=%.2f" % [_fq09uc_ducked, _fq09uc_released, _music_trim])
+
+	# (e) the music setting round-trips through the profile and adds no audio
+	# state to the world/character save paths (the trim is authored, not saved).
+	_audio_settings.set_music_volume(GameState.profile, 0.42)
+	var _fq09uc_round: float = _audio_settings.music_volume(GameState.profile)
+	root.save_manager.save_game()
+	var _fq09uc_world: Dictionary = GameState.get_current_state()
+	var _fq09uc_leak := ""
+	for _fq09uc_k in _fq09uc_world:
+		var _fq09uc_low := str(_fq09uc_k).to_lower()
+		if "music" in _fq09uc_low or "volume" in _fq09uc_low or "trim" in _fq09uc_low:
+			_fq09uc_leak += str(_fq09uc_k) + " "
+	harness._check("fq09uc_music_setting_profile_only",
+		is_equal_approx(_fq09uc_round, 0.42) and _fq09uc_leak == "",
+		("leak: " + _fq09uc_leak) if _fq09uc_leak != ""
+		else "music_volume round-trips in profile; world save carries no audio state")
+
+	# restore the player's real levels.
+	_audio_settings.set_music_volume(GameState.profile, _fq09uc_prev_m)
+	_audio_settings.set_sfx_volume(GameState.profile, _fq09uc_prev_s)
+	_audio_settings.apply(GameState.profile)
 	_fq09u_dir.set_process(true)
