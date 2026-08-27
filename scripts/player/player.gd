@@ -275,6 +275,29 @@ func dock_assignments_to_array() -> Array:
 	return hotbar.duplicate()
 
 
+## Toolbar invariant (single owner): a non-empty dock slot must reference a
+## dock-assignable item the backpack actually holds (count > 0). Clears every
+## slot that fails the test IN PLACE — slot positions and the selected slot are
+## preserved (a cleared selected slot stays selected but empty), neighbours never
+## shift, and nothing is auto-reassigned. This is the one reconciliation path:
+## it is wired to `inventory_changed`, so it runs after every authoritative
+## inventory mutation (place/use, craft, eat, deposit/withdraw, bucket
+## conversion, death loss) and on load; the HUD only renders the result. Bucket
+## conversion redirects the selected slot to the replacement bucket BEFORE its
+## emit, so that (count > 0) slot is preserved here, not cleared. Returns true
+## if any slot was cleared.
+func reconcile_dock() -> bool:
+	var changed := false
+	for i in range(hotbar.size()):
+		var item_id := hotbar[i]
+		if item_id == "":
+			continue
+		if not BlockRegistry.is_dock_assignable_item(item_id) or inventory.count(item_id) <= 0:
+			hotbar[i] = ""
+			changed = true
+	return changed
+
+
 ## Applies a shell character (appearance, traits, role effects) to this
 ## player. Resets ancestry effects to defaults; call apply_ancestry_effects
 ## afterwards when an ancestry should be active.

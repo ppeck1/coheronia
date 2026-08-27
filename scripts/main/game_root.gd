@@ -213,6 +213,10 @@ func _ready() -> void:
 	_load_character_carried_state(saved_state)
 	# Grant role starter items once per character (flag prevents duplication).
 	_grant_role_items()
+	# Toolbar invariant: seed a brand-new character's default dock from the items
+	# it now possesses (the grant lands after the carried state loads, so the
+	# earlier reconcile ran against an empty backpack).
+	_finalize_starter_dock()
 	_position_actors()
 	if not saved_state.is_empty():
 		# Saved player position overrides the default spawn.
@@ -366,7 +370,14 @@ func _grant_role_items() -> void:
 ## Wave F: reads carried_tool_tiers dict {pick, axe}; old chars with only
 ## carried_tool_tier migrate to {pick: N, axe: 0} (the axe must be crafted).
 ## Always calls inventory_changed so the HUD refreshes.
+## Set when this character has no saved dock row yet (fresh/legacy): its default
+## dock is (re)seeded from possessed items after the starter grant, since the
+## grant happens after the carried state loads. See _finalize_starter_dock().
+var _starter_dock_pending := false
+
+
 func _load_character_carried_state(saved_state: Dictionary) -> void:
+	_starter_dock_pending = false
 	if GameState.current_character.is_empty():
 		player.inventory.from_dict({})
 		player.inventory.set_layout([])
@@ -414,6 +425,9 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 				player.dock_assignments_to_array())
 	else:
 		# Legacy character (no carried_inventory key): migrate from world save once.
+		# No saved dock row exists yet, so the default dock is seeded from the
+		# items the character actually possesses after the grant below.
+		_starter_dock_pending = true
 		var legacy: Dictionary = save_manager.legacy_player_carried(saved_state)
 		var migrated_from_world := not legacy.is_empty()
 		if migrated_from_world:
@@ -451,6 +465,19 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 			GameState.mark_items_granted(char_id)
 	_migrate_legacy_pick_token()
 	player.inventory_changed.emit()
+
+
+## Toolbar invariant closeout for world entry. A character with no saved dock
+## row (fresh/legacy) gets the default dock (re)applied now that its starter
+## items exist, then reconciled so only possessed defaults remain. A returning
+## character keeps its saved dock (already reconciled on load); this only
+## reconciles it once more as a final invariant pass. No dock is ever
+## auto-populated with items the character does not hold.
+func _finalize_starter_dock() -> void:
+	if _starter_dock_pending:
+		player.set_dock_assignments(GameState.default_dock_assignments())
+		_starter_dock_pending = false
+	player.reconcile_dock()
 
 
 ## Wave B/F: applies the current character's carried state to the player.
@@ -667,6 +694,11 @@ func _wire_references() -> void:
 
 
 func _wire_signals() -> void:
+	# Toolbar invariant: reconcile the dock against authoritative inventory BEFORE
+	# the HUD renders it, so an exhausted (count 0) or no-longer-assignable item is
+	# cleared from every dock slot on the same mutation that emptied it. The player
+	# owns the mutation; the HUD only renders the reconciled state.
+	player.inventory_changed.connect(player.reconcile_dock)
 	player.inventory_changed.connect(hud.update_inventory)
 	# Routine ground pickups refresh inventory/hotbar counts (via inventory_changed); they
 	# no longer raise a screen-space toast, so there is no HUD listener on items_picked_up.

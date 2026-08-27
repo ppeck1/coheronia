@@ -2249,6 +2249,11 @@ func _run() -> void:
 		"with_art=%s after_cleanup=%s" % [str(_fq07_art_pixel), str(_fq07_clean_pixel)])
 
 	# (d) an explicit item override wins; removal returns to convention art.
+	# The dock invariant (reconcile_dock) may have cleared the default dock's
+	# wood slot earlier in the run when the backpack lacked wood; this sub-check
+	# asserts slot 1 = wood, so re-establish the default dock here. No
+	# inventory_changed emit follows, so the slot is not reconciled away.
+	player.set_dock_assignments(["dirt", "wood", "stone", "torch", "lantern"])
 	var _fq07_item_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	_fq07_item_img.fill(Color(0.0, 1.0, 1.0))
 	_res_write_png(_fq07_item_img, "res://art/generated/items/smoke_tmp_wood.png")
@@ -3811,10 +3816,15 @@ func _run() -> void:
 	# (a) toolbelt slot tiles show live counts and the selected highlight
 	# follows the selected slot.
 	player.inventory.from_dict({"dirt": 7, "wood": 2})
+	# Re-establish the default dock; the toolbar invariant then clears the unheld
+	# stone/torch/lantern slots on the emit, leaving dirt/wood live.
+	player.set_dock_assignments(["dirt", "wood", "stone", "torch", "lantern"])
 	player.selected_slot = 0
 	player.inventory_changed.emit()
 	var _fq09_counts_ok := true
 	for _fq09_i in range(5):
+		if str(player.hotbar[_fq09_i]) == "":
+			continue   # a cleared (unheld) slot shows no count, by the invariant
 		if hud.hotbar_slot_count(_fq09_i) != player.inventory.count(player.hotbar[_fq09_i]):
 			_fq09_counts_ok = false
 	var _fq09_sel_before: int = hud.hotbar_selected_index()
@@ -4175,6 +4185,8 @@ func _run() -> void:
 			_nss_no_text = false
 	var _nss_counts_ok := true
 	for _nss_i in range(5):
+		if str(player.hotbar[_nss_i]) == "":
+			continue   # a cleared (unheld) dock slot shows no count, by the invariant
 		if hud.hotbar_slot_count(_nss_i) != player.inventory.count(player.hotbar[_nss_i]):
 			_nss_counts_ok = false
 	player.inventory.from_dict(_nss_inv_before)
@@ -4250,14 +4262,19 @@ func _run() -> void:
 	hud.drop_inventory_slot("backpack", 0, {
 		"source": "inventory_board", "kind": "backpack", "index": 1, "item_id": "wood"})
 	var _fq09_layout_swapped: Array = player.inventory.layout_to_array()
+	# Assign wood (held) to dock slot 4: _assign_dock_item moves it out of its
+	# current dock slot (1) and puts that slot's previous item back — which is
+	# empty here, because the default dock's stone/torch/lantern slots were
+	# cleared by the toolbar invariant (those items are not held). So slot 1 is
+	# left empty rather than showing lantern (the pre-invariant behaviour).
 	hud.drop_inventory_slot("dock", 4, {
 		"source": "inventory_board", "kind": "backpack", "index": 0, "item_id": "wood"})
 	var _fq09_dock_assigned: bool = hud.dock_slot_item(4) == "wood" \
-		and hud.dock_slot_item(1) == "lantern"
+		and hud.dock_slot_item(1) == ""
 	hud.drop_inventory_slot("dock", 1, {
 		"source": "inventory_board", "kind": "dock", "index": 4, "item_id": "wood"})
 	var _fq09_dock_restored: bool = hud.dock_slot_item(1) == "wood" \
-		and hud.dock_slot_item(4) == "lantern"
+		and hud.dock_slot_item(4) == ""
 	await get_tree().process_frame
 	var _fq09_dock_cell: Control = null
 	for _fq09_dock_child in hud._dock_assignment_row.get_children():
@@ -4425,6 +4442,101 @@ func _run() -> void:
 		and _fq09_pick_stowed and _fq09_pick_restored,
 		"axe=%s/%s pick=%s/%s" % [str(_fq09_axe_stowed),
 			str(_fq09_axe_restored), str(_fq09_pick_stowed), str(_fq09_pick_restored)])
+
+	# --- Slice C: zero-count dock reconciliation ---
+	# player.reconcile_dock (wired to inventory_changed, running BEFORE the HUD
+	# render) is the single owner of the toolbar invariant: a non-empty dock slot
+	# must reference a dock-assignable item the backpack holds (count > 0). It
+	# clears exhausted/unheld slots in place — no shift, no auto-reassign, the
+	# selection stays put. Self-contained: full inventory/hotbar state is restored.
+	var _zc_inv0: Dictionary = player.inventory.to_dict()
+	var _zc_hot0: Array = player.hotbar.duplicate()
+	var _zc_slot0: int = player.selected_slot
+	var _zc_layout0: Array = player.inventory.layout_to_array()
+	var _zc_equip0: Dictionary = player.equipped_dict()
+
+	# Defaults sanitized: applying the default dock against a backpack missing
+	# stone/lantern clears exactly those two slots and keeps the possessed three.
+	player.inventory.from_dict({"dirt": 1, "wood": 3, "torch": 2})
+	player.set_dock_assignments(["dirt", "wood", "stone", "torch", "lantern"])
+	player.selected_slot = 0                      # points at dirt (count 1)
+	player.inventory_changed.emit()
+	var _zc_defaults_sanitized: bool = str(player.hotbar[0]) == "dirt" \
+		and str(player.hotbar[1]) == "wood" and str(player.hotbar[2]) == "" \
+		and str(player.hotbar[3]) == "torch" and str(player.hotbar[4]) == ""
+	# Consume the LAST dirt while its slot is selected: the slot clears, stays
+	# selected, selected_item() is empty, and the HUD slot renders empty.
+	player.inventory.remove("dirt", 1)
+	player.inventory_changed.emit()
+	var _zc_final_clears: bool = str(player.hotbar[0]) == "" \
+		and player.selected_slot == 0 and player.selected_item() == "" \
+		and hud.hotbar_slot_empty(0)
+	# Neighbours never shifted.
+	var _zc_no_shift: bool = str(player.hotbar[1]) == "wood" \
+		and str(player.hotbar[3]) == "torch"
+	# Consuming one from a stack > 1 keeps the assignment and updates the count.
+	player.inventory.remove("torch", 1)
+	player.inventory_changed.emit()
+	var _zc_stack_retains: bool = str(player.hotbar[3]) == "torch" \
+		and player.inventory.count("torch") == 1 and hud.hotbar_slot_count(3) == 1
+	# Reacquiring dirt returns it to the backpack but does NOT repopulate the dock.
+	player.inventory.add("dirt", 5)
+	player.inventory_changed.emit()
+	var _zc_no_auto_readd: bool = str(player.hotbar[0]) == "" \
+		and player.inventory.count("dirt") == 5
+	# Manual reassignment of the cleared slot still works.
+	player.hotbar[0] = "dirt"
+	player.inventory_changed.emit()
+	var _zc_manual_reassign: bool = str(player.hotbar[0]) == "dirt" \
+		and player.selected_item() == "dirt"
+	# Save/load cannot restore a stale zero-count reference: a saved dock naming an
+	# unheld item reconciles to empty when the carried state is (re)applied+emitted.
+	player.set_dock_assignments(["dirt", "wood", "stone", "torch", "lantern"])
+	player.inventory.from_dict({"wood": 2})
+	player.inventory_changed.emit()
+	var _zc_save_load_clean: bool = str(player.hotbar[0]) == "" \
+		and str(player.hotbar[1]) == "wood" and str(player.hotbar[3]) == ""
+	# Bucket exception: conversion redirects the selected slot to the replacement
+	# bucket BEFORE its emit, so reconciliation keeps that (count > 0) slot rather
+	# than clearing the just-emptied source id — for the FINAL bucket both ways.
+	player.inventory.from_dict({"bucket": 1})
+	player.set_dock_assignments(["bucket", "", "", "", ""])
+	player.selected_slot = 0
+	player.inventory_changed.emit()
+	player.inventory.remove("bucket", 1)
+	player.inventory.add("bucket_water", 1)
+	player._hold_bucket_item("bucket_water")
+	player.inventory_changed.emit()
+	var _zc_bucket_fill: bool = player.selected_item() == "bucket_water" \
+		and str(player.hotbar[0]) == "bucket_water"
+	player.inventory.remove("bucket_water", 1)
+	player.inventory.add("bucket", 1)
+	player._hold_bucket_item("bucket")
+	player.inventory_changed.emit()
+	var _zc_bucket_empty: bool = player.selected_item() == "bucket" \
+		and str(player.hotbar[0]) == "bucket"
+	# Equipment ownership is untouched by dock reconciliation.
+	var _zc_equip_intact: bool = player.equipped_dict() == _zc_equip0
+	_check("dock_zero_count_reconciliation",
+		_zc_defaults_sanitized and _zc_final_clears and _zc_no_shift \
+		and _zc_stack_retains and _zc_no_auto_readd and _zc_manual_reassign \
+		and _zc_save_load_clean and _zc_bucket_fill and _zc_bucket_empty \
+		and _zc_equip_intact,
+		"defaults=%s final=%s no_shift=%s stack=%s no_readd=%s manual=%s saveload=%s bucket_fill=%s bucket_empty=%s equip=%s" % [
+			str(_zc_defaults_sanitized), str(_zc_final_clears), str(_zc_no_shift),
+			str(_zc_stack_retains), str(_zc_no_auto_readd), str(_zc_manual_reassign),
+			str(_zc_save_load_clean), str(_zc_bucket_fill), str(_zc_bucket_empty),
+			str(_zc_equip_intact)])
+	# Restore prior inventory/hotbar/selection exactly (direct hotbar restore so
+	# reconciliation does not re-filter the pre-existing dock row).
+	player.inventory.from_dict(_zc_inv0)
+	player.inventory.set_layout(_zc_layout0)
+	player.hotbar.clear()
+	for _zc_h in _zc_hot0:
+		player.hotbar.append(str(_zc_h))
+	player.selected_slot = _zc_slot0
+	hud.update_inventory()
+
 	if _finish_if_focus("inventory"):
 		return
 
