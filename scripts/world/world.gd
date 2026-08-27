@@ -1395,11 +1395,24 @@ func _build_tileset() -> TileSet:
 	ts.tile_size = Vector2i(t, t)
 	ts.add_physics_layer()
 	ts.set_physics_layer_collision_layer(0, 1)
+	# Wooden Platform: a SECOND physics layer (bit 2) carries only the one-way
+	# top-surface polygons, so ordinary solid terrain collision (layer 0) is
+	# unchanged and the player can selectively ignore just this layer to drop
+	# through. Player collision mask includes both bits (see Player.tscn).
+	ts.add_physics_layer()
+	ts.set_physics_layer_collision_layer(1, 2)
 	ts.add_occlusion_layer()
 	var half := t / 2.0
 	var square := PackedVector2Array([
 		Vector2(-half, -half), Vector2(half, -half),
 		Vector2(half, half), Vector2(-half, half),
+	])
+	# A thin strip hugging the top edge of the tile, wound so its one-way
+	# collision catches a body falling onto the top and ignores one rising from
+	# below. ~3px tall, spanning the full width.
+	var platform_top := PackedVector2Array([
+		Vector2(-half, -half), Vector2(half, -half),
+		Vector2(half, -half + 3.0), Vector2(-half, -half + 3.0),
 	])
 	for block_id in BlockRegistry.blocks:
 		if block_id == "air":
@@ -1430,6 +1443,11 @@ func _build_tileset() -> TileSet:
 			if BlockRegistry.is_solid(block_id):
 				tile_data.add_collision_polygon(0)
 				tile_data.set_collision_polygon_points(0, 0, square)
+			elif BlockRegistry.is_one_way_platform(block_id):
+				# One-way top surface on the dedicated platform physics layer (1).
+				tile_data.add_collision_polygon(1)
+				tile_data.set_collision_polygon_points(1, 0, platform_top)
+				tile_data.set_collision_polygon_one_way(1, 0, true)
 			if BlockRegistry.blocks_light(block_id):
 				var occluder := OccluderPolygon2D.new()
 				occluder.polygon = square
@@ -1825,7 +1843,7 @@ func place_liquid(cell: Vector2i, liquid_id: String) -> bool:
 		return false
 	var here := block_at(cell)
 	if here != "air" and (BlockRegistry.is_solid(here) or BlockRegistry.is_liquid(here)
-			or BlockRegistry.has_tag(here, "protected")):
+			or BlockRegistry.has_tag(here, "protected") or BlockRegistry.blocks_liquid(here)):
 		return false
 	cells[cell] = liquid_id
 	deltas[cell] = liquid_id

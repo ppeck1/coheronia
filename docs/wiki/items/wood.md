@@ -34,6 +34,7 @@ Wood is a live item with both acquisition and active use in the current build.
 | Use type | Use | Quantity | Notes |
 |---|---|---|---|
 | Recipe input | Torch | 1x at [Hand](../stations/hand.md) | Live crafting dependency. |
+| Recipe input | Wooden Platform | 1x at [Hand](../stations/hand.md) | Live crafting dependency. |
 | Recipe input | Door | 4x at [Hand](../stations/hand.md) | Live crafting dependency. |
 | Recipe input | Lantern | 1x at [Town Hall](../stations/town_hall.md) | Live crafting dependency. |
 | Recipe input | Basic Pick Upgrade | 3x at [Town Hall](../stations/town_hall.md) | Live crafting dependency. |

@@ -64,6 +64,23 @@
         "fuel"
       ]
     },
+    "wood_platform": {
+      "display_name": "Wooden Platform",
+      "hardness": 0.4,
+      "required_tool_tier": 0,
+      "drops": {
+        "wood_platform": 1
+      },
+      "is_placeable": true,
+      "is_solid": false,
+      "one_way_platform": true,
+      "blocks_light": false,
+      "emits_light": false,
+      "light_radius": 0,
+      "blocks_liquid": true,
+      "preferred_tool": "axe",
+      "settlement_tags": []
+    },
     "stone": {
       "display_name": "Stone",
       "hardness": 1.1,

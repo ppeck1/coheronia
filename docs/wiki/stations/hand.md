@@ -19,6 +19,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | Recipe | Inputs | Result | Result route |
 |---|---|---|---|
 | Torch | wood x1, stone x1 | torch x3 | inventory |
+| Wooden Platform | wood x1 | wood_platform x2 | inventory |
 | Door | wood x4 | door x1 | inventory |
 | Crop Seeds | food x1 | crop_seeds x2 | inventory |
 

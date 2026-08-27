@@ -18,6 +18,18 @@ const SPEED := 140.0
 const JUMP_VELOCITY := -300.0
 const GRAVITY := 820.0
 const REACH_TILES := 5.0
+
+## Wooden Platform one-way drop-through. The platform's one-way collision lives on
+## its own TileSet physics layer (bit 2 -> collision-mask layer number 2). Holding
+## Move Down and pressing Jump while standing on a platform temporarily removes ONLY
+## that layer from the player's mask so the body falls through, then restores it once
+## the body is clear of the platform (or after a conservative failsafe timeout).
+const PLATFORM_ID := "wood_platform"
+const PLATFORM_MASK_BIT := 2          # 1-based collision-mask layer number (bit 2)
+const PLATFORM_DROP_SEC := 0.35       # failsafe: mask can never stay off longer
+const BODY_HALF_HEIGHT := 14.0        # half of the Player.tscn CollisionShape (28px)
+var _platform_drop_timer := 0.0
+var _platform_drop_top_y := 0.0       # the platform-top Y the body dropped from
 ## R-08 slice 3: loose ground items within this radius are swept into the
 ## backpack. Wider than the block the player stands on (so their own mining lands
 ## in the pack immediately) but well inside mining reach, so a block broken at
@@ -298,6 +310,45 @@ func reconcile_dock() -> bool:
 	return changed
 
 
+# --- Wooden Platform drop-through ---------------------------------------------
+
+## True when the body is resting on a Wooden Platform's one-way top surface. Reads
+## the block just below the feet (the platform tile the collision strip belongs to).
+func _is_on_wood_platform() -> bool:
+	if world == null or not is_on_floor():
+		return false
+	var feet := global_position + Vector2(0, BODY_HALF_HEIGHT)
+	for dy in [1.0, 3.0, 5.0]:
+		if world.block_at(world.cell_of(feet + Vector2(0, dy))) == PLATFORM_ID:
+			return true
+	return false
+
+
+## Begin a drop-through: suppress the jump, drop only the one-way-platform layer
+## from the collision mask, and nudge the body downward so it starts falling. The
+## platform-top the body was standing on is recorded (the feet rest on it), so the
+## layer is restored only once the whole body has fallen clear of that surface.
+func _begin_platform_drop() -> void:
+	_platform_drop_timer = PLATFORM_DROP_SEC
+	_platform_drop_top_y = global_position.y + BODY_HALF_HEIGHT   # feet == platform top
+	set_collision_mask_value(PLATFORM_MASK_BIT, false)
+	velocity.y = maxf(velocity.y, 40.0)
+
+
+## Per-frame: restore the platform layer once the body's TOP has fallen below the
+## platform surface it dropped from (feet safely below, no re-catch), or when the
+## conservative failsafe timeout elapses — the layer can never stay off
+## indefinitely. Solid-terrain collision (bit 1) is never touched here.
+func _tick_platform_drop(delta: float) -> void:
+	if _platform_drop_timer <= 0.0:
+		return
+	_platform_drop_timer -= delta
+	var head_y := global_position.y - BODY_HALF_HEIGHT
+	if _platform_drop_timer <= 0.0 or head_y > _platform_drop_top_y + 1.0:
+		set_collision_mask_value(PLATFORM_MASK_BIT, true)
+		_platform_drop_timer = 0.0
+
+
 ## Applies a shell character (appearance, traits, role effects) to this
 ## player. Resets ancestry effects to defaults; call apply_ancestry_effects
 ## afterwards when an ancestry should be active.
@@ -406,13 +457,20 @@ func _physics_process(delta: float) -> void:
 		if in_liquid:   # cap the sink rate so heavy liquids slow the descent too
 			velocity.y = minf(velocity.y, BlockRegistry.liquid_sink_speed(submerged))
 	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = JUMP_VELOCITY * ancestry_jump_mult
+		if Input.is_action_pressed("move_down") and _is_on_wood_platform():
+			# Drop through the platform instead of jumping: suppress the jump and
+			# briefly ignore only the one-way-platform layer so the body falls.
+			_begin_platform_drop()
+		else:
+			velocity.y = JUMP_VELOCITY * ancestry_jump_mult
 	elif in_liquid and Input.is_action_pressed("jump"):
-		# Hold jump to swim upward toward the surface.
+		# Hold jump to swim upward toward the surface (unchanged: drop-through only
+		# fires when standing on a platform, so underwater swimming is untouched).
 		velocity.y = -BlockRegistry.liquid_swim_up_speed(submerged) * ancestry_swim_speed_mult
 	var direction := Input.get_axis("move_left", "move_right")
 	velocity.x = direction * SPEED * move_mult
 	move_and_slide()
+	_tick_platform_drop(delta)
 	# Snapshot the post-move position for the render-interpolation mirror (below), so
 	# presentation that must track the SMOOTH on-screen position samples the interpolated
 	# value, not this stepped physics-tick one.

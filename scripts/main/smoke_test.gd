@@ -28,6 +28,7 @@ const SmokeEquipment := preload("res://scripts/main/smoke/smoke_equipment.gd")  
 const SmokeLiquidTraits := preload("res://scripts/main/smoke/smoke_liquid_traits.gd")   # S-07.3
 const SmokeSettings := preload("res://scripts/main/smoke/smoke_settings.gd")   # S-07.3
 const SmokePerception := preload("res://scripts/main/smoke/smoke_perception.gd")   # Perception + Resonance
+const SmokePlatform := preload("res://scripts/main/smoke/smoke_platform.gd")   # Wooden Platform
 const SubjectScript := preload("res://scripts/entities/subject.gd")   # S-07.1c defender marker
 # Pinned fingerprints of the seed-2024 medium v3/v4 generated cell maps (see
 # _cells_fingerprint). Any future gen change that perturbs an older world trips
@@ -274,8 +275,8 @@ func _run() -> void:
 	# --- Real input bindings (programmatic action_press below bypasses the
 	# InputMap, so verify keys/mouse are actually bound to the actions) ---
 	var unbound := ""
-	for action in ["move_left", "move_right", "jump", "mine", "place", "interact",
-			"toggle_town", "craft", "save_game", "load_game", "toggle_inventory",
+	for action in ["move_left", "move_right", "move_down", "jump", "mine", "place",
+			"interact", "toggle_town", "craft", "save_game", "load_game", "toggle_inventory",
 			"debug_overlay", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5",
 			"eat_food", "attune_pulse", "swap_weapon", "toggle_skills"]:
 		var has_device_event := false
@@ -4880,6 +4881,15 @@ func _run() -> void:
 	add_child(_smoke_citizens)
 	await _smoke_citizens.run(_ctx)
 	_smoke_citizens.queue_free()
+
+	# --- Wooden Platform: data, placement/mining/save, liquid dam, one-way physics ---
+	# Runs LAST among gameplay modules: its ~5s of physics stepping advances the
+	# shared game clock, so keeping it after every other module means that time
+	# shift can never race an earlier module's HUD/settlement assertions.
+	var _smoke_platform := SmokePlatform.new()
+	add_child(_smoke_platform)
+	await _smoke_platform.run(_ctx)
+	_smoke_platform.queue_free()
 
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":

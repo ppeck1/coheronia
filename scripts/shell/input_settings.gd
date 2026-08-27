@@ -8,14 +8,15 @@ extends RefCounted
 ## replaced; any mouse/joypad events on the same action are preserved.
 
 const REBINDABLE := [
-	"move_left", "move_right", "jump", "mine", "place", "interact",
+	"move_left", "move_right", "move_down", "jump", "mine", "place", "interact",
 	"toggle_town", "craft", "eat_food", "attune_pulse", "swap_weapon",
 	"farm_action", "toggle_inventory", "toggle_skills", "toggle_map",
 	"toggle_goals", "save_game", "load_game",
 ]
 
 const LABELS := {
-	"move_left": "Move Left", "move_right": "Move Right", "jump": "Jump",
+	"move_left": "Move Left", "move_right": "Move Right",
+	"move_down": "Move Down / Drop Through", "jump": "Jump",
 	"mine": "Mine", "place": "Place Block", "interact": "Interact",
 	"toggle_town": "Town Hall", "craft": "Craft", "eat_food": "Eat Food",
 	"attune_pulse": "Attune Pulse", "swap_weapon": "Swap Weapon",

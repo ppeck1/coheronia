@@ -237,6 +237,21 @@ func is_solid(block_id: String) -> bool:
 	return bool(get_block(block_id).get("is_solid", false))
 
 
+## Wooden Platform: a non-solid block that carries a thin, one-way top-surface
+## collision on its OWN TileSet physics layer (bit 2) so it catches a falling
+## body on top but lets one pass upward from below and drop through on demand.
+## Ordinary terrain (is_solid) is untouched by this flag.
+func is_one_way_platform(block_id: String) -> bool:
+	return bool(get_block(block_id).get("one_way_platform", false))
+
+
+## A placed block that dams liquid without being is_solid. Narrow exception for
+## the Wooden Platform: the terrain model can't hold a liquid AND another block
+## in one cell, so a platform cell simply refuses liquid (documented tradeoff).
+func blocks_liquid(block_id: String) -> bool:
+	return bool(get_block(block_id).get("blocks_liquid", false))
+
+
 ## World Depths (WD-3): environmental contact damage (HP per hurt-tick) for a
 ## block the player's body occupies. 0 for ordinary blocks; lava declares it.
 func contact_damage(block_id: String) -> float:

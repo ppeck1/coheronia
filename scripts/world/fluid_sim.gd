@@ -247,8 +247,11 @@ func _can_receive(cell: Vector2i, kind: String) -> bool:
 	# A different liquid: don't merge — the reaction pass (or nothing) handles it.
 	if BlockRegistry.is_liquid(b):
 		return false
-	# Solid rock and protected structures (bedrock, the Town Hall) dam liquid.
-	if BlockRegistry.is_solid(b) or BlockRegistry.has_tag(b, "protected"):
+	# Solid rock and protected structures (bedrock, the Town Hall) dam liquid, as
+	# does a Wooden Platform (blocks_liquid) — the terrain model can't hold a
+	# liquid AND a block in one cell, so the platform simply refuses liquid.
+	if BlockRegistry.is_solid(b) or BlockRegistry.has_tag(b, "protected") \
+			or BlockRegistry.blocks_liquid(b):
 		return false
 	# Non-solid decorations (trees, bushes, crops) are background props, not walls,
 	# so liquid floods through them rather than being dammed.
