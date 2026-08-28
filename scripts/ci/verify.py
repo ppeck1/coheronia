@@ -367,6 +367,19 @@ SMOKE_RUNTIME_ARGS = [
 ]
 
 
+def smoke_runtime_args() -> list[str]:
+    """Return the stable smoke launch flags, with opt-in engine diagnostics.
+
+    Verbose Godot output names leaked instances/resources, which is essential
+    when the fail-closed lifecycle gate trips.  Keep it opt-in so ordinary
+    local and Windows logs are not flooded.
+    """
+    args = list(SMOKE_RUNTIME_ARGS)
+    if os.environ.get("COHERONIA_GODOT_VERBOSE", "") == "1":
+        args.insert(0, "--verbose")
+    return args
+
+
 def _run(cmd: list[str], env: dict | None = None) -> int:
     print(f"\n$ {' '.join(cmd)}", flush=True)
     return subprocess.run(cmd, cwd=str(ROOT), env=env).returncode
@@ -434,7 +447,7 @@ def run_smoke(godot: str) -> bool:
                COHERONIA_COMMIT=expected,
                COHERONIA_RESULTS_PATH=str(results))
     rc, output = launch_teed(
-        [godot, "--path", str(ROOT), *SMOKE_RUNTIME_ARGS], env=env)
+        [godot, "--path", str(ROOT), *smoke_runtime_args()], env=env)
     failures = evaluate_run(
         "SOURCE SMOKE", rc, output, results,
         expected_commit=expected, require_zero_skips=True)
@@ -462,7 +475,7 @@ def run_exported_smoke(artifact: Path) -> bool:
                COHERONIA_SMOKE="1",
                COHERONIA_COMMIT=expected,
                COHERONIA_RESULTS_PATH=str(results))
-    rc, output = launch_teed([str(artifact), *SMOKE_RUNTIME_ARGS], env=env)
+    rc, output = launch_teed([str(artifact), *smoke_runtime_args()], env=env)
     failures = evaluate_run(
         "EXPORT SMOKE", rc, output, results,
         expected_commit=expected, exact_skip_allowlist=EXPORT_SKIP_ALLOWLIST)

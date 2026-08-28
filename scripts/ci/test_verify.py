@@ -11,10 +11,12 @@ Run:  python scripts/ci/test_verify.py       (or: python -m unittest -v)
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import verify  # noqa: E402
@@ -128,6 +130,12 @@ class SmokeRuntimeArgsTests(unittest.TestCase):
             "--rendering-driver", "opengl3",
             "--audio-driver", "Dummy",
         ])
+
+    def test_verbose_shutdown_diagnostics_are_opt_in(self):
+        with mock.patch.dict(os.environ, {"COHERONIA_GODOT_VERBOSE": "1"}):
+            self.assertEqual(verify.smoke_runtime_args()[0], "--verbose")
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertNotIn("--verbose", verify.smoke_runtime_args())
 
 
 class ValidateResultTests(unittest.TestCase):

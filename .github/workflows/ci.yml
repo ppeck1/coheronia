@@ -109,6 +109,10 @@ jobs:
         timeout-minutes: 20
         env:
           COHERONIA_COMMIT: ${{ github.sha }}
+          # The Linux/X11 runner has a deterministic shutdown leak. Preserve
+          # the exact leaked instance/resource names in the job log so the
+          # fail-closed lifecycle gate is actionable instead of opaque.
+          COHERONIA_GODOT_VERBOSE: "1"
         run: |
           xvfb-run -a python scripts/ci/verify.py \
             --godot godot --export --export-preset "Linux/X11"
