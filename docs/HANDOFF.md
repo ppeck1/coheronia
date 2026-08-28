@@ -8,9 +8,9 @@ rules live in [`CLAUDE.md`](../CLAUDE.md).
 ## Current state
 
 - Active branch: `s07-stabilize-b-plus`
-- Local branch HEAD: `2fe7fc0` (`fix(perception): replace restored fog and refresh sight radius`)
-- Remote branch HEAD: `dd05374`; the focused perception correction is one local commit
-  ahead and has not been pushed
+- Local candidate includes `2fe7fc0` (`fix(perception): replace restored fog and refresh
+  sight radius`) plus the release-documentation reconciliation
+- Remote branch HEAD: `dd05374`; the local candidate has not been pushed
 - `main`: `05ec3ae`; the stabilization branch is not merged to `main`
 - Save compatibility remains frozen: `SAVE_VERSION` is unchanged
 - Terrain generation is at `gen_version` 5, using the gated compatibility pattern
@@ -32,9 +32,10 @@ The latest completed workflow for `dd05374` is green on both supported CI target
 The six export-only omissions are expected read-only-`res://` fixture skips. The
 verifier reported no lifecycle leaks or unexpected engine errors.
 
-These results describe the remote baseline at `dd05374`. The local perception candidate
-has passed the canonical windowed source gate at **608/608**; its export gate and remote
-Linux/Windows CI are still pending.
+These results describe the remote baseline at `dd05374`. The local candidate has also
+passed the complete Windows verifier: **608/608** canonical windowed source checks and
+**602/602** exported-build checks, with the same six expected skips and no lifecycle or
+unexpected-engine-error findings. Remote Linux/Windows CI is still pending.
 
 ## Perception verification contracts
 
@@ -62,8 +63,8 @@ in focused follow-up work unless a release-blocking defect requires otherwise.
 
 ## Recommended next
 
-1. Run the complete local export gate for `2fe7fc0`, then push the perception + docs
-   commits and require the Linux and Windows source/export workflow to pass.
+1. Push the perception + docs commits and require the Linux and Windows source/export
+   workflow to pass; do not substitute a rerun for investigating any failure.
 2. Open and review the stabilization PR; enable branch protection/required checks before
    merging rather than treating an unprotected green branch as release evidence.
 3. Build clean Linux and Windows artifacts, verify clean-profile startup + save
