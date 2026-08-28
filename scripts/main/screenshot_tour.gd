@@ -116,42 +116,67 @@ func _run() -> void:
 	await _shot("15_crafting")
 	root._craft_panel.close()
 
-	# Slice 4.2: the SAME panel opened by the docked Craft chip (the chip reads
-	# pressed while the panel is up) — crafting is discoverable without knowing C.
-	var _tour_craft_chip: Button = hud._command_toggles["Craft"] as Button
-	_tour_craft_chip.button_pressed = true
-	await get_tree().process_frame
-	await _shot("15b_craft_from_button")
-	_tour_craft_chip.button_pressed = false
-	await get_tree().process_frame
-
-	# Slice B: the craftable Wooden Platform as a one-way traversal plank -- a short
-	# raised, torch-lit walkway beside the hall. Placed, captured, then cleared so
-	# the later staged shots keep their clean settlement.
-	var _plat_y := ground_y - 3
-	var _plat_cells: Array[Vector2i] = []
-	for _px in range(hall_cell.x - 12, hall_cell.x - 6):
-		var _pc := Vector2i(_px, _plat_y)
+	# Slice B: the craftable Wooden Platform as an intentional one-way WALKWAY. Dig a
+	# short gap beside the hall, bridge it with a plank at surface level (overhanging
+	# solid ground at each end), and stand the player ON the bridge. Physics is frozen
+	# for a clean, deterministic compose so the one-way plank never drops the actor.
+	# Everything is restored afterward so later staged shots keep a clean settlement.
+	var _gap_lo := hall_cell.x - 10
+	var _gap_hi := hall_cell.x - 6                     # inclusive dug columns
+	var _plat_dug: Array = []                          # [cell, prev_block] to restore
+	for _gx in range(_gap_lo, _gap_hi + 1):
+		for _gd in range(0, 3):                        # 3 deep so the pit reads under the plank
+			var _dc := Vector2i(_gx, ground_y + _gd)
+			var _prev: String = world.block_at(_dc)
+			if _prev != "air":
+				world.break_block(_dc)
+				_plat_dug.append([_dc, _prev])
+	var _plat_cells: Array[Vector2i] = []              # plank overhangs one column onto ground each side
+	for _px in range(_gap_lo - 1, _gap_hi + 2):
+		var _pc := Vector2i(_px, ground_y)
 		if world.block_at(_pc) == "air":
 			world.place_block(_pc, "wood_platform")
 			_plat_cells.append(_pc)
-	var _plat_torch := Vector2i(hall_cell.x - 12, _plat_y - 1)
+	var _plat_torch := Vector2i(_gap_lo - 1, ground_y - 1)
 	var _plat_torch_placed: bool = world.block_at(_plat_torch) == "air"
 	if _plat_torch_placed:
 		world.place_block(_plat_torch, "torch")
-	player.global_position = world.cell_center(Vector2i(hall_cell.x - 9, _plat_y - 1))
+	# Freeze the crew NOW (before any physics frame elapses) and lift any settler that
+	# sits over the dig band up onto the surface, so the pit reads clean and the player
+	# is the only actor on the bridge. Positions + physics state are restored after.
+	var _plat_subjects: Array = get_tree().get_nodes_in_group("subjects")
+	var _plat_saved: Array = []                        # [subject, prev_pos, prev_physics]
+	for _s in _plat_subjects:
+		var _sn := _s as Node2D
+		_plat_saved.append([_sn, _sn.global_position, _s.is_physics_processing()])
+		_s.set_physics_process(false)
+		var _scell: Vector2i = world.cell_of(_sn.global_position)
+		if _scell.x >= _gap_lo - 2 and _scell.x <= _gap_hi + 2:
+			_sn.global_position = world.cell_center(Vector2i(hall_cell.x + 6, ground_y - 1))
+	# Pose the player ON the plank. A teleported body tunnels through the thin one-way
+	# plank under gravity, so freeze physics AND turn OFF this node's render
+	# interpolation for the shot — the frozen player then renders exactly where placed
+	# (a frozen-but-interpolated body reads as sunk into the pit). Restored after.
+	player.set_physics_process(false)
+	player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	player.velocity = Vector2.ZERO
+	player.global_position = world.cell_center(Vector2i(_gap_lo + 2, ground_y - 1))
 	player.get_node("Camera2D").reset_smoothing()
-	for i in range(24):
+	for i in range(12):
 		await get_tree().physics_frame
 	await _shot("38_wooden_platform")
+	player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_INHERIT
+	player.set_physics_process(true)
 	for _pc in _plat_cells:
 		world.break_block(_pc)
 	if _plat_torch_placed:
 		world.break_block(_plat_torch)
-	player.global_position = world.cell_center(Vector2i(hall_cell.x, ground_y - 1))
-	player.velocity = Vector2.ZERO
-	player.get_node("Camera2D").reset_smoothing()
+	for _entry in _plat_dug:
+		world.place_block(_entry[0], str(_entry[1]))
+	for _entry in _plat_saved:                         # restore crew positions + physics
+		(_entry[0] as Node2D).global_position = _entry[1]
+		(_entry[0]).set_physics_process(_entry[2])
+	player.teleport(world.cell_center(Vector2i(hall_cell.x, ground_y - 1)))
 	for i in range(8):
 		await get_tree().physics_frame
 
