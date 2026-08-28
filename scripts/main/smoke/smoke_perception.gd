@@ -265,7 +265,12 @@ func run(ctx) -> void:
 	var _e2e_layer = root._resonance_layer
 	var _e2e_player_pos: Vector2 = player.global_position
 	var _e2e_hall: Vector2i = world.hall_info.get("center_cell", Vector2i(int(world.width / 2.0), 0))
-	var _e2e_x: int = _e2e_hall.x - 14
+	# Keep the staged threat well outside settlement defenders' 150px guard
+	# radius. At the old hall.x - 14 origin the threat landed only eight tiles
+	# (128px) from the hall and defenders legitimately killed the 3-HP fixture
+	# during the awaited resonance expiry, producing `vis=freed/null` instead of
+	# testing re-hiding. The targets remain only 5-7 cells from the staged player.
+	var _e2e_x: int = _e2e_hall.x - 30
 	var _e2e_prow: int = int(world.surface.get(_e2e_x, _e2e_hall.y)) - 1   # air row just above ground
 	var _e2e_pcell := Vector2i(_e2e_x, _e2e_prow)
 	var _e2e_wall: Array = [Vector2i(_e2e_x + 3, _e2e_prow), Vector2i(_e2e_x + 3, _e2e_prow - 1)]
