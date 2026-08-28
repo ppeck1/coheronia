@@ -9,7 +9,8 @@ rules live in [`CLAUDE.md`](../CLAUDE.md).
 
 - Active branch: `s07-stabilize-b-plus`
 - Local candidate includes `2fe7fc0` (`fix(perception): replace restored fog and refresh
-  sight radius`) plus the release-documentation reconciliation
+  sight radius`), `994bd36` (`fix(platform): align plank art and collision to tile
+  bottom`), and the release-documentation reconciliation
 - Remote branch HEAD: `dd05374`; the local candidate has not been pushed
 - `main`: `05ec3ae`; the stabilization branch is not merged to `main`
 - Save compatibility remains frozen: `SAVE_VERSION` is unchanged
@@ -33,8 +34,8 @@ The six export-only omissions are expected read-only-`res://` fixture skips. The
 verifier reported no lifecycle leaks or unexpected engine errors.
 
 These results describe the remote baseline at `dd05374`. The local candidate has also
-passed the complete Windows verifier: **608/608** canonical windowed source checks and
-**602/602** exported-build checks, with the same six expected skips and no lifecycle or
+passed the complete Windows verifier: **609/609** canonical windowed source checks and
+**603/603** exported-build checks, with the same six expected skips and no lifecycle or
 unexpected-engine-error findings. Remote Linux/Windows CI is still pending.
 
 ## Perception verification contracts
