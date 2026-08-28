@@ -63,6 +63,33 @@ func run(ctx) -> void:
 		and _tile != null and _tile.get_width() == 16 and _tile.get_height() == 16
 		and BlockRegistry.is_dock_assignable_item(PLATFORM),
 		"icon=%s tile=%s" % [str(_icon != null), str(_tile != null)])
+	# The world plank and its one-way surface occupy the bottom portion of their
+	# cell. This prevents a platform directly above a solid block from painting a
+	# misleading, apparently traversable pocket below the plank.
+	var _tile_img: Image = _tile.get_image() if _tile != null else null
+	var _opaque_first := 16
+	var _opaque_last := -1
+	if _tile_img != null:
+		for _py in range(_tile_img.get_height()):
+			for _px in range(_tile_img.get_width()):
+				if _tile_img.get_pixel(_px, _py).a > 0.5:
+					_opaque_first = mini(_opaque_first, _py)
+					_opaque_last = maxi(_opaque_last, _py)
+	var _collision_first := INF
+	var _platform_sources: Array = world._source_ids.get(PLATFORM, [])
+	if not _platform_sources.is_empty():
+		var _atlas := world._tilemap.tile_set.get_source(
+			int(_platform_sources[0])) as TileSetAtlasSource
+		if _atlas != null:
+			var _tile_data := _atlas.get_tile_data(Vector2i.ZERO, 0)
+			if _tile_data != null and _tile_data.get_collision_polygons_count(1) == 1:
+				for _point in _tile_data.get_collision_polygon_points(1, 0):
+					_collision_first = minf(_collision_first, _point.y)
+	var _bottom_aligned := _opaque_first == 10 and _opaque_last == 14 \
+		and is_equal_approx(_collision_first, world.WOOD_PLATFORM_SURFACE_LOCAL_Y)
+	harness._check("platform_visual_collision_bottom_aligned", _bottom_aligned,
+		"opaque_rows=%d..%d collision_y=%.1f" % [
+			_opaque_first, _opaque_last, _collision_first])
 
 	# --- (c) not light-blocking and not a valid shelter wall/roof ---
 	# Housing counts only is_solid boundary cells as walls/roof; a non-solid

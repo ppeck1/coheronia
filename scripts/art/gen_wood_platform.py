@@ -2,9 +2,9 @@
 """Generate the Wooden Platform pixel art (block tile + inventory icon).
 
 Repo-native 16x16 cutout pixel art in the Wood palette: a thin horizontal plank
-near the TOP of the tile with the lower portion transparent, so the traversal
-purpose (stand on / jump up through / drop down through) reads instantly and it
-never resembles the full opaque Wood block. Hard alpha only, <=16 colors,
+near the BOTTOM of the tile. This keeps the one-way traversal purpose readable
+without implying that there is usable clearance beneath a platform whose next
+cell is solid. Hard alpha only, <=16 colors,
 transparent corners -- see scripts/art/verify_pixel_assets.py (wood_platform is
 a CUTOUT block).
 
@@ -49,9 +49,10 @@ def _plank_row(y_top: int, y_bot: int, seams: list[int]) -> Image.Image:
 
 
 def make_block() -> Image.Image:
-    # Plank hugging the top of the tile (rows 2..6); rows 0-1 and 7-15 clear so
-    # the tile's corners are transparent and the underside is see-through.
-    return _plank_row(2, 6, seams=[5, 10])
+    # Plank in the bottom portion of the tile (rows 10..14). The final row stays
+    # transparent for the cutout-corner contract; against a solid cell below the
+    # one-pixel seam reads as an edge highlight, not a traversable empty pocket.
+    return _plank_row(10, 14, seams=[5, 10])
 
 
 def make_icon() -> Image.Image:

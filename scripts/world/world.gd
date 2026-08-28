@@ -21,6 +21,9 @@ const LEAF_SEED_DROP_CHANCE := 0.35
 # LQ-2: number of discrete fill heights a liquid tile quantizes into (16px tile
 # => 2px per bucket). A cell's level maps to a bottom-anchored tile of this many.
 const LIQUID_FILL_LEVELS := 8
+# Wooden Platform: its authored plank begins on texture row 10 of a 16px tile,
+# which is local Y +2 from the tile centre. Collision and art share this surface.
+const WOOD_PLATFORM_SURFACE_LOCAL_Y := 2.0
 # LQ-3 (bucket): a scoop draws up to one bucketful (a full cell's worth) from the
 # connected pool, needs at least this much liquid reachable to succeed (so a
 # near-dry sliver still can't fill a bucket), and never scans more than this many
@@ -1410,12 +1413,14 @@ func _build_tileset() -> TileSet:
 		Vector2(-half, -half), Vector2(half, -half),
 		Vector2(half, half), Vector2(-half, half),
 	])
-	# A thin strip hugging the top edge of the tile, wound so its one-way
-	# collision catches a body falling onto the top and ignores one rising from
-	# below. ~3px tall, spanning the full width.
+	# A thin strip aligned to the authored plank in the bottom portion of the tile.
+	# Its winding lets one-way collision catch a body falling onto the top while
+	# ignoring one rising from below. ~3px tall, spanning the full width.
 	var platform_top := PackedVector2Array([
-		Vector2(-half, -half), Vector2(half, -half),
-		Vector2(half, -half + 3.0), Vector2(-half, -half + 3.0),
+		Vector2(-half, WOOD_PLATFORM_SURFACE_LOCAL_Y),
+		Vector2(half, WOOD_PLATFORM_SURFACE_LOCAL_Y),
+		Vector2(half, WOOD_PLATFORM_SURFACE_LOCAL_Y + 3.0),
+		Vector2(-half, WOOD_PLATFORM_SURFACE_LOCAL_Y + 3.0),
 	])
 	for block_id in BlockRegistry.blocks:
 		if block_id == "air":
