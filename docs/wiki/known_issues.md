@@ -19,12 +19,19 @@ This page separates confirmed presentation defects from intentional scope limits
 ## Intentional Current Limits
 
 - Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The in-engine smoke suite (hundreds of checks) is clean under the **canonical windowed run**; CI is the current pass/fail evidence. (One check, `r06_texture_prep_delegates`, is renderer-dependent and is skipped under the *headless* display server — a texture-scaling detail with no window — so a headless run reports one skip and no failures.)
-- The end-to-end perception check **`perception_resonance_e2e_through_fog`** is a known **rare intermittent assertion failure** in the windowed source smoke: it fails occasionally and passes on a clean re-run. The exact entity-level cause is **unresolved** — on failure the check now emits a per-entity `SMOKE_FIELD_BREAKDOWN` line to aid diagnosis. No matching **player-visible** fog-of-war or Resonance regression has been reproduced. Tracked as known; **not claimed fixed**.
 - Settlers are now individual, persistent NPC workers (farmhand/hauler/repairer/defender) with jobs, stats, ancestry identity, and per-settler work zones, layered over the abstract population authority; deeper social simulation is still planned.
 - Enemies use direct walk-and-hop behavior without pathfinding.
 - The adaptive score is one authored suite and remains balance-in-progress.
 - **Calling skills are functional but unbalanced and mechanically compressed.** Every one of the 72 skills is wired to a real hook, but to reach full coverage without new subsystems the harder specified effects were re-themed onto existing scalar channels — so some Paths repeat a channel (e.g. Hearthwright is mostly repair-strength + build-reach; Vanguard is mostly weapon damage), and several names (Executioner, Counterforce, Steel Rhythm, Coordinated Labor, Salvager) no longer match their original flavor. The percentages are also **untuned**: full conditional stacking can reach roughly 4–5× on some channels. This is a known design variance to be resolved by playtesting and value tuning (no new mechanisms), not a correctness defect.
 - Current finite maps provide one surface biome; deeper biome/system expansion remains planned work.
+
+## Resolved — Perception/Resonance Smoke Intermittent — 2026-08-28
+
+The intermittent **`perception_resonance_e2e_through_fog`** failure was a test-fixture isolation defect, not a reproduced player-visible fog-of-war or Resonance regression. The original surface-enemy fixture could be removed by the real dawn cleanup while the check waited for pulse expiry; changing it to an underground enemy exposed a second fixture error because it was still inside the settlement defenders' guard radius and could be killed during the same wait. The final fixture uses an underground enemy outside defender range while preserving the real fog, forced-visibility, expiry, and re-hide paths. Per-entity failure diagnostics remain in place.
+
+## Resolved — Fog Restore and Stationary Sight Refresh — 2026-08-28
+
+Two perception correctness defects were fixed together. First, loading an older save into a live world used to add its explored cells to the current `_seen` bitset, leaving places explored *after* the save remembered after F9 restore. Deserialization now builds and installs a fresh bitset, clears transient visibility, and the live restore contract proves the post-save cells return to unseen. Second, darkness smoothing could change the effective sight radius while the player stayed in one tile, but LOS/entity/light gating only refreshed after movement. The game now caches both player cell and effective integer LOS radius and recomputes when either changes; a stationary regression covers terrain, an item-group entity, a source light, and the no-redundant-recompute case.
 
 ## Resolved — Underground Lighting (dark-from-the-surface) — 2026-08-04
 
