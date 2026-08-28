@@ -783,7 +783,9 @@ func run(ctx) -> void:
 	var _cf_sample := "-"
 	if hud._right_wing != null:
 		hud.update_time(98, false, 3, 0.279)   # -> day 98, 12:00
-		await get_tree().process_frame
+		# update_time() writes the dock labels synchronously.  Do not yield here: the
+		# live world clock also updates the HUD each frame and can overwrite this
+		# deterministic sample before it is asserted on slower export runners.
 		_cf_sample = "%s / %s" % [hud._event_day_value.text, hud._event_time_value.text]
 		_cf_live = hud._event_day_value.text == "98" and hud._event_time_value.text == "1200" \
 			and not hud._event_time_value.text.contains(":") \
