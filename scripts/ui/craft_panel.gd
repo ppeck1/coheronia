@@ -48,9 +48,16 @@ var _margin: MarginContainer
 var _panel: PanelContainer
 var _source_label: Label
 var _station_bar: HFlowContainer
+var _grid_scroll: ScrollContainer
 var _grid: HFlowContainer
-var _detail_box: VBoxContainer
-var _tile_buttons := {}          # recipe_id -> Button (for selection restyle)
+var _detail_panel: PanelContainer
+var _detail_scroll: ScrollContainer   # the detail pane's scrolling content region
+var _detail_content: VBoxContainer    # scrollable recipe/build info (rebuilt per selection)
+var _detail_action: VBoxContainer     # pinned reason + Craft/Build row (rebuilt per selection)
+var _close_btn: Button                # footer Close (kept for the layout contract)
+var _action_button: Button        # the current Craft one / Build button
+var _tile_buttons := {}           # recipe_id -> Button (for selection restyle)
+var _tile_status := {}            # recipe_id -> status Label (compact Ready/Missing/Locked)
 
 
 func _ready() -> void:
@@ -155,31 +162,54 @@ func _build() -> void:
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vb.add_child(body)
 
-	var grid_scroll := ScrollContainer.new()
-	grid_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	grid_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_child(grid_scroll)
+	_grid_scroll = ScrollContainer.new()
+	_grid_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_grid_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_grid_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_grid_scroll.clip_contents = true
+	body.add_child(_grid_scroll)
 	_grid = HFlowContainer.new()
 	_grid.add_theme_constant_override("h_separation", 8)
 	_grid.add_theme_constant_override("v_separation", 8)
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid_scroll.add_child(_grid)
+	_grid_scroll.add_child(_grid)
 
-	var detail_panel := PanelContainer.new()
+	_detail_panel = PanelContainer.new()
 	var dsb := StyleBoxFlat.new()
 	dsb.bg_color = DETAIL_BG
 	dsb.set_corner_radius_all(6)
 	dsb.set_content_margin_all(10)
 	dsb.border_color = ACCENT
 	dsb.set_border_width_all(1)
-	detail_panel.add_theme_stylebox_override("panel", dsb)
-	detail_panel.custom_minimum_size = Vector2(232, 0)
-	detail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_child(detail_panel)
-	_detail_box = VBoxContainer.new()
-	_detail_box.add_theme_constant_override("separation", 6)
-	detail_panel.add_child(_detail_box)
+	_detail_panel.add_theme_stylebox_override("panel", dsb)
+	_detail_panel.custom_minimum_size = Vector2(224, 0)
+	_detail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_detail_panel.clip_contents = true
+	body.add_child(_detail_panel)
+	# The detail pane is a single EXPAND scroll region above a pinned action row:
+	# ALL recipe/build info (header, description, requirements, output) lives in the
+	# scroll, so no matter how long it grows it scrolls INSIDE the pane and can never
+	# push the Craft/Build button — or the panel's own footer — below the viewport.
+	# clip_contents is a belt-and-braces guard, never the thing keeping the action
+	# on-screen (the action is bounded by construction).
+	var detail_root := VBoxContainer.new()
+	detail_root.add_theme_constant_override("separation", 6)
+	detail_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_detail_panel.add_child(detail_root)
+	_detail_scroll = ScrollContainer.new()
+	_detail_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_detail_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_detail_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_detail_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	detail_root.add_child(_detail_scroll)
+	_detail_content = VBoxContainer.new()
+	_detail_content.add_theme_constant_override("separation", 6)
+	_detail_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_detail_scroll.add_child(_detail_content)
+	_detail_action = VBoxContainer.new()
+	_detail_action.add_theme_constant_override("separation", 4)
+	_detail_action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	detail_root.add_child(_detail_action)
 
 	vb.add_child(HSeparator.new())
 	var footer := HBoxContainer.new()
@@ -191,6 +221,7 @@ func _build() -> void:
 	close_btn.custom_minimum_size = Vector2(96, 0)
 	close_btn.pressed.connect(close)
 	footer.add_child(close_btn)
+	_close_btn = close_btn
 	vb.add_child(footer)
 
 
@@ -273,6 +304,7 @@ func _rebuild_grid(recipes: Array, locked: bool) -> void:
 	for child in _grid.get_children():
 		child.queue_free()
 	_tile_buttons = {}
+	_tile_status = {}
 	for recipe: Dictionary in recipes:
 		var tile := _recipe_tile(recipe, locked)
 		_grid.add_child(tile)
@@ -287,6 +319,9 @@ func _recipe_tile(recipe: Dictionary, locked: bool) -> Button:
 	btn.focus_mode = Control.FOCUS_NONE
 	btn.disabled = locked           # locked recipes are shown but not selectable
 	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	# Hard guarantee: a tile clips its own children, so no icon/name/status glyph
+	# can ever bleed into a neighbouring card, whatever the recipe name length.
+	btn.clip_contents = true
 	_style_tile(btn, rid == _selected_recipe_id)
 	if not locked:
 		btn.pressed.connect(_select_recipe.bind(rid))
@@ -299,7 +334,7 @@ func _recipe_tile(recipe: Dictionary, locked: bool) -> Button:
 	btn.add_child(vb)
 
 	var icon := TextureRect.new()
-	icon.custom_minimum_size = Vector2(0, 40)
+	icon.custom_minimum_size = Vector2(0, 38)
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -310,28 +345,40 @@ func _recipe_tile(recipe: Dictionary, locked: bool) -> Button:
 	vb.add_child(icon)
 
 	var qty := _output_qty(recipe)
+	# Names may wrap within their own card but are capped to two lines (the rest is
+	# elided) so a long name can never grow the tile or shove the status off it.
 	var name_lbl := Label.new()
 	name_lbl.text = str(recipe.get("display_name", rid)) + ("  x%d" % qty if qty > 1 else "")
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_lbl.max_lines_visible = 2
 	name_lbl.add_theme_font_size_override("font_size", 11)
 	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_child(name_lbl)
 
+	# Compact readiness policy (single-line, clipped): the CARD shows ONLY one of
+	# Ready / Missing / Locked. The exact missing materials live in the detail
+	# pane (the authority) and the card's tooltip — never on the card face, so it
+	# cannot overflow. See _missing_list() for the tooltip text.
 	var state := Label.new()
 	state.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	state.add_theme_font_size_override("font_size", 10)
 	state.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	state.clip_text = true
 	if locked:
 		state.text = "Locked"
 		state.add_theme_color_override("font_color", DIM_TEXT)
+		btn.tooltip_text = "%s — locked; build this station first" % str(recipe.get("display_name", rid))
 	elif ready:
 		state.text = "Ready"
 		state.add_theme_color_override("font_color", BRASS)
+		btn.tooltip_text = "%s — Ready" % str(recipe.get("display_name", rid))
 	else:
-		state.text = _readiness(_selected_station, costs)
+		state.text = "Missing"
 		state.add_theme_color_override("font_color", SHORT_COL)
+		btn.tooltip_text = _missing_list(_selected_station, costs)
 	vb.add_child(state)
+	_tile_status[rid] = state
 	return btn
 
 
@@ -348,14 +395,27 @@ func _style_tile(btn: Button, selected: bool) -> void:
 
 # --- selected-recipe detail pane ------------------------------------------
 
-func _build_recipe_detail(recipe: Dictionary) -> void:
-	for child in _detail_box.get_children():
+## Clear both detail regions before a rebuild. Children are unparented BEFORE
+## queue_free so a stale (still-queued) child can no longer contribute to the
+## regions' minimum-size math during rapid refreshes. The live action button is
+## dropped too, so a caller can never read a freed button off a stale handle.
+func _clear_detail() -> void:
+	for child in _detail_content.get_children():
+		_detail_content.remove_child(child)
 		child.queue_free()
+	for child in _detail_action.get_children():
+		_detail_action.remove_child(child)
+		child.queue_free()
+	_action_button = null
+
+
+func _build_recipe_detail(recipe: Dictionary) -> void:
+	_clear_detail()
 	if recipe.is_empty():
 		var empty := Label.new()
 		empty.text = "Select a recipe."
 		empty.add_theme_color_override("font_color", DIM_TEXT)
-		_detail_box.add_child(empty)
+		_detail_content.add_child(empty)
 		return
 	var rid := str(recipe.get("recipe_id", ""))
 	var costs: Dictionary = recipe.get("inputs", {})
@@ -382,18 +442,10 @@ func _build_recipe_detail(recipe: Dictionary) -> void:
 	st_lbl.add_theme_font_size_override("font_size", 11)
 	titles.add_child(st_lbl)
 	head.add_child(titles)
-	_detail_box.add_child(head)
+	_detail_content.add_child(head)
 
-	# Scrolling middle: description, requirements, output, destination.
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_detail_box.add_child(scroll)
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 5)
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(content)
-
+	# All recipe info lives in the (single, outer) scrolling content region:
+	# description, requirements, output, destination.
 	# Player-facing description ONLY (never the developer `note`).
 	var desc := str(BlockRegistry.item_description(result_id)) if result_id != "" else ""
 	if desc != "":
@@ -401,33 +453,33 @@ func _build_recipe_detail(recipe: Dictionary) -> void:
 		desc_lbl.text = desc
 		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc_lbl.add_theme_color_override("font_color", Color(0.80, 0.83, 0.88))
-		content.add_child(desc_lbl)
+		_detail_content.add_child(desc_lbl)
 
 	var req_hdr := Label.new()
 	req_hdr.text = "Requires"
 	req_hdr.add_theme_color_override("font_color", ACCENT)
-	content.add_child(req_hdr)
+	_detail_content.add_child(req_hdr)
 	for item_id in costs:
-		content.add_child(_requirement_tile(item_id, int(costs[item_id])))
+		_detail_content.add_child(_requirement_tile(item_id, int(costs[item_id])))
 
 	var makes := Label.new()
 	var qty := _output_qty(recipe)
 	makes.text = "Makes:  %s%s" % [BlockRegistry.display_name(result_id) if result_id != "" \
 		else str(recipe.get("display_name", rid)), ("  x%d" % qty) if qty > 1 else ""]
 	makes.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(makes)
+	_detail_content.add_child(makes)
 	var dest := Label.new()
 	dest.text = "To:  %s" % _output_destination(recipe)
 	dest.add_theme_color_override("font_color", DIM_TEXT)
-	content.add_child(dest)
+	_detail_content.add_child(dest)
 
-	# Pinned readiness + Craft action.
+	# Pinned readiness + Craft action (outside the scroll, always on-screen).
 	if reason != "":
 		var short_lbl := Label.new()
 		short_lbl.text = reason
 		short_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		short_lbl.add_theme_color_override("font_color", SHORT_COL)
-		_detail_box.add_child(short_lbl)
+		_detail_action.add_child(short_lbl)
 	var craft_btn := Button.new()
 	craft_btn.text = "Craft one"
 	craft_btn.custom_minimum_size = Vector2(0, 34)
@@ -436,54 +488,48 @@ func _build_recipe_detail(recipe: Dictionary) -> void:
 	else:
 		craft_btn.disabled = true
 		craft_btn.tooltip_text = reason
-	_detail_box.add_child(craft_btn)
+	_detail_action.add_child(craft_btn)
+	_action_button = craft_btn
 
 
 ## The build card shown when a locked (unbuilt) station is selected: prereq,
 ## construction materials as owned/required tiles, how many recipes it unlocks,
 ## and a Build action (disabled with a reason when short or the prereq is unmet).
 func _build_locked_detail() -> void:
-	for child in _detail_box.get_children():
-		child.queue_free()
+	_clear_detail()
 	var sdef: Dictionary = BlockRegistry.station_def(_selected_station)
 	var cost: Dictionary = sdef.get("build_cost", {})
 	var prereq := str(sdef.get("prereq", ""))
 	var prereq_met: bool = prereq == "" or _town_hall.station_built(prereq)
 
+	# All build info lives in the (single, outer) scrolling content region.
 	var name_lbl := Label.new()
 	name_lbl.text = "%s  (locked)" % str(sdef.get("display_name", _selected_station))
 	name_lbl.add_theme_font_size_override("font_size", 17)
 	name_lbl.add_theme_color_override("font_color", BRASS_DIM)
-	_detail_box.add_child(name_lbl)
+	_detail_content.add_child(name_lbl)
 
 	if prereq != "":
 		var pr := Label.new()
 		pr.text = "Requires the %s first" % str(BlockRegistry.station_def(prereq).get("display_name", prereq))
 		pr.add_theme_color_override("font_color", DIM_TEXT if prereq_met else SHORT_COL)
 		pr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_detail_box.add_child(pr)
+		_detail_content.add_child(pr)
 
 	var unlocks := BlockRegistry.recipes_for_station(_selected_station).size()
 	var unlocks_lbl := Label.new()
 	unlocks_lbl.text = "Unlocks %d recipe%s" % [unlocks, "" if unlocks == 1 else "s"]
 	unlocks_lbl.add_theme_color_override("font_color", ACCENT)
-	_detail_box.add_child(unlocks_lbl)
+	_detail_content.add_child(unlocks_lbl)
 
 	var build_hdr := Label.new()
 	build_hdr.text = "Build cost"
 	build_hdr.add_theme_color_override("font_color", ACCENT)
-	_detail_box.add_child(build_hdr)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_detail_box.add_child(scroll)
-	var content := VBoxContainer.new()
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation", 5)
-	scroll.add_child(content)
+	_detail_content.add_child(build_hdr)
 	for item_id in cost:
-		content.add_child(_requirement_tile(item_id, int(cost[item_id]), _selected_station))
+		_detail_content.add_child(_requirement_tile(item_id, int(cost[item_id]), _selected_station))
 
+	# Pinned blocking reason + Build action (outside the scroll, always on-screen).
 	var reason := ""
 	if not prereq_met:
 		reason = "Build the %s first" % str(BlockRegistry.station_def(prereq).get("display_name", prereq))
@@ -494,7 +540,7 @@ func _build_locked_detail() -> void:
 		short_lbl.text = reason
 		short_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		short_lbl.add_theme_color_override("font_color", SHORT_COL)
-		_detail_box.add_child(short_lbl)
+		_detail_action.add_child(short_lbl)
 	var build_btn := Button.new()
 	build_btn.text = "Build %s" % str(sdef.get("display_name", _selected_station))
 	build_btn.custom_minimum_size = Vector2(0, 34)
@@ -503,7 +549,8 @@ func _build_locked_detail() -> void:
 	else:
 		build_btn.disabled = true
 		build_btn.tooltip_text = reason
-	_detail_box.add_child(build_btn)
+	_detail_action.add_child(build_btn)
+	_action_button = build_btn
 
 
 ## One material requirement tile: icon, name, "N owned", "xM required", and a
@@ -562,18 +609,101 @@ func _short_reason(station: String, costs: Dictionary) -> String:
 	return ""
 
 
-## Compact readiness for a grid tile: "Ready", "Missing <Name>", or
-## "Missing N materials".
-func _readiness(station: String, costs: Dictionary) -> String:
+## The full list of short materials, for a grid tile's TOOLTIP only (the card face
+## stays the compact "Missing"; the detail pane is the on-screen authority).
+func _missing_list(station: String, costs: Dictionary) -> String:
 	var missing: Array[String] = []
 	for item_id in costs:
 		if _stock_of(station, item_id) < int(costs[item_id]):
 			missing.append(BlockRegistry.display_name(item_id))
-	if missing.is_empty():
-		return "Ready"
-	if missing.size() == 1:
-		return "Missing " + missing[0]
-	return "Missing %d materials" % missing.size()
+	return "Need: " + ", ".join(missing) if not missing.is_empty() else "Ready"
+
+
+# --- test hooks (layout-contract smoke assertions) -------------------------
+
+func selected_station() -> String:
+	return _selected_station
+
+
+func selected_recipe_id() -> String:
+	return _selected_recipe_id
+
+
+func action_button() -> Button:
+	return _action_button
+
+
+func panel_rect() -> Rect2:
+	return _panel.get_global_rect()
+
+
+func detail_panel_rect() -> Rect2:
+	return _detail_panel.get_global_rect()
+
+
+func grid_viewport_rect() -> Rect2:
+	return _grid_scroll.get_global_rect()
+
+
+func grid_clips() -> bool:
+	return _grid_scroll.clip_contents
+
+
+func station_bar_rect() -> Rect2:
+	return _station_bar.get_global_rect()
+
+
+## The live recipe tiles (Buttons) currently in the grid.
+func recipe_tiles() -> Array:
+	return _tile_buttons.values()
+
+
+## The compact status text shown on each tile face (must be Ready/Missing/Locked).
+func tile_status_texts() -> Array:
+	var out: Array[String] = []
+	for rid in _tile_status:
+		out.append((_tile_status[rid] as Label).text)
+	return out
+
+
+func close_button_rect() -> Rect2:
+	return _close_btn.get_global_rect()
+
+
+## The single scrolling content region of the detail pane.
+func detail_scroll_rect() -> Rect2:
+	return _detail_scroll.get_global_rect()
+
+
+## The scrollable info region (header/requirements/output) inside the scroll.
+func detail_content_rect() -> Rect2:
+	return _detail_content.get_global_rect()
+
+
+## The pinned action region (reason + Craft/Build); a sibling BELOW the scroll,
+## so it must never be enclosed by the scroll's rect.
+func detail_action_rect() -> Rect2:
+	return _detail_action.get_global_rect()
+
+
+## Count of ScrollContainers anywhere under the detail pane — the contract wants
+## EXACTLY one (the outer _detail_scroll), never a second nested scroll.
+func detail_scroll_count() -> int:
+	return _count_scrolls(_detail_panel)
+
+
+func _count_scrolls(node: Node) -> int:
+	var n := 1 if node is ScrollContainer else 0
+	for child in node.get_children():
+		n += _count_scrolls(child)
+	return n
+
+
+## True when the detail content is taller than its scroll viewport, i.e. the
+## outer scroll actually has range to reach content that overflows.
+func detail_scroll_has_range() -> bool:
+	var bar := _detail_scroll.get_v_scroll_bar()
+	return bar != null and bar.max_value > bar.page + 0.5
 
 
 func _is_locked_station(station: String) -> bool:

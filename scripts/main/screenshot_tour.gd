@@ -448,35 +448,68 @@ func _shoot_craft(root: Node2D, world: Node2D, player: CharacterBody2D, hall: No
 	player.inventory.from_dict({
 		"wood": 40, "stone": 40, "ore": 8, "coal": 8, "food": 6, "wood_platform": 3})
 	player.inventory_changed.emit()
+	# Stock a mix: enough for the ember amulet + silver/attuned rings + torch
+	# bundle to read Ready, but no copper/tin ingots so a few workbench rows read
+	# Missing (so the 1280 Workbench grid shows the longest readiness variety).
 	hall.stockpile = {
-		"wood": 40, "stone": 40, "coal": 12, "iron_ingot": 8,
-		"copper_ore": 6, "tin_ore": 6, "ore": 8}
+		"wood": 40, "stone": 40, "coal": 12, "iron_ingot": 8, "ore": 8,
+		"hellstone": 6, "obsidian": 6, "crystal": 6, "silver_ingot": 6}
 	hall.stockpile_changed.emit()
 	hall.stations_built = {"workbench": true, "furnace": false, "anvil": false}
-	var win := get_window()
+	var cp = root._craft_panel
+	# canvas_items/expand stretch means the LOGICAL viewport (what the panel lays
+	# out in) is the design canvas, not the OS window pixels. To capture the panel
+	# AS IT APPEARS at each target resolution — reflowed AND at native pixels — set
+	# BOTH the window size and content_scale_size to the target: the framebuffer
+	# _shot saves is then exactly the target size. Captured/restored so the rest of
+	# the tour is unaffected.
+	var _cr_win0: Vector2i = DisplayServer.window_get_size()
+	var _cr_css0: Vector2i = get_window().content_scale_size
 
-	win.size = Vector2i(1280, 720)
+	# 1280x720 — Wooden Platform selected (Hand grid).
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	get_window().content_scale_size = Vector2i(1280, 720)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	root._craft_panel.open()
-	root._craft_panel._selected_station = "hand"
-	root._craft_panel._selected_recipe_id = "craft_wood_platform"
-	root._craft_panel.refresh()
-	await _shot("15_crafting")
+	cp.open()
+	cp._selected_station = "hand"
+	cp._selected_recipe_id = "craft_wood_platform"
+	cp._refit()
+	cp.refresh()
+	await _shot("craft_1280_platform")
+	await _shot("15_crafting")                       # keep the tour's canonical name too
 
-	root._craft_panel._selected_station = "furnace"   # locked -> build card
-	root._craft_panel.refresh()
-	await _shot("15b_crafting_locked_station")
+	# 1280x720 — Workbench grid (mixed Ready/Missing readiness across many rows).
+	cp._selected_station = "workbench"
+	cp._selected_recipe_id = "craft_ember_amulet"
+	cp.refresh()
+	await _shot("craft_1280_workbench")
 
-	win.size = Vector2i(640, 360)
+	# 640x360 — normal recipe (short, affordable).
+	DisplayServer.window_set_size(Vector2i(640, 360))
+	get_window().content_scale_size = Vector2i(640, 360)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	root._craft_panel._refit()
-	root._craft_panel._selected_station = "hand"
-	root._craft_panel._selected_recipe_id = "craft_torch"
-	root._craft_panel.refresh()
-	await _shot("15c_crafting_640")
-	root._craft_panel.close()
+	cp._refit()
+	cp._selected_station = "hand"
+	cp._selected_recipe_id = "craft_torch"
+	cp.refresh()
+	await _shot("craft_640_normal")
+
+	# 640x360 — worst-case multi-material recipe (ember amulet: 3 deep materials +
+	# a full gear description) — proves the Craft action stays on-screen.
+	cp._selected_station = "workbench"
+	cp._selected_recipe_id = "craft_ember_amulet"
+	cp.refresh()
+	await _shot("craft_640_multimaterial")
+
+	# 640x360 — locked-station build card (Furnace).
+	cp._selected_station = "furnace"
+	cp.refresh()
+	await _shot("craft_640_locked")
+	cp.close()
+	get_window().content_scale_size = _cr_css0
+	DisplayServer.window_set_size(_cr_win0)
 
 
 ## Item-wiring shots (renewable tree loop + placeable deep blocks). Split out so a

@@ -382,6 +382,161 @@ func run(ctx) -> void:
 		"ok=%s bad=[%s] axe=%s sword=%s armor=%s" % [str(_ci_ok), _ci_bad,
 			str(_ci_axe), str(_ci_sword), str(_ci_armor)])
 
+	# --- Slice 4.1: crafting panel LAYOUT CONTRACT at both target sizes ---
+	# The redesigned panel must stay fully contained + usable at a full 1280x720
+	# AND a minimum 640x360. This project stretches canvas_items/expand, so the
+	# LOGICAL viewport (the space the UI lays out in, and what _refit + every
+	# get_global_rect() read) is the design canvas, NOT the OS window pixels:
+	# resizing the window merely rescales a fixed 1280x720 canvas, so a 640x360
+	# window would test nothing new. The faithful lever for the min-resolution
+	# case is content_scale_size, which genuinely shrinks the logical viewport to
+	# 640x360 and reflows the panel into it. The detail pane is a single scroll
+	# region above a PINNED action row, so the Craft/Build button (and the panel
+	# footer) can never be pushed off-screen no matter how tall the content. Fully
+	# self-contained: content_scale_size, inventory, built stations, panel open
+	# state, and the live station/recipe selection are all captured and restored.
+	var _cl_prev: Vector2i = get_window().content_scale_size
+	var _cl_inv0: Dictionary = player.inventory.to_dict()
+	var _cp3 = root._craft_panel
+	var _cl_open0: bool = _cp3.is_open()
+	var _cl_built0: Dictionary = hall.stations_built.duplicate(true)
+	var _cl_stn0: String = _cp3.selected_station()
+	var _cl_rid0: String = _cp3.selected_recipe_id()
+	hall.stations_built["workbench"] = true    # so furnace/anvil prereqs read met
+	hall.stations_built["furnace"] = false     # keep furnace locked for the build card
+	player.inventory.from_dict({"wood": 6, "stone": 6})   # torch/platform/door OK; seeds short
+	player.inventory_changed.emit()
+	_cp3._selected_station = "hand"
+	_cp3._selected_recipe_id = "craft_torch"
+	_cp3.open()
+	var _cl_fail := ""
+	for _cl_sz: Vector2i in [Vector2i(1280, 720), Vector2i(640, 360)]:
+		get_window().content_scale_size = _cl_sz
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_cp3._refit()
+		_cp3.refresh()
+		await get_tree().process_frame
+		var _vp := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+		# (0) the LOGICAL viewport actually REACHED the intended size (narrow
+		# tolerance); otherwise "contained" is trivially true on a canvas that
+		# never shrank, and the 640x360 case would prove nothing.
+		if absf(_vp.size.x - float(_cl_sz.x)) > 2.0 or absf(_vp.size.y - float(_cl_sz.y)) > 2.0:
+			_cl_fail += "vp_unreached@%s(got %dx%d) " % [_cl_sz, int(_vp.size.x), int(_vp.size.y)]
+		# (1) entire outer panel (incl. its bottom border) within the viewport;
+		# detail pane + station selector within the panel.
+		if not _vp.grow(1.0).encloses(_cp3.panel_rect()):
+			_cl_fail += "panel_oob@%s " % _cl_sz
+		if not _cp3.panel_rect().grow(1.0).encloses(_cp3.detail_panel_rect()):
+			_cl_fail += "detail_oob@%s " % _cl_sz
+		if not _cp3.panel_rect().grow(1.0).encloses(_cp3.station_bar_rect()):
+			_cl_fail += "stations_oob@%s " % _cl_sz
+		# (2) the footer Close button is visible (non-degenerate) and within view.
+		var _cbr: Rect2 = _cp3.close_button_rect()
+		if _cbr.size.x < 1.0 or _cbr.size.y < 1.0 or not _vp.grow(1.0).encloses(_cbr):
+			_cl_fail += "close_oob@%s " % _cl_sz
+		# (3) Craft action VISIBLE within the viewport (a real on-screen rect, not
+		# a clipped ghost) and correctly ENABLED (torch is affordable here).
+		var _ab: Button = _cp3.action_button()
+		if _ab == null or not _ab.is_visible_in_tree() \
+				or not _vp.grow(1.0).encloses(_ab.get_global_rect()):
+			_cl_fail += "action_oob@%s " % _cl_sz
+		elif _ab.disabled:
+			_cl_fail += "action_wrongdisabled@%s " % _cl_sz
+		# (4) the pinned action row is a SIBLING BELOW the scroll, never inside it:
+		# it starts at/after the scroll's bottom and the scroll never encloses it.
+		var _dsr: Rect2 = _cp3.detail_scroll_rect()
+		var _dar: Rect2 = _cp3.detail_action_rect()
+		if _dsr.grow(1.0).encloses(_dar) or _dar.position.y < _dsr.end.y - 2.0:
+			_cl_fail += "action_in_scroll@%s " % _cl_sz
+		# (5) the detail pane has EXACTLY ONE scroll region (the outer authority);
+		# a second nested scroll would fight it and could hide the action.
+		if _cp3.detail_scroll_count() != 1:
+			_cl_fail += "detail_scrolls=%d@%s " % [_cp3.detail_scroll_count(), _cl_sz]
+		# (6) when the detail content is taller than its scroll viewport, the outer
+		# scroll actually has range to reach the overflow (never a dead clip).
+		if _cp3.detail_content_rect().size.y > _dsr.size.y + 2.0 and not _cp3.detail_scroll_has_range():
+			_cl_fail += "overflow_no_range@%s " % _cl_sz
+		# (7) compact status policy: every tile face is exactly Ready/Missing/Locked.
+		for _st: String in _cp3.tile_status_texts():
+			if _st not in ["Ready", "Missing", "Locked"]:
+				_cl_fail += "status[%s]@%s " % [_st, _cl_sz]
+		# (8) tiles clip their own children, never bleed horizontally out of the
+		# grid viewport (vertical overflow is clipped by the scroll), never overlap.
+		if not _cp3.grid_clips():
+			_cl_fail += "grid_noclip@%s " % _cl_sz
+		var _tiles: Array = _cp3.recipe_tiles()
+		var _gv: Rect2 = _cp3.grid_viewport_rect()
+		for _t in _tiles:
+			var _tb := _t as Button
+			if not _tb.clip_contents:
+				_cl_fail += "tile_noclip@%s " % _cl_sz
+			var _tr: Rect2 = _tb.get_global_rect()
+			if _tr.position.x < _gv.position.x - 2.0 or _tr.end.x > _gv.end.x + 2.0:
+				_cl_fail += "tile_hoob@%s " % _cl_sz
+		for _i in range(_tiles.size()):
+			for _j in range(_i + 1, _tiles.size()):
+				if (_tiles[_i] as Button).get_global_rect().grow(-1.0).intersects(
+						(_tiles[_j] as Button).get_global_rect().grow(-1.0)):
+					_cl_fail += "overlap@%s " % _cl_sz
+	# a short recipe correctly DISABLES the action (crop_seeds needs food we lack).
+	_cp3._selected_recipe_id = "craft_seeds"
+	_cp3.refresh()
+	await get_tree().process_frame
+	var _ab2: Button = _cp3.action_button()
+	if _ab2 == null or not _ab2.disabled:
+		_cl_fail += "short_action_not_disabled "
+	# worst case at 640x360: a LOCKED station's Build card is the tallest content;
+	# its Build action must stay reachable (on-screen + pinned outside the scroll),
+	# and if the card overflows, the single scroll must have range to reach it.
+	get_window().content_scale_size = Vector2i(640, 360)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_cp3._refit()
+	_cp3._selected_station = "furnace"
+	_cp3.refresh()
+	await get_tree().process_frame
+	var _vp2 := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+	var _bb: Button = _cp3.action_button()
+	if _bb == null or not _bb.is_visible_in_tree() or not _vp2.grow(1.0).encloses(_bb.get_global_rect()):
+		_cl_fail += "build_action_oob "
+	if _cp3.detail_scroll_rect().grow(1.0).encloses(_cp3.detail_action_rect()) \
+			or _cp3.detail_action_rect().position.y < _cp3.detail_scroll_rect().end.y - 2.0:
+		_cl_fail += "build_action_in_scroll "
+	if _cp3.detail_content_rect().size.y > _cp3.detail_scroll_rect().size.y + 2.0 \
+			and not _cp3.detail_scroll_has_range():
+		_cl_fail += "build_overflow_no_range "
+	# live resize + restore preserves the selected station/recipe.
+	_cp3._selected_station = "hand"
+	_cp3._selected_recipe_id = "craft_wood_platform"
+	_cp3.refresh()
+	get_window().content_scale_size = Vector2i(1280, 720)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_cp3._refit()
+	_cp3.refresh()
+	await get_tree().process_frame
+	if _cp3.selected_station() != "hand" or _cp3.selected_recipe_id() != "craft_wood_platform":
+		_cl_fail += "selection_lost "
+	harness._check("r07_craft_panel_layout_contract", _cl_fail == "",
+		("issues: " + _cl_fail.strip_edges()) if _cl_fail != "" else "contained + usable at 1280x720 and 640x360")
+	# restore ALL captured harness state: built stations, inventory, logical
+	# viewport (content_scale_size), selection, and panel open state; then settle.
+	_cp3.close()
+	hall.stations_built = _cl_built0
+	player.inventory.from_dict(_cl_inv0)
+	player.inventory_changed.emit()
+	get_window().content_scale_size = _cl_prev
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_cp3._selected_station = _cl_stn0
+	_cp3._selected_recipe_id = _cl_rid0
+	if _cl_open0:
+		_cp3.open()
+		_cp3._refit()
+		_cp3.refresh()
+	await get_tree().process_frame
+
 	# --- 2026-08-18: the mouse wheel must not re-zoom the world while a scrolling
 	# menu is open (HUD editor / crafting / any inventory-class modal); it zooms only
 	# in free play. Drive game_root._handle_view_input with a synthetic wheel event
