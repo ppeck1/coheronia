@@ -1187,7 +1187,7 @@ func _rebuild_perception_texture() -> void:
 
 
 ## Save form of the persistent seen set (empty when perception is off — nothing to
-## persist). Additive world-save field; missing on load = all-unseen.
+## persist). Optional world-save field; missing on load = all-unseen.
 func perception_serialized() -> Dictionary:
 	if _perception == null:
 		return {}
@@ -1198,7 +1198,10 @@ func perception_serialized() -> Dictionary:
 ## before enable_perception during game_root setup).
 func set_perception_seen_pending(data) -> void:
 	_perception_seen_pending = data if data is Dictionary else {}
-	if _perception_enabled and _perception != null and not _perception_seen_pending.is_empty():
+	# A live F9/Restore applies into the existing perception model. Apply even an
+	# empty/missing legacy payload so restore has replacement semantics (all-unseen),
+	# rather than accidentally retaining exploration accumulated after the save.
+	if _perception_enabled and _perception != null:
 		_perception.call("load_from", _perception_seen_pending)
 		_perception_seen_pending = {}
 		_perception_mask_dirty = true
@@ -1863,5 +1866,3 @@ func liquid_mass() -> float:
 		if BlockRegistry.is_liquid(cells[cell]):
 			total += float(liquid_level.get(cell, 1.0))
 	return total
-
-

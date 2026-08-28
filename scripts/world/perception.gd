@@ -234,7 +234,13 @@ func load_from(data) -> void:
 		return
 	var packed := Marshalls.base64_to_raw(str(data.get("seen", "")))
 	var n := width * height
+	var restored_seen := PackedByteArray()
+	restored_seen.resize(n)
 	for i in n:
 		var byte_i := i >> 3
 		if byte_i < packed.size() and (packed[byte_i] & (1 << (i & 7))) != 0:
-			_seen[i] = 1
+			restored_seen[i] = 1
+	_seen = restored_seen
+	_visible = PackedByteArray()
+	_visible.resize(n)
+	_visible_cells.clear()

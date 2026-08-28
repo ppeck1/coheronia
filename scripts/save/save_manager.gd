@@ -37,9 +37,9 @@ func collect_state() -> Dictionary:
 
 		"liquid_level": world.serialize_liquid_level(),   # LQ-1: disturbed liquid fills
 		"map_revealed": game_root.map_revealed_serialized(),
-		# Perception + Resonance: persistent remembered-terrain "seen" set. Additive and
-		# optional — empty/absent when perception is off, so older saves and the default
-		# build are unaffected (no SAVE_VERSION bump). Reloaded via set_perception_seen_pending.
+		# Perception + Resonance: persistent remembered-terrain "seen" set. Optional and
+		# replacement-on-restore — empty/absent when perception is off, so older saves and
+		# the default build are unaffected (no SAVE_VERSION bump).
 		"perception_seen": world.perception_serialized(),
 		# World-owned settlement progression only (base XP + level). The character's
 		# personal XP/level/skills live in shell.json, not here.
@@ -130,7 +130,7 @@ func apply_state(state: Dictionary) -> bool:
 	# Perception + Resonance: stash the restored seen set; world.enable_perception
 	# (called by game_root per the `fog_of_war` world rule — ON by default, suppressed
 	# under the dev harnesses) adopts it. Missing key (legacy save / fog off) leaves the
-	# character to re-reveal as they move.
+	# character to re-reveal from an all-unseen model at the restored position.
 	world.set_perception_seen_pending(state.get("perception_seen", {}))
 
 	var p: Dictionary = state.get("player", {})

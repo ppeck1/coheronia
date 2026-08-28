@@ -100,6 +100,23 @@ func run(ctx) -> void:
 		"seen=%s unseen=%s no_vis=%s dims=%s" % [str(_rt_seen), str(_rt_unseen),
 			str(_rt_no_visible), str(_rt_dims)])
 
+	# --- Restoring is replacement, not union: cells explored after the snapshot must
+	# return to UNSEEN, while snapshot cells remain seen but lose transient visibility.
+	var restore = PerceptionScript.new(W, W)
+	var _saved_cell := Vector2i(3, 3)
+	var _post_save_cell := Vector2i(17, 17)
+	restore.recompute(_saved_cell, 0, nowall)
+	var _earlier_ser: Dictionary = restore.serialize()
+	restore.recompute(_post_save_cell, 0, nowall)
+	restore.load_from(_earlier_ser)
+	var _restore_saved: bool = restore.state_at(_saved_cell) == PerceptionScript.REMEMBERED \
+		and restore.is_seen(_saved_cell) and not restore.is_visible(_saved_cell)
+	var _restore_removed: bool = restore.state_at(_post_save_cell) == PerceptionScript.UNSEEN \
+		and not restore.is_seen(_post_save_cell) and not restore.is_visible(_post_save_cell)
+	harness._check("perception_seen_restore_replaces",
+		_restore_saved and _restore_removed,
+		"saved=%s removed=%s" % [str(_restore_saved), str(_restore_removed)])
+
 	# --- Live-world wiring: the world-level veil API is inert until enable_perception()
 	# is called. In NORMAL gameplay game_root enables it per the `fog_of_war` world rule
 	# (default ON — see perception_fog_rule_default_contract); the deterministic
@@ -126,6 +143,36 @@ func run(ctx) -> void:
 	# set_perception_seen_pending adopts a restored blob while enabled.
 	world.set_perception_seen_pending(_on_ser)
 	var _reload_ok: bool = world.perception_is_visible(pcell) or world.perception_state_at(pcell) >= PerceptionScript.REMEMBERED
+	# Real live restore: save the current explored set, reveal a distant origin only
+	# AFTER the save, then drive the same game_root.load_game() path used by F9. The
+	# post-save cell must become unseen again, and the restored player cell must be
+	# reconciled immediately without requiring movement.
+	world.update_perception(pcell, 10)
+	var _live_saved: bool = root.save_manager.save_game()
+	var _live_state: Dictionary = GameState.get_current_state()
+	var _live_offset := 40 if pcell.x + 40 < world.width else -40
+	var _live_post_cell := pcell + Vector2i(_live_offset, 0)
+	var _saved_model = PerceptionScript.new(world.width, world.height)
+	_saved_model.load_from(_live_state.get("perception_seen", {}))
+	var _live_absent_from_save: bool = not _saved_model.is_seen(_live_post_cell)
+	world.update_perception(_live_post_cell, 0)
+	var _live_explored_after_save: bool = world.perception_state_at(_live_post_cell) == PerceptionScript.VISIBLE
+	var _live_loaded: bool = root.load_game()
+	# load_game invalidates both LOS caches; the next ordinary update must reconcile
+	# terrain, entities, and lights even though the restored player has not moved.
+	root._advance_time(0.0)
+	var _live_restored_cell: Vector2i = world.cell_of(player.global_position)
+	var _live_post_removed: bool = world.perception_state_at(_live_post_cell) == PerceptionScript.UNSEEN
+	var _live_origin_visible: bool = world.perception_is_visible(_live_restored_cell)
+	var _live_cache_synced: bool = root._perception_last_cell == _live_restored_cell \
+		and root._perception_last_los_radius > 0
+	harness._check("perception_live_restore_replaces_seen",
+		_live_saved and _live_loaded and _live_absent_from_save and _live_explored_after_save \
+			and _live_post_removed and _live_origin_visible and _live_cache_synced,
+		"saved=%s loaded=%s absent=%s explored=%s removed=%s origin=%s cache=%s" % [
+			str(_live_saved), str(_live_loaded), str(_live_absent_from_save),
+			str(_live_explored_after_save), str(_live_post_removed),
+			str(_live_origin_visible), str(_live_cache_synced)])
 	# Spawn-under-fog: an entity spawned OUT of sight is hidden the moment it joins its
 	# group (spawn gating), not left visible until the next recompute. A cell far from
 	# the player (well beyond the radius-10 sight) is unseen.
@@ -164,6 +211,91 @@ func run(ctx) -> void:
 		_ds_set and _r_with > _r_without and _ds_reset,
 		"set=%s with=%d without=%d reset=%s" % [str(_ds_set), _r_with, _r_without,
 			str(_ds_reset)])
+
+	# --- Stationary radius invalidation: the player remains in one cell while the
+	# smoothed darkness changes the effective integer sight radius. Terrain LOS,
+	# grouped-entity gating, and source-light gating must all update on that radius
+	# transition, and an unchanged second sample must not recompute again.
+	var _rad_player_pos: Vector2 = player.global_position
+	var _rad_prev_vd: float = root._viewer_darkness_smooth
+	var _rad_prev_cell: Vector2i = root._perception_last_cell
+	var _rad_prev_los: int = root._perception_last_los_radius
+	var _rad_x: int = clampi(int(world.hall_info.get("center_cell", Vector2i(world.width / 2, 0)).x) - 40,
+		2, world.width - 34)
+	var _rad_origin := Vector2i(_rad_x, 2)
+	var _rad_touched: Dictionary = {}
+	for _rad_dx in range(31):
+		var _rad_cell := _rad_origin + Vector2i(_rad_dx, 0)
+		_rad_touched[_rad_cell] = str(world.cells.get(_rad_cell, ""))
+		world.cells.erase(_rad_cell)
+		world._set_tile(_rad_cell, "air")
+	player.apply_ancestry_effects({})
+	player.teleport(world.cell_center(_rad_origin))
+	world.enable_perception()
+	root._perception_last_cell = Vector2i(2147483647, 2147483647)
+	root._perception_last_los_radius = -1
+	root._viewer_darkness_smooth = 1.0
+	var _rad_small_visual: int = root._perception_radius()
+	var _rad_small_los: int = _rad_small_visual + int(root.PERCEPTION_EDGE_TILES) + 1
+	root._viewer_darkness_smooth = 0.0
+	var _rad_large_visual: int = root._perception_radius()
+	var _rad_large_los: int = _rad_large_visual + int(root.PERCEPTION_EDGE_TILES) + 1
+	var _rad_distance: int = clampi((_rad_small_los + _rad_large_los) / 2,
+		_rad_small_los + 1, _rad_large_los)
+	var _rad_probe := _rad_origin + Vector2i(_rad_distance, 0)
+	var _rad_entity := Node2D.new()
+	_rad_entity.name = "PerceptionRadiusEntityProbe"
+	world.add_child(_rad_entity)
+	_rad_entity.add_to_group("item_drops")
+	_rad_entity.global_position = world.cell_center(_rad_probe)
+	var _rad_light := PointLight2D.new()
+	_rad_light.name = "PerceptionRadiusLightProbe"
+	world.add_child(_rad_light)
+	world._lights[_rad_probe] = _rad_light
+	root._viewer_darkness_smooth = 1.0
+	root._advance_time(0.0)
+	var _rad_same_cell_dark: bool = world.cell_of(player.global_position) == _rad_origin
+	var _rad_hidden: bool = not world.perception_is_visible(_rad_probe) \
+		and not _rad_entity.visible and not _rad_light.enabled
+	root._viewer_darkness_smooth = 0.0
+	root._advance_time(0.0)
+	var _rad_same_cell_light: bool = world.cell_of(player.global_position) == _rad_origin
+	var _rad_revealed: bool = world.perception_is_visible(_rad_probe) \
+		and _rad_entity.visible and _rad_light.enabled
+	world._perception_mask_dirty = false
+	root._advance_time(0.0)
+	var _rad_no_redundant: bool = not world._perception_mask_dirty
+	var _rad_transition_ok: bool = _rad_large_los > _rad_small_los \
+		and _rad_distance > _rad_small_los and _rad_distance <= _rad_large_los
+	harness._check("perception_stationary_radius_refresh",
+		_rad_transition_ok and _rad_same_cell_dark and _rad_same_cell_light \
+			and _rad_hidden and _rad_revealed and _rad_no_redundant,
+		"small=%d large=%d dist=%d same=%s/%s hidden=%s revealed=%s no_repeat=%s" % [
+			_rad_small_los, _rad_large_los, _rad_distance, str(_rad_same_cell_dark),
+			str(_rad_same_cell_light), str(_rad_hidden), str(_rad_revealed),
+			str(_rad_no_redundant)])
+	world.disable_perception()
+	world._lights.erase(_rad_probe)
+	_rad_entity.remove_from_group("item_drops")
+	_rad_entity.queue_free()
+	_rad_light.queue_free()
+	for _rad_cell in _rad_touched:
+		var _rad_old: String = str(_rad_touched[_rad_cell])
+		if _rad_old == "":
+			world.cells.erase(_rad_cell)
+			world._set_tile(_rad_cell, "air")
+		else:
+			world.cells[_rad_cell] = _rad_old
+			world._set_tile(_rad_cell, _rad_old)
+	player.teleport(_rad_player_pos)
+	root._viewer_darkness_smooth = _rad_prev_vd
+	root._perception_last_cell = _rad_prev_cell
+	root._perception_last_los_radius = _rad_prev_los
+	root.apply_ancestry_for_species(player.species_id)
+	# Let the camera/canvas transform settle after restoring the player and flush the
+	# queued probe nodes before the viewport-based resonance contract below runs.
+	await get_tree().physics_frame
+	await get_tree().process_frame
 
 	# --- Resonance ping (Phase B): an Attunement pulse marks nearby objects of interest
 	# with temporary contours on the undimmed resonance layer (independent of fog). Drop

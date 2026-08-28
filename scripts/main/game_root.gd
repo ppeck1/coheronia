@@ -114,9 +114,10 @@ var time_of_day := 0.25
 # when the character moved. Ease it at the same rate as the global tint so the two
 # depth models stay in step and the background never snaps. -1.0 = not yet primed.
 var _viewer_darkness_smooth := -1.0
-# Perception + Resonance: last cell the perception LOS was recomputed at (recompute
-# only fires when the character crosses a tile boundary). Vector2i.MAX = not primed.
+# Perception + Resonance: last cell and effective integer LOS radius used to compute
+# the perception mask. Either changing invalidates LOS; sentinels mean not primed.
 var _perception_last_cell := Vector2i(2147483647, 2147483647)
+var _perception_last_los_radius := -1
 # Perception + Resonance (Phase B): world-canvas container the pulse contours draw in
 # (pixel-locked to terrain, kept bright through the CanvasModulate by _sync_resonance_ambient
 # — see _ready), and the set of terrain block ids the pulse treats as interactables (doors,
@@ -235,11 +236,14 @@ func _ready() -> void:
 	if _perception_should_enable():
 		world.enable_perception()
 		var _p0: Vector2i = world.cell_of(player.global_position)
-		world.update_perception(_p0, _perception_radius() + int(PERCEPTION_EDGE_TILES) + 1)
+		var _visual_radius := _perception_radius()
+		var _los_radius := _visual_radius + int(PERCEPTION_EDGE_TILES) + 1
+		world.update_perception(_p0, _los_radius)
 		world.set_perception_view(player.global_position,
-			float(_perception_radius()) * float(world.tile_size()),
+			float(_visual_radius) * float(world.tile_size()),
 			PERCEPTION_EDGE_TILES * float(world.tile_size()))
 		_perception_last_cell = _p0
+		_perception_last_los_radius = _los_radius
 	hud.update_inventory()
 	hud.update_health(player.health, player.max_health)
 	hud.update_attunement(player.attunement, player.max_attunement())
@@ -991,14 +995,18 @@ func _advance_time(delta: float) -> void:
 	if _celestial != null:
 		world.set_sky_admission(_celestial.sky_direction(), _celestial.sky_admit_strength())
 	# Perception + Resonance: recompute line of sight when the character crosses a
-	# tile boundary (uses the freshly-eased darkness above for the day/night radius).
+	# tile boundary OR the effective integer radius changes as darkness eases. Resolve
+	# the visual radius once so the mask and shader use the same value this frame.
 	# The mask is computed a few cells BEYOND the visual radius so the smooth radial
 	# rim (below) fades within marked terrain, never against a hard mask edge.
 	if world.perception_enabled():
 		var _pcell: Vector2i = world.cell_of(player.global_position)
-		if _pcell != _perception_last_cell:
+		var _visual_radius := _perception_radius()
+		var _los_radius := _visual_radius + int(PERCEPTION_EDGE_TILES) + 1
+		if _pcell != _perception_last_cell or _los_radius != _perception_last_los_radius:
 			_perception_last_cell = _pcell
-			world.update_perception(_pcell, _perception_radius() + int(PERCEPTION_EDGE_TILES) + 1)
+			_perception_last_los_radius = _los_radius
+			world.update_perception(_pcell, _los_radius)
 		# Smooth per-pixel FOV rim, updated every frame so it glides with the character.
 		# Use the INTERPOLATED render position, not the stepped logical global_position:
 		# the rim is a world-space circle, so a per-physics-tick origin shimmers against
@@ -1007,7 +1015,7 @@ func _advance_time(delta: float) -> void:
 		# engine actually draws the body at this frame.
 		var _ts := float(world.tile_size())
 		world.set_perception_view(player.render_global_position(),
-			float(_perception_radius()) * _ts, PERCEPTION_EDGE_TILES * _ts)
+			float(_visual_radius) * _ts, PERCEPTION_EDGE_TILES * _ts)
 
 
 ## Perception (the fog-of-war veil) is on when the map's `fog_of_war` world rule is set —
@@ -2063,6 +2071,10 @@ func log_event(message: String, compact_summary: String = "", icon_id: String = 
 func load_game() -> bool:
 	if not save_manager.load_game():
 		return false
+	# Loading can replace both explored state and the player's position without either
+	# differing from the cached LOS inputs. Force one reconciliation on the next frame.
+	_perception_last_cell = Vector2i(2147483647, 2147483647)
+	_perception_last_los_radius = -1
 	# Wave B: restore character-owned carried state after world state is applied.
 	_apply_character_carried_state()
 	hud.update_time(day_count, is_night, _live_threat_count(), time_of_day)
