@@ -393,9 +393,10 @@ func run(ctx) -> void:
 	# 640x360 and reflows the panel into it. The detail pane is a single scroll
 	# region above a PINNED action row, so the Craft/Build button (and the panel
 	# footer) can never be pushed off-screen no matter how tall the content. Fully
-	# self-contained: content_scale_size, inventory, built stations, panel open
-	# state, and the live station/recipe selection are all captured and restored.
+	# self-contained: content_scale_size/aspect, inventory, built stations, panel
+	# open state, and the live station/recipe selection are all captured/restored.
 	var _cl_prev: Vector2i = get_window().content_scale_size
+	var _cl_aspect_prev: int = get_window().content_scale_aspect
 	var _cl_inv0: Dictionary = player.inventory.to_dict()
 	var _cp3 = root._craft_panel
 	var _cl_open0: bool = _cp3.is_open()
@@ -409,6 +410,11 @@ func run(ctx) -> void:
 	_cp3._selected_station = "hand"
 	_cp3._selected_recipe_id = "craft_torch"
 	_cp3.open()
+	# `expand` deliberately changes the logical height to follow the host-window
+	# aspect ratio. CI runners do not all expose a 16:9 window, so use IGNORE while
+	# exercising these two exact logical design canvases, then restore the project
+	# setting below. This tests the panel contract, not runner window geometry.
+	get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_IGNORE
 	var _cl_fail := ""
 	for _cl_sz: Vector2i in [Vector2i(1280, 720), Vector2i(640, 360)]:
 		get_window().content_scale_size = _cl_sz
@@ -521,12 +527,13 @@ func run(ctx) -> void:
 	harness._check("r07_craft_panel_layout_contract", _cl_fail == "",
 		("issues: " + _cl_fail.strip_edges()) if _cl_fail != "" else "contained + usable at 1280x720 and 640x360")
 	# restore ALL captured harness state: built stations, inventory, logical
-	# viewport (content_scale_size), selection, and panel open state; then settle.
+	# viewport (content_scale_size/aspect), selection, and panel open state; settle.
 	_cp3.close()
 	hall.stations_built = _cl_built0
 	player.inventory.from_dict(_cl_inv0)
 	player.inventory_changed.emit()
 	get_window().content_scale_size = _cl_prev
+	get_window().content_scale_aspect = _cl_aspect_prev
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_cp3._selected_station = _cl_stn0

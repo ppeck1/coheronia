@@ -295,8 +295,11 @@ func run(ctx) -> void:
 	world.cells[_e2e_ore_cell] = _e2e_ore_id
 	world._set_tile(_e2e_ore_cell, _e2e_ore_id)
 	world.update_perception(_e2e_pcell, 16)
-	# stage the dynamic three behind the wall.
-	var _e2e_enemy: Node = root.spawn_enemy_for_test("surface_slime")
+	# Stage the dynamic three behind the wall. Use an underground-family enemy so
+	# the awaited pulse-expiry frames cannot cross dawn and legitimately delete
+	# the fixture via game_root._on_dawn(). The check remains strict: the enemy
+	# must survive and re-hide after resonance expires.
+	var _e2e_enemy: Node = root.spawn_enemy_for_test("cave_crawler")
 	var _e2e_subj = SubjectScript.new()
 	world.add_child(_e2e_subj)                       # _ready() joins the "subjects" group
 	_e2e_subj.set_physics_process(false); _e2e_subj.set_process(false)

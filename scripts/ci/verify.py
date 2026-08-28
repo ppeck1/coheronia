@@ -355,6 +355,18 @@ def prepare_results(results_path: Path) -> None:
 # Process launching (teed) + orchestration
 # ---------------------------------------------------------------------------
 
+# Smoke needs a real display for screenshots, but it does not need Vulkan or an
+# audio device. CI runners provide X11/Win32 surfaces inconsistently and no audio
+# hardware, so select Godot's portable compatibility renderer and dummy audio at
+# launch. This prevents engine initialization errors at their source; the verifier
+# remains fail-closed for every ERROR: line.
+SMOKE_RUNTIME_ARGS = [
+    "--rendering-method", "gl_compatibility",
+    "--rendering-driver", "opengl3",
+    "--audio-driver", "Dummy",
+]
+
+
 def _run(cmd: list[str], env: dict | None = None) -> int:
     print(f"\n$ {' '.join(cmd)}", flush=True)
     return subprocess.run(cmd, cwd=str(ROOT), env=env).returncode
@@ -421,7 +433,8 @@ def run_smoke(godot: str) -> bool:
                COHERONIA_SMOKE="1",
                COHERONIA_COMMIT=expected,
                COHERONIA_RESULTS_PATH=str(results))
-    rc, output = launch_teed([godot, "--path", str(ROOT)], env=env)
+    rc, output = launch_teed(
+        [godot, "--path", str(ROOT), *SMOKE_RUNTIME_ARGS], env=env)
     failures = evaluate_run(
         "SOURCE SMOKE", rc, output, results,
         expected_commit=expected, require_zero_skips=True)
@@ -449,7 +462,7 @@ def run_exported_smoke(artifact: Path) -> bool:
                COHERONIA_SMOKE="1",
                COHERONIA_COMMIT=expected,
                COHERONIA_RESULTS_PATH=str(results))
-    rc, output = launch_teed([str(artifact)], env=env)
+    rc, output = launch_teed([str(artifact), *SMOKE_RUNTIME_ARGS], env=env)
     failures = evaluate_run(
         "EXPORT SMOKE", rc, output, results,
         expected_commit=expected, exact_skip_allowlist=EXPORT_SKIP_ALLOWLIST)

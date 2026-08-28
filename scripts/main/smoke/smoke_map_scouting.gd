@@ -740,7 +740,9 @@ func run(ctx) -> void:
 	var _gi_detail := "not docked (fallback)"
 	if hud._left_wing != null:
 		hud.update_settlement(80.0, 13.0, 77.0, {}, [])
-		await get_tree().process_frame
+		# update_settlement is synchronous. Do not yield to the live gameplay HUD
+		# refresh between arranging the fixture and inspecting its exact labels;
+		# slow exported CI builds can otherwise overwrite only the text values.
 		var _gi_vals: bool = (hud._bar_values["coherence"] as Label).text == "80" \
 			and (hud._bar_values["load"] as Label).text == "13" \
 			and (hud._bar_values["resilience"] as Label).text == "77"

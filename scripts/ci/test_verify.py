@@ -121,6 +121,15 @@ class UnexpectedErrorTests(unittest.TestCase):
             len(verify.scan_unexpected_errors("ERROR: Some genuine engine failure\n")), 1)
 
 
+class SmokeRuntimeArgsTests(unittest.TestCase):
+    def test_ci_safe_renderer_and_audio_are_explicit(self):
+        self.assertEqual(verify.SMOKE_RUNTIME_ARGS, [
+            "--rendering-method", "gl_compatibility",
+            "--rendering-driver", "opengl3",
+            "--audio-driver", "Dummy",
+        ])
+
+
 class ValidateResultTests(unittest.TestCase):
     def test_clean_source_result_passes(self):
         data = make_result(["a", "b", "c"])
