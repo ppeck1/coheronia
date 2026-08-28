@@ -47,6 +47,8 @@ func _run() -> void:
 	world.setup(4242)
 	root._position_actors()
 	player.get_node("Camera2D").reset_smoothing()
+	# Park the cursor off the dock so no chip tooltip covers a canonical HUD shot.
+	get_viewport().warp_mouse(Vector2(8, 8))
 
 	# Stage a lived-in settlement: gear, supplies, stockpile, torch line.
 	player.tool_tier = 2
@@ -107,11 +109,51 @@ func _run() -> void:
 	await _shot("18_contracts_panel")
 	root._contracts_panel.close()
 
-	# R-07: the unified Crafting panel (C) -- every recipe grouped by source with
-	# have/need gating and Build rows for unbuilt stations.
+	# R-07 + slice 4/4.1: the redesigned responsive Crafting panel (C) -- every
+	# recipe grouped by station with have/need gating and Build rows for unbuilt
+	# stations; a single detail scroll above a pinned Craft/Build action.
 	root._craft_panel.open()
 	await _shot("15_crafting")
 	root._craft_panel.close()
+
+	# Slice 4.2: the SAME panel opened by the docked Craft chip (the chip reads
+	# pressed while the panel is up) — crafting is discoverable without knowing C.
+	var _tour_craft_chip: Button = hud._command_toggles["Craft"] as Button
+	_tour_craft_chip.button_pressed = true
+	await get_tree().process_frame
+	await _shot("15b_craft_from_button")
+	_tour_craft_chip.button_pressed = false
+	await get_tree().process_frame
+
+	# Slice B: the craftable Wooden Platform as a one-way traversal plank -- a short
+	# raised, torch-lit walkway beside the hall. Placed, captured, then cleared so
+	# the later staged shots keep their clean settlement.
+	var _plat_y := ground_y - 3
+	var _plat_cells: Array[Vector2i] = []
+	for _px in range(hall_cell.x - 12, hall_cell.x - 6):
+		var _pc := Vector2i(_px, _plat_y)
+		if world.block_at(_pc) == "air":
+			world.place_block(_pc, "wood_platform")
+			_plat_cells.append(_pc)
+	var _plat_torch := Vector2i(hall_cell.x - 12, _plat_y - 1)
+	var _plat_torch_placed: bool = world.block_at(_plat_torch) == "air"
+	if _plat_torch_placed:
+		world.place_block(_plat_torch, "torch")
+	player.global_position = world.cell_center(Vector2i(hall_cell.x - 9, _plat_y - 1))
+	player.velocity = Vector2.ZERO
+	player.get_node("Camera2D").reset_smoothing()
+	for i in range(24):
+		await get_tree().physics_frame
+	await _shot("38_wooden_platform")
+	for _pc in _plat_cells:
+		world.break_block(_pc)
+	if _plat_torch_placed:
+		world.break_block(_plat_torch)
+	player.global_position = world.cell_center(Vector2i(hall_cell.x, ground_y - 1))
+	player.velocity = Vector2.ZERO
+	player.get_node("Camera2D").reset_smoothing()
+	for i in range(8):
+		await get_tree().physics_frame
 
 	# R-08: the visible farmhand settler at work -- a mature crop by the hall, the
 	# settler beside it (frozen for a clean compose), and the harvest in the event
@@ -781,6 +823,8 @@ func _shoot_celestial(root: Node2D, world: Node2D, player: CharacterBody2D, hud:
 func _shoot_perception(root: Node2D, world: Node2D, player: CharacterBody2D, hud: CanvasLayer) -> void:
 	world.setup(4242)
 	root._position_actors()
+	# Park the cursor off the dock so no chip tooltip covers a canonical HUD shot.
+	get_viewport().warp_mouse(Vector2(8, 8))
 	var cam: Camera2D = player.get_node("Camera2D")
 	cam.zoom = Vector2(1.7, 1.7)
 	world.enable_perception()

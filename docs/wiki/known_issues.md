@@ -19,6 +19,7 @@ This page separates confirmed presentation defects from intentional scope limits
 ## Intentional Current Limits
 
 - Inventory supports drag-and-drop backpack and dock organization, compatible equipment swaps, and unequipping equipment back to the backpack. The in-engine smoke suite (hundreds of checks) is clean under the **canonical windowed run**; CI is the current pass/fail evidence. (One check, `r06_texture_prep_delegates`, is renderer-dependent and is skipped under the *headless* display server — a texture-scaling detail with no window — so a headless run reports one skip and no failures.)
+- The end-to-end perception check **`perception_resonance_e2e_through_fog`** is a known **rare intermittent** under the windowed source smoke: it can transiently report an enemy-visibility miss (a staged entity freed or re-hidden a frame early) and passes on a clean re-run. It is **diagnostic-only** — on failure it emits a per-entity `SMOKE_FIELD_BREAKDOWN` line — and does not indicate a fog-of-war or Resonance regression. Tracked as known; not claimed fixed.
 - Settlers are now individual, persistent NPC workers (farmhand/hauler/repairer/defender) with jobs, stats, ancestry identity, and per-settler work zones, layered over the abstract population authority; deeper social simulation is still planned.
 - Enemies use direct walk-and-hop behavior without pathfinding.
 - The adaptive score is one authored suite and remains balance-in-progress.
