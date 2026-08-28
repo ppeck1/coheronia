@@ -308,6 +308,9 @@ func _ready() -> void:
 	_craft_panel.setup(player, town_hall)
 	_craft_panel.craft_requested.connect(_on_craft_panel_craft)
 	_craft_panel.build_requested.connect(_on_craft_panel_build)
+	# Slice 4.2: the panel drives the docked Craft chip's pressed state through
+	# every open/close route (chip, C, Escape, Close). hud exists by now.
+	_craft_panel.open_changed.connect(hud.set_craft_open)
 	_contracts_panel = ContractsPanelScript.new()
 	add_child(_contracts_panel)
 	_contracts_panel.setup(self)
@@ -734,6 +737,9 @@ func _wire_signals() -> void:
 	player.npc_inspected.connect(hud.open_npc_panel)                       # citizen panel from a world click
 	hud.withdraw_requested.connect(_on_withdraw_requested)           # M2 stockpile withdraw
 	hud.withdraw_all_requested.connect(_on_withdraw_all_requested)
+	# Slice 4.2: the HUD Craft chip and the C shortcut share one toggle path.
+	# (The panel->chip open_changed link is wired where _craft_panel is built.)
+	hud.craft_requested.connect(_toggle_crafting_panel)
 
 
 func _position_actors() -> void:
@@ -833,16 +839,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_try_interact()
 	elif event.is_action_pressed("craft"):
 		# R-07: C opens the unified crafting panel (replaces the old instant torch).
-		if hud.inventory_panel_open():
-			hud.toggle_inventory_panel()
-		if hud.skill_panel_open():
-			hud.toggle_skill_panel()
-		if hud.character_panel_open():
-			hud.toggle_character_panel()
-		if hud.town_panel_open():
-			hud.toggle_town_panel()
-		if _craft_panel != null:
-			_craft_panel.toggle()
+		# Slice 4.2: both C and the HUD Craft chip route through one shared path.
+		_toggle_crafting_panel()
 	elif event.is_action_pressed("ui_cancel"):
 		# R-07: Esc closes an open panel first; otherwise it opens the pause menu
 		# (which freezes the sim and offers Resume/Settings/Save/Save & Quit)
@@ -1964,6 +1962,24 @@ func _on_craft_station_requested(recipe_id: String) -> void:
 	else:
 		log_event("Cannot craft %s (station not built, slot occupied, or stockpile short)." % recipe_name)
 	hud.refresh_town_panel()
+
+
+## Slice 4.2: the ONE crafting open/close path, shared by the C shortcut and the
+## HUD Craft chip. Crafting is mutually exclusive with the inventory-class panels,
+## so those are closed first (preserving the pre-slice behaviour). CraftPanel's
+## own open_changed signal drives the HUD chip's pressed state, so this never
+## touches the chip directly.
+func _toggle_crafting_panel() -> void:
+	if hud.inventory_panel_open():
+		hud.toggle_inventory_panel()
+	if hud.skill_panel_open():
+		hud.toggle_skill_panel()
+	if hud.character_panel_open():
+		hud.toggle_character_panel()
+	if hud.town_panel_open():
+		hud.toggle_town_panel()
+	if _craft_panel != null:
+		_craft_panel.toggle()
 
 
 ## R-07: the unified crafting panel routes a craft to the right backend by the

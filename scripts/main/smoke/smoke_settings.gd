@@ -537,6 +537,226 @@ func run(ctx) -> void:
 		_cp3.refresh()
 	await get_tree().process_frame
 
+	# --- Slice 4.2: Craft joins the centered command tray (Goal | Craft | Map |
+	# Edit). Prove the docked chip roster, that the chip and the C shortcut share
+	# ONE toggle path (identical open/close), mutual exclusion with the other
+	# panels, that the pressed state tracks every close route (chip, C, Escape,
+	# Close), the four-button tray geometry/centering, and that the six-button
+	# floating fallback is wide enough. Self-contained: every panel/craft state
+	# touched is captured and restored. ---
+	var _cc = root._craft_panel
+	var _cc_fail := ""
+	# Capture state to restore.
+	var _cc_craft0: bool = _cc.is_open()
+	var _cc_inv0: bool = hud.inventory_panel_open()
+	var _cc_skill0: bool = hud.skill_panel_open()
+	var _cc_char0: bool = hud.character_panel_open()
+	var _cc_town0: bool = hud.town_panel_open()
+	var _cc_docked: bool = hud._left_wing != null and hud._right_wing != null
+	# The C-key route is fed through game_root._unhandled_input, which early-returns
+	# under edit/workzone mode; force them off for the test and restore afterwards.
+	var _cc_edit0: bool = GameState.hud_edit_mode
+	var _cc_wz0: bool = GameState.workzone_mode
+	GameState.hud_edit_mode = false
+	GameState.workzone_mode = false
+	var _craft_btn: Button = hud._command_toggles["Craft"] as Button
+
+	# (a) docked roster: exactly Goal / Craft / Map / Edit; Crest + Events absent;
+	# the Craft chip carries the discoverable tooltip. (Only asserted when docked —
+	# the floating fallback legitimately keeps Crest/Events.)
+	var _cc_labels: Array = hud.command_toggle_labels()
+	if "Craft" not in _cc_labels:
+		_cc_fail += "no_craft_chip "
+	if hud.command_toggle_tooltip("Craft") != "Crafting (C)":
+		_cc_fail += "craft_tooltip[%s] " % hud.command_toggle_tooltip("Craft")
+	if _cc_docked:
+		if _cc_labels != ["Goal", "Craft", "Map", "Edit"]:
+			_cc_fail += "docked_labels=%s " % str(_cc_labels)
+		if "Crest" in _cc_labels or "Events" in _cc_labels:
+			_cc_fail += "crest_or_events_docked "
+
+	# (b) the CHIP and the C KEY share one path. Prove it by driving the REAL
+	# controls — flip the actual Craft toggle button (exercising its `toggled`
+	# connection) and feed a real "craft" InputEventAction through game_root's
+	# gameplay input handler — and require each to open AND close the panel while
+	# the chip's pressed state follows.
+	if _cc.is_open():
+		_cc.close()
+		await get_tree().process_frame
+	_craft_btn.button_pressed = true                   # real button -> open
+	await get_tree().process_frame
+	if not _cc.is_open() or not hud.command_toggle_pressed("Craft") or not GameState.craft_panel_open:
+		_cc_fail += "btn_open_failed "
+	_craft_btn.button_pressed = false                  # real button -> close
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "btn_close_failed "
+	_drive_craft_action(root)                          # real C action -> open
+	await get_tree().process_frame
+	if not _cc.is_open() or not hud.command_toggle_pressed("Craft"):
+		_cc_fail += "c_open_failed "
+	_drive_craft_action(root)                          # real C action -> close
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "c_close_failed "
+
+	# (c) mutual exclusion, proven INDEPENDENTLY for each panel (they also close one
+	# another, so a sequential open would leave only the last one open). For every
+	# panel: close Craft + all modals, open just that panel, open Craft via the REAL
+	# button, and assert THAT panel closed while Craft opened.
+	var _excl_panels := [
+		["Inventory", Callable(hud, "inventory_panel_open"), Callable(hud, "toggle_inventory_panel")],
+		["Character", Callable(hud, "character_panel_open"), Callable(hud, "toggle_character_panel")],
+		["Skills", Callable(hud, "skill_panel_open"), Callable(hud, "toggle_skill_panel")],
+		["TownHall", Callable(hud, "town_panel_open"), Callable(hud, "toggle_town_panel")],
+	]
+	for _ep in _excl_panels:
+		var _ep_name: String = _ep[0]
+		var _ep_open: Callable = _ep[1]
+		var _ep_toggle: Callable = _ep[2]
+		if _cc.is_open():
+			_cc.close()
+		if hud.inventory_panel_open():
+			hud.toggle_inventory_panel()
+		if hud.character_panel_open():
+			hud.toggle_character_panel()
+		if hud.skill_panel_open():
+			hud.toggle_skill_panel()
+		if hud.town_panel_open():
+			hud.toggle_town_panel()
+		await get_tree().process_frame
+		_ep_toggle.call()                              # open just this panel
+		await get_tree().process_frame
+		if not bool(_ep_open.call()):
+			_cc_fail += "excl_%s_not_open " % _ep_name
+		_craft_btn.button_pressed = true               # open Craft via the real button
+		await get_tree().process_frame
+		if not _cc.is_open() or bool(_ep_open.call()):
+			_cc_fail += "excl_%s_transition[craft=%s panel=%s] " % [_ep_name,
+				str(_cc.is_open()), str(bool(_ep_open.call()))]
+		_craft_btn.button_pressed = false              # close Craft for the next case
+		await get_tree().process_frame
+
+	# (d) the chip pressed state tracks EVERY close route: the panel Close button,
+	# Escape, the C action, and the chip itself. Each opens via the real button/C.
+	if _cc.is_open():
+		_cc.close()
+		await get_tree().process_frame
+	_craft_btn.button_pressed = true                   # open (button)
+	await get_tree().process_frame
+	if not hud.command_toggle_pressed("Craft"):
+		_cc_fail += "pressed_missing_after_open "
+	_cc._close_btn.pressed.emit()                      # close via the Close button
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "close_btn_untracked "
+	_craft_btn.button_pressed = true                   # reopen (button)
+	await get_tree().process_frame
+	var _cc_esc := InputEventAction.new()
+	_cc_esc.action = "ui_cancel"
+	_cc_esc.pressed = true
+	_cc._input(_cc_esc)                                # close via Escape
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "escape_untracked "
+	_drive_craft_action(root)                          # reopen (C action)
+	await get_tree().process_frame
+	_drive_craft_action(root)                          # close via C action
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "c_untracked "
+	_craft_btn.button_pressed = true                   # reopen (button)
+	await get_tree().process_frame
+	_craft_btn.button_pressed = false                  # close via the chip itself
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "chip_untracked "
+
+	# (e) four-button tray geometry: each 58x24, all contained + centered, union
+	# and tray centers agree within 1px, gaps balanced + compact, no overlap with
+	# hotbar / orbs / wings.
+	if _cc_docked:
+		var _tray: Rect2 = hud.command_tray_rect()
+		var _vpc := get_viewport().get_visible_rect().size
+		var _rects: Array[Rect2] = []
+		for _lbl in ["Goal", "Craft", "Map", "Edit"]:
+			var _br: Rect2 = hud.command_button_rect(_lbl)
+			_rects.append(_br)
+			if absf(_br.size.x - 58.0) > 1.0 or absf(_br.size.y - 24.0) > 1.0:
+				_cc_fail += "btn_size[%s=%s] " % [_lbl, _br.size]
+			if not _tray.grow(2.0).encloses(_br):
+				_cc_fail += "btn_oob[%s] " % _lbl
+		if not Rect2(Vector2.ZERO, _vpc).grow(1.0).encloses(_tray):
+			_cc_fail += "tray_oob "
+		# centered on the viewport (native 640) and union-vs-tray agreement.
+		var _tray_cx: float = _tray.position.x + _tray.size.x * 0.5
+		if absf(_tray_cx - _vpc.x * 0.5) > 2.0:
+			_cc_fail += "tray_offcenter[%.1f] " % _tray_cx
+		var _union_l: float = _rects[0].position.x
+		var _union_r: float = _rects[0].end.x
+		for _r in _rects:
+			_union_l = minf(_union_l, _r.position.x)
+			_union_r = maxf(_union_r, _r.end.x)
+		if absf((_union_l + _union_r) * 0.5 - _tray_cx) > 1.0:
+			_cc_fail += "union_vs_tray[%.1f/%.1f] " % [(_union_l + _union_r) * 0.5, _tray_cx]
+		# gaps between consecutive buttons: balanced (<=1px spread) and compact (~4px).
+		var _gaps: Array[float] = []
+		for _gi in range(3):
+			_gaps.append(_rects[_gi + 1].position.x - _rects[_gi].end.x)
+		var _gmin: float = _gaps[0]
+		var _gmax: float = _gaps[0]
+		for _g in _gaps:
+			_gmin = minf(_gmin, _g)
+			_gmax = maxf(_gmax, _g)
+		if _gmax - _gmin > 1.0 or _gmax > 6.0 or _gmin < 2.0:
+			_cc_fail += "gaps=%s " % str(_gaps)
+		# no overlap with the hotbar slots, orbs, or wings.
+		for _nb in hud.command_tray_neighbor_rects():
+			if _tray.grow(-1.0).intersects((_nb as Rect2).grow(-1.0)):
+				_cc_fail += "tray_overlap "
+				break
+
+	# (f) reset/restore uses the new authoritative rectangle (504,132,272,44), not
+	# the stale [458,132,364,44]; the tray stays centered afterwards.
+	var _kit_layout: Dictionary = hud._load_hud_kit_layout()
+	var _auth_rect: Rect2 = hud._json_rect(_kit_layout.get("module_toolbar_rect"))
+	if _auth_rect != Rect2(Vector2(504.0, 132.0), Vector2(272.0, 44.0)):
+		_cc_fail += "authority_rect=%s " % str(_auth_rect)
+	if _cc_docked:
+		hud._restore_native_module_toolbar_rect()
+		await get_tree().process_frame
+		var _tray2: Rect2 = hud.command_tray_rect()
+		var _vpc2 := get_viewport().get_visible_rect().size
+		if absf(_tray2.position.x + _tray2.size.x * 0.5 - _vpc2.x * 0.5) > 2.0:
+			_cc_fail += "restore_offcenter "
+
+	# (g) the six-button floating fallback is wide enough to contain all six chips
+	# (union = 6*54 + 5*4) with room for the frame — never a clipped width.
+	var _fb_w: float = hud.fallback_command_center_width(6)
+	if _fb_w < 6.0 * 54.0 + 5.0 * 4.0:
+		_cc_fail += "fallback_clips6[%.1f] " % _fb_w
+
+	harness._check("r07_craft_command_chip", _cc_fail == "",
+		("issues: " + _cc_fail.strip_edges()) if _cc_fail != "" \
+			else "Craft chip: docked roster, shared C/chip toggle, exclusion, all close paths tracked, tray centered, fallback fits 6")
+
+	# restore panel/craft state touched above.
+	if _cc.is_open():
+		_cc.close()
+	if hud.inventory_panel_open() != _cc_inv0:
+		hud.toggle_inventory_panel()
+	if hud.skill_panel_open() != _cc_skill0:
+		hud.toggle_skill_panel()
+	if hud.character_panel_open() != _cc_char0:
+		hud.toggle_character_panel()
+	if hud.town_panel_open() != _cc_town0:
+		hud.toggle_town_panel()
+	if _cc_craft0:
+		_cc.open()
+	GameState.hud_edit_mode = _cc_edit0
+	GameState.workzone_mode = _cc_wz0
+	await get_tree().process_frame
+
 	# --- 2026-08-18: the mouse wheel must not re-zoom the world while a scrolling
 	# menu is open (HUD editor / crafting / any inventory-class modal); it zooms only
 	# in free play. Drive game_root._handle_view_input with a synthetic wheel event
@@ -619,3 +839,13 @@ func run(ctx) -> void:
 		"interp=%s smoothing=%s cam_physics=%s teleport=%s moved=%s render=%s" % [str(_pi_on),
 			str(_pi_smooth), str(_pi_cam_physics), str(_pi_has_teleport), str(_pi_moved),
 			str(_pi_render_ok)])
+
+
+## Slice 4.2: feed a real "craft" action through the SAME gameplay input handler
+## the C key reaches (game_root._unhandled_input), proving the input mapping — not
+## just the shared method — routes to the crafting toggle.
+func _drive_craft_action(root) -> void:
+	var ev := InputEventAction.new()
+	ev.action = "craft"
+	ev.pressed = true
+	root._unhandled_input(ev)

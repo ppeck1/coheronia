@@ -3947,8 +3947,9 @@ func _run() -> void:
 					or (_fq18_node as Button).tooltip_text != ""):
 			_fq18_nav_found += 1
 	# Phase C: Crest/Events are docked into the wings (opened by clicking the wing), so
-	# their toolbar chips are removed — the module toolbar keeps Goal / Map / Edit.
-	var _fq18_nav_ok := _fq18_toolbar_labels == ["Goal", "Map", "Edit"] \
+	# their toolbar chips are removed. Slice 4.2: Craft joins the tray, so the module
+	# toolbar keeps Goal / Craft / Map / Edit.
+	var _fq18_nav_ok := _fq18_toolbar_labels == ["Goal", "Craft", "Map", "Edit"] \
 		and _fq18_nav_found == 4
 	hud.toggle_character_panel()
 	var _fq18_character_ok: bool = hud.character_panel_open() and not hud.inventory_panel_open() \

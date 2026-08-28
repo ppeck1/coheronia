@@ -912,12 +912,13 @@ func run(ctx) -> void:
 			_fq20_module_clear = false
 			break
 	# Phase C: Crest/Events are docked into the wings (opened by clicking the wing), so
-	# their redundant toolbar chips are removed — the toolbar keeps Goal / Map / Edit.
+	# their redundant toolbar chips are removed. Slice 4.2: Craft joins the docked tray,
+	# so it keeps Goal / Craft / Map / Edit.
 	var _fq20_no_crest_events: bool = not hud._command_toggles.has("Crest") \
 		and not hud._command_toggles.has("Events") \
-		and hud._command_toggles.has("Goal") and hud._command_toggles.has("Map") \
-		and hud._command_toggles.has("Edit")
-	# Compact-tray geometry: the framed tray hugs its three buttons — its centre matches the
+		and hud._command_toggles.has("Goal") and hud._command_toggles.has("Craft") \
+		and hud._command_toggles.has("Map") and hud._command_toggles.has("Edit")
+	# Compact-tray geometry: the framed tray hugs its four buttons — its centre matches the
 	# dock centre, the button union is centred in the tray with near-equal, bounded interior
 	# gaps, and every button is fully contained. (Native placement, so this holds at every
 	# resolution; the full-dock QA screenshots prove it visually.)
@@ -929,7 +930,7 @@ func run(ctx) -> void:
 	var _fq20_gap_left := _fq20_first.position.x - _fq20_module_rect.position.x
 	var _fq20_gap_right := _fq20_module_rect.end.x - _fq20_last.end.x
 	var _fq20_contains := true
-	for _fq20_btn_name in ["Goal", "Map", "Edit"]:
+	for _fq20_btn_name in ["Goal", "Craft", "Map", "Edit"]:
 		if not _fq20_module_rect.encloses((hud._command_toggles[_fq20_btn_name] as Control).get_global_rect()):
 			_fq20_contains = false
 	var _fq20_tray_geo: bool = absf(_fq20_tray_center - _fq20_dock_center) <= 1.0 \
@@ -938,24 +939,27 @@ func run(ctx) -> void:
 		and _fq20_gap_left <= 20.0 and _fq20_gap_right <= 20.0 \
 		and _fq20_gap_left >= 2.0 and _fq20_gap_right >= 2.0 \
 		and _fq20_contains
-	# Reset/restore returns the tray to the compact authoritative rect (JSON), not the old
-	# five-button width. Positions are dock-native (integer), so compare locally.
+	# Reset/restore returns the tray to the compact authoritative rect (JSON). Slice 4.2:
+	# the four-button tray is [504,132,272,44]; the stale [458,...] fallback is gone.
+	# Positions are dock-native (integer), so compare locally.
 	hud._restore_native_module_toolbar_rect()
 	var _fq20_reset_rect := Rect2(hud._command_center_panel.position, hud._command_center_panel.size)
-	var _fq20_reset_ok: bool = _fq20_reset_rect.is_equal_approx(Rect2(535, 132, 210, 44))
+	var _fq20_reset_ok: bool = _fq20_reset_rect.is_equal_approx(Rect2(504, 132, 272, 44))
 	# Arithmetic capacity contract (NOT an instantiated render): the floating (non-kit)
-	# fallback panel is anchored to a fixed 364px width, and five fallback chips (54px each
-	# + 4px gaps = 286px) fit inside its content box (364 - 2*7 = 350px). This guards the
-	# fallback width against being shrunk below the five-button need; it does not build the
-	# fallback HUD, which the docked kit path replaces here.
-	var _fq20_fallback_capacity: bool = (5.0 * 54.0 + 4.0 * 4.0) <= (364.0 - 2.0 * 7.0)
+	# fallback now carries SIX chips (Crest, Goal, Events, Craft, Map, Edit). Its width is
+	# derived (fallback_command_center_width) so all six (54px each + 4px gaps = 344px) fit
+	# inside its content box (width - 2*7). This guards the fallback against being shrunk
+	# below the six-button need; it does not build the fallback HUD, which the docked kit
+	# path replaces here.
+	var _fq20_fallback_capacity: bool = \
+		(6.0 * 54.0 + 5.0 * 4.0) <= (hud.fallback_command_center_width(6) - 2.0 * 7.0)
 	var _fq20_cc_ok: bool = hud._module_toolbar != null \
 		and hud._command_center_panel != null \
 		and hud._command_center_panel.is_ancestor_of(hud._module_toolbar) \
 		and hud._bottom_dock.is_ancestor_of(hud._module_toolbar) \
 		and _fq20_dock_owned \
 		and _fq20_module_clear \
-		and hud._command_toggles.size() == 3 \
+		and hud._command_toggles.size() == 4 \
 		and _fq20_no_crest_events \
 		and _fq20_tray_geo and _fq20_reset_ok and _fq20_fallback_capacity
 	# The Goal chip drives + mirrors its module (toggle, then restore).

@@ -39,6 +39,11 @@ func _run() -> void:
 		print("SHOTS complete (craft) -> user://shots")
 		get_tree().quit(0)
 		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "dock":
+		await _shoot_dock(root, world, player, hud, root.town_hall)
+		print("SHOTS complete (dock) -> user://shots")
+		get_tree().quit(0)
+		return
 	world.setup(4242)
 	root._position_actors()
 	player.get_node("Camera2D").reset_smoothing()
@@ -510,6 +515,64 @@ func _shoot_craft(root: Node2D, world: Node2D, player: CharacterBody2D, hall: No
 	cp.close()
 	get_window().content_scale_size = _cr_css0
 	DisplayServer.window_set_size(_cr_win0)
+
+
+## Slice 4.2 full-dock evidence: the centered command tray now reads
+## Goal | Craft | Map | Edit. Capture the whole HUD at four target resolutions,
+## then the crafting panel OPENED by activating the real Craft chip control at
+## 1280 and 640. Window + content_scale_size are driven together so each PNG is
+## native size. The mouse is parked in a corner for the clean dock shots so the
+## "Crafting (C)" hover tooltip never obscures the hotbar.
+func _shoot_dock(root: Node2D, world: Node2D, player: CharacterBody2D, hud: CanvasLayer, hall: Node2D) -> void:
+	world.setup(4242)
+	root._position_actors()
+	player.get_node("Camera2D").reset_smoothing()
+	# A lived-in dock: gear + supplies so vessels / hotbar / wings read populated.
+	player.tool_tier = 2
+	player.axe_tier = 1
+	player.inventory.from_dict({
+		"wood": 40, "stone": 40, "ore": 8, "coal": 8, "food": 6, "torch": 5})
+	player.inventory_changed.emit()
+	hall.stockpile = {"wood": 20, "stone": 16, "food": 12, "coal": 8}
+	hall.stockpile_changed.emit()
+	hall.stations_built = {"workbench": true, "furnace": false, "anvil": false}
+	var cp = root._craft_panel
+	var craft_chip: Button = hud._command_toggles["Craft"] as Button
+	var _win0: Vector2i = DisplayServer.window_get_size()
+	var _css0: Vector2i = get_window().content_scale_size
+
+	# Full-dock at each target resolution (craft panel closed so the tray shows).
+	# Park the cursor away from the tray so no chip tooltip covers the dock.
+	if cp.is_open():
+		cp.close()
+	get_viewport().warp_mouse(Vector2(8, 8))
+	for sz: Vector2i in [Vector2i(640, 360), Vector2i(1280, 720),
+			Vector2i(1600, 900), Vector2i(1920, 1000)]:
+		DisplayServer.window_set_size(sz)
+		get_window().content_scale_size = sz
+		await get_tree().process_frame
+		await get_tree().process_frame
+		get_viewport().warp_mouse(Vector2(8, 8))
+		await _shot("dock_%dx%d" % [sz.x, sz.y])
+
+	# Crafting opened by activating the REAL Craft chip button at 1280 and 640.
+	for sz: Vector2i in [Vector2i(1280, 720), Vector2i(640, 360)]:
+		DisplayServer.window_set_size(sz)
+		get_window().content_scale_size = sz
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if cp.is_open():
+			cp.close()
+		craft_chip.button_pressed = true    # activate the real chip -> opens the panel
+		cp._selected_station = "hand"
+		cp._selected_recipe_id = "craft_torch"
+		cp._refit()
+		cp.refresh()
+		await _shot("craft_from_button_%dx%d" % [sz.x, sz.y])
+		craft_chip.button_pressed = false   # activate the chip again -> closes
+
+	get_window().content_scale_size = _css0
+	DisplayServer.window_set_size(_win0)
 
 
 ## Item-wiring shots (renewable tree loop + placeable deep blocks). Split out so a

@@ -37,6 +37,10 @@ const BUILDABLE := ["workbench", "furnace", "anvil"]
 
 signal craft_requested(recipe_id: String)
 signal build_requested(station_id: String)
+## Emitted whenever the panel opens or closes (through the button, C, Escape, or
+## Close) so an external owner — e.g. the HUD Craft toggle — can mirror the state
+## without reaching into this panel's internals.
+signal open_changed(is_open: bool)
 
 var _player = null
 var _town_hall = null
@@ -85,17 +89,23 @@ func toggle() -> void:
 
 
 func open() -> void:
+	if _open:
+		return
 	_open = true
 	GameState.craft_panel_open = true
 	_refit()
 	refresh()
 	visible = true
+	open_changed.emit(true)
 
 
 func close() -> void:
+	if not _open:
+		return
 	_open = false
 	GameState.craft_panel_open = false
 	visible = false
+	open_changed.emit(false)
 
 
 func _input(event: InputEvent) -> void:

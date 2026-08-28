@@ -279,7 +279,7 @@ def main() -> int:
             "label_rect": [3, 66, 48, 28],
         },
         "mining_progress_rect": [550, 28, 180, 10],
-        "module_toolbar_rect": [535, 132, 210, 44],
+        "module_toolbar_rect": [504, 132, 272, 44],
         "left_wing_safe_rect": [176, 56, 128, 88],
         "right_wing_safe_rect": [976, 56, 128, 88],
     }

@@ -11,6 +11,11 @@ signal withdraw_requested(item_id: String, amount: int)   # M2: pull a stack fro
 signal withdraw_all_requested                             # M2: pull the whole stockpile
 signal subject_inspect_requested(id: String)   # open a settler's info panel from the roster
 signal subject_workzone_requested(id: String)   # drag-to-define a settler's work area
+## Slice 4.2: the docked Craft chip asks game_root to toggle the crafting panel.
+## The HUD never owns CraftPanel — game_root runs one shared toggle path and
+## reports the result back via set_craft_open() so this chip's pressed state
+## tracks every open/close route (button, C, Escape, Close).
+signal craft_requested
 
 ## Low-health fraction mirrors player._low_health_fraction (data-driven
 ## default 0.25); the HUD does not read player state directly so it keeps a
@@ -208,6 +213,7 @@ var _hud_resize_widget := ""
 var _hud_resize_origin_size := Vector2.ZERO
 var _hud_edit_overlay: Control
 var _command_toggles: Dictionary = {}   # label -> Button
+var _craft_open := false                # mirror of CraftPanel open state (set by game_root)
 var _hud_default_sizes: Dictionary = {}
 const HUD_WIDGET_IDS := ["crest", "goal", "events", "map", "modules", "dock", "npc"]
 const HUD_EDITABLE_WIDGET_IDS := ["crest", "goal", "events", "map", "modules", "npc"]
@@ -302,6 +308,12 @@ func _build_command_center(parent: Control) -> void:
 	_add_command_toggle("Goal", func(): _toggle_goal_module())
 	if _right_wing == null:
 		_add_command_toggle("Events", func(): _toggle_event_module())
+	# Slice 4.2: Craft is a primary system, so it earns a permanent command chip
+	# (discoverable without knowing the C shortcut). The chip only ASKS game_root
+	# to toggle; the pressed state is driven back by set_craft_open().
+	_add_command_toggle_with_state("Craft", func(_pressed: bool): craft_requested.emit())
+	if _command_toggles.has("Craft"):
+		(_command_toggles["Craft"] as Button).tooltip_text = "Crafting (C)"
 	_add_command_toggle_with_state("Map", func(pressed: bool): set_map_open(pressed))
 	_add_command_toggle("Edit", func(): toggle_hud_edit_mode())
 
@@ -316,7 +328,8 @@ func _build_command_center_widget() -> void:
 		var layout := _load_hud_kit_layout()
 		var rect := _json_rect(layout.get("module_toolbar_rect"))
 		if rect == Rect2():
-			rect = Rect2(Vector2(535.0, 132.0), Vector2(210.0, 44.0))
+			# Four-button tray (Goal | Craft | Map | Edit), centred at native x=640.
+			rect = Rect2(Vector2(504.0, 132.0), Vector2(272.0, 44.0))
 		_place(_command_center_panel, rect)
 		_command_center_panel.z_index = 6
 		_bottom_dock.add_child(_command_center_panel)
@@ -325,8 +338,12 @@ func _build_command_center_widget() -> void:
 		_command_center_panel.anchor_right = 0.5
 		_command_center_panel.anchor_top = 0.0
 		_command_center_panel.anchor_bottom = 0.0
-		_command_center_panel.offset_left = -182.0
-		_command_center_panel.offset_right = 182.0
+		# Floating fallback carries six controls (Crest, Goal, Events, Craft, Map,
+		# Edit — no wings there to click). Derive the half-width from the button
+		# count so all six fit without clipping (see fallback_command_center_width).
+		var fb_width := fallback_command_center_width(6)
+		_command_center_panel.offset_left = -fb_width * 0.5
+		_command_center_panel.offset_right = fb_width * 0.5
 		_command_center_panel.offset_top = 100.0
 		_command_center_panel.offset_bottom = 134.0
 		add_child(_command_center_panel)
@@ -342,7 +359,7 @@ func _add_command_toggle_with_state(text: String, action: Callable) -> void:
 	button.name = "CommandToggle" + text
 	button.text = text
 	button.toggle_mode = true
-	button.custom_minimum_size = Vector2(54, 18)
+	button.custom_minimum_size = FALLBACK_CHIP
 	button.add_theme_font_size_override("font_size", 9)
 	button.add_theme_stylebox_override("normal", _command_chip_style(Color(0.72, 0.72, 0.72)))
 	button.add_theme_stylebox_override("hover", _command_chip_style())
@@ -388,11 +405,79 @@ func _sync_command_center() -> void:
 		"Crest": _top_left_box != null and _top_left_box.visible,
 		"Goal": _goal_panel != null and _goal_panel.visible,
 		"Events": _events_module() != null and _events_module().visible,
+		# Craft state is external (game_root owns CraftPanel); mirror the flag it
+		# hands us via set_craft_open() so the chip tracks every close path.
+		"Craft": _craft_open,
 		"Map": map_open(),
 		"Edit": _hud_edit_mode,
 	}
 	for key in _command_toggles:
 		(_command_toggles[key] as Button).set_pressed_no_signal(bool(states.get(key, false)))
+
+
+## Slice 4.2: game_root reports CraftPanel's live open state here (it owns the
+## panel) so the docked Craft chip stays in sync through every route — the chip
+## itself, the C shortcut, Escape, or the panel's Close button.
+func set_craft_open(is_open: bool) -> void:
+	_craft_open = is_open
+	_sync_command_center()
+
+
+## Single authority for the floating fallback command-center width: N chips +
+## (N-1) gaps + one interior pad each side. Used by the fallback layout and the
+## layout-contract smoke so the six-button case can never silently clip.
+static func fallback_command_center_width(button_count: int) -> float:
+	return float(button_count) * FALLBACK_CHIP.x \
+		+ float(maxi(button_count - 1, 0)) * TRAY_GAP + TRAY_INTERIOR * 2.0
+
+
+# --- Slice 4.2 command-tray test hooks (read-only) -------------------------
+
+## The docked command chips in left-to-right order (their visible labels).
+func command_toggle_labels() -> Array:
+	var out: Array[String] = []
+	if _module_toolbar == null:
+		return out
+	for child in _module_toolbar.get_children():
+		if child is Button:
+			out.append((child as Button).text)
+	return out
+
+
+func command_toggle_pressed(label: String) -> bool:
+	return _command_toggles.has(label) \
+		and (_command_toggles[label] as Button).button_pressed
+
+
+func command_toggle_tooltip(label: String) -> String:
+	return (_command_toggles[label] as Button).tooltip_text if _command_toggles.has(label) else ""
+
+
+func command_button_rect(label: String) -> Rect2:
+	return (_command_toggles[label] as Button).get_global_rect() \
+		if _command_toggles.has(label) else Rect2()
+
+
+func command_tray_rect() -> Rect2:
+	return _command_center_panel.get_global_rect() if _command_center_panel != null else Rect2()
+
+
+## Global rects of the neighbours the tray must never overlap: hotbar slots, the
+## two orb vessel fills, and the dock wings (when docked).
+func command_tray_neighbor_rects() -> Array:
+	var rects: Array[Rect2] = []
+	for slot in _hotbar_slots:
+		if slot is Control:
+			rects.append((slot as Control).get_global_rect())
+	if _health_vessel_fill != null:
+		rects.append(_health_vessel_fill.get_global_rect())
+	if _attunement_vessel_fill != null:
+		rects.append(_attunement_vessel_fill.get_global_rect())
+	if _left_wing != null:
+		rects.append(_left_wing.get_global_rect())
+	if _right_wing != null:
+		rects.append(_right_wing.get_global_rect())
+	return rects
 
 
 func _register_hud_widgets() -> void:
@@ -444,7 +529,9 @@ func _restore_native_module_toolbar_rect() -> void:
 	var layout := _load_hud_kit_layout()
 	var rect := _json_rect(layout.get("module_toolbar_rect"))
 	if rect == Rect2():
-		rect = Rect2(Vector2(458.0, 132.0), Vector2(364.0, 44.0))
+		# Reset/restore returns the tray to the four-button rectangle (Goal | Craft
+		# | Map | Edit), centred at native x=640 — matching the JSON authority.
+		rect = Rect2(Vector2(504.0, 132.0), Vector2(272.0, 44.0))
 	_command_center_panel.custom_minimum_size = Vector2.ZERO
 	_place(_command_center_panel, rect)
 
@@ -1460,9 +1547,10 @@ const WING_WOOD_MARGIN := 5.0   # wooden perimeter left visible around the socke
 const WING_SOCKET_PAD := 4.0    # inset from the socket bevel to the live content
 # Command-tray (Goal/Map/Edit) geometry — the framed tray is derived from these so it
 # hugs its actual buttons rather than reserving a fixed five-button width.
-const TRAY_BUTTON := Vector2(58, 24)   # toggle-chip geometry (unchanged)
+const TRAY_BUTTON := Vector2(58, 24)   # docked toggle-chip geometry (unchanged)
 const TRAY_GAP := 4.0                  # inter-button spacing (unchanged)
 const TRAY_INTERIOR := 7.0             # interior pad each side (matches the chip frame)
+const FALLBACK_CHIP := Vector2(54, 18) # floating-fallback chip min-size (HBox path)
 # Content width inside a 128px wing socket: 128 - 2*(margin + pad). The compact clock
 # and event lines size to this so concise summaries fit without ellipsis.
 const WING_LINE_WIDTH := 110.0
