@@ -4892,6 +4892,24 @@ func _run() -> void:
 	await _smoke_platform.run(_ctx)
 	_smoke_platform.queue_free()
 
+	# Release the adaptive score before asking SceneTree to quit. The composite
+	# interactive/synchronized players own ten OGG packet sequences; stopping
+	# and detaching them, then giving the audio server two frames to retire its
+	# playbacks, proves shutdown cleanliness instead of depending on platform-
+	# specific tree-destruction ordering.
+	var _music_director := root.get_node_or_null("AdaptiveMusicDirector")
+	if _music_director != null:
+		_music_director.shutdown()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check("adaptive_music_shutdown_clean",
+		_music_director == null or (
+			not _music_director.enabled()
+			and not _music_director.layering_enabled()
+			and _music_director.get_node("ContextPlayer").stream == null
+			and _music_director.get_node("LayerPlayer").stream == null
+			and _music_director.get_node("StingerPlayer").stream == null))
+
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":
 		# Frame the Town Hall and its torches so lighting/shadows are visible.
