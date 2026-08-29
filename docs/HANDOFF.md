@@ -8,10 +8,11 @@ rules live in [`CLAUDE.md`](../CLAUDE.md).
 ## Current state
 
 - Active branch: `s07-stabilize-b-plus`
-- Local candidate includes `2fe7fc0` (`fix(perception): replace restored fog and refresh
+- The branch includes `2fe7fc0` (`fix(perception): replace restored fog and refresh
   sight radius`), `994bd36` (`fix(platform): align plank art and collision to tile
   bottom`), and the release-documentation reconciliation
-- Remote branch HEAD: `dd05374`; the local candidate has not been pushed
+- Remote state: the branch is pushed; local and `origin/s07-stabilize-b-plus` are
+  synchronized
 - `main`: `05ec3ae`; the stabilization branch is not merged to `main`
 - Save compatibility remains frozen: `SAVE_VERSION` is unchanged
 - Terrain generation is at `gen_version` 5, using the gated compatibility pattern
@@ -21,22 +22,18 @@ Resonance feature arc. It includes fog-of-war memory, Attunement resonance, dark
 hooks, the unified crafting experience, inventory reconciliation, one-way wooden
 platform behavior, presentation polish, adaptive music, and expanded smoke coverage.
 
-## Last verified CI baseline
+## Current verified CI baseline
 
-The latest completed workflow for `dd05374` is green on both supported CI targets:
+The latest completed branch workflow is green on both supported CI targets:
 
 | Target | Source smoke | Export smoke |
 | --- | ---: | ---: |
-| Linux/X11 | 605/605 | 599/599 |
-| Windows ship target | 605/605 | 599/599 |
+| Linux/X11 | 609/609 | 603/603 |
+| Windows ship target | 609/609 | 603/603 |
 
-The six export-only omissions are expected read-only-`res://` fixture skips. The
-verifier reported no lifecycle leaks or unexpected engine errors.
-
-These results describe the remote baseline at `dd05374`. The local candidate has also
-passed the complete Windows verifier: **609/609** canonical windowed source checks and
-**603/603** exported-build checks, with the same six expected skips and no lifecycle or
-unexpected-engine-error findings. Remote Linux/Windows CI is still pending.
+Both jobs built their native export and launched the exported artifact. The six
+export-only omissions are the expected read-only-`res://` fixture skips; static,
+lifecycle-leak, and unexpected-engine-error gates are green.
 
 ## Perception verification contracts
 
@@ -64,11 +61,9 @@ in focused follow-up work unless a release-blocking defect requires otherwise.
 
 ## Recommended next
 
-1. Push the perception + docs commits and require the Linux and Windows source/export
-   workflow to pass; do not substitute a rerun for investigating any failure.
-2. Open and review the stabilization PR; enable branch protection/required checks before
+1. Open and review the stabilization PR; enable branch protection/required checks before
    merging rather than treating an unprotected green branch as release evidence.
-3. Build clean Linux and Windows artifacts, verify clean-profile startup + save
+2. Build clean Linux and Windows artifacts, verify clean-profile startup + save
    compatibility, and create the v0.7-alpha prerelease/tag.
 
 Calling-balance tuning remains measure-first: record the worst-case conditional stacking
