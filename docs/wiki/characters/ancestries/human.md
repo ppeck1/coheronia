@@ -2,13 +2,13 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Ancestry` page. Current status: `planned`.
+> `Ancestry` page. Current status: `live`.
 
 | Field | Value |
 |---|---|
 | ID | `human` |
 | Page type | Ancestry |
-| Status | planned |
+| Status | live |
 | Implementation phase | B |
 | Implementation priority | 1 |
 | Spawn band | surface |
@@ -52,9 +52,9 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 
 | Bucket | Effect | Value |
 |---|---|---|
-| player_effects | learning_speed_mult | 1.05 |
-| player_effects | diplomacy_mult | 1.05 |
-| player_effects | notes | ['no terrain penalties'] |
+| player_effects | learning_speed_mult | 1.08 |
+| player_effects | attunement_bonus | 10 |
+| player_effects | notes | ['Learns every skill faster (+8% XP)', 'Higher maximum Attunement', 'No terrain penalties or specializations'] |
 | settlement_effects | civic_upgrade_speed_mult | 1.05 |
 | settlement_effects | mixed_coherence_mult | 1.05 |
 | settlement_effects | notes | ['better mixed-population coherence', 'no terrain specialization'] |

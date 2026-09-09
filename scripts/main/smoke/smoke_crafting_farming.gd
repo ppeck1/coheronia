@@ -304,6 +304,13 @@ func run(ctx) -> void:
 
 	# --- FQ-05: attunement resource, hooks, pulse, save/load ---
 
+	# FQ-05 exercises the Attunement SYSTEM (base default, pulse, gear/ancestry
+	# hooks, gear-surplus save/load) independent of the current character's
+	# ancestry. Some ancestries now grant a live attunement_bonus (e.g. human,
+	# elf), so neutralize the ancestry contribution here and restore the real
+	# character + ancestry at the end of the block.
+	player.apply_ancestry_effects({})
+
 	# (a) data-driven defaults: base max 50, current within bounds.
 	harness._check("fq05_attunement_defaults",
 		absf(player.max_attunement() - 50.0) < 0.001
@@ -347,9 +354,9 @@ func run(ctx) -> void:
 	var _fq05_regen_mult: float = player.attunement_regen_mult
 	var _fq05_amulet_ok: bool = player.equip_item("amulet", "amulet_focus")
 	var _fq05_gear_max: float = player.max_attunement()
-	# Restore: reset ancestry to the real character and remove the amulet.
-	player.apply_character(GameState.current_character)
-	root.apply_ancestry_for_species(str(GameState.current_character.get("species", "")))
+	# Restore the neutral Attunement baseline and remove the amulet (the real
+	# character + ancestry are restored at the end of the FQ-05 block).
+	player.apply_ancestry_effects({})
 	player.equip_item("amulet", "")
 	harness._check("fq05_ancestry_and_gear_hooks",
 		absf(_fq05_anc_max - 70.0) < 0.001 and absf(_fq05_regen_mult - 2.0) < 0.001
@@ -374,5 +381,9 @@ func run(ctx) -> void:
 		"attunement after load=%.2f (expected 55.0) max=%.1f" % [
 			player.attunement, player.max_attunement()])
 	player.equip_item("amulet", "")
+	# Restore the real character + ancestry now that the FQ-05 system checks
+	# (run at the neutral Attunement baseline) are complete.
+	player.apply_character(GameState.current_character)
+	root.apply_ancestry_for_species(str(GameState.current_character.get("species", "")))
 	player.attunement = player.max_attunement()
 	root.save_manager.save_game()   # persist the amulet removal for later sections

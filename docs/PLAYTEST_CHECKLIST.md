@@ -159,6 +159,44 @@ rates (Clean Extraction / Stone Economy / Woodwise / Forager's Share).
       for the S-07.2 tuning slice, not applied — that slice authors it against this
       evidence and is guarded by `s07_calling_stack_cap_holds`.
 
+## S-07 ancestry & Calling clarity re-tune (2026-09-09)
+
+This pass reworked the five playable ancestries and de-duplicated the calling
+skill trees for **legibility and truthfulness**, not power. It is an authorized
+measure-then-tune change (operator sign-off); no new mechanics, effect keys, or
+consumers were added — every value uses an already-wired hook.
+
+**Ancestry re-theme (5 playable — inert keys removed, each now has ≥2 distinct
+live levers; `dark_sight` reduced from 3 holders to 2):**
+
+| Ancestry | Live effects now | Pinned/smoke-locked |
+| --- | --- | --- |
+| Human | +8% XP, +10 max Attunement | learning >1 (was 1.05→1.08) |
+| Dwarf | dark 3, +20% stone/ore mining, −10% move, −15% jump | move 0.9, mining 1.2 |
+| Elf | +15% jump, +8% move, +8 max Attunement, −15% mining | jump >1 |
+| Orc | +25 max health, +5% move, −5% XP | health +25 |
+| Goblin | dark 3, +12% move, −20% max health | max health < baseline |
+
+**Calling de-dup (all 72 perks kept; effect keys redistributed within each lane
+using only wired hooks). Net effect on worst-case single-Calling stacking — most
+peaks went DOWN because repeated keys were split apart:**
+
+- Hearthwright repair-strength stack **fell** (four `repair_amount_mult` perks,
+  ×2.06 before innate, was eight perks). Added: +30 max health, ×1.44 assault
+  repair, ×1.38 at-hearth recovery — all modest, Runewright-only.
+- Vanguard flat weapon damage **fell** (×1.60, was ×1.84) and assault weapon
+  damage **fell** (×2.38, was ×2.62). Added: on-kill heal 6→12, and a wounded-
+  in-assault survival perk (`hostile_damage_mult_lowhp_threat` 0.85).
+- Oathbound wounded-survival worst case: 0.72 → **0.61** hostile-damage multiplier
+  (Last Watch × Unbroken × Press the Line). **Watch this in raid playtests.**
+- Resonant pulse **radius fell** (×1.44, was ~×1.9); pulse **cost fell**
+  (×0.61, was ×0.72); max Attunement rose +15 → +25.
+
+- [ ] Raid survivability at the new Oathbound floor (0.61) is not trivializing
+      assaults — note here if it is: ____________________________________
+- [ ] No ancestry feels strictly dominant in the first loop (esp. Goblin +12%
+      move vs. Dwarf −10%): ____________________________________
+
 ## Notes
 
 _Record friction, confusing prompts, or anything that needed the handoff to

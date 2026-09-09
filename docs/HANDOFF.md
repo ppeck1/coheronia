@@ -22,6 +22,15 @@ Resonance feature arc. It includes fog-of-war memory, Attunement resonance, dark
 hooks, the unified crafting experience, inventory reconciliation, one-way wooden
 platform behavior, presentation polish, adaptive music, and expanded smoke coverage.
 
+An ancestry and Calling clarity pass (2026-09-09) reworked the five playable ancestries
+and de-duplicated the 72 calling perks for legibility and truthfulness, using only
+already-wired hooks (no new mechanics, effect keys, or consumers). Each playable
+ancestry now exposes two-to-four distinct live effects with no inert keys, `dark_sight`
+is limited to two cave-themed ancestries, and the worst offender lanes (Hearthwright,
+Vanguard, Resonant) no longer repeat a single effect key. The authorized re-tune's
+rationale and worst-case stacking are recorded in
+[`PLAYTEST_CHECKLIST.md`](PLAYTEST_CHECKLIST.md); most worst-case peaks decreased.
+
 ## Current verified CI baseline
 
 The latest completed branch workflow is green on both supported CI targets:

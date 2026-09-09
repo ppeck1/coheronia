@@ -225,11 +225,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "weapon_damage_mult",
-          "effect_value": 1.15,
+          "effect_key": "heal_on_xp_kill",
+          "effect_value": 6,
           "support": "live",
-          "hook": "_try_hit_threat",
-          "description": "You hit hostile creatures harder, cutting down wounded foes faster."
+          "hook": "enemy-defeat XP award hook",
+          "description": "Executioner: felling an XP-granting foe restores health, so you can press the attack."
         },
         {
           "id": "threat_hunter",
@@ -285,11 +285,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "weapon_damage_mult_threat",
-          "effect_value": 1.1,
+          "effect_key": "hostile_damage_mult_lowhp_threat",
+          "effect_value": 0.85,
           "support": "live",
-          "hook": "_try_hit_threat+assault",
-          "description": "You press assault enemies with heavier weapon strikes."
+          "hook": "player.take_damage(source=enemy) + health fraction + threat context",
+          "description": "Press the Line: while wounded during an assault you take less hostile damage, so you can keep fighting."
         },
         {
           "id": "victorys_breath",
@@ -648,11 +648,11 @@
           "tier": 1,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "build_repair_reach_bonus",
-          "effect_value": 1,
+          "effect_key": "max_health_bonus",
+          "effect_value": 15,
           "support": "live",
-          "hook": "build/repair reach",
-          "description": "Steady hands extend your building-placement reach."
+          "hook": "player.max_health",
+          "description": "Long hours at the worksite toughen you, permanently increasing maximum health."
         },
         {
           "id": "practiced_repairs",
@@ -684,11 +684,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "repair_amount_mult",
-          "effect_value": 1.15,
+          "effect_key": "repair_amount_mult_threat",
+          "effect_value": 1.2,
           "support": "live",
-          "hook": "repair path",
-          "description": "Salvaged materials make your structure repairs restore more health."
+          "hook": "game_root repair path + threat context",
+          "description": "Salvaged materials make your structure repairs restore more health during a settlement assault."
         },
         {
           "id": "repairers_example",
@@ -696,11 +696,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "repair_amount_mult",
-          "effect_value": 1.15,
+          "effect_key": "heal_mult_settlement_or_threat",
+          "effect_value": 1.2,
           "support": "live",
-          "hook": "repair path",
-          "description": "Your example makes your own structure repairs more effective."
+          "hook": "player heal path (food/regen) + settlement/threat context",
+          "description": "Working the hearth, food and passive recovery restore more health inside settlement bounds or during an assault."
         },
         {
           "id": "foundation_sense",
@@ -732,11 +732,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "build_repair_reach_bonus",
-          "effect_value": 1,
+          "effect_key": "max_health_bonus",
+          "effect_value": 15,
           "support": "live",
-          "hook": "build/repair reach",
-          "description": "Coordinated labor extends how far you can place settlement structures."
+          "hook": "player.max_health",
+          "description": "Coordinated labor at the settlement builds your endurance and maximum health."
         },
         {
           "id": "hearth_efficiency",
@@ -744,11 +744,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "repair_amount_mult",
-          "effect_value": 1.1,
+          "effect_key": "heal_mult_settlement_or_threat",
+          "effect_value": 1.15,
           "support": "live",
-          "hook": "repair path",
-          "description": "Efficient work at the hearth strengthens your structure repairs."
+          "hook": "player heal path (food/regen) + settlement/threat context",
+          "description": "Efficient work at the hearth: recovery is stronger inside settlement bounds or during an assault."
         },
         {
           "id": "swift_maintenance",
@@ -756,11 +756,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "repair_amount_mult",
-          "effect_value": 1.15,
+          "effect_key": "repair_amount_mult_threat",
+          "effect_value": 1.2,
           "support": "live",
-          "hook": "repair path",
-          "description": "Swift maintenance: each repair restores more structure health."
+          "hook": "game_root repair path + threat context",
+          "description": "Swift maintenance: repairs restore more structure health during a settlement assault."
         },
         {
           "id": "keeper_of_foundations",
@@ -861,11 +861,11 @@
           "tier": 2,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "pulse_radius_mult",
-          "effect_value": 1.1,
+          "effect_key": "attunement_bonus",
+          "effect_value": 10,
           "support": "live",
-          "hook": "pulse radius",
-          "description": "Echo-mapping widens the reach of every attunement pulse."
+          "hook": "player.perk_attunement_bonus (additive max Attunement)",
+          "description": "Echo-mapping sharpens your senses, deepening your maximum Attunement reserve."
         },
         {
           "id": "deep_illumination",
@@ -897,11 +897,11 @@
           "tier": 3,
           "cost": 1,
           "prerequisites": [],
-          "effect_key": "pulse_radius_mult",
-          "effect_value": 1.15,
+          "effect_key": "pulse_cost_mult",
+          "effect_value": 0.85,
           "support": "live",
-          "hook": "pulse radius",
-          "description": "Your attunement pulses reach a greater radius."
+          "hook": "attunement pulse cost",
+          "description": "Full resonance flows efficiently — your pulses cost less Attunement."
         },
         {
           "id": "reserve_channel",

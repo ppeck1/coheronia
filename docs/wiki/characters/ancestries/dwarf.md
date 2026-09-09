@@ -2,13 +2,13 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Ancestry` page. Current status: `planned`.
+> `Ancestry` page. Current status: `live`.
 
 | Field | Value |
 |---|---|
 | ID | `dwarf` |
 | Page type | Ancestry |
-| Status | planned |
+| Status | live |
 | Implementation phase | B |
 | Implementation priority | 2 |
 | Spawn band | surface_mountain |
@@ -53,11 +53,10 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 | Bucket | Effect | Value |
 |---|---|---|
 | player_effects | dark_sight | 3 |
-| player_effects | hotbar_slots_bonus | 1 |
 | player_effects | stone_ore_mining_mult | 1.2 |
 | player_effects | move_speed_mult | 0.9 |
 | player_effects | jump_mult | 0.85 |
-| player_effects | notes | ['knockback resistance', 'better tool durability'] |
+| player_effects | notes | ['Sees 3 tiles further in darkness', 'Mines stone and ore 20% faster', 'Slower and lower-jumping than most'] |
 | settlement_effects | stone_resilience_mult | 1.1 |
 | settlement_effects | ore_stockpile_value_mult | 1.1 |
 | settlement_effects | notes | ['lower food/forest efficiency'] |

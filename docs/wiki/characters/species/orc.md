@@ -9,7 +9,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | ID | `orc` |
 | Page type | Character species |
 | Status | live |
-| Description | Powerful and durable. High health, built for endurance. |
+| Description | Powerful and durable. High health and a strong stride, but slow to learn new skills. |
 | Abilities | none |
 | Weaknesses | none |
 | Lifespan | standard |

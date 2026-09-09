@@ -9,7 +9,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | ID | `goblin` |
 | Page type | Character species |
 | Status | live |
-| Description | Small and quick scavengers with a knack for ingenuity. |
+| Description | Small, quick scavengers who see in the dark, but are fragile with lower maximum health. |
 | Abilities | none |
 | Weaknesses | none |
 | Lifespan | standard |

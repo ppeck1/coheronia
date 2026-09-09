@@ -2,13 +2,13 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Ancestry` page. Current status: `planned`.
+> `Ancestry` page. Current status: `live`.
 
 | Field | Value |
 |---|---|
 | ID | `orc` |
 | Page type | Ancestry |
-| Status | planned |
+| Status | live |
 | Implementation phase | B |
 | Implementation priority | 5 |
 | Spawn band | surface |
@@ -52,13 +52,10 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 
 | Bucket | Effect | Value |
 |---|---|---|
-| player_effects | dark_sight | 2 |
 | player_effects | health_bonus | 25 |
-| player_effects | stamina_endurance_mult | 1.1 |
-| player_effects | tree_clearing_speed_mult | 1.15 |
-| player_effects | stealth_mult | 0.8 |
-| player_effects | diplomacy_mult | 0.8 |
-| player_effects | notes | ['melee bonus', 'stamina endurance', 'faster tree clearing', 'lower stealth/diplomacy finesse'] |
+| player_effects | move_speed_mult | 1.05 |
+| player_effects | learning_speed_mult | 0.95 |
+| player_effects | notes | ['+25 maximum health', 'Moves 5% faster', 'Learns skills 5% slower (-5% XP)'] |
 | settlement_effects | raid_fear_reduction | 0.8 |
 | settlement_effects | militia_strength_mult | 1.1 |
 | settlement_effects | expansion_pressure_reduction | 0.8 |

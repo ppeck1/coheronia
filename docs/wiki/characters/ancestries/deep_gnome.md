@@ -2,13 +2,13 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Ancestry` page. Current status: `planned`.
+> `Ancestry` page. Current status: `design_only`.
 
 | Field | Value |
 |---|---|
 | ID | `deep_gnome` |
 | Page type | Ancestry |
-| Status | planned |
+| Status | design_only |
 | Implementation phase | D |
 | Implementation priority | None |
 | Spawn band | underground |

@@ -23,9 +23,9 @@
         "constraint": "No specialization"
       },
       "player_effects": {
-        "learning_speed_mult": 1.05,
-        "diplomacy_mult": 1.05,
-        "notes": ["no terrain penalties"]
+        "learning_speed_mult": 1.08,
+        "attunement_bonus": 10,
+        "notes": ["Learns every skill faster (+8% XP)", "Higher maximum Attunement", "No terrain penalties or specializations"]
       },
       "settlement_effects": {
         "civic_upgrade_speed_mult": 1.05,
@@ -57,7 +57,7 @@
       },
       "implementation_phase": "B",
       "implementation_priority": 1,
-      "status": "planned"
+      "status": "live"
     },
     {
       "id": "dwarf",
@@ -74,11 +74,10 @@
       },
       "player_effects": {
         "dark_sight": 3,
-        "hotbar_slots_bonus": 1,
         "stone_ore_mining_mult": 1.2,
         "move_speed_mult": 0.9,
         "jump_mult": 0.85,
-        "notes": ["knockback resistance", "better tool durability"]
+        "notes": ["Sees 3 tiles further in darkness", "Mines stone and ore 20% faster", "Slower and lower-jumping than most"]
       },
       "settlement_effects": {
         "stone_resilience_mult": 1.1,
@@ -110,7 +109,7 @@
       },
       "implementation_phase": "B",
       "implementation_priority": 2,
-      "status": "planned"
+      "status": "live"
     },
     {
       "id": "deep_dwarf",
@@ -162,7 +161,7 @@
       },
       "implementation_phase": "C",
       "implementation_priority": null,
-      "status": "planned"
+      "status": "design_only"
     },
     {
       "id": "elf",
@@ -175,14 +174,14 @@
         "cultural": "Harmony, forestry",
         "environmental": "Trees, animals, plants",
         "innate": "Nature Sense",
-        "constraint": "Lower hauling/carry efficiency"
+        "constraint": "Poor at heavy mining and industry"
       },
       "player_effects": {
         "jump_bonus": 0.15,
-        "forest_movement_mult": 1.1,
-        "fall_damage_reduction": 0.5,
-        "carry_efficiency_mult": 0.8,
-        "notes": ["higher jump", "better forest movement", "reduced fall damage", "plant detection"]
+        "move_speed_mult": 1.08,
+        "attunement_bonus": 8,
+        "stone_ore_mining_mult": 0.85,
+        "notes": ["Jumps 15% higher", "Moves 8% faster", "Higher maximum Attunement", "Mines stone and ore 15% slower"]
       },
       "settlement_effects": {
         "tree_recovery_mult": 1.1,
@@ -215,7 +214,7 @@
       },
       "implementation_phase": "B",
       "implementation_priority": 3,
-      "status": "planned"
+      "status": "live"
     },
     {
       "id": "deep_elf",
@@ -269,7 +268,7 @@
       },
       "implementation_phase": "C",
       "implementation_priority": 6,
-      "status": "planned"
+      "status": "design_only"
     },
     {
       "id": "orc",
@@ -282,16 +281,13 @@
         "cultural": "Expansion, endurance",
         "environmental": "Harsh terrain",
         "innate": "War Cry",
-        "constraint": "Lower stealth/diplomacy finesse"
+        "constraint": "Learns new skills slowly"
       },
       "player_effects": {
-        "dark_sight": 2,
         "health_bonus": 25,
-        "stamina_endurance_mult": 1.1,
-        "tree_clearing_speed_mult": 1.15,
-        "stealth_mult": 0.8,
-        "diplomacy_mult": 0.8,
-        "notes": ["melee bonus", "stamina endurance", "faster tree clearing", "lower stealth/diplomacy finesse"]
+        "move_speed_mult": 1.05,
+        "learning_speed_mult": 0.95,
+        "notes": ["+25 maximum health", "Moves 5% faster", "Learns skills 5% slower (-5% XP)"]
       },
       "settlement_effects": {
         "raid_fear_reduction": 0.8,
@@ -324,7 +320,7 @@
       },
       "implementation_phase": "B",
       "implementation_priority": 5,
-      "status": "planned"
+      "status": "live"
     },
     {
       "id": "goblin",
@@ -337,15 +333,13 @@
         "cultural": "Ingenuity, scavenging",
         "environmental": "Salvage, traps",
         "innate": "Scavenger",
-        "constraint": "Fragile, lower trust/coherence"
+        "constraint": "Fragile — lower maximum health"
       },
       "player_effects": {
         "dark_sight": 3,
-        "hitbox_reduction": 0.7,
-        "trap_cost_reduction": 0.7,
-        "material_recovery_chance": 0.25,
+        "move_speed_mult": 1.12,
         "health_reduction": 0.8,
-        "notes": ["smaller hitbox", "cheaper traps", "material recovery chance", "lower health"]
+        "notes": ["Sees 3 tiles further in darkness", "Moves 12% faster — small and quick", "Fragile: 20% lower maximum health"]
       },
       "settlement_effects": {
         "repair_cost_reduction": 0.7,
@@ -379,7 +373,7 @@
       },
       "implementation_phase": "B",
       "implementation_priority": 4,
-      "status": "planned"
+      "status": "live"
     },
     {
       "id": "deep_goblin",
@@ -432,7 +426,7 @@
       },
       "implementation_phase": "C",
       "implementation_priority": null,
-      "status": "planned"
+      "status": "design_only"
     },
     {
       "id": "gnome",
@@ -485,7 +479,7 @@
       },
       "implementation_phase": "D",
       "implementation_priority": null,
-      "status": "planned"
+      "status": "design_only"
     },
     {
       "id": "deep_gnome",
@@ -539,7 +533,7 @@
       },
       "implementation_phase": "D",
       "implementation_priority": null,
-      "status": "planned"
+      "status": "design_only"
     },
     {
       "id": "lizardfolk",
@@ -594,7 +588,7 @@
       },
       "implementation_phase": "D",
       "implementation_priority": 7,
-      "status": "planned"
+      "status": "design_only"
     },
     {
       "id": "dragonkin",
@@ -658,7 +652,7 @@
       },
       "implementation_phase": "E",
       "implementation_priority": 8,
-      "status": "planned"
+      "status": "design_only"
     }
   ],
   "dragonkin_types": [

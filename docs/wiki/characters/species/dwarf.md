@@ -9,7 +9,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | ID | `dwarf` |
 | Page type | Character species |
 | Status | live |
-| Description | Sturdy mountain folk. Slower movement, but master miners. |
+| Description | Sturdy mountain folk. Mine stone and ore fast and see in the dark, but move and jump poorly. |
 | Abilities | none |
 | Weaknesses | none |
 | Lifespan | standard |

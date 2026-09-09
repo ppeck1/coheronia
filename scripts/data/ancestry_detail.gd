@@ -92,6 +92,7 @@ static func _format_effect(key: String, value: Variant) -> String:
 	# [label, format_code]
 	var MAP: Dictionary = {
 		"learning_speed_mult":          ["All XP", "pct_from_1"],
+		"attunement_bonus":             ["Max Attunement", "int_plus"],
 		"diplomacy_mult":               ["Diplomacy", "pct_from_1"],
 		"stone_ore_mining_mult":        ["Mining (stone/ore)", "pct_from_1"],
 		"move_speed_mult":              ["Move", "pct_from_1"],
