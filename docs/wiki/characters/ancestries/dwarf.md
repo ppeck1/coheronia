@@ -56,7 +56,7 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 | player_effects | stone_ore_mining_mult | 1.2 |
 | player_effects | move_speed_mult | 0.9 |
 | player_effects | jump_mult | 0.85 |
-| player_effects | notes | ['Sees 3 tiles further in darkness', 'Mines stone and ore 20% faster', 'Slower and lower-jumping than most'] |
+| player_effects | notes | [] |
 | settlement_effects | stone_resilience_mult | 1.1 |
 | settlement_effects | ore_stockpile_value_mult | 1.1 |
 | settlement_effects | notes | ['lower food/forest efficiency'] |

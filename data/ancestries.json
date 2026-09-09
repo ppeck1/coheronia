@@ -25,7 +25,7 @@
       "player_effects": {
         "learning_speed_mult": 1.08,
         "attunement_bonus": 10,
-        "notes": ["Learns every skill faster (+8% XP)", "Higher maximum Attunement", "No terrain penalties or specializations"]
+        "notes": ["No terrain penalties or specializations"]
       },
       "settlement_effects": {
         "civic_upgrade_speed_mult": 1.05,
@@ -77,7 +77,7 @@
         "stone_ore_mining_mult": 1.2,
         "move_speed_mult": 0.9,
         "jump_mult": 0.85,
-        "notes": ["Sees 3 tiles further in darkness", "Mines stone and ore 20% faster", "Slower and lower-jumping than most"]
+        "notes": []
       },
       "settlement_effects": {
         "stone_resilience_mult": 1.1,
@@ -181,7 +181,7 @@
         "move_speed_mult": 1.08,
         "attunement_bonus": 8,
         "stone_ore_mining_mult": 0.85,
-        "notes": ["Jumps 15% higher", "Moves 8% faster", "Higher maximum Attunement", "Mines stone and ore 15% slower"]
+        "notes": []
       },
       "settlement_effects": {
         "tree_recovery_mult": 1.1,
@@ -287,7 +287,7 @@
         "health_bonus": 25,
         "move_speed_mult": 1.05,
         "learning_speed_mult": 0.95,
-        "notes": ["+25 maximum health", "Moves 5% faster", "Learns skills 5% slower (-5% XP)"]
+        "notes": []
       },
       "settlement_effects": {
         "raid_fear_reduction": 0.8,
@@ -339,7 +339,7 @@
         "dark_sight": 3,
         "move_speed_mult": 1.12,
         "health_reduction": 0.8,
-        "notes": ["Sees 3 tiles further in darkness", "Moves 12% faster — small and quick", "Fragile: 20% lower maximum health"]
+        "notes": []
       },
       "settlement_effects": {
         "repair_cost_reduction": 0.7,

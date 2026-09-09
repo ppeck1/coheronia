@@ -56,7 +56,7 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 | player_effects | move_speed_mult | 1.08 |
 | player_effects | attunement_bonus | 8 |
 | player_effects | stone_ore_mining_mult | 0.85 |
-| player_effects | notes | ['Jumps 15% higher', 'Moves 8% faster', 'Higher maximum Attunement', 'Mines stone and ore 15% slower'] |
+| player_effects | notes | [] |
 | settlement_effects | tree_recovery_mult | 1.1 |
 | settlement_effects | animal_aggression_reduction | 0.8 |
 | settlement_effects | forest_shelter_coherence_bonus | 1.05 |

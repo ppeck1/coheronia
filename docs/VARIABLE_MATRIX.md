@@ -270,7 +270,7 @@ All eight keys are read once via `player._load_player_defaults()` from `BlockReg
 | `attunement_pulse_duration_sec` | `player_defaults.attunement_pulse_duration_sec` | 4.0 | pulse light fade time |
 | `player.attunement` | `player.gd` / world save (`player.attunement`) | full | current pool; world-saved next to health; pre-FQ-05 saves default to full |
 | `player.max_attunement()` | `player.gd` (computed) | 50 | base + ancestry `attunement_bonus` + gear `attunement_bonus` sum; perks join here at FQ-06 |
-| `attunement_bonus` / `attunement_regen_mult` | `data/ancestries.json` `player_effects` (hooks; no live ancestry sets them yet) + `data/equipment.json` item effects (`amulet_focus` = +10) | 0 / 1.0 | ancestry additive max + regen multiplier; gear additive max |
+| `attunement_bonus` / `attunement_regen_mult` | `data/ancestries.json` `player_effects` (human +10, elf +8 set the additive max; `attunement_regen_mult` reserved, no live ancestry) + `data/equipment.json` item effects (`amulet_focus` = +10) | 0 / 1.0 | ancestry additive max + regen multiplier; gear additive max |
 
 Extension points documented in `docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md` ("Attunement Extension Points"). A non-magic character never spends or needs attunement; nothing existing is gated by it.
 
@@ -385,11 +385,11 @@ Two healing sources are wired in FQ-01: **eat food** (active, bound to the `eat_
 
 | Variable | Type | Authority | Notes |
 |---|---|---|---|
-| `ancestry_move_mult` / `ancestry_jump_mult` | float | `data/ancestries.json` -> `player.gd` | dwarf 0.9/0.85; elf jump 1.15 (from jump_bonus) |
+| `ancestry_move_mult` / `ancestry_jump_mult` | float | `data/ancestries.json` -> `player.gd` | move: dwarf 0.9, orc 1.05, elf 1.08, goblin 1.12; jump: dwarf 0.85, elf 1.15 (from jump_bonus) |
 | `stone_ore_mine_mult` | float | same | dwarf 1.2 on stone/ore blocks |
 | `ancestry_health_bonus` | int | same | orc +25 |
 | `health_reduction` | float | same | goblin 0.8x max health (multiplicative, after bonus) |
-| `learning_speed_mult` | float | same | human 1.05x on all award_xp amounts |
+| `learning_speed_mult` | float | same | human 1.08x, orc 0.95x on all award_xp amounts |
 | `phase_b_ids()` | func | `ancestry_registry.gd` | derived from `implementation_phase == "B"` in data |
 
 ## C/L/R Inputs

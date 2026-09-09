@@ -55,7 +55,7 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 | player_effects | health_bonus | 25 |
 | player_effects | move_speed_mult | 1.05 |
 | player_effects | learning_speed_mult | 0.95 |
-| player_effects | notes | ['+25 maximum health', 'Moves 5% faster', 'Learns skills 5% slower (-5% XP)'] |
+| player_effects | notes | [] |
 | settlement_effects | raid_fear_reduction | 0.8 |
 | settlement_effects | militia_strength_mult | 1.1 |
 | settlement_effects | expansion_pressure_reduction | 0.8 |

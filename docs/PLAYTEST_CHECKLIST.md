@@ -141,11 +141,15 @@ notes if the read is full (capstone bought) or partial (and which tiers missing)
 ## Secondary channels — glance only (record only if a value looks egregious)
 
 Not the D3 focus, but note any that feel obviously out of band during the runs:
-max health (Warden: Tempered Frame + Stand Together); armor protection; mining
-speed (Prospector: Stonewise + Practiced Swing + Master of the Deep); move speed
-(Trailseeker: Trailcraft + Farwalker + Deep Stride + Familiar Ground + Beyond the
-Known); Attunement pulse radius / duration / cost (Resonant); extra-yield roll
-rates (Clean Extraction / Stone Economy / Woodwise / Forager's Share).
+max health (Warden: Tempered Frame + Stand Together; **now also Hearthwright:
+Steady Placement + Coordinated Labor**; Orc ancestry +25); armor protection;
+mining speed (Prospector: Stonewise + Practiced Swing + Master of the Deep; Dwarf
++20% / Elf −15%); move speed (Trailseeker: Trailcraft + Farwalker + Deep Stride +
+Familiar Ground + Beyond the Known; **plus ancestry base: Goblin +12% / Elf +8% /
+Orc +5% / Dwarf −10%**); Attunement max/pulse (Resonant; Human +10 / Elf +8
+ancestry max); at-hearth recovery (**Hearthwright: Repairer's Example + Hearth
+Efficiency**); extra-yield roll rates (Clean Extraction / Stone Economy /
+Woodwise / Forager's Share).
 
 - [ ] No secondary channel is so lopsided it needs to jump the D3 queue. If one is,
       note it here (do not tune it now): ____________________________________

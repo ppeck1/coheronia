@@ -111,23 +111,23 @@ The in-game **Goals** panel (**O**) walks you through all **seven** objectives f
 
 At character creation you pick a playable **ancestry** and a permanent **Calling**, then grow that Calling's skill tree as you level.
 
-**Ancestries** — five playable peoples, each with its own look and innate bent (further ancestries exist as validated data awaiting their phases):
+**Ancestries** — five playable peoples, each with its own look and a distinct set of live effects, no two alike (further ancestries exist as validated data awaiting their phases):
 
-| Ancestry | Bent |
-|---|---|
-| **Human** | Adaptable founding settlers with a talent for civic organisation. |
-| **Dwarf** | Mountain-born craftspeople, at home among stone halls and ore routes. |
-| **Elf** | Forest-keepers who thrive in harmony with the land. |
-| **Orc** | Frontier-hardened warriors built for rough, contested ground. |
-| **Goblin** | Resourceful scavengers who turn ruins into workshops and traps. |
+| Ancestry | Bent | Plays like |
+|---|---|---|
+| **Human** | Adaptable founding settlers with a talent for civic organisation. | Learns every skill faster (+XP) and holds more Attunement; no terrain penalties. |
+| **Dwarf** | Mountain-born craftspeople, at home among stone halls and ore routes. | Mines stone and ore fast and sees in the dark, but moves and jumps poorly. |
+| **Elf** | Forest-keepers who thrive in harmony with the land. | Swift and high-jumping with deep Attunement, but a poor miner. |
+| **Orc** | Frontier-hardened warriors built for rough, contested ground. | Tough (+max health) with a strong stride, but slow to learn skills. |
+| **Goblin** | Resourceful scavengers who turn ruins into workshops and traps. | Quick and dark-sighted, but fragile — lower maximum health. |
 
 **Callings** — one permanent identity chosen at creation, each an innate effect plus **two Paths of twelve tiered skills** (24 per Calling; every skill wired to a real gameplay effect). Open the tree with **K** — a clickable **star constellation**; spend points as you level, with reachability-safe tier gates.
 
 | Calling | Innate | Two Paths |
 |---|---|---|
-| **Oathbound** — sworn defender | Takes reduced damage from enemies, and the protection strengthens while the settlement is under assault. | **Warden** (defense & resilience) · **Vanguard** (weapon power) |
+| **Oathbound** — sworn defender | Takes reduced damage from enemies, and the protection strengthens while the settlement is under assault. | **Warden** (defense & resilience) · **Vanguard** (weapon power, momentum & the finishing blow) |
 | **Wayfarer** — ranging explorer | Moves faster beyond the walls and permanently reveals more of the map. | **Prospector** (mining & ore) · **Trailseeker** (mobility & scouting) |
-| **Runewright** — keeper of hearth & resonance | Structure repairs restore more health, and Attunement bonuses reach further. | **Hearthwright** (repair & building) · **Resonant** (Attunement & the light-pulse) |
+| **Runewright** — keeper of hearth & resonance | Structure repairs restore more health, and Attunement bonuses reach further. | **Hearthwright** (repair, building & upkeep) · **Resonant** (Attunement & the light-pulse) |
 
 </details>
 

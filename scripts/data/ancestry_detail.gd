@@ -109,6 +109,7 @@ static func _format_effect(key: String, value: Variant) -> String:
 		"tree_clearing_speed_mult":     ["Tree clearing", "pct_from_1"],
 		"stealth_mult":                 ["Stealth", "pct_from_1"],
 		"dark_vision":                  ["Dark vision", "bool_yes"],
+		"dark_sight":                   ["Dark sight (tiles)", "int_plus"],
 		"mushroom_harvest_mult":        ["Mushroom harvest", "pct_from_1"],
 		"crystal_harvest_mult":         ["Crystal harvest", "pct_from_1"],
 		"underground_movement_mult":    ["Underground move", "pct_from_1"],
