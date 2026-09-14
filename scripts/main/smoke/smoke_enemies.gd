@@ -6,6 +6,7 @@ extends Node
 ## category 4), re-preloaded here.
 
 const SubjectScript := preload("res://scripts/entities/subject.gd")
+const EnemySpawnDirector := preload("res://scripts/data/enemy_spawn_director.gd")
 
 
 func run(ctx) -> void:
@@ -575,3 +576,33 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 		if is_instance_valid(_r):
 			_r.queue_free()
 	await get_tree().process_frame
+
+	# (8) the spawn director's decisions match the previously-inlined logic:
+	# surface count clamp, raid eligibility (day OR stockpile lure), the roll
+	# threshold product, and the cave cap — pure, so checked directly.
+	var _s08_dir_ok: bool = \
+		EnemySpawnDirector.surface_spawn_count(0, 3.0) == 0 \
+		and EnemySpawnDirector.surface_spawn_count(2, 1.0) == 2 \
+		and EnemySpawnDirector.surface_spawn_count(2, 3.0) == 5 \
+		and EnemySpawnDirector.raid_eligible(3, 5, 30, 25) == true \
+		and EnemySpawnDirector.raid_eligible(3, 5, 10, 25) == false \
+		and EnemySpawnDirector.raid_eligible(6, 5, 0, 25) == true \
+		and is_equal_approx(EnemySpawnDirector.roll_threshold(0.3, 1.0, 1.0), 0.3) \
+		and is_equal_approx(EnemySpawnDirector.roll_threshold(0.2, 0.6, 1.4), 0.2 * 0.6 * 1.4) \
+		and EnemySpawnDirector.cave_at_cap(3, 3) == true \
+		and EnemySpawnDirector.cave_at_cap(2, 3) == false
+	harness._check("s08_spawn_director_decisions", _s08_dir_ok,
+		"count/eligibility/threshold/cap all match inlined logic")
+
+	# (9) cave enemy selection: lava dweller > ore tick > default crawler, fail-closed
+	# against the real registry (only spawnable variants selected).
+	var _s08_sel_ok: bool = \
+		EnemySpawnDirector.select_cave_enemy_id(true, false, enemy_reg) == "lava_slime" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg) == "ore_tick" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg) == "cave_crawler" \
+		and EnemySpawnDirector.select_cave_enemy_id(true, true, enemy_reg) == "lava_slime"
+	harness._check("s08_spawn_director_cave_selection", _s08_sel_ok,
+		"lava=%s ore=%s none=%s" % [
+			EnemySpawnDirector.select_cave_enemy_id(true, false, enemy_reg),
+			EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg),
+			EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg)])

@@ -15,6 +15,7 @@ const SUBJECT_JOBS := ["farmhand", "repairer", "hauler", "defender"]   # R-08 + 
 const ActionFx := preload("res://scripts/fx/action_fx.gd")   # FQ-09M confirmations
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
 const EnemyFactoryClass := preload("res://scripts/data/enemy_factory.gd")
+const EnemySpawnDirectorClass := preload("res://scripts/data/enemy_spawn_director.gd")
 const ProgressionRegistryClass := preload("res://scripts/data/progression_registry.gd")
 const AncestryRegistryClass := preload("res://scripts/data/ancestry_registry.gd")
 const GoalTrackerScript := preload("res://scripts/main/goal_tracker.gd")
@@ -1434,9 +1435,8 @@ func _on_nightfall() -> void:
 	var scaling := {"density_mult": 1.0, "loot_mult": 1.0}
 	if _enemy_registry != null:
 		scaling = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
-	var spawn_count := 0
-	if base_count > 0:
-		spawn_count = clampi(int(round(float(base_count) * float(scaling.get("density_mult", 1.0)))), 1, 5)
+	var spawn_count := EnemySpawnDirectorClass.surface_spawn_count(
+		base_count, float(scaling.get("density_mult", 1.0)))
 	if spawn_count > 0:
 		log_event("Night falls. Pressure rises (%d threat%s approaching)." % [
 			spawn_count, "" if spawn_count == 1 else "s"],
@@ -1575,12 +1575,11 @@ func _maybe_spawn_raider() -> void:
 	var day_thresh: int = int(spawn_rule.get("day_threshold", 5))
 	var stock_thresh: int = int(spawn_rule.get("stockpile_threshold", 25))
 	var base_chance: float = float(spawn_rule.get("base_chance", 0.3))
-	var stockpile_big: bool = town_hall.total_stock() >= stock_thresh
-	if day_count < day_thresh and not stockpile_big:
+	if not EnemySpawnDirectorClass.raid_eligible(day_count, day_thresh, town_hall.total_stock(), stock_thresh):
 		return
 	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
-	var effective_chance: float = base_chance * float(scaling.get("density_mult", 1.0))
-	if randf() > effective_chance * config().difficulty("enemy"):
+	if randf() > EnemySpawnDirectorClass.roll_threshold(base_chance,
+			float(scaling.get("density_mult", 1.0)), config().difficulty("enemy")):
 		return
 	var hall_cell: Vector2i = world.hall_info["center_cell"]
 	var side := 1 if randi() % 2 == 0 else -1
@@ -1607,8 +1606,8 @@ func _maybe_spawn_thornrat() -> void:
 	if day_count < int(rule.get("day_threshold", 2)):
 		return
 	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
-	var chance: float = float(rule.get("base_chance", 0.5)) * float(scaling.get("density_mult", 1.0))
-	if randf() > chance * config().difficulty("enemy"):
+	if randf() > EnemySpawnDirectorClass.roll_threshold(float(rule.get("base_chance", 0.5)),
+			float(scaling.get("density_mult", 1.0)), config().difficulty("enemy")):
 		return
 	var hall_cell: Vector2i = world.hall_info["center_cell"]
 	var side := 1 if randi() % 2 == 0 else -1
@@ -1633,11 +1632,11 @@ func _maybe_spawn_torchbearer() -> void:
 	var rule: Dictionary = def.get("spawn_rule", {})
 	var day_thresh: int = int(rule.get("day_threshold", 8))
 	var stock_thresh: int = int(rule.get("stockpile_threshold", 40))
-	if day_count < day_thresh and town_hall.total_stock() < stock_thresh:
+	if not EnemySpawnDirectorClass.raid_eligible(day_count, day_thresh, town_hall.total_stock(), stock_thresh):
 		return
 	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
-	var chance: float = float(rule.get("base_chance", 0.2)) * float(scaling.get("density_mult", 1.0))
-	if randf() > chance * config().difficulty("enemy"):
+	if randf() > EnemySpawnDirectorClass.roll_threshold(float(rule.get("base_chance", 0.2)),
+			float(scaling.get("density_mult", 1.0)), config().difficulty("enemy")):
 		return
 	var hall_cell: Vector2i = world.hall_info["center_cell"]
 	var side := 1 if randi() % 2 == 0 else -1
@@ -1663,11 +1662,11 @@ func _maybe_spawn_sapper() -> void:
 	var rule: Dictionary = def.get("spawn_rule", {})
 	var day_thresh: int = int(rule.get("day_threshold", 10))
 	var stock_thresh: int = int(rule.get("stockpile_threshold", 50))
-	if day_count < day_thresh and town_hall.total_stock() < stock_thresh:
+	if not EnemySpawnDirectorClass.raid_eligible(day_count, day_thresh, town_hall.total_stock(), stock_thresh):
 		return
 	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
-	var chance: float = float(rule.get("base_chance", 0.18)) * float(scaling.get("density_mult", 1.0))
-	if randf() > chance * config().difficulty("enemy"):
+	if randf() > EnemySpawnDirectorClass.roll_threshold(float(rule.get("base_chance", 0.18)),
+			float(scaling.get("density_mult", 1.0)), config().difficulty("enemy")):
 		return
 	var hall_cell: Vector2i = world.hall_info["center_cell"]
 	var side := 1 if randi() % 2 == 0 else -1
@@ -1695,7 +1694,7 @@ func _advance_cave_spawns(delta: float) -> void:
 		if is_instance_valid(t) and not t.is_queued_for_deletion():
 			if t.family == "underground":
 				crawler_count += 1
-	if crawler_count >= CAVE_CRAWLER_CAP:
+	if EnemySpawnDirectorClass.cave_at_cap(crawler_count, CAVE_CRAWLER_CAP):
 		return
 	# Only spawn if the player is underground (below the surface y).
 	var pcell: Vector2i = world.cell_of(player.global_position)
@@ -1720,14 +1719,16 @@ func _advance_cave_spawns(delta: float) -> void:
 	if _open_air_count(spawn_cell, CAVE_MIN_OPEN_CELLS) < CAVE_MIN_OPEN_CELLS:
 		return
 	# FQ-13/M4-B: near lava the underground spawn is a lava slime (molten dweller);
-	# near an ore vein it is an ore tick; otherwise the usual cave crawler.
-	var eid := "cave_crawler"
+	# near an ore vein it is an ore tick; otherwise the usual cave crawler. The
+	# selection lives in the spawn director; the lava probe short-circuits the ore
+	# query exactly as before so no extra world scan runs when lava is adjacent.
+	var lava_near: bool = _lava_near(spawn_cell, 3)
+	var ore_near: bool = (not lava_near) and world.has_ore_within(spawn_cell, 2)
+	var eid: String = EnemySpawnDirectorClass.select_cave_enemy_id(lava_near, ore_near, _enemy_registry)
 	var event := "A Cave Crawler lurks in the dark below."
-	if _lava_near(spawn_cell, 3) and not _enemy_registry.get_def("lava_slime").is_empty():
-		eid = "lava_slime"
+	if eid == "lava_slime":
 		event = "A Lava Slime oozes from the molten rock."
-	elif world.has_ore_within(spawn_cell, 2) and not _enemy_registry.get_def("ore_tick").is_empty():
-		eid = "ore_tick"
+	elif eid == "ore_tick":
 		event = "An Ore Tick clings to the ore nearby."
 	var def: Dictionary = _enemy_registry.get_def(eid)
 	if def.is_empty():
