@@ -792,11 +792,14 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 		and EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg, false, true) == "cave_crawler" \
 		and EnemySpawnDirector.select_cave_enemy_id(true, false, enemy_reg, true, true) == "lava_slime" \
 		and EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg, true, true) == "lantern_leech" \
-		and EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg, false, true) == "ore_tick"
+		and EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg, false, true) == "ore_tick" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg, true, false) == "ore_tick"
 	harness._check("s08_1_lantern_leech_cave_selection", _ll_sel_ok,
-		"water+cap=lantern; at-cap/no-water=crawler; lava wins; water>ore; ore when no water")
+		"water+cap=lantern; at-cap/no-water=crawler; lava wins; water>ore; ore when no water; water+ore at-cap falls back to ore")
 
-	# (19) the id + carried light round-trip through save (rebuilt on restore).
+	# (19) the SAVE CONTRACT round-trips: a damaged lantern leech restores its id, hp,
+	# max_hp, carried light, and dawn policy (not just the id + light).
+	_ll.hp = 1   # damage it so the hp/max_hp round-trip is meaningful (max_hp stays 2)
 	var _ll_ser: Array = root.serialize_threats()
 	root.apply_threats(_ll_ser)
 	await get_tree().process_frame
@@ -805,26 +808,50 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 		if is_instance_valid(_r) and str(_r.enemy_id) == "lantern_leech":
 			_ll_restored = _r
 	harness._check("s08_1_lantern_leech_saves",
-		_ll_restored != null and _ll_restored.has_carried_light()
-		and _ll_restored.persists_through_dawn(),
-		"restored=%s light=%s" % [
+		_ll_restored != null and _ll_restored.hp == 1 and _ll_restored.max_hp == 2
+		and _ll_restored.has_carried_light() and _ll_restored.persists_through_dawn(),
+		"restored=%s hp=%s max=%s light=%s" % [
 			str(_ll_restored != null),
+			(str(_ll_restored.hp) if _ll_restored != null else "n/a"),
+			(str(_ll_restored.max_hp) if _ll_restored != null else "n/a"),
 			str(_ll_restored != null and _ll_restored.has_carried_light())])
 
-	# (20) both drops have a live consumer: the craft_lantern_glow recipe consumes
-	# glow_gland + oil to yield a lantern, and both items resolve an icon.
-	var _ll_recipe: Dictionary = BlockRegistry.get_recipe("craft_lantern_glow")
+	# (20) both drops are REAL loot with a live consumer: a killed lantern leech spills
+	# glow_gland + oil as ground drops the player collects, and the craft_lantern_glow
+	# recipe actually consumes both from the stockpile to yield a lantern.
+	for _lc in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_lc):
+			_lc.queue_free()
+	await get_tree().process_frame
+	var _pl = root.player
+	var _hall = root.town_hall
+	var _glow_before: int = _pl.inventory.count("glow_gland")
+	var _oil_before: int = _pl.inventory.count("oil")
+	var _ll_kill: Node = root.spawn_enemy_for_test("lantern_leech")
+	_ll_kill.global_position = _pl.global_position
+	_ll_kill.drop_chance_override = 1.0
+	_ll_kill.take_hit(99)
+	await get_tree().process_frame
+	_pl.collect_ground_drops()
+	var _dropped_ok: bool = _pl.inventory.count("glow_gland") > _glow_before \
+		and _pl.inventory.count("oil") > _oil_before
+	# craft the lantern from the two materials via the town_hall stockpile path
+	_hall.stockpile["glow_gland"] = 1
+	_hall.stockpile["oil"] = 1
+	var _lantern_before: int = _pl.inventory.count("lantern")
+	var _crafted: bool = _hall.craft_from_stockpile("craft_lantern_glow", _pl)
+	var _craft_ok: bool = _crafted \
+		and _pl.inventory.count("lantern") > _lantern_before \
+		and int(_hall.stockpile.get("glow_gland", 0)) == 0 \
+		and int(_hall.stockpile.get("oil", 0)) == 0
 	harness._check("s08_1_lantern_leech_loot_consumer",
-		not _ll_recipe.is_empty()
-		and int(_ll_recipe.get("inputs", {}).get("glow_gland", 0)) == 1
-		and int(_ll_recipe.get("inputs", {}).get("oil", 0)) == 1
-		and int(_ll_recipe.get("outputs", {}).get("lantern", 0)) == 1
+		_dropped_ok and _craft_ok
 		and BlockRegistry.item_icon("glow_gland") != null
 		and BlockRegistry.item_icon("oil") != null,
-		"recipe=%s glow_icon=%s oil_icon=%s" % [
-			str(not _ll_recipe.is_empty()),
-			str(BlockRegistry.item_icon("glow_gland") != null),
-			str(BlockRegistry.item_icon("oil") != null)])
+		"dropped(glow+oil)=%s crafted=%s lantern_gained=%s inputs_consumed=%s" % [
+			str(_dropped_ok), str(_crafted),
+			str(_pl.inventory.count("lantern") > _lantern_before),
+			str(int(_hall.stockpile.get("glow_gland", 0)) == 0 and int(_hall.stockpile.get("oil", 0)) == 0)])
 
 	for _llc2 in get_tree().get_nodes_in_group("threats"):
 		if is_instance_valid(_llc2):

@@ -1674,11 +1674,13 @@ func _advance_cave_spawns(delta: float) -> void:
 		return
 	# FQ-13/M4-B/S-08.1: near lava -> lava slime; near a cave pool (water) -> lantern
 	# leech (under its cap); near an ore vein -> ore tick; otherwise the cave crawler.
-	# The selection lives in the spawn director; each probe short-circuits the next so
-	# no extra world scan runs once a closer context matches.
+	# The selection + priority live in the spawn director. lava short-circuits the
+	# other probes (top priority), but water and ore are evaluated INDEPENDENTLY: a
+	# cell near both water and ore must still fall back to the ore tick when the leech
+	# is at its cap, so `ore_near` must not be suppressed by `water_near`.
 	var lava_near: bool = _lava_near(spawn_cell, 3)
 	var water_near: bool = (not lava_near) and _water_near(spawn_cell, 2)
-	var ore_near: bool = (not lava_near) and (not water_near) and world.has_ore_within(spawn_cell, 2)
+	var ore_near: bool = (not lava_near) and world.has_ore_within(spawn_cell, 2)
 	var lantern_ok: bool = lantern_count < LANTERN_LEECH_CAP
 	var eid: String = EnemySpawnDirectorClass.select_cave_enemy_id(
 		lava_near, ore_near, _enemy_registry, water_near, lantern_ok)

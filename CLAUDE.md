@@ -39,32 +39,38 @@ prose over the actual CI/smoke evidence. Regenerated wiki pages
 (`docs/wiki/**` produced by `scripts/wiki/generate_wiki.py`) are **generated** —
 edit the generator or the data, never the generated file.
 
-## Active boundary: S-08.0 Enemy Expansion Foundation (parity-only)
+## Active boundary: S-08 enemy expansion — single-enemy activation slices
 
-**v0.7-alpha is released** (merged to `main` via PR #13, merge commit `f1509b7`,
-tagged `v0.7-alpha`). The S-07 stabilization arc is closed; its rules below are
-retained only as historical context. The current active arc is **S-08.0 Enemy
-Expansion Foundation** — a **behavior-preserving** refactor of the enemy runtime,
-data, and spawn seams that later enemy work will build on. Within it:
+**v0.7-alpha is released** (PR #13, `f1509b7`, tagged `v0.7-alpha`) and the **S-08.0
+Enemy Expansion Foundation is merged** (PR #15, merge `29fee40`): the enemy
+runtime/data/spawn seams (validated fail-closed registry, single factory, spawn
+director, `actor_kind` controller seam, lifecycle/defeat + save-extension) are in
+place. The current mode is **bounded single-enemy activation slices** — one planned
+enemy activated end-to-end at a time via its own work order and the per-enemy
+completion contract (e.g. **S-08.1 Lantern Leech**, merged/landing next). Within a
+slice:
 
-- **No new enemies activated, no new enemy mechanics, and no bulk roster.** The
-  live enemy set stays exactly the current eight.
-- **No new gameplay mechanics, subsystems, effect keys, or effect consumers.**
-- **No balance changes** — existing enemies keep their measured runtime HP,
-  contact damage, Hall DPS, speed, severity, spawn eligibility/caps, dawn policy,
-  and loot scaling unless an explicit, evidence-backed tune authorizes it.
-- **No new world content.**
-- **No save-format, save-ownership, `SAVE_VERSION`, or `gen_version` changes.** A
-  behavior-specific saved-state extension point may be *defined*, but no
-  persistent format/version bump ships in this foundation slice.
-- **Modularize, don't monolith.** Extract clean, stateless seams (definition/
-  registry, factory, shared actor, behavior seam, spawn director). Preserve every
-  existing smoke `_check` name and its pass/fail meaning (the count only rises);
-  keep the `game_root`/smoke public shims stable.
+- **Activate at most ONE planned enemy per slice; no bulk roster.** Each activation
+  has an approved work order, spawn context + cap, lifecycle/save policy, complete
+  runtime stats, at least one meaningful loot consumer, and additive smoke.
+- **Preserve the existing live enemies** — their measured runtime HP, contact
+  damage, Hall DPS, speed, severity, spawn eligibility/caps, dawn policy, and loot
+  scaling stay unchanged, and the fixed-seed balance report stays deterministic.
+  No rebalance of shipped enemies without an explicit, evidence-backed tune.
+- **No new gameplay mechanics/subsystems/effect keys** and **no new movement
+  controller** unless the slice's work order authorizes it with implementation
+  evidence (default `actor_kind` is `simple_ground`).
+- **No `SAVE_VERSION`/`gen_version` bump** or persistent save-format change (a
+  real migration is a stop-and-ask decision). New enemy loot may add items/recipes.
+- **Route all spawning through `EnemyRegistry.def_for_spawn`** (fail-closed) and the
+  factory; extend the director's decisions rather than adding per-enemy
+  `_maybe_spawn_<id>` functions. Preserve every existing smoke `_check` name (the
+  count only rises); keep the `game_root`/smoke public shims stable.
 
-Historical S-07 boundary (closed, do not follow as current rules): no new
-mechanics/effect keys; balance deferred to a measure-then-tune slice; clean
-stateless-seam extraction only against the R-06 gate.
+Historical boundaries (closed, do not follow as current rules): the S-07
+stabilization arc (no new mechanics; balance deferred to a measure-then-tune slice;
+R-06-gated stateless extraction) and the S-08.0 parity-only foundation refactor
+(which held the live set at eight).
 
 ## Save / gen compatibility rules
 
