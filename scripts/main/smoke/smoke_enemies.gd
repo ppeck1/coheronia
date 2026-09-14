@@ -503,3 +503,41 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 		_s08_first_bad if not _s08_parity_ok else "all 8 match contract (base_hp=%d diff=%.2f)" % [_s08_base_hp, _s08_diff])
 	harness._check("s08_enemy_severity_shared_constant", _s08_sev_ok,
 		"every live enemy .SEVERITY == 10.0 (shared)")
+
+	# (3) the registry validates the shipped data clean (fail-closed authority).
+	var _s08_verr: Array = enemy_reg.validation_errors()
+	harness._check("s08_registry_validation_clean", _s08_verr.is_empty(),
+		"errors=%d %s" % [_s08_verr.size(), str(_s08_verr).substr(0, 200)])
+
+	# (4) classification: the four categories resolve, unknown ids resolve to "".
+	var _s08_cls_ok: bool = enemy_reg.category_of("surface_slime") == "live" \
+		and enemy_reg.category_of("ash_wasp") == "planned" \
+		and enemy_reg.category_of("broodmother_crawler") == "mini_boss" \
+		and enemy_reg.category_of("hollow_king") == "boss" \
+		and enemy_reg.category_of("definitely_not_an_enemy") == ""
+	harness._check("s08_registry_classification", _s08_cls_ok,
+		"slime=%s wasp=%s brood=%s king=%s unknown=%s" % [
+			enemy_reg.category_of("surface_slime"), enemy_reg.category_of("ash_wasp"),
+			enemy_reg.category_of("broodmother_crawler"), enemy_reg.category_of("hollow_king"),
+			"'%s'" % enemy_reg.category_of("definitely_not_an_enemy")])
+
+	# (5) fail-closed spawn queries: only a live id is spawnable; def_for_spawn
+	# returns an INDEPENDENT copy for live and {} for planned/mini-boss/unknown,
+	# so a typo can never coerce into a default enemy and no caller can mutate the
+	# shared authority dict.
+	var _s08_live_copy: Dictionary = enemy_reg.def_for_spawn("surface_slime")
+	_s08_live_copy["family"] = "TAMPERED"   # mutate the copy...
+	var _s08_independent: bool = str(enemy_reg.get_def("surface_slime").get("family", "")) == "surface"
+	var _s08_failclosed_ok: bool = enemy_reg.is_spawnable("surface_slime") \
+		and not _s08_live_copy.is_empty() and _s08_independent \
+		and enemy_reg.def_for_spawn("ash_wasp").is_empty() \
+		and not enemy_reg.is_spawnable("ash_wasp") \
+		and enemy_reg.def_for_spawn("broodmother_crawler").is_empty() \
+		and not enemy_reg.is_spawnable("broodmother_crawler") \
+		and enemy_reg.def_for_spawn("definitely_not_an_enemy").is_empty() \
+		and not enemy_reg.is_spawnable("definitely_not_an_enemy")
+	harness._check("s08_registry_fail_closed_queries", _s08_failclosed_ok,
+		"live_spawnable=%s copy_independent=%s planned_empty=%s unknown_empty=%s" % [
+			str(enemy_reg.is_spawnable("surface_slime")), str(_s08_independent),
+			str(enemy_reg.def_for_spawn("ash_wasp").is_empty()),
+			str(enemy_reg.def_for_spawn("definitely_not_an_enemy").is_empty())])
