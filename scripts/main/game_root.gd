@@ -157,6 +157,7 @@ var storm_time_left := 0.0
 var _storm_rolled_today := false
 
 var _enemy_registry = null          # EnemyRegistryClass instance
+var _last_defeat_context: Dictionary = {}   # S-08.0: identity/context of the last defeated enemy
 var _cave_spawn_timer := 0.0
 # FQ-14: state-driven current-goal model + a cached light score fed from the
 # settlement update signal (so the goal snapshot never recomputes lighting).
@@ -1485,8 +1486,10 @@ func _on_dawn() -> void:
 	var all_threats := get_tree().get_nodes_in_group("threats")
 	var survived := all_threats.size()
 	for threat in all_threats:
-		# Fix 5: spare underground enemies — cave crawlers persist through dawn.
-		if threat.family != "underground":
+		# S-08.0: dawn persistence is an explicit per-actor lifecycle policy
+		# (cave dwellers survive dawn; surface/raid threats recede), no longer a
+		# family-string test here. Preserves the prior underground-persists behavior.
+		if not threat.persists_through_dawn():
 			threat.queue_free()
 	log_event("Dawn breaks. The pressure recedes." if survived > 0 else "Dawn breaks.",
 		"Dawn", "dawn")
@@ -1805,7 +1808,11 @@ func spawn_enemy_for_test(enemy_id: String) -> Node:
 	return _spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
 
 
-func _on_threat_died() -> void:
+func _on_threat_died(context: Dictionary = {}) -> void:
+	# S-08.0 defeat contract: capture the defeated enemy's identity/context so XP,
+	# contracts, and future unlock/encounter-completion consumers have it without
+	# game_root special-casing each id. Existing rewards below are unchanged.
+	_last_defeat_context = context
 	log_event("A threat was destroyed.", "Threat down", "warning")
 	award_xp("enemy_defeated")
 	# Snapshot the assault state WITH this dying threat still counted, so the
@@ -2485,17 +2492,29 @@ func _open_contracts_panel() -> void:
 		_contracts_panel.open()
 
 
+## S-08.0: the last defeated enemy's identity/context (enemy_id, family, position).
+## Extension point for XP/contract/unlock/encounter-completion consumers.
+func last_defeat_context() -> Dictionary:
+	return _last_defeat_context
+
+
 func serialize_threats() -> Array:
 	var out: Array = []
 	for threat in get_tree().get_nodes_in_group("threats"):
 		if is_instance_valid(threat) and not threat.is_queued_for_deletion():
-			out.append({
+			var entry := {
 				"x": threat.global_position.x,
 				"y": threat.global_position.y,
 				"hp": threat.hp,
 				"max_hp": threat.max_hp,
 				"enemy_id": threat.enemy_id,
-			})
+			}
+			# S-08.0 saved-state extension: only write a behavior-specific block when
+			# the actor supplies one. Empty today -> no "extra" key -> byte-identical save.
+			var extra: Dictionary = threat.extra_save_state()
+			if not extra.is_empty():
+				entry["extra"] = extra
+			out.append(entry)
 	return out
 
 
@@ -2521,6 +2540,8 @@ func apply_threats(data: Array) -> void:
 		# Override hp/max_hp from save (after add_child/_ready ran max_hp = maxi(max_hp, hp)).
 		threat.hp = int(entry.get("hp", 3))
 		threat.max_hp = int(entry.get("max_hp", maxi(3, threat.hp)))
+		# S-08.0 saved-state extension seam (no-op until an enemy uses it).
+		threat.apply_extra_save_state(entry.get("extra", {}))
 
 
 func time_state() -> Dictionary:

@@ -606,3 +606,61 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 			EnemySpawnDirector.select_cave_enemy_id(true, false, enemy_reg),
 			EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg),
 			EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg)])
+
+	# (10) explicit dawn/despawn lifecycle policy matches the prior family behavior
+	# for all eight live enemies (underground persists; surface/raid recede).
+	var _s08_dawn_ok := true
+	var _s08_dawn_bad := ""
+	for _eid2 in _s08_expect:
+		var _n2: Node = root.spawn_enemy_for_test(_eid2)
+		var _want_persist: bool = str(_s08_expect[_eid2]["family"]) == "underground"
+		if _n2 == null or _n2.persists_through_dawn() != _want_persist:
+			_s08_dawn_ok = false
+			if _s08_dawn_bad == "":
+				_s08_dawn_bad = "%s persist=%s want=%s" % [_eid2,
+					(str(_n2.persists_through_dawn()) if _n2 != null else "null"), str(_want_persist)]
+		if _n2 != null and is_instance_valid(_n2):
+			_n2.queue_free()
+	await get_tree().process_frame
+	harness._check("s08_dawn_policy_explicit", _s08_dawn_ok,
+		_s08_dawn_bad if not _s08_dawn_ok else "underground persists, surface/raid recede (all 8)")
+
+	# (11) the defeat contract carries the defeated enemy's identity/context.
+	for _t2 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t2):
+			_t2.queue_free()
+	await get_tree().process_frame
+	var _s08_victim: Node = root.spawn_enemy_for_test("raider_basic")
+	_s08_victim.take_hit(999)
+	await get_tree().process_frame
+	var _s08_ctx: Dictionary = root.last_defeat_context()
+	harness._check("s08_defeat_context_identity",
+		str(_s08_ctx.get("enemy_id", "")) == "raider_basic"
+		and str(_s08_ctx.get("family", "")) == "raider"
+		and _s08_ctx.has("position"),
+		"ctx=%s" % str(_s08_ctx))
+
+	# (12) the saved-state extension seam does NOT change the save format: a live
+	# enemy serializes exactly the base keys (no "extra" block) and its extension
+	# state is empty today.
+	for _t3 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t3):
+			_t3.queue_free()
+	await get_tree().process_frame
+	var _s08_se: Node = root.spawn_enemy_for_test("surface_slime")
+	await get_tree().process_frame
+	var _s08_ser: Array = root.serialize_threats()
+	var _s08_keys_ok := false
+	if _s08_ser.size() >= 1:
+		var _keys: Array = _s08_ser[0].keys()
+		_keys.sort()
+		_s08_keys_ok = _keys == ["enemy_id", "hp", "max_hp", "x", "y"]
+	harness._check("s08_save_extension_no_format_change",
+		_s08_keys_ok and _s08_se.extra_save_state().is_empty(),
+		"keys=%s extra_empty=%s" % [
+			(str(_s08_ser[0].keys()) if _s08_ser.size() >= 1 else "none"),
+			str(_s08_se.extra_save_state().is_empty())])
+	for _t4 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t4):
+			_t4.queue_free()
+	await get_tree().process_frame

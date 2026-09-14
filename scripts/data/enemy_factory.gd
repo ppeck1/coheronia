@@ -50,4 +50,9 @@ static func build(def: Dictionary, pos: Vector2, ctx: Dictionary) -> Node:
 	threat.lava_immune = bool(def.get("lava_immune", false))
 	# S-07.1c: presentation-only carried torch light (raider_torchbearer).
 	threat.visual_light = def.get("visual_light", {})
+	# S-08.0 lifecycle: explicit dawn-persistence, defaulting to the underground
+	# family's behavior (cave dwellers survive dawn; surface/raid do not). A def may
+	# override with an explicit `dawn_persistent` without touching game_root.
+	threat.dawn_persistent = bool(def.get("dawn_persistent",
+		str(def.get("family", "")) == "underground"))
 	return threat

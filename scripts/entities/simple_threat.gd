@@ -5,7 +5,10 @@ extends CharacterBody2D
 ## Shambles toward the Town Hall and gnaws at it on contact; player can
 ## hit it with the mine action.
 
-signal died
+## S-08.0: the defeat signal carries a context dict (enemy identity + position) so
+## XP / contracts / future unlock consumers get defeat identity without the shared
+## actor having to know about every enemy. Existing consumers may ignore the arg.
+signal died(context: Dictionary)
 
 const SPEED := 38.0
 const GRAVITY := 820.0
@@ -40,6 +43,10 @@ var enemy_id: String = "surface_slime"
 var family: String = "surface"
 var drops: Array = []      # Array of {item_id, chance}
 var loot_mult: float = 1.0
+## S-08.0 lifecycle: whether this enemy survives dawn. Set by the factory (defaults
+## to the underground family's persistence). Makes the despawn policy an explicit
+## per-actor field instead of a family-string test scattered in game_root.
+var dawn_persistent := false
 ## Test hook: if >= 0.0 this value overrides every drop's rolled chance.
 var drop_chance_override: float = -1.0
 ## M4-A raider_sapper: when blocked by a structural wall/door, break through it
@@ -326,7 +333,7 @@ func take_hit(amount: int) -> void:
 		if is_inside_tree():
 			SimpleThreatFx.spawn(get_parent(), "dust_puff", global_position)
 		_roll_drops()
-		died.emit()
+		died.emit(defeat_context())
 		queue_free()
 	else:
 		queue_redraw()
@@ -350,6 +357,28 @@ func _roll_drops() -> void:
 ## FQ-08: health-bar fill fraction (1.0 = unhurt) for the hurt bar.
 func health_bar_ratio() -> float:
 	return clampf(float(hp) / float(maxi(1, max_hp)), 0.0, 1.0)
+
+
+## S-08.0 lifecycle: does this enemy persist through dawn? (Underground dwellers do.)
+func persists_through_dawn() -> bool:
+	return dawn_persistent
+
+
+## S-08.0 defeat contract: identity + context emitted with `died`, so consumers can
+## award XP, advance contracts, or complete encounters without special-casing ids.
+func defeat_context() -> Dictionary:
+	return {"enemy_id": enemy_id, "family": family, "position": global_position}
+
+
+## S-08.0 saved-state extension seam: behavior-specific persistent state for future
+## enemies (e.g. a nest link or summon budget). Empty today, so the save format is
+## byte-identical; game_root only writes an "extra" block when this is non-empty.
+func extra_save_state() -> Dictionary:
+	return {}
+
+
+func apply_extra_save_state(_data: Dictionary) -> void:
+	pass
 
 
 func _draw() -> void:
