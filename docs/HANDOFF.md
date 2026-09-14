@@ -104,14 +104,21 @@ deterministic, and `SAVE_VERSION` (`0.6`)/`gen_version` (`5`) are unchanged. The
 set remains exactly the eight. Data truthfulness: `hp` documented as decorative
 (effective HP = `threat_hp()` × `hp_mult`), `density`/`region_density` relabelled design-only.
 
+## S-08.1 status (on `s08.1-lantern-leech`)
+
+**Lantern Leech is activated** — the ninth live enemy (underground cave-pool dweller). It
+spawns near a `water` cell via the director's water branch (`game_root._water_near` + the
+extended `select_cave_enemy_id`), capped at `LANTERN_LEECH_CAP`=2, `actor_kind: simple_ground`
+(no new controller), a presentation-only cool cyan lantern glow, underground dawn persistence,
+and save round-trip. `glow_gland`/`oil` are real items consumed by the new `craft_lantern_glow`
+recipe → `lantern` (no dead-end loot). Ships with the code-drawn fallback sprite (canonical art
+deferred, documented). The founding eight are unchanged (`s08_enemy_runtime_parity`) and the
+fixed-seed balance report stays deterministic. Windowed smoke **630/630**; `SAVE_VERSION`
+(`0.6`)/`gen_version` (`5`) unchanged.
+
 ## Recommended next
 
-1. **S-08.1 Lantern Leech** — the first single-enemy vertical slice on the S-08.0 foundation:
-   activate `lantern_leech` (underground, cave-pool/water-adjacent) with an explicit cap,
-   eligibility, lifecycle, stats, cool lantern glow (presentation-only), real `glow_gland`/`oil`
-   items each with a meaningful use, and deterministic director tests — preserving the eight
-   and their deterministic balance report. Uses `actor_kind: simple_ground` (no new
-   controller). See [`WORK_ORDER_S08_1_LANTERN_LEECH.md`](WORK_ORDER_S08_1_LANTERN_LEECH.md).
+1. Review + merge the S-08.1 implementation PR.
 2. Later planned-enemy activations (incl. Broodmother Crawler) against the per-enemy
    completion contract and the decisions-required list in the foundation work order §10–§11.
 

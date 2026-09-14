@@ -71,12 +71,16 @@ Non-balance structural metadata only; effective values for the eight are untouch
 
 ## 6. Presentation / art
 
-- The cool lantern glow is the primary read (presentation-only light seam).
-- **Sprite:** provide a canonical `art/generated/enemies/lantern_leech.png` (+ variants) if
-  the enemy art pipeline supports it; otherwise ship the **code-drawn fallback** (underground
-  family body + the distinct cyan glow) and document it here as the **approved temporary
-  fallback** — `asset_audit.py --strict` treats a live enemy/drop without canonical art as
-  FALLBACK_ONLY (acceptable), so this is audit-clean. Canonical art is a deferred art-pass item.
+- The cool lantern glow is the primary visual read (presentation-only light seam), which is
+  what distinguishes the leech on screen.
+- **Sprite — APPROVED TEMPORARY FALLBACK.** This slice ships with the **code-drawn fallback**
+  (the underground-family body from `simple_threat._draw` plus the distinct cyan carried
+  light); there is **no programmatic enemy sprite generator** in the repo (existing enemy art
+  is hand-authored), and adding a hand-authored `lantern_leech.png` is out of scope here.
+  `asset_audit.py --strict` reports the enemy and its drops as **FALLBACK_ONLY (acceptable)**
+  — audit-clean. A canonical `art/generated/enemies/lantern_leech.png` (+ variants) and
+  `glow_gland`/`oil` icons are **deferred to a follow-up art pass**; the fallback path already
+  resolves them, so activation is not blocked.
 
 ## 7. Acceptance criteria (additive smoke; existing names preserved)
 

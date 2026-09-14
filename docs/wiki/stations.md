@@ -10,7 +10,7 @@ This page groups the current station surfaces that host recipes or route craftin
 | [Furnace](stations/furnace.md) | workbench | stone x16, coal x4 | 8 |
 | [Anvil](stations/anvil.md) | furnace | stone x10, iron_ingot x3 | 6 |
 | [By Hand](stations/hand.md) | none | none | 4 |
-| [Town Hall](stations/town_hall.md) | none | none | 5 |
+| [Town Hall](stations/town_hall.md) | none | none | 6 |
 
 ## Related Pages
 

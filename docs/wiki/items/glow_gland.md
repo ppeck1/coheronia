@@ -2,32 +2,37 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Item` page. Current status: `planned`.
+> `Item` page. Current status: `complete`.
+
+![Glow Gland](../../../art/generated/items/glow_gland.png)
 
 | Field | Value |
 |---|---|
 | ID | `glow_gland` |
 | Page type | Item |
-| Current status | planned |
-| Storage | not implemented |
-| Player-facing? | No |
-| Status explanation | Referenced by planned enemy data only. Not implemented. |
-| Image path | Not implemented. |
-| Fallback / placeholder | No live item icon path yet. |
+| Current status | complete |
+| Storage | inventory |
+| Player-facing? | Yes |
+| Description | A cool bioluminescent gland from a Lantern Leech. Craft a lantern with oil. |
+| Status explanation | A live source and a live downstream use both exist. |
+| Image path | `art/generated/items/glow_gland.png` |
+| Fallback / placeholder | Generated 16x16 swatch via `BlockRegistry.item_icon()` if the canonical item icon is absent. |
 
 ## Summary
 
-Glow Gland is a planned item hook. Referenced by planned Lantern Leech drops only.
+Glow Gland is a live item with both acquisition and active use in the current build.
 
 ## Acquisition
 
 | Source type | Source | Quantity / chance | Notes |
 |---|---|---|---|
-| Enemy drop | [Lantern Leech](../enemies/lantern_leech.md) | 45% drop chance; planned only | Live acquisition only if the enemy is live. |
+| Enemy drop | [Lantern Leech](../enemies/lantern_leech.md) | 45% drop chance | Live acquisition only if the enemy is live. |
 
 ## Current Uses
 
-No meaningful live downstream use is currently defined.
+| Use type | Use | Quantity | Notes |
+|---|---|---|---|
+| Recipe input | Glowlamp Lantern | 1x at [Town Hall](../stations/town_hall.md) | Live crafting dependency. |
 
 ## Related Pages
 
@@ -37,4 +42,3 @@ No meaningful live downstream use is currently defined.
 ## Notes
 
 - Recommended first implementation sink: cave lamp or alchemy light.
-- This page is intentionally marked as not implemented.
