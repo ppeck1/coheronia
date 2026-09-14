@@ -7,15 +7,15 @@ rules live in [`CLAUDE.md`](../CLAUDE.md).
 
 ## Current state
 
-- Active branch: `s07-stabilize-b-plus`
-- The branch includes `2fe7fc0` (`fix(perception): replace restored fog and refresh
-  sight radius`), `994bd36` (`fix(platform): align plank art and collision to tile
-  bottom`), and the release-documentation reconciliation
-- Remote state: the branch is pushed; local and `origin/s07-stabilize-b-plus` are
-  synchronized
-- `main`: `05ec3ae`; the stabilization branch is not merged to `main`
-- Save compatibility remains frozen: `SAVE_VERSION` is unchanged
-- Terrain generation is at `gen_version` 5, using the gated compatibility pattern
+- **`v0.7-alpha` is released.** The `s07-stabilize-b-plus` stabilization candidate was
+  merged into `main` via PR #13 (merge commit `f1509b7`) and tagged `v0.7-alpha`
+  (annotated tag on `f1509b7`, published as a GitHub prerelease).
+- `main`: `f1509b7`; the release candidate (head `be474cb`) is fully contained.
+- Draft PR #12 (`feat/perception-veil`) was closed as superseded — its Perception +
+  Resonance feature content shipped in PR #13 via the `--no-ff` merge `e210b3d`; only the
+  deliberately-excluded debug-only F3 overlay commit (`d008589`) was left behind.
+- Save compatibility remains frozen: `SAVE_VERSION` is unchanged (`0.6`).
+- Terrain generation is at `gen_version` 5, using the gated compatibility pattern.
 
 The branch integrates the S-07 stabilization work with the completed Perception and
 Resonance feature arc. It includes fog-of-war memory, Attunement resonance, dark-sight
@@ -33,7 +33,9 @@ rationale and worst-case stacking are recorded in
 
 ## Current verified CI baseline
 
-The latest completed branch workflow is green on both supported CI targets:
+The PR #13 workflow (run `34855329014`, on the merge result of `be474cb` into `main`) is
+green on both supported CI targets, and the same counts were reproduced locally on
+`be474cb`:
 
 | Target | Source smoke | Export smoke |
 | --- | ---: | ---: |
@@ -42,7 +44,8 @@ The latest completed branch workflow is green on both supported CI targets:
 
 Both jobs built their native export and launched the exported artifact. The six
 export-only omissions are the expected read-only-`res://` fixture skips; static,
-lifecycle-leak, and unexpected-engine-error gates are green.
+lifecycle-leak, and unexpected-engine-error gates are green. `main` is protected: the
+static, Linux, and Windows checks are required for merge.
 
 ## Perception verification contracts
 
@@ -63,17 +66,20 @@ lifecycle-leak, and unexpected-engine-error gates are green.
 
 ## Release boundary
 
-S-07 is a stabilization and truthfulness arc. Do not add new mechanics before the
-v0.7-alpha candidate. Remaining visual polish (panel art-language consistency, fog
-grading, resonance art, and wooden-platform art) and large controller extractions belong
-in focused follow-up work unless a release-blocking defect requires otherwise.
+S-07 was a stabilization and truthfulness arc; it held its no-new-mechanics boundary and
+shipped as `v0.7-alpha`. Remaining visual polish (panel art-language consistency, fog
+grading, resonance art, and wooden-platform art) and large controller extractions remain
+focused follow-up work. The next planned arc is **S-08.0 Enemy Expansion Foundation**, a
+behavior-preserving refactor of the enemy runtime/data/spawn seams (no new enemies or
+mechanics); it has not been started.
 
 ## Recommended next
 
-1. Open and review the stabilization PR; enable branch protection/required checks before
-   merging rather than treating an unprotected green branch as release evidence.
-2. Build clean Linux and Windows artifacts, verify clean-profile startup + save
-   compatibility, and create the v0.7-alpha prerelease/tag.
+1. **S-08.0 Enemy Expansion Foundation** on a dedicated `s08-enemy-foundation` branch off
+   `main` — modularize the enemy definition/registry, factory, shared actor, behavior seam,
+   and spawn director while preserving the current eight-enemy behavior and all smoke
+   contracts. No balance, save-format, or mechanic changes.
+2. Remaining visual-polish and controller-extraction follow-ups as capacity allows.
 
 Calling-balance tuning remains measure-first: record the worst-case conditional stacking
 results in [`PLAYTEST_CHECKLIST.md`](PLAYTEST_CHECKLIST.md) before making data changes.
