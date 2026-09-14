@@ -1446,10 +1446,7 @@ func _on_nightfall() -> void:
 		log_event("Night falls.", "Nightfall", "night")
 	for i in range(spawn_count):
 		_spawn_surface_slime(i)
-	_maybe_spawn_thornrat()
-	_maybe_spawn_raider()
-	_maybe_spawn_torchbearer()
-	_maybe_spawn_sapper()   # M4-A: wall-breaching raider (its own later spawn_rule)
+	_spawn_night_raids()
 	hud.update_time(day_count, true, spawn_count, time_of_day)
 	settlement.compute()
 	music_event.emit("nightfall")
@@ -1552,7 +1549,7 @@ func _update_population(meal: Dictionary, coherence_at_dawn: float) -> void:
 func _spawn_surface_slime(index: int) -> void:
 	var def: Dictionary = {}
 	if _enemy_registry != null:
-		def = _enemy_registry.get_def("surface_slime")
+		def = _enemy_registry.def_for_spawn("surface_slime")
 	# Fix 9: guard against empty def (mirrors _maybe_spawn_raider and _advance_cave_spawns).
 	if def.is_empty():
 		return
@@ -1563,121 +1560,67 @@ func _spawn_surface_slime(index: int) -> void:
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
 
 
-## Spawn a raider_basic when conditions from the def's spawn_rule are met.
-## Fix 6: read thresholds and base_chance from the def's spawn_rule dict.
-## Fix 7: multiply base_chance by density_mult.
-func _maybe_spawn_raider() -> void:
-	if _enemy_registry == null:
-		return
-	if not config().rule("darkness_increases_enemies"):
-		return
-	var def: Dictionary = _enemy_registry.get_def("raider_basic")
-	if def.is_empty():
-		return
-	var spawn_rule: Dictionary = def.get("spawn_rule", {})
-	var day_thresh: int = int(spawn_rule.get("day_threshold", 5))
-	var stock_thresh: int = int(spawn_rule.get("stockpile_threshold", 25))
-	var base_chance: float = float(spawn_rule.get("base_chance", 0.3))
-	if not EnemySpawnDirectorClass.raid_eligible(day_count, day_thresh, town_hall.total_stock(), stock_thresh):
-		return
-	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
-	if randf() > EnemySpawnDirectorClass.roll_threshold(base_chance,
-			float(scaling.get("density_mult", 1.0)), config().difficulty("enemy")):
-		return
-	var hall_cell: Vector2i = world.hall_info["center_cell"]
-	var side := 1 if randi() % 2 == 0 else -1
-	var spawn_x: int = hall_cell.x + side * 35
-	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
-	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("WARNING: A raider approaches the settlement!", "Raider incoming", "warning")
-	music_event.emit("raid_warning")
+## S-08.0: night-raid candidates in roll order (thornrat, then the three raiders).
+## Each entry is game_root's POSITIONING + presentation metadata; the spawn DECISION
+## (eligibility + roll) belongs to EnemySpawnDirector. This replaces the per-enemy
+## `_maybe_spawn_<id>` decision functions with one data-driven loop. Order is the
+## dict's insertion order, matching the previous call order exactly.
+const NIGHT_RAID_SPAWNS := {
+	"thornrat": {
+		"offset": 18, "log": "A Thornrat skitters toward the crops.",
+		"compact": "Thornrat", "kind": "warning", "music": ""},
+	"raider_basic": {
+		"offset": 35, "log": "WARNING: A raider approaches the settlement!",
+		"compact": "Raider incoming", "kind": "warning", "music": "raid_warning"},
+	"raider_torchbearer": {
+		"offset": 38, "log": "WARNING: A Torchbearer moves to burn the Town Hall!",
+		"compact": "Torchbearer", "kind": "warning", "music": "raid_warning"},
+	"raider_sapper": {
+		"offset": 40, "log": "WARNING: A Sapper moves to breach the settlement walls!",
+		"compact": "Sapper", "kind": "warning", "music": "raid_warning"},
+}
 
 
-## FQ-13: a thornrat may appear at night once past its day_threshold. It is a
-## fast, frail surface harasser that eats crops (see simple_threat), so it is a
-## distinct agricultural pressure rather than another slime. Conservative: at
-## most one per night, difficulty-gated like the other surface spawns.
-func _maybe_spawn_thornrat() -> void:
-	if _enemy_registry == null:
+## Roll each night-raid candidate in order. game_root gathers world context and
+## generates the `randf()` roll at the original call site (only for eligible
+## candidates, so RNG order/count is unchanged); EnemySpawnDirector decides via a
+## spawn intent; game_root positions, constructs (through the registry's validated
+## `def_for_spawn`), and logs. Replaces the four `_maybe_spawn_<id>` functions.
+func _spawn_night_raids() -> void:
+	if _enemy_registry == null or not config().rule("darkness_increases_enemies"):
 		return
-	if not config().rule("darkness_increases_enemies"):
-		return
-	var def: Dictionary = _enemy_registry.get_def("thornrat")
-	if def.is_empty():
-		return
-	var rule: Dictionary = def.get("spawn_rule", {})
-	if day_count < int(rule.get("day_threshold", 2)):
-		return
-	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
-	if randf() > EnemySpawnDirectorClass.roll_threshold(float(rule.get("base_chance", 0.5)),
-			float(scaling.get("density_mult", 1.0)), config().difficulty("enemy")):
-		return
-	var hall_cell: Vector2i = world.hall_info["center_cell"]
-	var side := 1 if randi() % 2 == 0 else -1
-	var spawn_x: int = hall_cell.x + side * 18
-	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
-	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("A Thornrat skitters toward the crops.", "Thornrat", "warning")
-
-
-## FQ-13: a torchbearer raider joins later raids (its own, later spawn_rule). It
-## burns the Town Hall faster (hall_dps_mult) and hits harder than a basic
-## raider — a distinct base-pressure escalation. Rolled independently so a night
-## can bring a basic raider, a torchbearer, or both.
-func _maybe_spawn_torchbearer() -> void:
-	if _enemy_registry == null:
-		return
-	if not config().rule("darkness_increases_enemies"):
-		return
-	var def: Dictionary = _enemy_registry.get_def("raider_torchbearer")
-	if def.is_empty():
-		return
-	var rule: Dictionary = def.get("spawn_rule", {})
-	var day_thresh: int = int(rule.get("day_threshold", 8))
-	var stock_thresh: int = int(rule.get("stockpile_threshold", 40))
-	if not EnemySpawnDirectorClass.raid_eligible(day_count, day_thresh, town_hall.total_stock(), stock_thresh):
-		return
-	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
-	if randf() > EnemySpawnDirectorClass.roll_threshold(float(rule.get("base_chance", 0.2)),
-			float(scaling.get("density_mult", 1.0)), config().difficulty("enemy")):
-		return
-	var hall_cell: Vector2i = world.hall_info["center_cell"]
-	var side := 1 if randi() % 2 == 0 else -1
-	var spawn_x: int = hall_cell.x + side * 38
-	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
-	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("WARNING: A Torchbearer moves to burn the Town Hall!", "Torchbearer", "warning")
-	music_event.emit("raid_warning")
-
-
-## M4-A: a raider sapper joins the latest raids (its own, later spawn_rule) and
-## breaks through walls/doors on its way to the hall — the escalation that tests
-## the settlement's defenses now that walls, doors, and defenders exist. Rolled
-## independently of the basic raider and torchbearer.
-func _maybe_spawn_sapper() -> void:
-	if _enemy_registry == null:
-		return
-	if not config().rule("darkness_increases_enemies"):
-		return
-	var def: Dictionary = _enemy_registry.get_def("raider_sapper")
-	if def.is_empty():
-		return
-	var rule: Dictionary = def.get("spawn_rule", {})
-	var day_thresh: int = int(rule.get("day_threshold", 10))
-	var stock_thresh: int = int(rule.get("stockpile_threshold", 50))
-	if not EnemySpawnDirectorClass.raid_eligible(day_count, day_thresh, town_hall.total_stock(), stock_thresh):
-		return
-	var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
-	if randf() > EnemySpawnDirectorClass.roll_threshold(float(rule.get("base_chance", 0.18)),
-			float(scaling.get("density_mult", 1.0)), config().difficulty("enemy")):
-		return
-	var hall_cell: Vector2i = world.hall_info["center_cell"]
-	var side := 1 if randi() % 2 == 0 else -1
-	var spawn_x: int = hall_cell.x + side * 40
-	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
-	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("WARNING: A Sapper moves to breach the settlement walls!", "Sapper", "warning")
-	music_event.emit("raid_warning")
+	for eid: String in NIGHT_RAID_SPAWNS:
+		var def: Dictionary = _enemy_registry.def_for_spawn(eid)
+		if def.is_empty():
+			continue
+		var rule: Dictionary = def.get("spawn_rule", {})
+		var scaling: Dictionary = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
+		var ctx := {
+			"enemy_id": eid,
+			"day": day_count,
+			"day_threshold": int(rule.get("day_threshold", 0)),
+			"stock": town_hall.total_stock(),
+			"stock_threshold": int(rule.get("stockpile_threshold", 0)),
+			"uses_stock_lure": rule.has("stockpile_threshold"),
+			"base_chance": float(rule.get("base_chance", 0.0)),
+			"density_mult": float(scaling.get("density_mult", 1.0)),
+			"difficulty": config().difficulty("enemy"),
+		}
+		if not EnemySpawnDirectorClass.raid_candidate_eligible(ctx):
+			continue
+		# RNG is drawn here, at the original call site, only for eligible candidates.
+		var intent: Dictionary = EnemySpawnDirectorClass.raid_intent(ctx, randf())
+		if not bool(intent.get("spawn", false)):
+			continue
+		var meta: Dictionary = NIGHT_RAID_SPAWNS[eid]
+		var hall_cell: Vector2i = world.hall_info["center_cell"]
+		var side := 1 if randi() % 2 == 0 else -1
+		var spawn_x: int = hall_cell.x + side * int(meta["offset"])
+		var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
+		_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
+		log_event(str(meta["log"]), str(meta["compact"]), str(meta["kind"]))
+		if str(meta["music"]) != "":
+			music_event.emit(str(meta["music"]))
 
 
 ## Advance the cave crawler periodic spawn timer; spawn underground when ready.
@@ -1733,7 +1676,7 @@ func _advance_cave_spawns(delta: float) -> void:
 		event = "A Lava Slime oozes from the molten rock."
 	elif eid == "ore_tick":
 		event = "An Ore Tick clings to the ore nearby."
-	var def: Dictionary = _enemy_registry.get_def(eid)
+	var def: Dictionary = _enemy_registry.def_for_spawn(eid)
 	if def.is_empty():
 		return
 	_spawn_enemy_at(def, world.cell_center(spawn_cell))
@@ -1801,7 +1744,7 @@ func _spawn_enemy_at(def: Dictionary, pos: Vector2) -> Node:
 func spawn_enemy_for_test(enemy_id: String) -> Node:
 	var def: Dictionary = {}
 	if _enemy_registry != null:
-		def = _enemy_registry.get_def(enemy_id)
+		def = _enemy_registry.def_for_spawn(enemy_id)
 	var hall_cell: Vector2i = world.hall_info.get("center_cell", Vector2i(world.width / 2, 0))
 	var spawn_x: int = hall_cell.x + 30
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
@@ -2529,7 +2472,7 @@ func apply_threats(data: Array) -> void:
 		var eid: String = str(entry.get("enemy_id", "surface_slime"))
 		var def: Dictionary = {}
 		if _enemy_registry != null:
-			def = _enemy_registry.get_def(eid)
+			def = _enemy_registry.def_for_spawn(eid)
 		var pos := Vector2(float(entry.get("x", 0)), float(entry.get("y", 0)))
 		var threat := _spawn_enemy_at(def, pos)
 		# Fail closed: a saved entry with an unknown or non-live enemy_id builds no

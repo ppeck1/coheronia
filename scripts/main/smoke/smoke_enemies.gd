@@ -7,6 +7,8 @@ extends Node
 
 const SubjectScript := preload("res://scripts/entities/subject.gd")
 const EnemySpawnDirector := preload("res://scripts/data/enemy_spawn_director.gd")
+const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
+const EnemyFactoryClass := preload("res://scripts/data/enemy_factory.gd")
 
 
 func run(ctx) -> void:
@@ -664,3 +666,89 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 		if is_instance_valid(_t4):
 			_t4.queue_free()
 	await get_tree().process_frame
+
+	# (13) FAIL-CLOSED VALIDATION via injected fixture: malformed and duplicate LIVE
+	# defs are neither spawnable nor able to reach the factory (pure validation, no
+	# nodes created — def_for_spawn returns {} so the factory returns null).
+	var _bad_reg = EnemyRegistryClass.new({
+		"enemies": [
+			{"id": "good_guy", "status": "live", "family": "surface", "contact_damage": 5, "speed": 30, "drops": []},
+			{"id": "no_speed", "status": "live", "family": "surface", "contact_damage": 5, "drops": []},
+			{"id": "bad_family", "status": "live", "family": "floating", "contact_damage": 5, "speed": 30},
+			{"id": "bad_range", "status": "live", "family": "surface", "contact_damage": 5, "speed": -4},
+			{"id": "bad_drop", "status": "live", "family": "surface", "contact_damage": 5, "speed": 30, "drops": [{"item_id": "", "chance": 0.5}]},
+			{"id": "bad_kind", "status": "live", "family": "surface", "contact_damage": 5, "speed": 30, "actor_kind": "flying_unknown"},
+			{"id": "dup", "status": "live", "family": "surface", "contact_damage": 5, "speed": 30},
+			{"id": "dup", "status": "live", "family": "raider", "contact_damage": 9, "speed": 30},
+		]
+	})
+	var _bad_ids: Array[String] = ["no_speed", "bad_family", "bad_range", "bad_drop", "bad_kind", "dup"]
+	var _bad_ok: bool = _bad_reg.is_spawnable("good_guy") \
+		and not _bad_reg.def_for_spawn("good_guy").is_empty() \
+		and not _bad_reg.validation_errors().is_empty()
+	var _bad_first := ""
+	for _bid in _bad_ids:
+		var _closed: bool = not _bad_reg.is_spawnable(_bid) \
+			and _bad_reg.def_for_spawn(_bid).is_empty() \
+			and EnemyFactoryClass.build(_bad_reg.def_for_spawn(_bid), Vector2.ZERO, {}) == null
+		if not _closed:
+			_bad_ok = false
+			if _bad_first == "":
+				_bad_first = _bid
+	harness._check("s08_registry_rejects_malformed_and_duplicate", _bad_ok,
+		"good_spawnable=%s errors=%d first_leak=%s" % [
+			str(_bad_reg.is_spawnable("good_guy")), _bad_reg.validation_errors().size(),
+			(_bad_first if _bad_first != "" else "none")])
+
+	# (14) UNKNOWN ACTOR/CONTROLLER KIND fails closed at the factory: a live def with
+	# an unknown actor_kind builds no actor, while the default simple_ground path
+	# (surface_slime) builds normally.
+	var _uk_def := {"id": "x", "status": "live", "family": "surface", "contact_damage": 5, "speed": 30, "actor_kind": "burrower_TODO"}
+	var _uk_node = EnemyFactoryClass.build(_uk_def, Vector2.ZERO, {})
+	var _dk_node: Node = root.spawn_enemy_for_test("surface_slime")
+	harness._check("s08_factory_unknown_actor_kind_fails_closed",
+		_uk_node == null and _dk_node != null
+		and EnemyFactoryClass.actor_kind_known("simple_ground")
+		and not EnemyFactoryClass.actor_kind_known("burrower_TODO"),
+		"unknown_null=%s default_built=%s known(simple_ground)=%s" % [
+			str(_uk_node == null), str(_dk_node != null),
+			str(EnemyFactoryClass.actor_kind_known("simple_ground"))])
+	if _dk_node != null and is_instance_valid(_dk_node):
+		_dk_node.queue_free()
+	await get_tree().process_frame
+
+	# (15) SPAWN PATHS USE def_for_spawn, not the raw get_def view: a planned id is
+	# present in get_def but empty in def_for_spawn, and the test spawn path (a
+	# construction route) builds no actor for it.
+	harness._check("s08_spawn_paths_use_def_for_spawn",
+		not enemy_reg.get_def("ash_wasp").is_empty()
+		and enemy_reg.def_for_spawn("ash_wasp").is_empty()
+		and root.spawn_enemy_for_test("ash_wasp") == null,
+		"getdef_present=%s def_for_spawn_empty=%s test_spawn_null=%s" % [
+			str(not enemy_reg.get_def("ash_wasp").is_empty()),
+			str(enemy_reg.def_for_spawn("ash_wasp").is_empty()),
+			str(root.spawn_enemy_for_test("ash_wasp") == null)])
+
+	# (16) DIRECTOR RAID INTENTS reproduce the previously-inlined decisions across the
+	# raid contexts (day/stockpile eligibility + injected-roll threshold), and the
+	# non-lure candidate (thornrat) is day-gated only.
+	var _rb_rule: Dictionary = enemy_reg.def_for_spawn("raider_basic").get("spawn_rule", {})
+	var _rb_ctx := {
+		"enemy_id": "raider_basic", "day": 6,
+		"day_threshold": int(_rb_rule.get("day_threshold", 5)),
+		"stock": 0, "stock_threshold": int(_rb_rule.get("stockpile_threshold", 25)),
+		"uses_stock_lure": true, "base_chance": float(_rb_rule.get("base_chance", 0.3)),
+		"density_mult": 1.0, "difficulty": 1.0,
+	}
+	var _rb_thresh: float = float(_rb_rule.get("base_chance", 0.3))
+	var _intent_ok: bool = \
+		EnemySpawnDirector.raid_candidate_eligible(_rb_ctx) == true \
+		and EnemySpawnDirector.raid_candidate_eligible({"day": 3, "day_threshold": 5, "uses_stock_lure": true, "stock": 30, "stock_threshold": 25}) == true \
+		and EnemySpawnDirector.raid_candidate_eligible({"day": 3, "day_threshold": 5, "uses_stock_lure": true, "stock": 10, "stock_threshold": 25}) == false \
+		and EnemySpawnDirector.raid_candidate_eligible({"day": 3, "day_threshold": 5, "uses_stock_lure": false}) == false \
+		and EnemySpawnDirector.raid_candidate_eligible({"day": 5, "day_threshold": 5, "uses_stock_lure": false}) == true \
+		and bool(EnemySpawnDirector.raid_intent(_rb_ctx, _rb_thresh - 0.001).get("spawn")) == true \
+		and bool(EnemySpawnDirector.raid_intent(_rb_ctx, _rb_thresh + 0.001).get("spawn")) == false \
+		and str(EnemySpawnDirector.raid_intent(_rb_ctx, 0.0).get("enemy_id")) == "raider_basic"
+	harness._check("s08_director_raid_intents", _intent_ok,
+		"eligibility (day/stock/lure) + roll-threshold intents match inlined logic")

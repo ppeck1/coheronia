@@ -37,6 +37,35 @@ static func roll_threshold(base_chance: float, density_mult: float, difficulty: 
 	return base_chance * density_mult * difficulty
 
 
+## Is a night-raid candidate eligible to even roll? (RNG-free, so game_root only
+## consumes a randf() for eligible candidates — preserving RNG order/count.) A
+## candidate with a stockpile lure spawns once day OR stockpile passes; one without
+## (the thornrat) is day-gated only. `ctx` keys: day, day_threshold, uses_stock_lure,
+## stock, stock_threshold.
+static func raid_candidate_eligible(ctx: Dictionary) -> bool:
+	var day: int = int(ctx.get("day", 0))
+	var day_threshold: int = int(ctx.get("day_threshold", 0))
+	if bool(ctx.get("uses_stock_lure", false)):
+		return raid_eligible(day, day_threshold, int(ctx.get("stock", 0)),
+			int(ctx.get("stock_threshold", 0)))
+	return day >= day_threshold
+
+
+## The spawn intent for an eligible night-raid candidate given an INJECTED roll:
+## spawn iff roll <= base_chance × density_mult × difficulty (identical to the old
+## `randf() > chance` early-return). Returns the selected enemy id + the threshold
+## so game_root can position/log/construct the actor. `ctx` keys: enemy_id,
+## base_chance, density_mult, difficulty.
+static func raid_intent(ctx: Dictionary, roll: float) -> Dictionary:
+	var threshold: float = roll_threshold(float(ctx.get("base_chance", 0.0)),
+		float(ctx.get("density_mult", 1.0)), float(ctx.get("difficulty", 1.0)))
+	return {
+		"spawn": roll <= threshold,
+		"enemy_id": str(ctx.get("enemy_id", "")),
+		"threshold": threshold,
+	}
+
+
 ## True when live underground enemies are at or over the cave cap.
 static func cave_at_cap(underground_count: int, cap: int) -> bool:
 	return underground_count >= cap

@@ -10,7 +10,23 @@ extends RefCounted
 ## `threats` group and the defeat/lifecycle flow; the factory is the stateless
 ## "how is a live actor built and configured from data" seam.
 
-const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
+## S-08.0 actor/controller extension point: each `actor_kind` maps to the scene
+## that implements it. The current eight all use "simple_ground" (default), which
+## is the existing SimpleThreat physics body. A future flying / burrowing /
+## summoning / boss actor registers its own kind + scene here and is selected by
+## the def's validated `actor_kind` — WITHOUT expanding SimpleThreat or branching on
+## enemy ids. An unknown kind fails closed (build returns null).
+const ACTOR_SCENES := {
+	"simple_ground": preload("res://scenes/entities/SimpleThreat.tscn"),
+}
+const DEFAULT_ACTOR_KIND := "simple_ground"
+
+
+## Is this a controller kind the factory knows how to build? (Used by the registry
+## to reject a def whose actor_kind has no implementation.)
+static func actor_kind_known(kind: String) -> bool:
+	return ACTOR_SCENES.has(kind)
+
 
 ## ctx supplies the handles + resolved scalars the configuration reads:
 ##   world, town_hall, player (Nodes);
@@ -19,10 +35,16 @@ const SimpleThreatScene := preload("res://scenes/entities/SimpleThreat.tscn")
 ##   loot_mult  (float) = the difficulty profile's loot scaling.
 static func build(def: Dictionary, pos: Vector2, ctx: Dictionary) -> Node:
 	# Fail closed: only a live def builds an actor. This is the one place that
-	# turns "unknown/planned id" into "no enemy" instead of a silent default.
+	# turns "unknown/planned id" into "no enemy" instead of a silent default. The
+	# registry's def_for_spawn() already guarantees a validated independent copy;
+	# this stays as a defensive contract check for any direct caller.
 	if def.is_empty() or str(def.get("status", "")) != "live":
 		return null
-	var threat := SimpleThreatScene.instantiate()
+	# Resolve the actor/controller kind; an unknown kind fails closed here too.
+	var kind: String = str(def.get("actor_kind", DEFAULT_ACTOR_KIND))
+	if not ACTOR_SCENES.has(kind):
+		return null
+	var threat := (ACTOR_SCENES[kind] as PackedScene).instantiate()
 	threat.world = ctx.get("world")
 	threat.town_hall = ctx.get("town_hall")
 	threat.player = ctx.get("player")

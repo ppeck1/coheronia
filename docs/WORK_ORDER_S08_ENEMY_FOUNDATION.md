@@ -12,16 +12,23 @@ for architectural review). Opened after `v0.7-alpha`, release commit `f1509b7`.
 | Seam | Status | Notes |
 | --- | --- | --- |
 | 1 — parity baseline + regression checks | **Done** | `s08_live_set_is_the_eight`, `s08_enemy_runtime_parity`, `s08_enemy_severity_shared_constant` — pin the eight enemies' effective runtime values as the parity oracle. |
-| 2 — validated, fail-closed registry | **Done** | `enemy_registry.gd`: classification (live/planned/mini_boss/boss), load validation, `is_spawnable`/`def_for_spawn` fail-closed copies. |
-| 3 — single enemy factory | **Done** | `enemy_factory.gd` is the sole construction path; `_spawn_enemy_at`/test/save all route through it and fail closed (no silent Surface Slime). |
-| 5 — encounter/spawn director | **Done** | `enemy_spawn_director.gd` owns count/eligibility/roll-threshold/cap/cave-selection decisions; RNG stays in `game_root` so balance is unchanged; density relabelled design-only. |
+| 2 — validated, fail-closed registry | **Done** | `enemy_registry.gd`: classification (live/planned/mini_boss/boss); **per-definition** load validation; `is_spawnable` requires live **AND** individually valid; duplicate ids never overwrite `_defs_by_id` and are marked non-spawnable; `def_for_spawn` returns validated independent copies or `{}`. Injected-fixture tests prove malformed/duplicate live defs cannot reach the factory. |
+| 3 — single enemy factory | **Done** | `enemy_factory.gd` is the sole construction path; **all** runtime/test/cave/save spawns resolve the id through the registry's `def_for_spawn` (never the shared `get_def` dict); factory fails closed on empty/non-live def. |
+| 4 — actor/controller extension point | **Done** | Validated `actor_kind` resolved by the factory (`ACTOR_SCENES`); the eight route through the default `simple_ground`; an unknown kind fails closed at both the registry (validation) and the factory (build → null). Lets a future flying/burrowing/boss actor use a separate scene without expanding `SimpleThreat` or branching on ids. |
+| 5 — encounter/spawn director | **Done** | `enemy_spawn_director.gd` owns the spawn decisions and returns **spawn intents** (`raid_candidate_eligible` + `raid_intent(ctx, roll)`); the four per-enemy `_maybe_spawn_<id>` functions are gone, replaced by one data-driven loop in `game_root._spawn_night_raids` that gathers context, draws `randf()` at the original site, positions, and logs. RNG order, thresholds, caps, and eligibility are unchanged; density relabelled design-only. |
 | 6 — lifecycle/defeat + save-extension | **Done** | Explicit `persists_through_dawn()`, `died(context)` defeat identity, `extra_save_state()` hook (format byte-identical). |
-| 4 — behavior/movement seam | **Assessed → retained (documented)** | See §5.4: behavior is already flag/family-driven (zero enemy-ID conditionals) and the movement/targeting core is coupled to `CharacterBody2D` frame state; a strategy extraction would risk parity on the hot path for no gameplay gain (the R-06 lesson). Left in place, not forced. |
+| 4b — behavior/movement seam | **Assessed → retained (documented)** | See §5.4: the physics movement/targeting core is coupled to `CharacterBody2D` frame state and already flag/family-driven (zero enemy-ID conditionals); a strategy extraction would risk parity for no gameplay gain (the R-06 lesson). Left in place, not forced. The new `actor_kind` seam (row 4) is the sanctioned extension point for genuinely new movement. |
 
 New modules: `scripts/data/enemy_factory.gd`, `scripts/data/enemy_spawn_director.gd`
 (plus the extended `scripts/data/enemy_registry.gd`). Parity evidence: windowed source
-smoke **622/622**, the fixed-seed balance report stays deterministic, and
+smoke **626/626**, the fixed-seed balance report stays deterministic, and
 `SAVE_VERSION`/`gen_version` are unchanged.
+
+**Review-amendment note (PR #15):** architectural review tightened the runtime wiring so it
+demonstrably enforces the contracts — spawn resolution now goes through `def_for_spawn`
+(not `get_def`), `is_spawnable` requires per-definition validity, the director returns spawn
+intents (no per-enemy decision functions remain), and an `actor_kind` controller seam was
+added. All effective spawn values remain identical.
 
 ## 1. Purpose and hard boundary
 

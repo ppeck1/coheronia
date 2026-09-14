@@ -77,23 +77,31 @@ mechanics) — see [`WORK_ORDER_S08_ENEMY_FOUNDATION.md`](WORK_ORDER_S08_ENEMY_F
 
 ## S-08.0 status (on `s08-enemy-foundation`)
 
-The parity-only foundation is **implemented** and under review:
+The parity-only foundation is **implemented** and under review (PR #15, amended after
+architectural review):
 
-- **Registry** (`enemy_registry.gd`) classifies live/planned/mini_boss/boss, validates the
-  data at load, and fails closed (`is_spawnable`/`def_for_spawn` copies).
-- **Factory** (`enemy_factory.gd`) is the single construction path — an unknown or planned
-  id (runtime, test, or save restore) builds **no** actor instead of a silent Surface Slime.
-- **Director** (`enemy_spawn_director.gd`) owns spawn count/eligibility/roll-threshold/cap
-  and the cave-selection branch; the RNG roll stays in `game_root`, so balance is unchanged.
+- **Registry** (`enemy_registry.gd`) is the spawnability authority: classifies
+  live/planned/mini_boss/boss, validates each definition at load, and `is_spawnable` requires
+  live **AND** individually valid. Duplicate ids never overwrite and are non-spawnable.
+  `def_for_spawn` returns validated independent copies or `{}`.
+- **Factory** (`enemy_factory.gd`) is the single construction path; **all** runtime/test/cave/
+  save spawns resolve through `def_for_spawn` (not the shared `get_def`), so an unknown,
+  planned, or malformed id builds **no** actor — never a silent Surface Slime.
+- **Actor/controller seam** — a validated `actor_kind` (default `simple_ground`) resolved by
+  the factory; unknown kinds fail closed. The extension point for a future flying/burrowing/
+  boss actor without expanding `SimpleThreat`.
+- **Director** (`enemy_spawn_director.gd`) returns **spawn intents**; the four per-enemy
+  `_maybe_spawn_<id>` functions are replaced by one data-driven `_spawn_night_raids` loop.
+  The RNG roll stays in `game_root` at the original site, so balance is unchanged.
 - **Lifecycle** — explicit `persists_through_dawn()`, `died(context)` defeat identity, and an
   `extra_save_state()` seam that leaves the save format byte-identical.
-- **Behavior seam (4)** assessed and **retained in place** (behavior is already
-  flag/family-driven with zero enemy-ID conditionals; the movement core is physics-coupled —
-  the R-06 "never force it" call). Rationale recorded in the work order §5.4.
+- **Behavior seam** assessed and **retained in place** (already flag/family-driven, zero
+  enemy-ID conditionals; the movement core is physics-coupled — the R-06 "never force it"
+  call). Rationale in the work order §5.4.
 
-Parity evidence: windowed source smoke **622/622**, the fixed-seed balance report stays
+Parity evidence: windowed source smoke **626/626**, the fixed-seed balance report stays
 deterministic, and `SAVE_VERSION` (`0.6`)/`gen_version` (`5`) are unchanged. The live enemy
-set remains exactly the eight. Data truthfulness fixed: `hp` documented as decorative
+set remains exactly the eight. Data truthfulness: `hp` documented as decorative
 (effective HP = `threat_hp()` × `hp_mult`), `density`/`region_density` relabelled design-only.
 
 ## Recommended next
