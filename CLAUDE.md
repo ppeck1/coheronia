@@ -29,7 +29,9 @@ When two sources disagree, trust them in this order:
 4. **`docs/HANDOFF.md`** — the authoritative **current-state** narrative and next
    steps. This is the one place that carries live status; prefer it over any
    count or SHA copied into other prose.
-5. **The active work order** (`docs/WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md`).
+5. **The active work order** (`docs/WORK_ORDER_S08_ENEMY_FOUNDATION.md`; the
+   closed S-07 order `docs/WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md` is now
+   historical).
 6. **README.md / `docs/wiki/`** — public-facing; must match the above.
 
 Do not trust a check count, SHA, or "expected" number embedded in narrative
@@ -37,17 +39,32 @@ prose over the actual CI/smoke evidence. Regenerated wiki pages
 (`docs/wiki/**` produced by `scripts/wiki/generate_wiki.py`) are **generated** —
 edit the generator or the data, never the generated file.
 
-## Active boundary: S-07 stabilization (toward v0.7-alpha)
+## Active boundary: S-08.0 Enemy Expansion Foundation (parity-only)
 
-This is a **stabilization and truthfulness** arc, not a feature arc. Within it:
+**v0.7-alpha is released** (merged to `main` via PR #13, merge commit `f1509b7`,
+tagged `v0.7-alpha`). The S-07 stabilization arc is closed; its rules below are
+retained only as historical context. The current active arc is **S-08.0 Enemy
+Expansion Foundation** — a **behavior-preserving** refactor of the enemy runtime,
+data, and spawn seams that later enemy work will build on. Within it:
 
+- **No new enemies activated, no new enemy mechanics, and no bulk roster.** The
+  live enemy set stays exactly the current eight.
 - **No new gameplay mechanics, subsystems, effect keys, or effect consumers.**
-- **No balance / Calling value changes** unless an explicit measure-then-tune
-  slice (S-07.2) authorizes it with playtest evidence.
-- **No save-format, save-ownership, `SAVE_VERSION`, or `gen_version` changes.**
-- **No broad HUD / `game_root` / `world` / smoke-suite decomposition.** Only
-  clean, stateless seams may be extracted, each profiled against the R-06 gate;
-  a candidate that fails is left in place and documented, never forced.
+- **No balance changes** — existing enemies keep their measured runtime HP,
+  contact damage, Hall DPS, speed, severity, spawn eligibility/caps, dawn policy,
+  and loot scaling unless an explicit, evidence-backed tune authorizes it.
+- **No new world content.**
+- **No save-format, save-ownership, `SAVE_VERSION`, or `gen_version` changes.** A
+  behavior-specific saved-state extension point may be *defined*, but no
+  persistent format/version bump ships in this foundation slice.
+- **Modularize, don't monolith.** Extract clean, stateless seams (definition/
+  registry, factory, shared actor, behavior seam, spawn director). Preserve every
+  existing smoke `_check` name and its pass/fail meaning (the count only rises);
+  keep the `game_root`/smoke public shims stable.
+
+Historical S-07 boundary (closed, do not follow as current rules): no new
+mechanics/effect keys; balance deferred to a measure-then-tune slice; clean
+stateless-seam extraction only against the R-06 gate.
 
 ## Save / gen compatibility rules
 
@@ -87,7 +104,7 @@ When you change wiki data or the generator, run
 
 ## Working rules
 
-- **No new mechanics** during S-07 (see the boundary above).
+- **No new mechanics** during S-08.0 (see the boundary above).
 - **No silent broad refactors.** Move implementation only along clean stateless
   seams; preserve every existing smoke `_check` name and its pass/fail meaning
   (the count only ever rises). Public god-file signatures stay stable behind

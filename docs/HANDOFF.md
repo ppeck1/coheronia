@@ -10,7 +10,9 @@ rules live in [`CLAUDE.md`](../CLAUDE.md).
 - **`v0.7-alpha` is released.** The `s07-stabilize-b-plus` stabilization candidate was
   merged into `main` via PR #13 (merge commit `f1509b7`) and tagged `v0.7-alpha`
   (annotated tag on `f1509b7`, published as a GitHub prerelease).
-- `main`: `f1509b7`; the release candidate (head `be474cb`) is fully contained.
+- The **release commit is `f1509b7`** (the PR #13 merge; candidate head `be474cb` fully
+  contained). `main` has since advanced with release-truth documentation, so `main`'s tip
+  is *not* itself the release commit — always read `v0.7-alpha` for the released tree.
 - Draft PR #12 (`feat/perception-veil`) was closed as superseded — its Perception +
   Resonance feature content shipped in PR #13 via the `--no-ff` merge `e210b3d`; only the
   deliberately-excluded debug-only F3 overlay commit (`d008589`) was left behind.
