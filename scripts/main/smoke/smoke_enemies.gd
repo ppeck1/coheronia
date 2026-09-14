@@ -6,6 +6,9 @@ extends Node
 ## category 4), re-preloaded here.
 
 const SubjectScript := preload("res://scripts/entities/subject.gd")
+const EnemySpawnDirector := preload("res://scripts/data/enemy_spawn_director.gd")
+const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
+const EnemyFactoryClass := preload("res://scripts/data/enemy_factory.gd")
 
 
 func run(ctx) -> void:
@@ -380,3 +383,372 @@ func run(ctx) -> void:
 		BlockRegistry.visual_assets.has("frame_semantics")
 		and "opening" in _p4_fs and "VARIANT" in _p4_fs and "ANIMATION" in _p4_fs,
 		"has=%s" % str(BlockRegistry.visual_assets.has("frame_semantics")))
+
+	await _s08_enemy_foundation_baseline(ctx)
+
+
+## ---------------------------------------------------------------------------
+## S-08.0 Enemy Expansion Foundation — parity baseline.
+##
+## Pins the eight live enemies' effective RUNTIME values so the foundation
+## refactor (registry / factory / director) can prove behavior parity. The
+## expected profile below is the balance contract (authored in data/enemies.json);
+## the numeric HP/contact/hall values are recomputed live from the same inputs the
+## spawner uses (threat_hp() baseline, enemy-difficulty axis) so the assertions are
+## robust to the harness difficulty rather than hard-coding a single number.
+## All checks are additive; no existing check is renamed.
+## ---------------------------------------------------------------------------
+func _s08_enemy_foundation_baseline(ctx) -> void:
+	var harness = ctx.harness
+	var root = ctx.root
+	var enemy_reg = root._enemy_registry
+
+	# The live set is EXACTLY these eight, and this is the parity contract.
+	var _s08_expect := {
+		"surface_slime": {
+			"family": "surface", "hp_mult": 1.0, "contact": 8.0, "speed": 38.0,
+			"hall_mult": 1.0, "crops": false, "walls": false, "lava": false,
+			"bubbles": false, "light": false},
+		"thornrat": {
+			"family": "surface", "hp_mult": 0.7, "contact": 4.0, "speed": 66.0,
+			"hall_mult": 1.0, "crops": true, "walls": false, "lava": false,
+			"bubbles": false, "light": false},
+		"cave_crawler": {
+			"family": "underground", "hp_mult": 1.0, "contact": 8.0, "speed": 38.0,
+			"hall_mult": 1.0, "crops": false, "walls": false, "lava": false,
+			"bubbles": false, "light": false},
+		"ore_tick": {
+			"family": "underground", "hp_mult": 0.7, "contact": 3.0, "speed": 30.0,
+			"hall_mult": 1.0, "crops": false, "walls": false, "lava": false,
+			"bubbles": false, "light": false},
+		"lava_slime": {
+			"family": "underground", "hp_mult": 1.2, "contact": 10.0, "speed": 26.0,
+			"hall_mult": 1.0, "crops": false, "walls": false, "lava": true,
+			"bubbles": true, "light": false},
+		"raider_basic": {
+			"family": "raider", "hp_mult": 1.0, "contact": 8.0, "speed": 38.0,
+			"hall_mult": 1.0, "crops": false, "walls": false, "lava": false,
+			"bubbles": false, "light": false},
+		"raider_torchbearer": {
+			"family": "raider", "hp_mult": 1.5, "contact": 10.0, "speed": 34.0,
+			"hall_mult": 2.5, "crops": false, "walls": false, "lava": false,
+			"bubbles": false, "light": true},
+		"raider_sapper": {
+			"family": "raider", "hp_mult": 1.3, "contact": 9.0, "speed": 32.0,
+			"hall_mult": 1.5, "crops": false, "walls": true, "lava": false,
+			"bubbles": false, "light": false},
+	}
+
+	# (1) the live enemy set is exactly the expected eight ids.
+	var _s08_live_ids := {}
+	for _d in enemy_reg.live_defs():
+		_s08_live_ids[str(_d.get("id", ""))] = true
+	var _s08_set_ok: bool = _s08_live_ids.size() == _s08_expect.size()
+	for _eid in _s08_expect:
+		if not _s08_live_ids.has(_eid):
+			_s08_set_ok = false
+	harness._check("s08_live_set_is_the_eight", _s08_set_ok,
+		"live=%d expected=%d ids=%s" % [_s08_live_ids.size(), _s08_expect.size(),
+			str(_s08_live_ids.keys())])
+
+	# (2) every live enemy's effective runtime values match the parity contract,
+	# recomputed from the live threat_hp() baseline and the enemy-difficulty axis.
+	var _s08_diff: float = root.config().difficulty("enemy")
+	var _s08_base_hp: int = root.threat_hp()
+	var _s08_parity_ok := true
+	var _s08_first_bad := ""
+	var _s08_sev_ok := true
+	for _eid in _s08_expect:
+		var _ex: Dictionary = _s08_expect[_eid]
+		var _n: Node = root.spawn_enemy_for_test(_eid)
+		if _n == null:
+			_s08_parity_ok = false
+			if _s08_first_bad == "":
+				_s08_first_bad = "%s: null actor" % _eid
+			continue
+		var _exp_hp: int = maxi(1, int(round(float(_s08_base_hp) * float(_ex["hp_mult"]))))
+		var _exp_contact: float = float(_ex["contact"]) * _s08_diff
+		var _exp_hall: float = 4.0 * _s08_diff * float(_ex["hall_mult"])
+		var _bad_fields: Array[String] = []
+		if str(_n.enemy_id) != _eid:
+			_bad_fields.append("id(%s)" % _n.enemy_id)
+		if str(_n.family) != str(_ex["family"]):
+			_bad_fields.append("family(%s!=%s)" % [_n.family, _ex["family"]])
+		if _n.hp != _exp_hp or _n.max_hp != _exp_hp:
+			_bad_fields.append("hp(%d/%d!=%d)" % [_n.hp, _n.max_hp, _exp_hp])
+		if not is_equal_approx(float(_n.contact_damage), _exp_contact):
+			_bad_fields.append("contact(%.3f!=%.3f)" % [_n.contact_damage, _exp_contact])
+		if not is_equal_approx(float(_n.hall_dps), _exp_hall):
+			_bad_fields.append("hall(%.3f!=%.3f)" % [_n.hall_dps, _exp_hall])
+		if not is_equal_approx(float(_n.move_speed), float(_ex["speed"])):
+			_bad_fields.append("speed(%.3f!=%.3f)" % [_n.move_speed, float(_ex["speed"])])
+		if bool(_n.targets_crops) != bool(_ex["crops"]):
+			_bad_fields.append("crops")
+		if bool(_n.breaks_walls) != bool(_ex["walls"]):
+			_bad_fields.append("walls")
+		if bool(_n.lava_immune) != bool(_ex["lava"]):
+			_bad_fields.append("lava")
+		if bool(_n.emits_bubbles) != bool(_ex["bubbles"]):
+			_bad_fields.append("bubbles")
+		if (not _n.visual_light.is_empty()) != bool(_ex["light"]):
+			_bad_fields.append("light")
+		if not _bad_fields.is_empty():
+			_s08_parity_ok = false
+			if _s08_first_bad == "":
+				_s08_first_bad = "%s: %s" % [_eid, ", ".join(_bad_fields)]
+		# severity is a shared constant today (documented truthfulness gap).
+		if not is_equal_approx(float(_n.SEVERITY), 10.0):
+			_s08_sev_ok = false
+		if is_instance_valid(_n):
+			_n.queue_free()
+	await get_tree().process_frame
+	harness._check("s08_enemy_runtime_parity", _s08_parity_ok,
+		_s08_first_bad if not _s08_parity_ok else "all 8 match contract (base_hp=%d diff=%.2f)" % [_s08_base_hp, _s08_diff])
+	harness._check("s08_enemy_severity_shared_constant", _s08_sev_ok,
+		"every live enemy .SEVERITY == 10.0 (shared)")
+
+	# (3) the registry validates the shipped data clean (fail-closed authority).
+	var _s08_verr: Array = enemy_reg.validation_errors()
+	harness._check("s08_registry_validation_clean", _s08_verr.is_empty(),
+		"errors=%d %s" % [_s08_verr.size(), str(_s08_verr).substr(0, 200)])
+
+	# (4) classification: the four categories resolve, unknown ids resolve to "".
+	var _s08_cls_ok: bool = enemy_reg.category_of("surface_slime") == "live" \
+		and enemy_reg.category_of("ash_wasp") == "planned" \
+		and enemy_reg.category_of("broodmother_crawler") == "mini_boss" \
+		and enemy_reg.category_of("hollow_king") == "boss" \
+		and enemy_reg.category_of("definitely_not_an_enemy") == ""
+	harness._check("s08_registry_classification", _s08_cls_ok,
+		"slime=%s wasp=%s brood=%s king=%s unknown=%s" % [
+			enemy_reg.category_of("surface_slime"), enemy_reg.category_of("ash_wasp"),
+			enemy_reg.category_of("broodmother_crawler"), enemy_reg.category_of("hollow_king"),
+			"'%s'" % enemy_reg.category_of("definitely_not_an_enemy")])
+
+	# (5) fail-closed spawn queries: only a live id is spawnable; def_for_spawn
+	# returns an INDEPENDENT copy for live and {} for planned/mini-boss/unknown,
+	# so a typo can never coerce into a default enemy and no caller can mutate the
+	# shared authority dict.
+	var _s08_live_copy: Dictionary = enemy_reg.def_for_spawn("surface_slime")
+	_s08_live_copy["family"] = "TAMPERED"   # mutate the copy...
+	var _s08_independent: bool = str(enemy_reg.get_def("surface_slime").get("family", "")) == "surface"
+	var _s08_failclosed_ok: bool = enemy_reg.is_spawnable("surface_slime") \
+		and not _s08_live_copy.is_empty() and _s08_independent \
+		and enemy_reg.def_for_spawn("ash_wasp").is_empty() \
+		and not enemy_reg.is_spawnable("ash_wasp") \
+		and enemy_reg.def_for_spawn("broodmother_crawler").is_empty() \
+		and not enemy_reg.is_spawnable("broodmother_crawler") \
+		and enemy_reg.def_for_spawn("definitely_not_an_enemy").is_empty() \
+		and not enemy_reg.is_spawnable("definitely_not_an_enemy")
+	harness._check("s08_registry_fail_closed_queries", _s08_failclosed_ok,
+		"live_spawnable=%s copy_independent=%s planned_empty=%s unknown_empty=%s" % [
+			str(enemy_reg.is_spawnable("surface_slime")), str(_s08_independent),
+			str(enemy_reg.def_for_spawn("ash_wasp").is_empty()),
+			str(enemy_reg.def_for_spawn("definitely_not_an_enemy").is_empty())])
+
+	# (6) the factory is the single construction path and fails closed at SPAWN:
+	# an unknown or planned id builds NO actor (never a default Surface Slime).
+	for _t0 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t0):
+			_t0.queue_free()
+	await get_tree().process_frame
+	var _s08_unknown_node: Node = root.spawn_enemy_for_test("definitely_not_an_enemy")
+	var _s08_planned_node: Node = root.spawn_enemy_for_test("ash_wasp")
+	await get_tree().process_frame
+	var _s08_after: int = get_tree().get_nodes_in_group("threats").size()
+	harness._check("s08_factory_unknown_and_planned_no_actor",
+		_s08_unknown_node == null and _s08_planned_node == null and _s08_after == 0,
+		"unknown=%s planned=%s live_threats=%d" % [
+			str(_s08_unknown_node == null), str(_s08_planned_node == null), _s08_after])
+
+	# (7) save restoration fails closed too: a save array mixing a live id with a
+	# non-live/typo id restores ONLY the live actor (no phantom Surface Slime).
+	root.apply_threats([
+		{"x": 100.0, "y": 100.0, "hp": 2, "max_hp": 3, "enemy_id": "raider_basic"},
+		{"x": 120.0, "y": 100.0, "hp": 2, "max_hp": 3, "enemy_id": "ghost_of_typo"},
+	])
+	await get_tree().process_frame
+	var _s08_restored: Array = get_tree().get_nodes_in_group("threats")
+	var _s08_ids: Array[String] = []
+	for _r in _s08_restored:
+		_s08_ids.append(str(_r.enemy_id))
+	harness._check("s08_factory_save_restore_fail_closed",
+		_s08_restored.size() == 1 and _s08_ids == ["raider_basic"],
+		"restored=%d ids=%s" % [_s08_restored.size(), str(_s08_ids)])
+	for _r in _s08_restored:
+		if is_instance_valid(_r):
+			_r.queue_free()
+	await get_tree().process_frame
+
+	# (8) the spawn director's decisions match the previously-inlined logic:
+	# surface count clamp, raid eligibility (day OR stockpile lure), the roll
+	# threshold product, and the cave cap — pure, so checked directly.
+	var _s08_dir_ok: bool = \
+		EnemySpawnDirector.surface_spawn_count(0, 3.0) == 0 \
+		and EnemySpawnDirector.surface_spawn_count(2, 1.0) == 2 \
+		and EnemySpawnDirector.surface_spawn_count(2, 3.0) == 5 \
+		and EnemySpawnDirector.raid_eligible(3, 5, 30, 25) == true \
+		and EnemySpawnDirector.raid_eligible(3, 5, 10, 25) == false \
+		and EnemySpawnDirector.raid_eligible(6, 5, 0, 25) == true \
+		and is_equal_approx(EnemySpawnDirector.roll_threshold(0.3, 1.0, 1.0), 0.3) \
+		and is_equal_approx(EnemySpawnDirector.roll_threshold(0.2, 0.6, 1.4), 0.2 * 0.6 * 1.4) \
+		and EnemySpawnDirector.cave_at_cap(3, 3) == true \
+		and EnemySpawnDirector.cave_at_cap(2, 3) == false
+	harness._check("s08_spawn_director_decisions", _s08_dir_ok,
+		"count/eligibility/threshold/cap all match inlined logic")
+
+	# (9) cave enemy selection: lava dweller > ore tick > default crawler, fail-closed
+	# against the real registry (only spawnable variants selected).
+	var _s08_sel_ok: bool = \
+		EnemySpawnDirector.select_cave_enemy_id(true, false, enemy_reg) == "lava_slime" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg) == "ore_tick" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg) == "cave_crawler" \
+		and EnemySpawnDirector.select_cave_enemy_id(true, true, enemy_reg) == "lava_slime"
+	harness._check("s08_spawn_director_cave_selection", _s08_sel_ok,
+		"lava=%s ore=%s none=%s" % [
+			EnemySpawnDirector.select_cave_enemy_id(true, false, enemy_reg),
+			EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg),
+			EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg)])
+
+	# (10) explicit dawn/despawn lifecycle policy matches the prior family behavior
+	# for all eight live enemies (underground persists; surface/raid recede).
+	var _s08_dawn_ok := true
+	var _s08_dawn_bad := ""
+	for _eid2 in _s08_expect:
+		var _n2: Node = root.spawn_enemy_for_test(_eid2)
+		var _want_persist: bool = str(_s08_expect[_eid2]["family"]) == "underground"
+		if _n2 == null or _n2.persists_through_dawn() != _want_persist:
+			_s08_dawn_ok = false
+			if _s08_dawn_bad == "":
+				_s08_dawn_bad = "%s persist=%s want=%s" % [_eid2,
+					(str(_n2.persists_through_dawn()) if _n2 != null else "null"), str(_want_persist)]
+		if _n2 != null and is_instance_valid(_n2):
+			_n2.queue_free()
+	await get_tree().process_frame
+	harness._check("s08_dawn_policy_explicit", _s08_dawn_ok,
+		_s08_dawn_bad if not _s08_dawn_ok else "underground persists, surface/raid recede (all 8)")
+
+	# (11) the defeat contract carries the defeated enemy's identity/context.
+	for _t2 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t2):
+			_t2.queue_free()
+	await get_tree().process_frame
+	var _s08_victim: Node = root.spawn_enemy_for_test("raider_basic")
+	_s08_victim.take_hit(999)
+	await get_tree().process_frame
+	var _s08_ctx: Dictionary = root.last_defeat_context()
+	harness._check("s08_defeat_context_identity",
+		str(_s08_ctx.get("enemy_id", "")) == "raider_basic"
+		and str(_s08_ctx.get("family", "")) == "raider"
+		and _s08_ctx.has("position"),
+		"ctx=%s" % str(_s08_ctx))
+
+	# (12) the saved-state extension seam does NOT change the save format: a live
+	# enemy serializes exactly the base keys (no "extra" block) and its extension
+	# state is empty today.
+	for _t3 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t3):
+			_t3.queue_free()
+	await get_tree().process_frame
+	var _s08_se: Node = root.spawn_enemy_for_test("surface_slime")
+	await get_tree().process_frame
+	var _s08_ser: Array = root.serialize_threats()
+	var _s08_keys_ok := false
+	if _s08_ser.size() >= 1:
+		var _keys: Array = _s08_ser[0].keys()
+		_keys.sort()
+		_s08_keys_ok = _keys == ["enemy_id", "hp", "max_hp", "x", "y"]
+	harness._check("s08_save_extension_no_format_change",
+		_s08_keys_ok and _s08_se.extra_save_state().is_empty(),
+		"keys=%s extra_empty=%s" % [
+			(str(_s08_ser[0].keys()) if _s08_ser.size() >= 1 else "none"),
+			str(_s08_se.extra_save_state().is_empty())])
+	for _t4 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t4):
+			_t4.queue_free()
+	await get_tree().process_frame
+
+	# (13) FAIL-CLOSED VALIDATION via injected fixture: malformed and duplicate LIVE
+	# defs are neither spawnable nor able to reach the factory (pure validation, no
+	# nodes created — def_for_spawn returns {} so the factory returns null).
+	var _bad_reg = EnemyRegistryClass.new({
+		"enemies": [
+			{"id": "good_guy", "status": "live", "family": "surface", "contact_damage": 5, "speed": 30, "drops": []},
+			{"id": "no_speed", "status": "live", "family": "surface", "contact_damage": 5, "drops": []},
+			{"id": "bad_family", "status": "live", "family": "floating", "contact_damage": 5, "speed": 30},
+			{"id": "bad_range", "status": "live", "family": "surface", "contact_damage": 5, "speed": -4},
+			{"id": "bad_drop", "status": "live", "family": "surface", "contact_damage": 5, "speed": 30, "drops": [{"item_id": "", "chance": 0.5}]},
+			{"id": "bad_kind", "status": "live", "family": "surface", "contact_damage": 5, "speed": 30, "actor_kind": "flying_unknown"},
+			{"id": "dup", "status": "live", "family": "surface", "contact_damage": 5, "speed": 30},
+			{"id": "dup", "status": "live", "family": "raider", "contact_damage": 9, "speed": 30},
+		]
+	})
+	var _bad_ids: Array[String] = ["no_speed", "bad_family", "bad_range", "bad_drop", "bad_kind", "dup"]
+	var _bad_ok: bool = _bad_reg.is_spawnable("good_guy") \
+		and not _bad_reg.def_for_spawn("good_guy").is_empty() \
+		and not _bad_reg.validation_errors().is_empty()
+	var _bad_first := ""
+	for _bid in _bad_ids:
+		var _closed: bool = not _bad_reg.is_spawnable(_bid) \
+			and _bad_reg.def_for_spawn(_bid).is_empty() \
+			and EnemyFactoryClass.build(_bad_reg.def_for_spawn(_bid), Vector2.ZERO, {}) == null
+		if not _closed:
+			_bad_ok = false
+			if _bad_first == "":
+				_bad_first = _bid
+	harness._check("s08_registry_rejects_malformed_and_duplicate", _bad_ok,
+		"good_spawnable=%s errors=%d first_leak=%s" % [
+			str(_bad_reg.is_spawnable("good_guy")), _bad_reg.validation_errors().size(),
+			(_bad_first if _bad_first != "" else "none")])
+
+	# (14) UNKNOWN ACTOR/CONTROLLER KIND fails closed at the factory: a live def with
+	# an unknown actor_kind builds no actor, while the default simple_ground path
+	# (surface_slime) builds normally.
+	var _uk_def := {"id": "x", "status": "live", "family": "surface", "contact_damage": 5, "speed": 30, "actor_kind": "burrower_TODO"}
+	var _uk_node = EnemyFactoryClass.build(_uk_def, Vector2.ZERO, {})
+	var _dk_node: Node = root.spawn_enemy_for_test("surface_slime")
+	harness._check("s08_factory_unknown_actor_kind_fails_closed",
+		_uk_node == null and _dk_node != null
+		and EnemyFactoryClass.actor_kind_known("simple_ground")
+		and not EnemyFactoryClass.actor_kind_known("burrower_TODO"),
+		"unknown_null=%s default_built=%s known(simple_ground)=%s" % [
+			str(_uk_node == null), str(_dk_node != null),
+			str(EnemyFactoryClass.actor_kind_known("simple_ground"))])
+	if _dk_node != null and is_instance_valid(_dk_node):
+		_dk_node.queue_free()
+	await get_tree().process_frame
+
+	# (15) SPAWN PATHS USE def_for_spawn, not the raw get_def view: a planned id is
+	# present in get_def but empty in def_for_spawn, and the test spawn path (a
+	# construction route) builds no actor for it.
+	harness._check("s08_spawn_paths_use_def_for_spawn",
+		not enemy_reg.get_def("ash_wasp").is_empty()
+		and enemy_reg.def_for_spawn("ash_wasp").is_empty()
+		and root.spawn_enemy_for_test("ash_wasp") == null,
+		"getdef_present=%s def_for_spawn_empty=%s test_spawn_null=%s" % [
+			str(not enemy_reg.get_def("ash_wasp").is_empty()),
+			str(enemy_reg.def_for_spawn("ash_wasp").is_empty()),
+			str(root.spawn_enemy_for_test("ash_wasp") == null)])
+
+	# (16) DIRECTOR RAID INTENTS reproduce the previously-inlined decisions across the
+	# raid contexts (day/stockpile eligibility + injected-roll threshold), and the
+	# non-lure candidate (thornrat) is day-gated only.
+	var _rb_rule: Dictionary = enemy_reg.def_for_spawn("raider_basic").get("spawn_rule", {})
+	var _rb_ctx := {
+		"enemy_id": "raider_basic", "day": 6,
+		"day_threshold": int(_rb_rule.get("day_threshold", 5)),
+		"stock": 0, "stock_threshold": int(_rb_rule.get("stockpile_threshold", 25)),
+		"uses_stock_lure": true, "base_chance": float(_rb_rule.get("base_chance", 0.3)),
+		"density_mult": 1.0, "difficulty": 1.0,
+	}
+	var _rb_thresh: float = float(_rb_rule.get("base_chance", 0.3))
+	var _intent_ok: bool = \
+		EnemySpawnDirector.raid_candidate_eligible(_rb_ctx) == true \
+		and EnemySpawnDirector.raid_candidate_eligible({"day": 3, "day_threshold": 5, "uses_stock_lure": true, "stock": 30, "stock_threshold": 25}) == true \
+		and EnemySpawnDirector.raid_candidate_eligible({"day": 3, "day_threshold": 5, "uses_stock_lure": true, "stock": 10, "stock_threshold": 25}) == false \
+		and EnemySpawnDirector.raid_candidate_eligible({"day": 3, "day_threshold": 5, "uses_stock_lure": false}) == false \
+		and EnemySpawnDirector.raid_candidate_eligible({"day": 5, "day_threshold": 5, "uses_stock_lure": false}) == true \
+		and bool(EnemySpawnDirector.raid_intent(_rb_ctx, _rb_thresh - 0.001).get("spawn")) == true \
+		and bool(EnemySpawnDirector.raid_intent(_rb_ctx, _rb_thresh + 0.001).get("spawn")) == false \
+		and str(EnemySpawnDirector.raid_intent(_rb_ctx, 0.0).get("enemy_id")) == "raider_basic"
+	harness._check("s08_director_raid_intents", _intent_ok,
+		"eligibility (day/stock/lure) + roll-threshold intents match inlined logic")
