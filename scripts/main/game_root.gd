@@ -1712,26 +1712,40 @@ func _advance_cave_spawns(delta: float) -> void:
 	log_event(event)
 
 
-## S-08.2: spawn a small Sporekin cluster at the spawn cell plus nearby open-air
-## cells. The count is the director's cluster_size — the desired cluster clamped to
-## the slots remaining under the underground cap — so a fresh deep cave yields a
-## pair and the existing cap is never exceeded. Missing air neighbours simply yield
-## a smaller cluster (never a spawn inside solid rock).
+## S-08.2: spawn a small Sporekin cluster within the spawn cell's OWN connected cave
+## space. The count is the director's cluster_size — the desired cluster clamped to
+## the slots remaining under the underground cap — so a fresh deep cave yields a pair
+## and the existing cap is never exceeded. Cells are drawn from a flood fill of
+## connected air (nearest-first), so cluster-mates share the chamber and none land in
+## a disconnected pocket across rock; a small chamber simply yields a smaller cluster.
 func _spawn_sporekin_cluster(def: Dictionary, spawn_cell: Vector2i, existing_underground: int) -> void:
 	var want: int = EnemySpawnDirectorClass.cluster_size(
 		existing_underground, CAVE_CRAWLER_CAP, SPOREKIN_CLUSTER)
 	if want <= 0:
 		return
-	var cells: Array[Vector2i] = [spawn_cell]
-	for off: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(2, 0),
-			Vector2i(-2, 0), Vector2i(0, -1)]:
-		if cells.size() >= want:
-			break
-		var c: Vector2i = spawn_cell + off
-		if world.block_at(c) == "air" and not cells.has(c):
-			cells.append(c)
-	for c in cells:
+	for c: Vector2i in _connected_air_cells(spawn_cell, want):
 		_spawn_enemy_at(def, world.cell_center(c))
+
+
+## Return up to `limit` open-air cells connected to `start` (orthogonal BFS, so the
+## nearest cells come first, always including `start`). Used to place a cave cluster
+## inside one contiguous chamber rather than in separate air pockets.
+func _connected_air_cells(start: Vector2i, limit: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if limit <= 0 or world.block_at(start) != "air":
+		return out
+	var seen := {start: true}
+	var queue: Array[Vector2i] = [start]
+	while not queue.is_empty() and out.size() < limit:
+		var c: Vector2i = queue.pop_front()
+		out.append(c)
+		for nb: Vector2i in [c + Vector2i(1, 0), c + Vector2i(-1, 0),
+				c + Vector2i(0, 1), c + Vector2i(0, -1)]:
+			if seen.has(nb) or world.block_at(nb) != "air":
+				continue
+			seen[nb] = true
+			queue.append(nb)
+	return out
 
 
 ## Counts connected open-air cells reachable from `start` (orthogonal flood fill),

@@ -926,6 +926,43 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 		_cluster_n == 2 and _capfull_n == 0,
 		"cluster=%d (want 2) capfull_adds=%d (want 0)" % [_cluster_n, _capfull_n])
 
+	# (23b) the cluster draws only from the spawn cell's CONNECTED cave space: build a
+	# two-cell chamber (A-B) walled off from a separate air pocket, and confirm
+	# _connected_air_cells returns {A, B} and never the disconnected island.
+	var _ca_A := Vector2i(120, 50)
+	var _ca_B := _ca_A + Vector2i(1, 0)
+	var _ca_island := _ca_A + Vector2i(3, 0)   # air, but across a wall at A+(2,0)
+	var _ca_air: Array[Vector2i] = [_ca_A, _ca_B, _ca_island]
+	var _ca_stone: Array[Vector2i] = [
+		_ca_A + Vector2i(-1, 0), _ca_A + Vector2i(0, -1), _ca_A + Vector2i(0, 1),
+		_ca_B + Vector2i(0, -1), _ca_B + Vector2i(0, 1), _ca_A + Vector2i(2, 0),
+		_ca_island + Vector2i(1, 0), _ca_island + Vector2i(0, -1), _ca_island + Vector2i(0, 1)]
+	var _ca_saved := {}
+	for _c in (_ca_air + _ca_stone):
+		_ca_saved[_c] = [_w.cells.get(_c), _w.deltas.get(_c)]
+	for _c in _ca_air:
+		_w.cells[_c] = "air"
+		_w.deltas[_c] = "air"
+	for _c in _ca_stone:
+		_w.cells[_c] = "stone"
+		_w.deltas[_c] = "stone"
+	var _ca_out: Array = root._connected_air_cells(_ca_A, 10)
+	var _ca_ok: bool = _ca_out.size() == 2 and _ca_out.has(_ca_A) and _ca_out.has(_ca_B) \
+		and not _ca_out.has(_ca_island)
+	for _c in _ca_saved:
+		var _sv: Array = _ca_saved[_c]
+		if _sv[0] == null:
+			_w.cells.erase(_c)
+		else:
+			_w.cells[_c] = _sv[0]
+		if _sv[1] == null:
+			_w.deltas.erase(_c)
+		else:
+			_w.deltas[_c] = _sv[1]
+	harness._check("s08_2_cluster_connected_air", _ca_ok,
+		"connected={A,B}=%s island_excluded=%s out=%s" % [
+			str(_ca_out.size() == 2), str(not _ca_out.has(_ca_island)), str(_ca_out)])
+
 	# (24) culinary_mushroom is real loot with a FOOD use: a killed sporekin drops it,
 	# the player collects it, and cook_culinary_mushroom turns it into food.
 	for _t3 in get_tree().get_nodes_in_group("threats"):
