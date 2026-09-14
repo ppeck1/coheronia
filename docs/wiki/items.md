@@ -59,6 +59,9 @@ This page is the item landing page for the current Coheronia wiki tree. It is me
 | [Weapon Scrap](items/scrap_weapons.md) | complete | inventory; stockpile input | Enemy: Raider Basic | recipe input |
 | [Oil Rags](items/oil_rags.md) | complete | inventory; stockpile input | Enemy: Raider Torchbearer | recipe input |
 | [Torch Heads](items/torch_heads.md) | complete | inventory; stockpile input | Enemy: Raider Torchbearer | recipe input |
+| [Glow Gland](items/glow_gland.md) | complete | inventory | Enemy: Lantern Leech | recipe input |
+| [Cave Oil](items/oil.md) | complete | inventory | Enemy: Lantern Leech | recipe input |
+| [Culinary Mushroom](items/culinary_mushroom.md) | complete | inventory | Enemy: Sporekin | recipe input |
 
 ### World-Only, UI, And Internal Tokens
 
@@ -82,11 +85,9 @@ This page is the item landing page for the current Coheronia wiki tree. It is me
 | [Antlers](items/antlers.md) | planned | [Hollow Stag](enemies/hollow_stag.md) | Recommended first implementation sink: trophy, ritual focus, or prestige trade. |
 | [Clay](items/clay.md) | planned | [Mudling](enemies/mudling.md) | Recommended first implementation sink: bricks, pottery, or furnace upgrade. |
 | [Forged Seal](items/forged_seal.md) | planned | [False Taxman](enemies/false_taxman.md) | Recommended first implementation sink: civic quest or treasury sink. |
-| [Fungal Thread](items/fungal_thread.md) | planned | [Sporekin](enemies/sporekin.md) | Recommended first implementation sink: wraps, filters, or attunement cloth. |
 | [Hide](items/hide.md) | planned | [Hollow Stag](enemies/hollow_stag.md), [Burrow Maw](enemies/burrow_maw.md) | Recommended first implementation sink: medium armor or packs. |
 | [Mud](items/mud.md) | planned | [Mudling](enemies/mudling.md) | Recommended first implementation sink: clay prep or farming amendment. |
 | [Reed Fiber](items/reed_fiber.md) | planned | [Mudling](enemies/mudling.md) | Recommended first implementation sink: rope, nets, or matting. |
-| [Spores](items/spores.md) | planned | [Sporekin](enemies/sporekin.md) | Recommended first implementation sink: medicine, poison, or farming catalyst. |
 | [Stone Plates](items/stone_plates.md) | planned | [Stoneback Beetle](enemies/stoneback_beetle.md) | Recommended first implementation sink: armor or barricade plating. |
 | [Teeth](items/teeth.md) | planned | [Burrow Maw](enemies/burrow_maw.md) | Recommended first implementation sink: dagger, charm, or trophy. |
 | [Venison](items/venison.md) | planned | [Hollow Stag](enemies/hollow_stag.md) | Recommended first implementation sink: feast or trade good. |

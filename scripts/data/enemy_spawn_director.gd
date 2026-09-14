@@ -78,11 +78,21 @@ static func cave_at_cap(underground_count: int, cap: int) -> bool:
 ## falling back to the crawler. `water_near`/`lantern_ok` default false so existing
 ## three-argument callers behave exactly as before.
 static func select_cave_enemy_id(lava_near: bool, ore_near: bool, registry,
-		water_near := false, lantern_ok := false) -> String:
+		water_near := false, lantern_ok := false, deep := false) -> String:
 	if lava_near and registry.is_spawnable("lava_slime"):
 		return "lava_slime"
 	if water_near and lantern_ok and registry.is_spawnable("lantern_leech"):
 		return "lantern_leech"
 	if ore_near and registry.is_spawnable("ore_tick"):
 		return "ore_tick"
+	# S-08.2: a deep cave with no closer context is Sporekin territory (cluster).
+	if deep and registry.is_spawnable("sporekin"):
+		return "sporekin"
 	return "cave_crawler"
+
+
+## S-08.2: how many of a clustered cave enemy (Sporekin) to spawn at once —
+## the desired cluster size, clamped to the remaining slots under the underground
+## cap so the existing cap is never exceeded. Pure; game_root does the placement.
+static func cluster_size(existing_underground: int, cap: int, desired: int) -> int:
+	return maxi(0, mini(desired, cap - existing_underground))

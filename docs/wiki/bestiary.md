@@ -14,6 +14,7 @@ This page groups the current enemy definitions into live and planned slices, sim
 | [Ore Tick](enemies/ore_tick.md) | underground | Ore veins | Ore pocket nuisance, provides metal residue | 1 canonical image + 3 variants |
 | [Lava Slime](enemies/lava_slime.md) | underground | Lava pools in the hell layer | Molten dweller of the lava layer; leaves obsidian and hellstone | 1 canonical image + 3 variants |
 | [Lantern Leech](enemies/lantern_leech.md) | underground | Cave pools | Cave pool dweller, provides light and fuel materials | No authored image. |
+| [Sporekin](enemies/sporekin.md) | underground | Fungal caves | Deep-cave cluster dweller; harvested for edible mushrooms | No authored image. |
 | [Raider Basic](enemies/raider_basic.md) | raider | Raider camps and raid waves | Settlement raid unit targeting player, Town Hall, or subjects | 1 canonical image + 3 variants |
 | [Raider Torchbearer](enemies/raider_torchbearer.md) | raider | Raider camps and raid waves | Raider with fire attacks, supplies raid consumables | 1 canonical image + 3 variants |
 | [Raider Sapper](enemies/raider_sapper.md) | raider | Raider camps and raid waves | Wall destruction specialist, threatens settlement defenses | 1 canonical image + 3 variants |
@@ -26,7 +27,6 @@ This page groups the current enemy definitions into live and planned slices, sim
 | [Mudling](enemies/mudling.md) | surface | Swamps | Swamp dweller, provides construction and weaving materials | No authored image. |
 | [Hollow Stag](enemies/hollow_stag.md) | surface | Deep forest | Rare forest encounter, premium food and crafting source | No authored image. |
 | [Stoneback Beetle](enemies/stoneback_beetle.md) | underground | Stone caverns | Rare stone cavern dweller, provides construction material | No authored image. |
-| [Sporekin](enemies/sporekin.md) | underground | Fungal caves | Fungal cave cluster enemy, provides alchemy and crafting materials | No authored image. |
 | [Burrow Maw](enemies/burrow_maw.md) | underground | Mine shafts | Rare mine shaft threat, provides bone and leather materials | No authored image. |
 | [Hungry Deserter](enemies/hungry_deserter.md) | raider | Raider camps and raid waves | Moral choice encounter, potential recruitment opportunity | No authored image. |
 | [False Taxman](enemies/false_taxman.md) | raider | Raider camps and raid waves | Governance event encounter, supplies authority-related items | No authored image. |

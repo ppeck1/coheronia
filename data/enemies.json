@@ -289,7 +289,11 @@
       "id": "sporekin",
       "display_name": "Sporekin",
       "family": "underground",
-      "status": "planned",
+      "status": "live",
+      "contact_damage": 3,
+      "speed": 30,
+      "hp": 2,
+      "hp_mult": 0.7,
       "location": "Fungal caves",
       "density": {
         "count_min": 2,
@@ -298,15 +302,11 @@
       },
       "drops": [
         {
-          "item_id": "spores",
-          "chance": 0.65
-        },
-        {
-          "item_id": "fungal_thread",
-          "chance": 0.35
+          "item_id": "culinary_mushroom",
+          "chance": 0.7
         }
       ],
-      "role": "Fungal cave cluster enemy, provides alchemy and crafting materials"
+      "role": "Deep-cave cluster dweller; harvested for edible mushrooms"
     },
     {
       "id": "burrow_maw",

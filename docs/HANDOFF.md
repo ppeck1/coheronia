@@ -73,8 +73,10 @@ shipped as `v0.7-alpha`. Remaining visual polish (panel art-language consistency
 grading, resonance art, and wooden-platform art) and large controller extractions remain
 focused follow-up work. **S-08.0 Enemy Expansion Foundation is MERGED** to `main` (merge
 `29fee40`, PR #15) — see [`WORK_ORDER_S08_ENEMY_FOUNDATION.md`](WORK_ORDER_S08_ENEMY_FOUNDATION.md).
-The current arc is **S-08.1 Lantern Leech** — the first single-enemy vertical slice on the
-S-08.0 foundation — see [`WORK_ORDER_S08_1_LANTERN_LEECH.md`](WORK_ORDER_S08_1_LANTERN_LEECH.md).
+The current mode is **single-enemy activation slices** on the foundation:
+**S-08.1 Lantern Leech** (merged, `17a9bdd`, PR #16 —
+[`WORK_ORDER_S08_1_LANTERN_LEECH.md`](WORK_ORDER_S08_1_LANTERN_LEECH.md)) and now
+**S-08.2 Sporekin** ([`WORK_ORDER_S08_2_SPOREKIN.md`](WORK_ORDER_S08_2_SPOREKIN.md)).
 
 ## S-08.0 status — MERGED (`29fee40`, PR #15)
 
@@ -104,21 +106,32 @@ deterministic, and `SAVE_VERSION` (`0.6`)/`gen_version` (`5`) are unchanged. The
 set remains exactly the eight. Data truthfulness: `hp` documented as decorative
 (effective HP = `threat_hp()` × `hp_mult`), `density`/`region_density` relabelled design-only.
 
-## S-08.1 status (on `s08.1-lantern-leech`)
+## S-08.1 Lantern Leech — MERGED (`17a9bdd`, PR #16)
 
-**Lantern Leech is activated** — the ninth live enemy (underground cave-pool dweller). It
-spawns near a `water` cell via the director's water branch (`game_root._water_near` + the
-extended `select_cave_enemy_id`), capped at `LANTERN_LEECH_CAP`=2, `actor_kind: simple_ground`
-(no new controller), a presentation-only cool cyan lantern glow, underground dawn persistence,
-and save round-trip. `glow_gland`/`oil` are real items consumed by the new `craft_lantern_glow`
-recipe → `lantern` (no dead-end loot). Ships with the code-drawn fallback sprite (canonical art
-deferred, documented). The founding eight are unchanged (`s08_enemy_runtime_parity`) and the
-fixed-seed balance report stays deterministic. Windowed smoke **630/630**; `SAVE_VERSION`
-(`0.6`)/`gen_version` (`5`) unchanged.
+The ninth live enemy (underground cave-pool dweller): spawns near a `water` cell via the
+director's water branch (`_water_near` + `select_cave_enemy_id`), cap `LANTERN_LEECH_CAP`=2,
+`simple_ground`, presentation-only cool cyan lantern glow, underground dawn persistence, save
+round-trip. `glow_gland`/`oil` → `craft_lantern_glow` → `lantern`. Code-drawn fallback sprite.
+
+## S-08.2 status (on `s08.2-sporekin`)
+
+**Sporekin is activated** — the tenth live enemy (underground deep-cave **cluster** dweller).
+It spawns in deep caves (`spawn_cell` depth ≥ `SPOREKIN_MIN_DEPTH`=24, no closer context) as a
+small cluster via `game_root._spawn_sporekin_cluster` + the director's `deep` branch and
+`cluster_size()` clamp — **bounded by the existing `CAVE_CRAWLER_CAP`** (a fresh deep cave
+yields a pair; the underground cap is never exceeded). `actor_kind: simple_ground` (no new
+controller), no carried light, underground dawn persistence, save round-trip. `culinary_mushroom`
+is a real item consumed by the new `cook_culinary_mushroom` recipe → `food` (a Town-Hall food
+source, no alchemy). Code-drawn fallback sprite (canonical art deferred, documented). The nine
+earlier live enemies are unchanged (`s08_enemy_runtime_parity`) and the fixed-seed balance
+report stays deterministic. Windowed smoke **635/635**; `SAVE_VERSION` (`0.6`)/`gen_version`
+(`5`) unchanged. (Generator cleanup: `glow_gland`/`oil`/`culinary_mushroom` are now categorized
+as live drop materials with real sinks; the retired `spores`/`fungal_thread` planned hooks were
+removed.)
 
 ## Recommended next
 
-1. Review + merge the S-08.1 implementation PR.
+1. Review + merge the S-08.2 implementation PR.
 2. Later planned-enemy activations (incl. Broodmother Crawler) against the per-enemy
    completion contract and the decisions-required list in the foundation work order §10–§11.
 
