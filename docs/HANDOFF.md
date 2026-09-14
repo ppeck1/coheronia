@@ -71,16 +71,36 @@ static, Linux, and Windows checks are required for merge.
 S-07 was a stabilization and truthfulness arc; it held its no-new-mechanics boundary and
 shipped as `v0.7-alpha`. Remaining visual polish (panel art-language consistency, fog
 grading, resonance art, and wooden-platform art) and large controller extractions remain
-focused follow-up work. The next planned arc is **S-08.0 Enemy Expansion Foundation**, a
+focused follow-up work. The current arc is **S-08.0 Enemy Expansion Foundation**, a
 behavior-preserving refactor of the enemy runtime/data/spawn seams (no new enemies or
-mechanics); it has not been started.
+mechanics) — see [`WORK_ORDER_S08_ENEMY_FOUNDATION.md`](WORK_ORDER_S08_ENEMY_FOUNDATION.md).
+
+## S-08.0 status (on `s08-enemy-foundation`)
+
+The parity-only foundation is **implemented** and under review:
+
+- **Registry** (`enemy_registry.gd`) classifies live/planned/mini_boss/boss, validates the
+  data at load, and fails closed (`is_spawnable`/`def_for_spawn` copies).
+- **Factory** (`enemy_factory.gd`) is the single construction path — an unknown or planned
+  id (runtime, test, or save restore) builds **no** actor instead of a silent Surface Slime.
+- **Director** (`enemy_spawn_director.gd`) owns spawn count/eligibility/roll-threshold/cap
+  and the cave-selection branch; the RNG roll stays in `game_root`, so balance is unchanged.
+- **Lifecycle** — explicit `persists_through_dawn()`, `died(context)` defeat identity, and an
+  `extra_save_state()` seam that leaves the save format byte-identical.
+- **Behavior seam (4)** assessed and **retained in place** (behavior is already
+  flag/family-driven with zero enemy-ID conditionals; the movement core is physics-coupled —
+  the R-06 "never force it" call). Rationale recorded in the work order §5.4.
+
+Parity evidence: windowed source smoke **622/622**, the fixed-seed balance report stays
+deterministic, and `SAVE_VERSION` (`0.6`)/`gen_version` (`5`) are unchanged. The live enemy
+set remains exactly the eight. Data truthfulness fixed: `hp` documented as decorative
+(effective HP = `threat_hp()` × `hp_mult`), `density`/`region_density` relabelled design-only.
 
 ## Recommended next
 
-1. **S-08.0 Enemy Expansion Foundation** on a dedicated `s08-enemy-foundation` branch off
-   `main` — modularize the enemy definition/registry, factory, shared actor, behavior seam,
-   and spawn director while preserving the current eight-enemy behavior and all smoke
-   contracts. No balance, save-format, or mechanic changes.
+1. Review + merge the S-08.0 implementation PR, then plan the first planned-enemy activation
+   (e.g. Broodmother Crawler) against the per-enemy completion contract and the
+   decisions-required list in the work order §10–§11.
 2. Remaining visual-polish and controller-extraction follow-ups as capacity allows.
 
 Calling-balance tuning remains measure-first: record the worst-case conditional stacking

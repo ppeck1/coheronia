@@ -1,10 +1,27 @@
 # Work Order — S-08.0 Enemy Expansion Foundation
 
-**Status:** ACTIVE (opened after `v0.7-alpha`, release commit `f1509b7`).
+**Status:** IMPLEMENTED (parity-only foundation landed on `s08-enemy-foundation`; PR open
+for architectural review). Opened after `v0.7-alpha`, release commit `f1509b7`.
 **Type:** Behavior-preserving foundation / refactor. **Not** a content or balance arc.
 **Authority order:** this document sits at rung 5 of the source-of-truth hierarchy in
 [`CLAUDE.md`](../CLAUDE.md); the running game + smoke suite, `data/*.json`,
 `docs/VARIABLE_MATRIX.md`, and `docs/HANDOFF.md` outrank it.
+
+## 0. Seam implementation status
+
+| Seam | Status | Notes |
+| --- | --- | --- |
+| 1 — parity baseline + regression checks | **Done** | `s08_live_set_is_the_eight`, `s08_enemy_runtime_parity`, `s08_enemy_severity_shared_constant` — pin the eight enemies' effective runtime values as the parity oracle. |
+| 2 — validated, fail-closed registry | **Done** | `enemy_registry.gd`: classification (live/planned/mini_boss/boss), load validation, `is_spawnable`/`def_for_spawn` fail-closed copies. |
+| 3 — single enemy factory | **Done** | `enemy_factory.gd` is the sole construction path; `_spawn_enemy_at`/test/save all route through it and fail closed (no silent Surface Slime). |
+| 5 — encounter/spawn director | **Done** | `enemy_spawn_director.gd` owns count/eligibility/roll-threshold/cap/cave-selection decisions; RNG stays in `game_root` so balance is unchanged; density relabelled design-only. |
+| 6 — lifecycle/defeat + save-extension | **Done** | Explicit `persists_through_dawn()`, `died(context)` defeat identity, `extra_save_state()` hook (format byte-identical). |
+| 4 — behavior/movement seam | **Assessed → retained (documented)** | See §5.4: behavior is already flag/family-driven (zero enemy-ID conditionals) and the movement/targeting core is coupled to `CharacterBody2D` frame state; a strategy extraction would risk parity on the hot path for no gameplay gain (the R-06 lesson). Left in place, not forced. |
+
+New modules: `scripts/data/enemy_factory.gd`, `scripts/data/enemy_spawn_director.gd`
+(plus the extended `scripts/data/enemy_registry.gd`). Parity evidence: windowed source
+smoke **622/622**, the fixed-seed balance report stays deterministic, and
+`SAVE_VERSION`/`gen_version` are unchanged.
 
 ## 1. Purpose and hard boundary
 
@@ -100,6 +117,24 @@ depend on it.
    Hall pressure, crop targeting, structural wall breaking, lava immunity, lava-slime bubble
    presentation, carried-light presentation. Gameplay abilities stay separate from
    presentation-only effects. **No flying/burrowing/summoning/auras/dialogue/boss phases.**
+
+   **Outcome: assessed → retained in place (documented, not forced).** `simple_threat.gd`
+   already contains **zero enemy-ID conditionals**: every behavior is selected by a
+   data-driven flag (`targets_crops`, `breaks_walls`, `lava_immune`) or the `family`, all
+   set by the factory from the def — so the registry/factory already own identity and the
+   "expanding one-off boolean" concern is bounded by the validated def schema, not ad-hoc
+   code branches. The remaining movement/targeting core (`_physics_process`) is tightly
+   interwoven with `CharacterBody2D` frame state (`velocity`, `is_on_floor`, `is_on_wall`,
+   `move_and_slide`) across a single tick; lifting it into a strategy object would have to
+   thread all of that mutable physics state through an interface, adding indirection and
+   real parity risk on the hot path for **no gameplay benefit**. This is the R-06 lesson
+   (façade/strategy decomposition only pays where portable *stateless* logic exists), so per
+   the §1 rule the seam is left in place and documented rather than forced. Presentation-only
+   effects (the molten bubble field and the carried torch light) are already separated into
+   their own clearly-commented methods and marked presentation-only. A future enemy needing
+   genuinely new movement (flying/burrowing) will introduce its own controller behind the
+   factory/registry seam — the extension point this foundation establishes — rather than
+   growing `simple_threat.gd`.
 5. **Encounter / spawn director** — move eligibility + selection out of ID-specific
    `game_root` growth; evaluate explicit context (night/surface, farm pressure, raid, cave,
    ore proximity, lava proximity, day, stockpile, difficulty, active caps). Random selection
