@@ -8,11 +8,11 @@ This page groups the current character-facing data into species, Callings, trait
 
 | Species | Status | Visuals | Description |
 |---|---|---|---|
-| [Human](characters/species/human.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | The founding species of Coheronia. |
-| [Dwarf](characters/species/dwarf.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | Sturdy mountain folk. Slower movement, but master miners. |
-| [Elf](characters/species/elf.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | Agile forest-dwellers attuned to nature. |
-| [Goblin](characters/species/goblin.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | Small and quick scavengers with a knack for ingenuity. |
-| [Orc](characters/species/orc.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | Powerful and durable. High health, built for endurance. |
+| [Human](characters/species/human.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | Adaptable founders. Learn every skill faster and hold more Attunement, with no terrain penalties. |
+| [Dwarf](characters/species/dwarf.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | Sturdy mountain folk. Mine stone and ore fast and see in the dark, but move and jump poorly. |
+| [Elf](characters/species/elf.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | Agile forest-dwellers. Swift, high-jumping, and rich in Attunement, but poor at mining. |
+| [Goblin](characters/species/goblin.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | Small, quick scavengers who see in the dark, but are fragile with lower maximum health. |
+| [Orc](characters/species/orc.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | Powerful and durable. High health and a strong stride, but slow to learn new skills. |
 
 ## Callings
 
@@ -36,18 +36,18 @@ This page groups the current character-facing data into species, Callings, trait
 
 | Ancestry | Status | Visuals | Spawn band | Phase |
 |---|---|---|---|---|
-| [Human](characters/ancestries/human.md) | planned | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | surface | B |
-| [Dwarf](characters/ancestries/dwarf.md) | planned | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | surface_mountain | B |
-| [Deep Dwarf](characters/ancestries/deep_dwarf.md) | planned | No authored body art. | underground | C |
-| [Elf](characters/ancestries/elf.md) | planned | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | surface | B |
-| [Deep Elf](characters/ancestries/deep_elf.md) | planned | No authored body art. | underground | C |
-| [Orc](characters/ancestries/orc.md) | planned | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | surface | B |
-| [Goblin](characters/ancestries/goblin.md) | planned | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | surface_shallow | B |
-| [Deep Goblin](characters/ancestries/deep_goblin.md) | planned | No authored body art. | underground | C |
-| [Gnome](characters/ancestries/gnome.md) | planned | No authored body art. | surface | D |
-| [Deep Gnome](characters/ancestries/deep_gnome.md) | planned | No authored body art. | underground | D |
-| [Lizardfolk](characters/ancestries/lizardfolk.md) | planned | No authored body art. | surface | D |
-| [Dragonkin](characters/ancestries/dragonkin.md) | planned | No authored body art. | special | E |
+| [Human](characters/ancestries/human.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | surface | B |
+| [Dwarf](characters/ancestries/dwarf.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | surface_mountain | B |
+| [Deep Dwarf](characters/ancestries/deep_dwarf.md) | design_only | No authored body art. | underground | C |
+| [Elf](characters/ancestries/elf.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | surface | B |
+| [Deep Elf](characters/ancestries/deep_elf.md) | design_only | No authored body art. | underground | C |
+| [Orc](characters/ancestries/orc.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | surface | B |
+| [Goblin](characters/ancestries/goblin.md) | live | Masculine: 1 canonical image + 2 variants; Feminine: 1 canonical image + 2 variants | surface_shallow | B |
+| [Deep Goblin](characters/ancestries/deep_goblin.md) | design_only | No authored body art. | underground | C |
+| [Gnome](characters/ancestries/gnome.md) | design_only | No authored body art. | surface | D |
+| [Deep Gnome](characters/ancestries/deep_gnome.md) | design_only | No authored body art. | underground | D |
+| [Lizardfolk](characters/ancestries/lizardfolk.md) | design_only | No authored body art. | surface | D |
+| [Dragonkin](characters/ancestries/dragonkin.md) | design_only | No authored body art. | special | E |
 
 ## Related Pages
 

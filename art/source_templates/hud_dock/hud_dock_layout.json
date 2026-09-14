@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "visual_variants": {
     "separator": "__",
     "selection": "character.hud_visual_theme, then character.species",
@@ -295,31 +295,31 @@
   },
   "slots": [
     [
-      435,
+      438,
       48,
       76,
       84
     ],
     [
-      517,
+      520,
       48,
       76,
       84
     ],
     [
-      599,
+      602,
       48,
       76,
       84
     ],
     [
-      681,
+      684,
       48,
       76,
       84
     ],
     [
-      763,
+      766,
       48,
       76,
       84
@@ -347,25 +347,25 @@
   },
   "buttons": {
     "inventory": [
-      311,
+      313,
       48,
       54,
       104
     ],
     "character": [
-      371,
+      373,
       48,
       54,
       104
     ],
     "skills": [
-      851,
+      853,
       48,
       54,
       104
     ],
     "town_hall": [
-      911,
+      913,
       48,
       54,
       104
@@ -385,16 +385,10 @@
       28
     ]
   },
-  "selected_item_chip_rect": [
-    176,
-    8,
-    246,
-    32
-  ],
   "module_toolbar_rect": [
-    458,
+    504,
     132,
-    364,
+    272,
     44
   ],
   "mining_progress_rect": [
@@ -402,5 +396,17 @@
     28,
     180,
     10
+  ],
+  "left_wing_safe_rect": [
+    176,
+    56,
+    128,
+    88
+  ],
+  "right_wing_safe_rect": [
+    976,
+    56,
+    128,
+    88
   ]
 }

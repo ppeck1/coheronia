@@ -9,7 +9,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | ID | `human` |
 | Page type | Character species |
 | Status | live |
-| Description | The founding species of Coheronia. |
+| Description | Adaptable founders. Learn every skill faster and hold more Attunement, with no terrain penalties. |
 | Abilities | none |
 | Weaknesses | none |
 | Lifespan | standard |

@@ -41,6 +41,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -70,6 +71,28 @@ FATAL_MARKERS = (
     "Parse Error",
     "Nonexistent function",
 )
+
+# Lifecycle-leak substrings Godot prints AT EXIT when something it allocated
+# outlives the process: a node removed from the tree but never freed, an RID
+# never released, or a Resource still referenced. A clean smoke frees everything
+# it creates, so ANY of these is a real leak and fails the run even when the
+# results JSON says PASS. (Distinct from FATAL_MARKERS, which are compile/parse
+# failures; these are runtime ownership defects.)
+LIFECYCLE_LEAK_MARKERS = (
+    "were leaked",                    # "N RID allocations of type '...' were leaked at exit." / "N RIDs of type \"...\" were leaked."
+    "ObjectDB instances leaked",      # "ObjectDB instances leaked at exit (...)"
+    "Leaked instance:",               # per-instance --verbose detail
+    "resources still in use at exit",
+    "Resource still in use:",         # per-resource --verbose detail
+)
+
+# NOTE: there is intentionally NO allowlist of "expected" engine ERROR lines.
+# A substring allowlist could not tell WHERE an error originated, so it would
+# also excuse an unrelated failure of the same shape. Instead, any code path that
+# legitimately hits a recoverable error must stay silent at the source (e.g.
+# game_state._json_object_or_null uses JSON.new().parse() so corrupt-save recovery
+# emits no engine error). Every "ERROR:" line in Godot output is therefore treated
+# as unexpected and fails the run.
 
 # Keys the smoke result writer (smoke_test.gd:_write_result_file) always emits.
 REQUIRED_RESULT_KEYS = (
@@ -102,6 +125,40 @@ def scan_fatal_markers(output: str) -> list[str]:
     """Return the confirmed-fatal markers present in captured Godot output."""
     text = output or ""
     return [marker for marker in FATAL_MARKERS if marker in text]
+
+
+def scan_lifecycle_leaks(output: str) -> list[str]:
+    """Return exit-time lifecycle-leak lines (leaked RIDs / ObjectDB instances /
+    resources still in use) in captured Godot output.
+
+    A clean smoke run leaks nothing, so any hit here is a real ownership defect
+    that fails the run even when the results JSON says PASS. Godot logs some of
+    these at WARNING level, so this scan is intentionally independent of the
+    ERROR/WARNING prefix.
+    """
+    text = output or ""
+    return [line.strip() for line in text.splitlines()
+            if any(marker in line for marker in LIFECYCLE_LEAK_MARKERS)]
+
+
+def scan_unexpected_errors(output: str) -> list[str]:
+    """Return Godot "ERROR:" lines that are not an already-classified lifecycle
+    leak or fatal marker. There is no allowlist: recoverable paths must be silent
+    at the source, so any surviving "ERROR:" line is unexpected and fails the run,
+    keeping a genuine runtime error conspicuous instead of scrolling past a green
+    log.
+    """
+    text = output or ""
+    hits: list[str] = []
+    for raw in text.splitlines():
+        if "ERROR:" not in raw:
+            continue
+        if any(marker in raw for marker in FATAL_MARKERS):
+            continue  # already reported by scan_fatal_markers
+        if any(marker in raw for marker in LIFECYCLE_LEAK_MARKERS):
+            continue  # already reported (more specifically) by scan_lifecycle_leaks
+        hits.append(raw.strip())
+    return hits
 
 
 def _is_int(value: object) -> bool:
@@ -251,6 +308,15 @@ def evaluate_run(
     markers = scan_fatal_markers(output)
     if markers:
         failures.append(f"{tag}: fatal marker(s) in Godot output: {markers}")
+    leaks = scan_lifecycle_leaks(output)
+    if leaks:
+        failures.append(
+            f"{tag}: lifecycle leak(s) at exit ({len(leaks)}): {leaks[:6]}")
+    unexpected = scan_unexpected_errors(output)
+    if unexpected:
+        failures.append(
+            f"{tag}: unexpected Godot error line(s) ({len(unexpected)}): "
+            f"{unexpected[:6]}")
 
     if not results_path.exists():
         failures.append(
@@ -288,6 +354,31 @@ def prepare_results(results_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Process launching (teed) + orchestration
 # ---------------------------------------------------------------------------
+
+# Smoke needs a real display for screenshots, but it does not need Vulkan or an
+# audio device. CI runners provide X11/Win32 surfaces inconsistently and no audio
+# hardware, so select Godot's portable compatibility renderer and dummy audio at
+# launch. This prevents engine initialization errors at their source; the verifier
+# remains fail-closed for every ERROR: line.
+SMOKE_RUNTIME_ARGS = [
+    "--rendering-method", "gl_compatibility",
+    "--rendering-driver", "opengl3",
+    "--audio-driver", "Dummy",
+]
+
+
+def smoke_runtime_args() -> list[str]:
+    """Return the stable smoke launch flags, with opt-in engine diagnostics.
+
+    Verbose Godot output names leaked instances/resources, which is essential
+    when the fail-closed lifecycle gate trips.  Keep it opt-in so ordinary
+    local and Windows logs are not flooded.
+    """
+    args = list(SMOKE_RUNTIME_ARGS)
+    if os.environ.get("COHERONIA_GODOT_VERBOSE", "") == "1":
+        args.insert(0, "--verbose")
+    return args
+
 
 def _run(cmd: list[str], env: dict | None = None) -> int:
     print(f"\n$ {' '.join(cmd)}", flush=True)
@@ -355,7 +446,8 @@ def run_smoke(godot: str) -> bool:
                COHERONIA_SMOKE="1",
                COHERONIA_COMMIT=expected,
                COHERONIA_RESULTS_PATH=str(results))
-    rc, output = launch_teed([godot, "--path", str(ROOT)], env=env)
+    rc, output = launch_teed(
+        [godot, "--path", str(ROOT), *smoke_runtime_args()], env=env)
     failures = evaluate_run(
         "SOURCE SMOKE", rc, output, results,
         expected_commit=expected, require_zero_skips=True)
@@ -383,7 +475,7 @@ def run_exported_smoke(artifact: Path) -> bool:
                COHERONIA_SMOKE="1",
                COHERONIA_COMMIT=expected,
                COHERONIA_RESULTS_PATH=str(results))
-    rc, output = launch_teed([str(artifact)], env=env)
+    rc, output = launch_teed([str(artifact), *smoke_runtime_args()], env=env)
     failures = evaluate_run(
         "EXPORT SMOKE", rc, output, results,
         expected_commit=expected, exact_skip_allowlist=EXPORT_SKIP_ALLOWLIST)
@@ -392,8 +484,40 @@ def run_exported_smoke(artifact: Path) -> bool:
     return not failures
 
 
+# SemVer-ish: MAJOR.MINOR.PATCH with an optional -prerelease label (e.g.
+# "0.7.0-alpha"). Anything else is malformed and must fail the release build.
+_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$")
+
+
+def parse_project_version(text: str) -> str:
+    """Extract + validate application/config/version from project.godot text.
+
+    Raises ValueError when the key is absent or the value is malformed. A release
+    build must never carry fabricated/placeholder version metadata, so this fails
+    closed rather than defaulting.
+    """
+    for line in text.splitlines():
+        key, sep, rhs = line.strip().partition("=")
+        if sep and key.strip() == "config/version":
+            value = rhs.strip().strip('"')
+            if not _VERSION_RE.match(value):
+                raise ValueError(
+                    f"project.godot config/version is malformed: {value!r}")
+            return value
+    raise ValueError("project.godot has no application/config/version")
+
+
+def project_version() -> str:
+    """Read + validate the semantic version from project.godot — the single
+    version source (the export presets carry the numeric PE quad separately).
+    Raises on missing/malformed/unreadable so a bad release fails fast."""
+    return parse_project_version(
+        (ROOT / "project.godot").read_text(encoding="utf-8"))
+
+
 def write_build_info(dirpath: Path, preset: str) -> None:
     info = {
+        "version": project_version(),
         "commit": commit_hash(),
         "built_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "godot": "4.6.1.stable",

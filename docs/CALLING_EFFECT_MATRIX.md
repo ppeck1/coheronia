@@ -44,12 +44,12 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 | I | **Decisive Strikes** | Your weapons strike hostile creatures with extra force. | `_try_hit_threat` |
 | I | **Relentless** | Defeating an XP-granting hostile creature restores health. | `enemy-defeat XP award hook` |
 | II | **Momentum** | Battle momentum sharpens your blows against hostile creatures. | `_try_hit_threat` |
-| II | **Executioner** | You hit hostile creatures harder, cutting down wounded foes faster. | `_try_hit_threat` |
+| II | **Executioner** | Executioner: felling an XP-granting foe restores health, so you can press the attack. | `enemy-defeat XP award hook` |
 | II | **Threat Hunter** | Weapon attacks deal additional damage to enemies belonging to an active settlement threat. | `player._try_hit_threat + active-threat context` |
 | II | **Counterforce** | You answer blows with harder weapon strikes against hostile creatures. | `_try_hit_threat` |
 | III | **Steel Rhythm** | You strike assault enemies harder while the settlement is under attack. | `_try_hit_threat+assault` |
 | III | **Breachbreaker** | You hit assault enemies (those at the settlement) with extra force. | `_try_hit_threat+assault` |
-| III | **Press the Line** | You press assault enemies with heavier weapon strikes. | `_try_hit_threat+assault` |
+| III | **Press the Line** | Press the Line: while wounded during an assault you take less hostile damage, so you can keep fighting. | `player.take_damage(source=enemy) + health fraction + threat context` |
 | III | **Victory's Breath** | Successfully ending a settlement threat restores health and Attunement. | `threat-cleared hook restores health + Attunement` |
 | Cap | **Threatbreaker** | Threatbreaker: your weapons devastate assault enemies attacking the settlement. | `_try_hit_threat+assault` |
 
@@ -92,16 +92,16 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 | Tier | Skill | Live effect | Hook |
 |:--:|---|---|---|
 | I | **Long Measure** | Increases building-placement reach without affecting mining, combat, harvesting, or pickup reach. | `player build/repair reach (scoped, not mining/combat/harvest/pickup)` |
-| I | **Steady Placement** | Steady hands extend your building-placement reach. | `build/repair reach` |
+| I | **Steady Placement** | Long hours at the worksite toughen you, permanently increasing maximum health. | `player.max_health` |
 | I | **Practiced Repairs** | Player-performed structure repairs restore additional structure health. | `game_root repair path` |
 | II | **Economical Construction** | Skilled construction makes each structure repair restore more health. | `repair path` |
-| II | **Salvager** | Salvaged materials make your structure repairs restore more health. | `repair path` |
-| II | **Repairer's Example** | Your example makes your own structure repairs more effective. | `repair path` |
+| II | **Salvager** | Salvaged materials make your structure repairs restore more health during a settlement assault. | `game_root repair path + threat context` |
+| II | **Repairer's Example** | Working the hearth, food and passive recovery restore more health inside settlement bounds or during an assault. | `player heal path (food/regen) + settlement/threat context` |
 | II | **Foundation Sense** | A sure sense of foundations extends your building-placement reach. | `build/repair reach` |
 | III | **Reinforced Work** | Reinforced work: your repairs restore more structure health. | `repair path` |
-| III | **Coordinated Labor** | Coordinated labor extends how far you can place settlement structures. | `build/repair reach` |
-| III | **Hearth Efficiency** | Efficient work at the hearth strengthens your structure repairs. | `repair path` |
-| III | **Swift Maintenance** | Swift maintenance: each repair restores more structure health. | `repair path` |
+| III | **Coordinated Labor** | Coordinated labor at the settlement builds your endurance and maximum health. | `player.max_health` |
+| III | **Hearth Efficiency** | Efficient work at the hearth: recovery is stronger inside settlement bounds or during an assault. | `player heal path (food/regen) + settlement/threat context` |
+| III | **Swift Maintenance** | Swift maintenance: repairs restore more structure health during a settlement assault. | `game_root repair path + threat context` |
 | Cap | **Keeper of Foundations** | Keeper of Foundations: your structure repairs restore far more health. | `repair path` |
 
 ### Resonant — Runewright
@@ -114,10 +114,10 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 | II | **Efficient Resonance** | Attunement pulses consume less Attunement. | `attunement pulse cost` |
 | II | **Inscribed Conduit** | Increases the maximum-Attunement bonus supplied by equipped rings, amulets, and other Attunement-bearing gear. | `player max Attunement from equipped rings/amulets (amplified)` |
 | II | **Harmonic Equipment** | Amplifies the maximum-Attunement bonus supplied by equipped rings and amulets. | `Amplifies supported Attunement equipment effects (max-Attunement contribution); non-capacity equipment effects deferred` |
-| II | **Echo Mapping** | Echo-mapping widens the reach of every attunement pulse. | `pulse radius` |
+| II | **Echo Mapping** | Echo-mapping sharpens your senses, deepening your maximum Attunement reserve. | `player.perk_attunement_bonus (additive max Attunement)` |
 | III | **Deep Illumination** | Underground, your attunement pulses shine longer. | `pulse duration+underground` |
 | III | **Structured Pulse** | Structured pulses linger longer, lighting the space around you. | `pulse duration` |
-| III | **Full Resonance** | Your attunement pulses reach a greater radius. | `pulse radius` |
+| III | **Full Resonance** | Full resonance flows efficiently — your pulses cost less Attunement. | `attunement pulse cost` |
 | III | **Reserve Channel** | You channel attunement efficiently — your pulses cost less. | `pulse cost` |
 | Cap | **Living Resonance** | Living Resonance: your attunement pulses reach dramatically farther. | `pulse radius` |
 
@@ -126,9 +126,9 @@ _Authoritative trace of every Calling/Path/skill to the live hook it drives. Aft
 The original design specified several effects that had no authoritative hook (per-citizen job buffs, per-structure incoming-damage, combat-state combos, placement-preview UI, etc.). Rather than build new subsystems or ship inert skills, 34 skills were re-themed onto an existing wired channel **within their Path's theme**, and their descriptions updated to match exactly what they now do:
 
 - **Warden** → personal defense / endurance (settlement damage reduction, armor, max health, low-health protection).
-- **Vanguard** → weapon-vs-hostile damage (flat and assault-scoped) + on-defeat restores.
+- **Vanguard** → weapon-vs-hostile damage (flat and assault-scoped) + on-defeat restores + wounded-in-assault survival.
 - **Prospector / Trailseeker** → mining & harvest speed, extra-yield & seed return, scoped reach, movement, reveal radius, Attunement-pulse tuning, hazard reduction.
-- **Hearthwright** → structure-repair strength and build/repair reach.
+- **Hearthwright** → structure-repair strength (flat and assault-scoped), build/repair reach, builder endurance (max health), and at-the-hearth recovery.
 - **Resonant** → Attunement capacity, pulse radius / duration / cost, equipment amplification.
 
 This keeps names and flavor while guaranteeing every skill is real. The wired channels are all consulted live at their computation sites (`player.gd` movement / mining / harvest / reach / pulse / food-heal / weapon-hit / max-attunement; `game_root.gd` damage-source resolver, reveal radius, on-defeat and assault-end restores; `town_hall.repair` amount).

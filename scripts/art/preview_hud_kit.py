@@ -174,10 +174,6 @@ def render_composite(layout: dict) -> Image.Image:
         text_width = draw.textbbox((0, 0), value, font=font)[2]
         draw.text((x + (right - x - text_width) // 2, y + 4), value, font=font,
                   fill=(247, 247, 244, 255))
-    chip = _rect(layout["selected_item_chip_rect"])
-    draw.rectangle(chip, fill=(8, 18, 27, 235), outline=(80, 139, 160, 255), width=2)
-    draw.text((chip[0] + 9, chip[1] + 10), "Pick tier 2 · Axe tier 1", font=font,
-              fill=(230, 231, 226, 255))
     progress = _rect(layout["mining_progress_rect"])
     draw.rectangle(progress, fill=(12, 16, 19, 240), outline=(72, 75, 74, 255))
     draw.rectangle((progress[0] + 1, progress[1] + 1,
@@ -222,7 +218,6 @@ def render_guide(layout: dict) -> Image.Image:
             x, y, right, bottom = _local_rect(button_content[key], origin)
             zone([x, y, right - x, bottom - y], color, key.replace("_rect", ""))
 
-    zone(layout["selected_item_chip_rect"], (137, 66, 194, 75), "runtime selected-item chip")
     zone(layout["mining_progress_rect"], (170, 92, 205, 105), "runtime mining progress")
     return guide
 

@@ -9,7 +9,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 | ID | `elf` |
 | Page type | Character species |
 | Status | live |
-| Description | Agile forest-dwellers attuned to nature. |
+| Description | Agile forest-dwellers. Swift, high-jumping, and rich in Attunement, but poor at mining. |
 | Abilities | none |
 | Weaknesses | none |
 | Lifespan | standard |

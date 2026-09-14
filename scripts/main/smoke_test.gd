@@ -12,6 +12,7 @@ const HudChrome := preload("res://scripts/ui/hud/hud_chrome.gd")   # R-06.1
 const HousingScript := preload("res://scripts/settlement/housing.gd")   # M2-B
 const CelestialScript := preload("res://scripts/world/celestial.gd")   # M5-A
 const HudEditGeometry := preload("res://scripts/ui/hud/hud_edit_geometry.gd")   # R-06.2
+const HudInventoryRulesScript := preload("res://scripts/ui/hud/hud_inventory_rules.gd")   # S-07.4
 const SmokeAudio := preload("res://scripts/main/smoke/smoke_audio.gd")   # S-07.3
 const SmokeContracts := preload("res://scripts/main/smoke/smoke_contracts.gd")   # S-07.3
 const SmokeSettlerCrew := preload("res://scripts/main/smoke/smoke_settler_crew.gd")   # S-07.3
@@ -26,6 +27,8 @@ const SmokeGoalPanel := preload("res://scripts/main/smoke/smoke_goal_panel.gd") 
 const SmokeEquipment := preload("res://scripts/main/smoke/smoke_equipment.gd")   # S-07.3
 const SmokeLiquidTraits := preload("res://scripts/main/smoke/smoke_liquid_traits.gd")   # S-07.3
 const SmokeSettings := preload("res://scripts/main/smoke/smoke_settings.gd")   # S-07.3
+const SmokePerception := preload("res://scripts/main/smoke/smoke_perception.gd")   # Perception + Resonance
+const SmokePlatform := preload("res://scripts/main/smoke/smoke_platform.gd")   # Wooden Platform
 const SubjectScript := preload("res://scripts/entities/subject.gd")   # S-07.1c defender marker
 # Pinned fingerprints of the seed-2024 medium v3/v4 generated cell maps (see
 # _cells_fingerprint). Any future gen change that perturbs an older world trips
@@ -193,6 +196,18 @@ func _check_res_fixture(name: String, ok: bool, detail: String = "") -> void:
 	print("SMOKE %s: %s%s" % ["PASS" if ok else "FAIL", name, (" — " + detail) if detail != "" else ""])
 
 
+## Write a smoke fixture PNG under res:// only when res:// is writable
+## (source/editor). In an exported PCK res:// is read-only, so the paired
+## _check_res_fixture check is skipped there anyway; skipping the write too keeps
+## the exported-smoke log free of the inherent, misleading engine error
+## "Can't save PNG at path: 'res://...'". No-op under an exported template build;
+## unchanged in source. The read-backs already tolerate the absent file.
+func _res_write_png(img: Image, res_path: String) -> void:
+	if OS.has_feature("template"):
+		return
+	img.save_png(res_path)
+
+
 func _run() -> void:
 	_start_ms = Time.get_ticks_msec()
 	var root: Node2D = get_parent()
@@ -260,8 +275,8 @@ func _run() -> void:
 	# --- Real input bindings (programmatic action_press below bypasses the
 	# InputMap, so verify keys/mouse are actually bound to the actions) ---
 	var unbound := ""
-	for action in ["move_left", "move_right", "jump", "mine", "place", "interact",
-			"toggle_town", "craft", "save_game", "load_game", "toggle_inventory",
+	for action in ["move_left", "move_right", "move_down", "jump", "mine", "place",
+			"interact", "toggle_town", "craft", "save_game", "load_game", "toggle_inventory",
 			"debug_overlay", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5",
 			"eat_food", "attune_pulse", "swap_weapon", "toggle_skills"]:
 		var has_device_event := false
@@ -1542,6 +1557,12 @@ func _run() -> void:
 	await _smoke_enemies.run(_ctx)
 	_smoke_enemies.queue_free()
 
+	# --- Perception + Resonance: LOS veil + remembered-terrain memory ---
+	var _smoke_perception := SmokePerception.new()
+	add_child(_smoke_perception)
+	await _smoke_perception.run(_ctx)
+	_smoke_perception.queue_free()
+
 	# --- FQ-14: state-driven goal panel ---
 	# S-07.3: order-preserving extraction to scripts/main/smoke/smoke_goal_panel.gd.
 	var _smoke_goal := SmokeGoalPanel.new()
@@ -1755,6 +1776,50 @@ func _run() -> void:
 		_dir_ok and _strength_ok and _plumb_ok,
 		"noon=%s dawn=%s dusk=%s day=%.2f full=%.2f new=%.2f plumb=%s" % [str(_dir_noon),
 			str(_dir_dawn), str(_dir_dusk), _day_admit, _full_admit, _new_admit, str(_plumb_ok)])
+
+	# Phase B: the sun and moon ENTER from beyond the left edge and EXIT beyond the
+	# right edge — the whole body (corona/halo, bounded by SUN/MOON_MAX_EXTENT) clears
+	# the frame instead of popping in mid-sky. Pure geometry off positions() (no render).
+	var _celv := Rect2(0.0, 0.0, 1280.0, 720.0)
+	var _cel_left: float = _celv.position.x
+	var _cel_right: float = _celv.position.x + _celv.size.x
+	var _cel_cx: float = _celv.position.x + _celv.size.x * 0.5
+	var _cel_ns: float = CelestialScript.NIGHT_START
+	var _cel_se: float = CelestialScript.SUN_MAX_EXTENT
+	var _cel_me: float = CelestialScript.MOON_MAX_EXTENT
+	var _cel_tol := 1.0
+	var _cel_sun0: Vector2 = CelestialScript.positions(0.0, _celv)["sun"]
+	var _cel_sun_set: Vector2 = CelestialScript.positions(_cel_ns - 0.0001, _celv)["sun"]
+	var _cel_moon0: Vector2 = CelestialScript.positions(_cel_ns, _celv)["moon"]
+	var _cel_moon_set: Vector2 = CelestialScript.positions(1.0 - 0.0001, _celv)["moon"]
+	var _cel_noon: Vector2 = CelestialScript.positions(_cel_ns * 0.5, _celv)["sun"]
+	var _cel_mid: Vector2 = CelestialScript.positions(_cel_ns + (1.0 - _cel_ns) * 0.5, _celv)["moon"]
+	# t=0 sunrise: rightmost extent at/left of the left edge.
+	var _cel_sun_enters: bool = _cel_sun0.x + _cel_se <= _cel_left + _cel_tol
+	# just before NIGHT_START: leftmost extent at/right of the right edge.
+	var _cel_sun_exits: bool = _cel_sun_set.x - _cel_se >= _cel_right - _cel_tol
+	# t=NIGHT_START moonrise: rightmost extent at/left of the left edge.
+	var _cel_moon_enters: bool = _cel_moon0.x + _cel_me <= _cel_left + _cel_tol
+	# just before wrap: leftmost extent at/right of the right edge.
+	var _cel_moon_exits: bool = _cel_moon_set.x - _cel_me >= _cel_right - _cel_tol
+	# midday/midnight: horizontal centre AND above the baseline (arc peak).
+	var _cel_noon_peak: bool = absf(_cel_noon.x - _cel_cx) <= _cel_tol and _cel_noon.y < _cel_sun0.y - 1.0
+	var _cel_mid_peak: bool = absf(_cel_mid.x - _cel_cx) <= _cel_tol and _cel_mid.y < _cel_moon0.y - 1.0
+	# monotonic left-to-right travel across the day (sample strictly within the day
+	# branch — t=NIGHT_START would cross into night and reset to the moon's start_x).
+	var _cel_mono := true
+	var _cel_prevx := -1.0e20
+	for _cel_i in range(0, 21):
+		var _cel_x: float = (CelestialScript.positions((float(_cel_i) / 20.0) * (_cel_ns - 0.0001), _celv)["sun"] as Vector2).x
+		if _cel_x < _cel_prevx:
+			_cel_mono = false
+		_cel_prevx = _cel_x
+	_check("celestial_bodies_enter_and_exit_offscreen",
+		_cel_sun_enters and _cel_sun_exits and _cel_moon_enters and _cel_moon_exits
+		and _cel_noon_peak and _cel_mid_peak and _cel_mono,
+		"sun_in=%s sun_out=%s moon_in=%s moon_out=%s noon=%s mid=%s mono=%s" % [
+			str(_cel_sun_enters), str(_cel_sun_exits), str(_cel_moon_enters),
+			str(_cel_moon_exits), str(_cel_noon_peak), str(_cel_mid_peak), str(_cel_mono)])
 
 	# --- Calling system Stage 2: wired-effect behavior ---
 	# Clear any lingering test threats so threat-state context is deterministic.
@@ -2168,7 +2233,7 @@ func _run() -> void:
 	# explicit visual_assets override), and the fallback returns on removal.
 	var _fq07_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	_fq07_img.fill(Color(1.0, 0.0, 1.0))
-	_fq07_img.save_png("res://art/generated/blocks/smoke_tmp_dirt.png")
+	_res_write_png(_fq07_img, "res://art/generated/blocks/smoke_tmp_dirt.png")
 	BlockRegistry.visual_assets["categories"]["blocks"]["dirt"] = \
 		"art/generated/blocks/smoke_tmp_dirt.png"
 	BlockRegistry.clear_visual_cache()
@@ -2185,9 +2250,14 @@ func _run() -> void:
 		"with_art=%s after_cleanup=%s" % [str(_fq07_art_pixel), str(_fq07_clean_pixel)])
 
 	# (d) an explicit item override wins; removal returns to convention art.
+	# The dock invariant (reconcile_dock) may have cleared the default dock's
+	# wood slot earlier in the run when the backpack lacked wood; this sub-check
+	# asserts slot 1 = wood, so re-establish the default dock here. No
+	# inventory_changed emit follows, so the slot is not reconciled away.
+	player.set_dock_assignments(["dirt", "wood", "stone", "torch", "lantern"])
 	var _fq07_item_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	_fq07_item_img.fill(Color(0.0, 1.0, 1.0))
-	_fq07_item_img.save_png("res://art/generated/items/smoke_tmp_wood.png")
+	_res_write_png(_fq07_item_img, "res://art/generated/items/smoke_tmp_wood.png")
 	BlockRegistry.visual_assets["categories"]["items"]["wood"] = \
 		"art/generated/items/smoke_tmp_wood.png"
 	BlockRegistry.clear_visual_cache()
@@ -2621,7 +2691,7 @@ func _run() -> void:
 		var _fq09v_src: Image = _fq09v_img_b
 		if "_a" in _fq09v_path or "_01" in _fq09v_path:
 			_fq09v_src = _fq09v_img_a
-		_fq09v_src.save_png(_fq09v_path)
+		_res_write_png(_fq09v_src, _fq09v_path)
 	BlockRegistry.visual_assets["categories"]["blocks"]["town_hall_core"] = [
 		"art/generated/blocks/smoke_tmp_dirt_a.png",
 		"art/generated/blocks/smoke_tmp_dirt_b.png"]
@@ -2875,7 +2945,7 @@ func _run() -> void:
 	var _fq09c_cel_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	_fq09c_cel_img.fill(Color(0.2, 0.6, 0.9))
 	for _fq09c_cp2 in _fq09c_cels:
-		_fq09c_cel_img.save_png(_fq09c_cp2)
+		_res_write_png(_fq09c_cel_img, _fq09c_cp2)
 	BlockRegistry.visual_assets["categories"]["opening"]["opening_01_first_star"] = [
 		"art/generated/opening/smoke_tmp_cel_a.png",
 		"art/generated/opening/smoke_tmp_cel_b.png"]
@@ -3314,7 +3384,7 @@ func _run() -> void:
 	var _fq09w_no_art: bool = BlockRegistry.visual_texture("back_walls", "smoke_tmp_wall") == null
 	var _fq09w_img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	_fq09w_img.fill(Color(0.3, 0.25, 0.2))
-	_fq09w_img.save_png(_fq09w_tmp)
+	_res_write_png(_fq09w_img, _fq09w_tmp)
 	BlockRegistry.clear_visual_cache()
 	var _fq09w_with_art: bool = BlockRegistry.visual_texture("back_walls", "smoke_tmp_wall") != null
 	DirAccess.remove_absolute(_fq09w_tmp)
@@ -3747,10 +3817,15 @@ func _run() -> void:
 	# (a) toolbelt slot tiles show live counts and the selected highlight
 	# follows the selected slot.
 	player.inventory.from_dict({"dirt": 7, "wood": 2})
+	# Re-establish the default dock; the toolbar invariant then clears the unheld
+	# stone/torch/lantern slots on the emit, leaving dirt/wood live.
+	player.set_dock_assignments(["dirt", "wood", "stone", "torch", "lantern"])
 	player.selected_slot = 0
 	player.inventory_changed.emit()
 	var _fq09_counts_ok := true
 	for _fq09_i in range(5):
+		if str(player.hotbar[_fq09_i]) == "":
+			continue   # a cleared (unheld) slot shows no count, by the invariant
 		if hud.hotbar_slot_count(_fq09_i) != player.inventory.count(player.hotbar[_fq09_i]):
 			_fq09_counts_ok = false
 	var _fq09_sel_before: int = hud.hotbar_selected_index()
@@ -3790,8 +3865,11 @@ func _run() -> void:
 	# reset restores the crest to its default size, which is exactly what the
 	# reset assertion below verifies.
 	hud.reset_hud_layout()
-	var _fq17_before_pos: Vector2 = hud._hud_widgets["crest"].position
-	var _fq17_before_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
+	# Phase C: the HUD-edit subject is the Goal panel — a still-free-floating widget —
+	# because Crest/Events are now docked into the dock wings and are intentionally NOT
+	# movable HUD-edit widgets (ownership covered by hud_dock_wings_ownership below).
+	var _fq17_before_pos: Vector2 = hud._hud_widgets["goal"].position
+	var _fq17_before_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["goal"])
 	hud.toggle_hud_edit_mode()
 	await get_tree().process_frame
 	var _fq17_enter_ok: bool = hud.is_hud_edit_mode() and GameState.hud_edit_mode \
@@ -3804,31 +3882,31 @@ func _run() -> void:
 		and _fq17_edit_panel_rect.end.y <= _fq17_dock_rect.position.y - 8.0 \
 		and absf(_fq17_edit_panel_rect.get_center().x
 			- get_viewport().get_visible_rect().size.x / 2.0) <= 1.0
-	hud._toggle_top_left_module()
-	var _fq17_visibility_saved: bool = not bool(GameState.profile["hud_layout"]["crest"]["visible"])
-	hud._toggle_top_left_module()
-	hud._hud_edit_selected = "crest"
+	hud._toggle_goal_module()
+	var _fq17_visibility_saved: bool = not bool(GameState.profile["hud_layout"]["goal"]["visible"])
+	hud._toggle_goal_module()
+	hud._hud_edit_selected = "goal"
 	hud._nudge_hud_widget(Vector2(8, 0))
 	hud._scale_hud_widget(0.25)
-	var _fq17_scaled_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
-	var _fq17_move_size_ok: bool = hud._hud_widgets["crest"].position != _fq17_before_pos \
-		and hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+	var _fq17_scaled_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["goal"])
+	var _fq17_move_size_ok: bool = hud._hud_widgets["goal"].position != _fq17_before_pos \
+		and hud._hud_widgets["goal"].scale.is_equal_approx(Vector2.ONE) \
 		and _fq17_scaled_size.x > _fq17_before_size.x
 	# FQ-20/FQ-22 continuous grip resize: absolute size factor, clamped to
 	# [0.5, 2.0], while Control.scale remains one.
-	hud._resize_hud_widget("crest", 1.37)
-	var _fq20_resized_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
-	var _fq20_resize_ok: bool = hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+	hud._resize_hud_widget("goal", 1.37)
+	var _fq20_resized_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["goal"])
+	var _fq20_resize_ok: bool = hud._hud_widgets["goal"].scale.is_equal_approx(Vector2.ONE) \
 		and is_equal_approx(_fq20_resized_size.x, roundf(_fq17_before_size.x * 1.37))
-	hud._resize_hud_widget("crest", 9.0)
-	var _fq20_clamped_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["crest"])
-	var _fq20_clamp_ok: bool = hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
+	hud._resize_hud_widget("goal", 9.0)
+	var _fq20_clamped_size: Vector2 = hud._hud_widget_size(hud._hud_widgets["goal"])
+	var _fq20_clamp_ok: bool = hud._hud_widgets["goal"].scale.is_equal_approx(Vector2.ONE) \
 		and _fq20_clamped_size.x <= roundf(_fq17_before_size.x * 2.0)
-	var _fq20_grip_ok: bool = hud._hud_grip_rect("crest").size.x > 0.0
+	var _fq20_grip_ok: bool = hud._hud_grip_rect("goal").size.x > 0.0
 	hud.reset_hud_layout()
-	var _fq17_reset_ok: bool = hud._hud_widgets["crest"].position == hud._hud_default_positions["crest"] \
-		and hud._hud_widgets["crest"].scale.is_equal_approx(Vector2.ONE) \
-		and hud._hud_widget_size(hud._hud_widgets["crest"]) == _fq17_before_size
+	var _fq17_reset_ok: bool = hud._hud_widgets["goal"].position == hud._hud_default_positions["goal"] \
+		and hud._hud_widgets["goal"].scale.is_equal_approx(Vector2.ONE) \
+		and hud._hud_widget_size(hud._hud_widgets["goal"]) == _fq17_before_size
 	var _fq17_escape := InputEventKey.new()
 	_fq17_escape.keycode = KEY_ESCAPE
 	_fq17_escape.pressed = true
@@ -3843,8 +3921,8 @@ func _run() -> void:
 			str(_fq17_enter_ok), str(_fq17_visibility_saved), str(_fq17_move_size_ok),
 			str(_fq20_resize_ok), str(_fq20_clamp_ok), str(_fq20_grip_ok),
 			str(_fq17_reset_ok), _fq17_before_size, _fq17_scaled_size,
-			_fq20_resized_size, _fq20_clamped_size, hud._hud_widgets["crest"].scale,
-			_fq17_before_pos, hud._hud_widgets["crest"].position,
+			_fq20_resized_size, _fq20_clamped_size, hud._hud_widgets["goal"].scale,
+			_fq17_before_pos, hud._hud_widgets["goal"].position,
 			str(_fq17_panel_above_dock), _fq17_edit_panel_rect, _fq17_dock_rect,
 			str(_fq17_overlay_off)])
 
@@ -3868,7 +3946,10 @@ func _run() -> void:
 				and ((_fq18_node as Button).icon != null or (_fq18_node as Button).text != ""
 					or (_fq18_node as Button).tooltip_text != ""):
 			_fq18_nav_found += 1
-	var _fq18_nav_ok := _fq18_toolbar_labels == ["Crest", "Goal", "Events", "Map", "Edit"] \
+	# Phase C: Crest/Events are docked into the wings (opened by clicking the wing), so
+	# their toolbar chips are removed. Slice 4.2: Craft joins the tray, so the module
+	# toolbar keeps Goal / Craft / Map / Edit.
+	var _fq18_nav_ok := _fq18_toolbar_labels == ["Goal", "Craft", "Map", "Edit"] \
 		and _fq18_nav_found == 4
 	hud.toggle_character_panel()
 	var _fq18_character_ok: bool = hud.character_panel_open() and not hud.inventory_panel_open() \
@@ -3952,50 +4033,73 @@ func _run() -> void:
 			str(_pr06_fig_ok), str(_pr06_slots_shown), str(_pr06_missing_slots),
 			str(_pr06_live_ok), str(_pr06_no_baked)])
 
-	# FQ-19: contextual right-band stack — fixed priority order, event-driven
-	# entries (selection change / save / interaction), auto-hide, and a top
-	# edge pinned dynamically below the live Map/Events zone. Runs after the
-	# music suite because the auto-hide assertions wait in real time.
-	var _fq19x_order_ok: bool = hud._context_stack != null \
-		and hud._context_stack.get_child(0) == hud._ctx_item_panel \
-		and hud._context_stack.get_child(1) == hud._ctx_save_panel \
-		and hud._context_stack.get_child(2) == hud._ctx_interact_panel \
-		and hud._context_stack.get_child(3) == hud._ctx_pickup_panel   # R-08 slice 3
-	var _fq19x_slot0: int = player.selected_slot
-	player.selected_slot = (player.selected_slot + 1) % 5
+	# Negative surface contract (replaces the old positive contextual-stack test): the
+	# legacy top-right contextual popup surface is fully removed. Its producer/infra methods
+	# no longer exist, and NO floating "<Item> ×N" / "[E] Town Hall" / "✓ Game saved" popup
+	# appears after any producing action — while the underlying actions still work and the
+	# docked journal stays functional. Do not re-introduce the surface to satisfy this.
+	var _ns_api_gone: bool = not hud.has_method("notify_saved") \
+		and not hud.has_method("set_interaction_prompt") \
+		and not hud.has_method("_build_context_stack") \
+		and not hud.has_method("_make_context_entry") \
+		and not hud.has_method("_show_context_entry") \
+		and not hud.has_method("_position_context_stack")
+	# Scan every visible HUD label OUTSIDE the dock (hotbar counts) and inventory board
+	# (both legitimately show "×N") for any floating popup text. Returns the offender.
+	var _ns_scan := func() -> String:
+		for _l in hud.find_children("*", "Label", true, false):
+			var _lab: Label = _l
+			if _lab == null or not _lab.is_visible_in_tree():
+				continue
+			if (hud._bottom_dock != null and hud._bottom_dock.is_ancestor_of(_lab)) \
+					or (hud._inv_panel != null and hud._inv_panel.is_ancestor_of(_lab)):
+				continue
+			var _t: String = _lab.text
+			if _t == "[E] Town Hall" or _t == "✓ Game saved" or _t.contains(" ×"):
+				return _t
+		return ""
+	var _ns_start_clear: bool = _ns_scan.call() == ""
+	# Selection changes, INCLUDING a zero-quantity stack, raise no popup and still update.
+	var _ns_slot0: int = player.selected_slot
+	var _ns_sel_clear := true
+	for _ns_rep in range(2):                      # repeated passes
+		for _ns_s in range(player.hotbar.size()):
+			player.selected_slot = _ns_s
+			hud.update_inventory()
+			if _ns_scan.call() != "":
+				_ns_sel_clear = false
+	var _ns_sel_works: bool = hud._hotbar_selected == player.selected_slot
+	player.selected_slot = _ns_slot0
 	hud.update_inventory()
-	var _fq19x_item_ok: bool = hud._ctx_item_panel.visible \
-		and hud._ctx_item_label.text != ""
-	hud.notify_saved()
-	var _fq19x_save_ok: bool = hud._ctx_save_panel.visible
-	hud.set_interaction_prompt("[E] Town Hall")
-	var _fq19x_prompt_on: bool = hud._ctx_interact_panel.visible \
-		and hud._ctx_interact_label.text == "[E] Town Hall"
-	hud.set_interaction_prompt("")
-	var _fq19x_prompt_off: bool = not hud._ctx_interact_panel.visible
-	if hud._event_panel != null:
-		hud._event_panel.visible = true
-	hud.set_interaction_prompt("[E] Town Hall")
+	# F5 save path: the save machinery serializes state and the docked journal records the
+	# save (exactly as the F5 handler does on success), with no toast produced. (Disk-write
+	# success is covered by the dedicated save/load contracts; the smoke sandbox has no
+	# persisted shell, so we assert the serialization contract here.)
+	var _ns_state: Dictionary = root.save_manager.collect_state()
+	root.log_event("Game saved (F5).")   # the real F5 success branch's journal line
 	await get_tree().process_frame
-	var _fq19x_stack_rect: Rect2 = hud._context_stack.get_global_rect()
-	var _fq19x_ev_rect: Rect2 = hud._event_panel.get_global_rect()
-	var _fq19x_clear: bool = _fq19x_stack_rect.position.y >= _fq19x_ev_rect.end.y
-	hud.set_interaction_prompt("")
-	# Auto-hide: the save toast holds 2.2s then fades 0.4s; the item entry
-	# holds 2.5s. Both must be gone shortly after.
-	await get_tree().create_timer(3.4).timeout
-	var _fq19x_autohide: bool = not hud._ctx_save_panel.visible \
-		and not hud._ctx_item_panel.visible
-	player.selected_slot = _fq19x_slot0
-	hud.update_inventory()
-	_check("fq19_contextual_stack",
-		_fq19x_order_ok and _fq19x_item_ok and _fq19x_save_ok
-		and _fq19x_prompt_on and _fq19x_prompt_off and _fq19x_clear
-		and _fq19x_autohide,
-		"order=%s item=%s save=%s prompt=%s/%s clear=%s autohide=%s" % [
-			str(_fq19x_order_ok), str(_fq19x_item_ok), str(_fq19x_save_ok),
-			str(_fq19x_prompt_on), str(_fq19x_prompt_off), str(_fq19x_clear),
-			str(_fq19x_autohide)])
+	# The newest journal entry is the save line (the history caps at 6, so assert identity,
+	# not a growing count).
+	var _ns_save_ok: bool = not _ns_state.is_empty() \
+		and str(hud._log_entries[hud._log_entries.size() - 1].get("full", "")).contains("Game saved") \
+		and _ns_scan.call() == ""
+	# Town Hall interaction still opens the correct screen; no "[E] Town Hall" prompt.
+	if hud.town_panel_open():
+		hud.toggle_town_panel()
+	hud.toggle_town_panel()
+	var _ns_town_ok: bool = hud.town_panel_open() and _ns_scan.call() == ""
+	hud.toggle_town_panel()
+	# The docked right-wing journal remains functional.
+	hud.log_event("Contextual surface removal probe.", "Probe", "generic")
+	await get_tree().process_frame
+	var _ns_journal_ok: bool = hud._events_module() != null \
+		and hud._event_lines.size() == 3 and hud._event_lines[0].text == "Probe"
+	_check("fq19_no_contextual_popup_surface",
+		_ns_api_gone and _ns_start_clear and _ns_sel_clear and _ns_sel_works \
+		and _ns_save_ok and _ns_town_ok and _ns_journal_ok,
+		"api_gone=%s start=%s sel=%s sel_works=%s save=%s town=%s journal=%s offender=\"%s\"" % [
+			str(_ns_api_gone), str(_ns_start_clear), str(_ns_sel_clear), str(_ns_sel_works),
+			str(_ns_save_ok), str(_ns_town_ok), str(_ns_journal_ok), _ns_scan.call()])
 
 	# (b) the inventory panel opens (I binding covered by input_actions_bound)
 	# and its icon grid mirrors the counts.
@@ -4022,6 +4126,114 @@ func _run() -> void:
 		_fq09_board_equipment_ok,
 		"slots=%d pickaxe=%s weapon=%s" % [hud.equipment_slot_count(),
 			hud.equipment_slot_item("pickaxe"), hud.equipment_slot_item("weapon")])
+
+	# Phase C-A: the dock stays CENTRED on the viewport at any width — the central
+	# hotbar is centred (within 2 logical px) and the left/right outer orb gaps match
+	# (within 2 px) — at 1280x720, 1600x900, 1920x1000 (wide expand), and 640x360, and
+	# after a live resize (measured on live global rects; the window is restored).
+	var _dc_orig_size: Vector2i = DisplayServer.window_get_size()
+	var _dc_ok := true
+	var _dc_detail := ""
+	for _dc_sz in [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1000), Vector2i(640, 360)]:
+		DisplayServer.window_set_size(_dc_sz)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var _dc_w: float = get_viewport().get_visible_rect().size.x
+		var _dc_center: float = _dc_w * 0.5
+		var _dc_hb_off := 999.0
+		if hud._hotbar_slots.size() >= 2:
+			var _dc_first: Rect2 = (hud._hotbar_slots[0] as Control).get_global_rect()
+			var _dc_last: Rect2 = (hud._hotbar_slots[hud._hotbar_slots.size() - 1] as Control).get_global_rect()
+			_dc_hb_off = absf((_dc_first.position.x + _dc_last.end.x) * 0.5 - _dc_center)
+		var _dc_gap_diff := 999.0
+		var _dc_hfill: Control = hud._health_vessel_fill
+		var _dc_afill: Control = hud._attunement_vessel_fill
+		if _dc_hfill != null and _dc_afill != null:
+			var _dc_lgap: float = _dc_hfill.get_global_rect().position.x
+			var _dc_rgap: float = _dc_w - _dc_afill.get_global_rect().end.x
+			_dc_gap_diff = absf(_dc_lgap - _dc_rgap)
+		if _dc_hb_off > 2.0 or _dc_gap_diff > 2.0:
+			_dc_ok = false
+		_dc_detail += "[%dx%d hb_off=%.1f gap_diff=%.1f]" % [_dc_sz.x, _dc_sz.y, _dc_hb_off, _dc_gap_diff]
+	DisplayServer.window_set_size(_dc_orig_size)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check("hud_dock_centered_symmetric", _dc_ok, _dc_detail)
+
+	# Phase C review-correction: there is NO persistent summary surface above the dock.
+	# The SelectedItemChip node and its rect are gone from the runtime and BOTH layouts;
+	# giving the player ore+food produces no persistent label/chrome; the five slot counts
+	# still update. (There is no floating selected-item popup either — see the negative
+	# contextual-surface contract above.)
+	var _nss_inv_before: Dictionary = player.inventory.to_dict()
+	var _nss_no_node: bool = hud.find_child("SelectedItemChip", true, false) == null
+	var _nss_no_rect := true
+	for _nss_path in ["res://art/source_templates/hud_dock/hud_dock_layout.json",
+			"res://art/generated/ui_painted/hud_dock_layout.json"]:
+		var _nss_f := FileAccess.open(_nss_path, FileAccess.READ)
+		if _nss_f != null:
+			if "selected_item_chip_rect" in _nss_f.get_as_text():
+				_nss_no_rect = false
+			_nss_f.close()
+	player.inventory.from_dict({"dirt": 6, "wood": 3, "stone": 2, "ore": 4, "food": 8})
+	player.selected_slot = 0
+	player.inventory_changed.emit()
+	hud.update_inventory()
+	var _nss_no_text := true
+	for _nss_lbl in hud.find_children("*", "Label", true, false):
+		var _nss_l := _nss_lbl as Label
+		if _nss_l != null and _nss_l.visible \
+				and ("Food ×" in _nss_l.text or "Ore ×" in _nss_l.text):
+			_nss_no_text = false
+	var _nss_counts_ok := true
+	for _nss_i in range(5):
+		if str(player.hotbar[_nss_i]) == "":
+			continue   # a cleared (unheld) dock slot shows no count, by the invariant
+		if hud.hotbar_slot_count(_nss_i) != player.inventory.count(player.hotbar[_nss_i]):
+			_nss_counts_ok = false
+	player.inventory.from_dict(_nss_inv_before)
+	player.inventory_changed.emit()
+	hud.update_inventory()
+	_check("hud_no_persistent_summary_surface",
+		_nss_no_node and _nss_no_rect and _nss_no_text and _nss_counts_ok,
+		"no_node=%s no_rect=%s no_text=%s counts=%s" % [str(_nss_no_node),
+			str(_nss_no_rect), str(_nss_no_text), str(_nss_counts_ok)])
+
+	# S-07.4: the inventory/loadout policy moved to HudInventoryRules must stay
+	# behaviour-identical through hud.gd's delegating wrappers AND produce the
+	# expected policy results (layout removal, empty-slot, valid-index, tool-slot,
+	# deterministic sort, item + equipment tooltips, equipment-slot order).
+	var _hir := HudInventoryRulesScript
+	var _hir_layout: Array = ["dirt", "wood", "dirt", ""]
+	var _hir_removed: Array = hud._layout_without_item(_hir_layout, "dirt")
+	var _hir_slot := {"id": "weapon", "display_name": "Weapon"}
+	var _hir_parity: bool = \
+		_hir_removed == _hir.layout_without_item(_hir_layout, "dirt") \
+		and hud._first_empty_layout_index(_hir_layout) == _hir.first_empty_layout_index(_hir_layout) \
+		and hud._valid_layout_index(2, _hir_layout) == _hir.valid_layout_index(2, _hir_layout) \
+		and hud._is_tool_slot("pickaxe") == _hir.is_tool_slot("pickaxe") \
+		and hud._inventory_sort_key("wood") == _hir.inventory_sort_key("wood") \
+		and hud._item_tooltip("wood") == _hir.item_tooltip("wood") \
+		and hud._equipment_short_label("weapon", "") == _hir.equipment_short_label("weapon", "") \
+		and hud._equipment_tooltip(_hir_slot, "") == _hir.equipment_tooltip(_hir_slot, "") \
+		and hud._equipment_board_slots() == _hir.equipment_board_slots()
+	var _hir_board: Array = _hir.equipment_board_slots()
+	var _hir_correct: bool = \
+		_hir_removed == ["", "wood", "", ""] \
+		and _hir.first_empty_layout_index(_hir_layout) == 3 \
+		and _hir.first_empty_layout_index(["a", "b"]) == 2 \
+		and not _hir.valid_layout_index(4, _hir_layout) \
+		and _hir.is_tool_slot("pickaxe") and _hir.is_tool_slot("axe") \
+		and not _hir.is_tool_slot("weapon") \
+		and _hir.inventory_sort_key("dirt") < _hir.inventory_sort_key("iron_ore") \
+		and _hir.item_tooltip("wood").begins_with(BlockRegistry.display_name("wood")) \
+		and _hir.equipment_tooltip(_hir_slot, "").ends_with("Empty") \
+		and _hir_board.size() == hud.equipment_slot_count() \
+		and str(_hir_board[0].get("id", "")) == "weapon"
+	_check("s07_hud_inventory_rules_delegates", _hir_parity and _hir_correct,
+		"parity=%s correct=%s removed=%s empty=%d slots=%d" % [str(_hir_parity),
+			str(_hir_correct), str(_hir_removed),
+			_hir.first_empty_layout_index(_hir_layout), _hir_board.size()])
 	var _fq09_board_dock_ok: bool = hud.dock_slot_item(0) == "dirt" \
 		and hud.dock_slot_count(0) == 7 \
 		and hud.dock_slot_item(1) == "wood" \
@@ -4052,14 +4264,19 @@ func _run() -> void:
 	hud.drop_inventory_slot("backpack", 0, {
 		"source": "inventory_board", "kind": "backpack", "index": 1, "item_id": "wood"})
 	var _fq09_layout_swapped: Array = player.inventory.layout_to_array()
+	# Assign wood (held) to dock slot 4: _assign_dock_item moves it out of its
+	# current dock slot (1) and puts that slot's previous item back — which is
+	# empty here, because the default dock's stone/torch/lantern slots were
+	# cleared by the toolbar invariant (those items are not held). So slot 1 is
+	# left empty rather than showing lantern (the pre-invariant behaviour).
 	hud.drop_inventory_slot("dock", 4, {
 		"source": "inventory_board", "kind": "backpack", "index": 0, "item_id": "wood"})
 	var _fq09_dock_assigned: bool = hud.dock_slot_item(4) == "wood" \
-		and hud.dock_slot_item(1) == "lantern"
+		and hud.dock_slot_item(1) == ""
 	hud.drop_inventory_slot("dock", 1, {
 		"source": "inventory_board", "kind": "dock", "index": 4, "item_id": "wood"})
 	var _fq09_dock_restored: bool = hud.dock_slot_item(1) == "wood" \
-		and hud.dock_slot_item(4) == "lantern"
+		and hud.dock_slot_item(4) == ""
 	await get_tree().process_frame
 	var _fq09_dock_cell: Control = null
 	for _fq09_dock_child in hud._dock_assignment_row.get_children():
@@ -4227,6 +4444,101 @@ func _run() -> void:
 		and _fq09_pick_stowed and _fq09_pick_restored,
 		"axe=%s/%s pick=%s/%s" % [str(_fq09_axe_stowed),
 			str(_fq09_axe_restored), str(_fq09_pick_stowed), str(_fq09_pick_restored)])
+
+	# --- Slice C: zero-count dock reconciliation ---
+	# player.reconcile_dock (wired to inventory_changed, running BEFORE the HUD
+	# render) is the single owner of the toolbar invariant: a non-empty dock slot
+	# must reference a dock-assignable item the backpack holds (count > 0). It
+	# clears exhausted/unheld slots in place — no shift, no auto-reassign, the
+	# selection stays put. Self-contained: full inventory/hotbar state is restored.
+	var _zc_inv0: Dictionary = player.inventory.to_dict()
+	var _zc_hot0: Array = player.hotbar.duplicate()
+	var _zc_slot0: int = player.selected_slot
+	var _zc_layout0: Array = player.inventory.layout_to_array()
+	var _zc_equip0: Dictionary = player.equipped_dict()
+
+	# Defaults sanitized: applying the default dock against a backpack missing
+	# stone/lantern clears exactly those two slots and keeps the possessed three.
+	player.inventory.from_dict({"dirt": 1, "wood": 3, "torch": 2})
+	player.set_dock_assignments(["dirt", "wood", "stone", "torch", "lantern"])
+	player.selected_slot = 0                      # points at dirt (count 1)
+	player.inventory_changed.emit()
+	var _zc_defaults_sanitized: bool = str(player.hotbar[0]) == "dirt" \
+		and str(player.hotbar[1]) == "wood" and str(player.hotbar[2]) == "" \
+		and str(player.hotbar[3]) == "torch" and str(player.hotbar[4]) == ""
+	# Consume the LAST dirt while its slot is selected: the slot clears, stays
+	# selected, selected_item() is empty, and the HUD slot renders empty.
+	player.inventory.remove("dirt", 1)
+	player.inventory_changed.emit()
+	var _zc_final_clears: bool = str(player.hotbar[0]) == "" \
+		and player.selected_slot == 0 and player.selected_item() == "" \
+		and hud.hotbar_slot_empty(0)
+	# Neighbours never shifted.
+	var _zc_no_shift: bool = str(player.hotbar[1]) == "wood" \
+		and str(player.hotbar[3]) == "torch"
+	# Consuming one from a stack > 1 keeps the assignment and updates the count.
+	player.inventory.remove("torch", 1)
+	player.inventory_changed.emit()
+	var _zc_stack_retains: bool = str(player.hotbar[3]) == "torch" \
+		and player.inventory.count("torch") == 1 and hud.hotbar_slot_count(3) == 1
+	# Reacquiring dirt returns it to the backpack but does NOT repopulate the dock.
+	player.inventory.add("dirt", 5)
+	player.inventory_changed.emit()
+	var _zc_no_auto_readd: bool = str(player.hotbar[0]) == "" \
+		and player.inventory.count("dirt") == 5
+	# Manual reassignment of the cleared slot still works.
+	player.hotbar[0] = "dirt"
+	player.inventory_changed.emit()
+	var _zc_manual_reassign: bool = str(player.hotbar[0]) == "dirt" \
+		and player.selected_item() == "dirt"
+	# Save/load cannot restore a stale zero-count reference: a saved dock naming an
+	# unheld item reconciles to empty when the carried state is (re)applied+emitted.
+	player.set_dock_assignments(["dirt", "wood", "stone", "torch", "lantern"])
+	player.inventory.from_dict({"wood": 2})
+	player.inventory_changed.emit()
+	var _zc_save_load_clean: bool = str(player.hotbar[0]) == "" \
+		and str(player.hotbar[1]) == "wood" and str(player.hotbar[3]) == ""
+	# Bucket exception: conversion redirects the selected slot to the replacement
+	# bucket BEFORE its emit, so reconciliation keeps that (count > 0) slot rather
+	# than clearing the just-emptied source id — for the FINAL bucket both ways.
+	player.inventory.from_dict({"bucket": 1})
+	player.set_dock_assignments(["bucket", "", "", "", ""])
+	player.selected_slot = 0
+	player.inventory_changed.emit()
+	player.inventory.remove("bucket", 1)
+	player.inventory.add("bucket_water", 1)
+	player._hold_bucket_item("bucket_water")
+	player.inventory_changed.emit()
+	var _zc_bucket_fill: bool = player.selected_item() == "bucket_water" \
+		and str(player.hotbar[0]) == "bucket_water"
+	player.inventory.remove("bucket_water", 1)
+	player.inventory.add("bucket", 1)
+	player._hold_bucket_item("bucket")
+	player.inventory_changed.emit()
+	var _zc_bucket_empty: bool = player.selected_item() == "bucket" \
+		and str(player.hotbar[0]) == "bucket"
+	# Equipment ownership is untouched by dock reconciliation.
+	var _zc_equip_intact: bool = player.equipped_dict() == _zc_equip0
+	_check("dock_zero_count_reconciliation",
+		_zc_defaults_sanitized and _zc_final_clears and _zc_no_shift \
+		and _zc_stack_retains and _zc_no_auto_readd and _zc_manual_reassign \
+		and _zc_save_load_clean and _zc_bucket_fill and _zc_bucket_empty \
+		and _zc_equip_intact,
+		"defaults=%s final=%s no_shift=%s stack=%s no_readd=%s manual=%s saveload=%s bucket_fill=%s bucket_empty=%s equip=%s" % [
+			str(_zc_defaults_sanitized), str(_zc_final_clears), str(_zc_no_shift),
+			str(_zc_stack_retains), str(_zc_no_auto_readd), str(_zc_manual_reassign),
+			str(_zc_save_load_clean), str(_zc_bucket_fill), str(_zc_bucket_empty),
+			str(_zc_equip_intact)])
+	# Restore prior inventory/hotbar/selection exactly (direct hotbar restore so
+	# reconciliation does not re-filter the pre-existing dock row).
+	player.inventory.from_dict(_zc_inv0)
+	player.inventory.set_layout(_zc_layout0)
+	player.hotbar.clear()
+	for _zc_h in _zc_hot0:
+		player.hotbar.append(str(_zc_h))
+	player.selected_slot = _zc_slot0
+	hud.update_inventory()
+
 	if _finish_if_focus("inventory"):
 		return
 
@@ -4570,6 +4882,33 @@ func _run() -> void:
 	add_child(_smoke_citizens)
 	await _smoke_citizens.run(_ctx)
 	_smoke_citizens.queue_free()
+
+	# --- Wooden Platform: data, placement/mining/save, liquid dam, one-way physics ---
+	# Runs LAST among gameplay modules: its ~5s of physics stepping advances the
+	# shared game clock, so keeping it after every other module means that time
+	# shift can never race an earlier module's HUD/settlement assertions.
+	var _smoke_platform := SmokePlatform.new()
+	add_child(_smoke_platform)
+	await _smoke_platform.run(_ctx)
+	_smoke_platform.queue_free()
+
+	# Release the adaptive score before asking SceneTree to quit. The composite
+	# interactive/synchronized players own ten OGG packet sequences; stopping
+	# and detaching them, then giving the audio server two frames to retire its
+	# playbacks, proves shutdown cleanliness instead of depending on platform-
+	# specific tree-destruction ordering.
+	var _music_director := root.get_node_or_null("AdaptiveMusicDirector")
+	if _music_director != null:
+		_music_director.shutdown()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check("adaptive_music_shutdown_clean",
+		_music_director == null or (
+			not _music_director.enabled()
+			and not _music_director.layering_enabled()
+			and _music_director.get_node("ContextPlayer").stream == null
+			and _music_director.get_node("LayerPlayer").stream == null
+			and _music_director.get_node("StingerPlayer").stream == null))
 
 	# --- Screenshot evidence (windowed runs only) ---
 	if DisplayServer.get_name() != "headless":

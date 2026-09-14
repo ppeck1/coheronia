@@ -43,6 +43,7 @@ const RULES_MAIN := [
 	["lighting_affects_safety", "Lighting affects safety"],
 	["darkness_increases_enemies", "Darkness increases enemy activity"],
 	["enemies_scale_over_time", "Enemies scale over time"],
+	["fog_of_war", "Fog of war (limited sight + memory)"],
 ]
 const RULES_FUTURE := [
 	["subjects_require_sleep", "Subjects require sleep"],

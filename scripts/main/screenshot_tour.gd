@@ -29,9 +29,26 @@ func _run() -> void:
 		print("SHOTS complete (celestial) -> user://shots")
 		get_tree().quit(0)
 		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "perc":
+		await _shoot_perception(root, world, player, hud)
+		print("SHOTS complete (perception) -> user://shots")
+		get_tree().quit(0)
+		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "craft":
+		await _shoot_craft(root, world, player, root.town_hall)
+		print("SHOTS complete (craft) -> user://shots")
+		get_tree().quit(0)
+		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "dock":
+		await _shoot_dock(root, world, player, hud, root.town_hall)
+		print("SHOTS complete (dock) -> user://shots")
+		get_tree().quit(0)
+		return
 	world.setup(4242)
 	root._position_actors()
 	player.get_node("Camera2D").reset_smoothing()
+	# Park the cursor off the dock so no chip tooltip covers a canonical HUD shot.
+	get_viewport().warp_mouse(Vector2(8, 8))
 
 	# Stage a lived-in settlement: gear, supplies, stockpile, torch line.
 	player.tool_tier = 2
@@ -92,16 +109,82 @@ func _run() -> void:
 	await _shot("18_contracts_panel")
 	root._contracts_panel.close()
 
-	# R-07: the unified Crafting panel (C) -- every recipe grouped by source with
-	# have/need gating and Build rows for unbuilt stations.
+	# R-07 + slice 4/4.1: the redesigned responsive Crafting panel (C) -- every
+	# recipe grouped by station with have/need gating and Build rows for unbuilt
+	# stations; a single detail scroll above a pinned Craft/Build action.
 	root._craft_panel.open()
 	await _shot("15_crafting")
 	root._craft_panel.close()
 
+	# Slice B: the craftable Wooden Platform as an intentional one-way WALKWAY. Dig a
+	# short gap beside the hall, bridge it with a plank at surface level (overhanging
+	# solid ground at each end), and stand the player ON the bridge. Physics is frozen
+	# for a clean, deterministic compose so the one-way plank never drops the actor.
+	# Everything is restored afterward so later staged shots keep a clean settlement.
+	var _gap_lo := hall_cell.x - 10
+	var _gap_hi := hall_cell.x - 6                     # inclusive dug columns
+	var _plat_dug: Array = []                          # [cell, prev_block] to restore
+	for _gx in range(_gap_lo, _gap_hi + 1):
+		for _gd in range(0, 3):                        # 3 deep so the pit reads under the plank
+			var _dc := Vector2i(_gx, ground_y + _gd)
+			var _prev: String = world.block_at(_dc)
+			if _prev != "air":
+				world.break_block(_dc)
+				_plat_dug.append([_dc, _prev])
+	var _plat_cells: Array[Vector2i] = []              # plank overhangs one column onto ground each side
+	for _px in range(_gap_lo - 1, _gap_hi + 2):
+		var _pc := Vector2i(_px, ground_y)
+		if world.block_at(_pc) == "air":
+			world.place_block(_pc, "wood_platform")
+			_plat_cells.append(_pc)
+	var _plat_torch := Vector2i(_gap_lo - 1, ground_y - 1)
+	var _plat_torch_placed: bool = world.block_at(_plat_torch) == "air"
+	if _plat_torch_placed:
+		world.place_block(_plat_torch, "torch")
+	# Freeze the crew NOW (before any physics frame elapses) and lift any settler that
+	# sits over the dig band up onto the surface, so the pit reads clean and the player
+	# is the only actor on the bridge. Positions + physics state are restored after.
+	var _plat_subjects: Array = get_tree().get_nodes_in_group("subjects")
+	var _plat_saved: Array = []                        # [subject, prev_pos, prev_physics]
+	for _s in _plat_subjects:
+		var _sn := _s as Node2D
+		_plat_saved.append([_sn, _sn.global_position, _s.is_physics_processing()])
+		_s.set_physics_process(false)
+		var _scell: Vector2i = world.cell_of(_sn.global_position)
+		if _scell.x >= _gap_lo - 2 and _scell.x <= _gap_hi + 2:
+			_sn.global_position = world.cell_center(Vector2i(hall_cell.x + 6, ground_y - 1))
+	# Pose the player ON the plank. A teleported body tunnels through the thin one-way
+	# plank under gravity, so freeze physics AND turn OFF this node's render
+	# interpolation for the shot — the frozen player then renders exactly where placed
+	# (a frozen-but-interpolated body reads as sunk into the pit). Restored after.
+	player.set_physics_process(false)
+	player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	player.velocity = Vector2.ZERO
+	player.global_position = world.cell_center(Vector2i(_gap_lo + 2, ground_y - 1))
+	player.get_node("Camera2D").reset_smoothing()
+	for i in range(12):
+		await get_tree().physics_frame
+	await _shot("38_wooden_platform")
+	player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_INHERIT
+	player.set_physics_process(true)
+	for _pc in _plat_cells:
+		world.break_block(_pc)
+	if _plat_torch_placed:
+		world.break_block(_plat_torch)
+	for _entry in _plat_dug:
+		world.place_block(_entry[0], str(_entry[1]))
+	for _entry in _plat_saved:                         # restore crew positions + physics
+		(_entry[0] as Node2D).global_position = _entry[1]
+		(_entry[0]).set_physics_process(_entry[2])
+	player.teleport(world.cell_center(Vector2i(hall_cell.x, ground_y - 1)))
+	for i in range(8):
+		await get_tree().physics_frame
+
 	# R-08: the visible farmhand settler at work -- a mature crop by the hall, the
 	# settler beside it (frozen for a clean compose), and the harvest in the event
 	# log. The subject is a concrete actor over the unchanged abstract population.
-	if not hud._event_panel.visible:
+	var _ev_mod: Control = hud._events_module()
+	if _ev_mod != null and not _ev_mod.visible:
 		hud._toggle_event_module()
 	var _subjects: Array = get_tree().get_nodes_in_group("subjects")
 	var farmhand: Node2D = null
@@ -140,19 +223,17 @@ func _run() -> void:
 		player.get_node("Camera2D").reset_smoothing()
 		for i in range(34):
 			await get_tree().physics_frame        # let them fall and settle on the ground
-		hud.notify_pickup({"wood": 3, "stone": 2})
 		root.log_event("Loose drops settle on the ground, ready to gather.")
 		await _shot("17_ground_drops")
 		for _d in get_tree().get_nodes_in_group("item_drops"):
 			_d.queue_free()
 
-	# Independent top modules: Map and Events remain visible together, with
-	# the contextual stack positioned below the taller surface.
-	if not hud._event_panel.visible:
+	# Independent modules: the Map and the docked Events journal both visible together.
+	var _ev_mod2: Control = hud._events_module()
+	if _ev_mod2 != null and not _ev_mod2.visible:
 		hud._toggle_event_module()
 	hud.toggle_map()
 	hud.update_map(root.map_snapshot())
-	hud.set_interaction_prompt("[E] Town Hall")
 	await _shot("14_map_events_together")
 	hud.toggle_map()
 
@@ -428,6 +509,139 @@ func _run() -> void:
 	get_tree().quit(0)
 
 
+## Crafting-menu redesign shots (COHERONIA_SHOTS_FOCUS=craft): the icon-led
+## recipe book at 1280x720 (Hand grid with the Wooden Platform recipe selected,
+## then a locked-station build card) and at 640x360 (legibility). The window is
+## resized live (canvas_items/expand stretch, so the viewport + panel reflow).
+func _shoot_craft(root: Node2D, world: Node2D, player: CharacterBody2D, hall: Node2D) -> void:
+	world.setup(4242)
+	root._position_actors()
+	player.get_node("Camera2D").reset_smoothing()
+	player.inventory.from_dict({
+		"wood": 40, "stone": 40, "ore": 8, "coal": 8, "food": 6, "wood_platform": 3})
+	player.inventory_changed.emit()
+	# Stock a mix: enough for the ember amulet + silver/attuned rings + torch
+	# bundle to read Ready, but no copper/tin ingots so a few workbench rows read
+	# Missing (so the 1280 Workbench grid shows the longest readiness variety).
+	hall.stockpile = {
+		"wood": 40, "stone": 40, "coal": 12, "iron_ingot": 8, "ore": 8,
+		"hellstone": 6, "obsidian": 6, "crystal": 6, "silver_ingot": 6}
+	hall.stockpile_changed.emit()
+	hall.stations_built = {"workbench": true, "furnace": false, "anvil": false}
+	var cp = root._craft_panel
+	# canvas_items/expand stretch means the LOGICAL viewport (what the panel lays
+	# out in) is the design canvas, not the OS window pixels. To capture the panel
+	# AS IT APPEARS at each target resolution — reflowed AND at native pixels — set
+	# BOTH the window size and content_scale_size to the target: the framebuffer
+	# _shot saves is then exactly the target size. Captured/restored so the rest of
+	# the tour is unaffected.
+	var _cr_win0: Vector2i = DisplayServer.window_get_size()
+	var _cr_css0: Vector2i = get_window().content_scale_size
+
+	# 1280x720 — Wooden Platform selected (Hand grid).
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	get_window().content_scale_size = Vector2i(1280, 720)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	cp.open()
+	cp._selected_station = "hand"
+	cp._selected_recipe_id = "craft_wood_platform"
+	cp._refit()
+	cp.refresh()
+	await _shot("craft_1280_platform")
+	await _shot("15_crafting")                       # keep the tour's canonical name too
+
+	# 1280x720 — Workbench grid (mixed Ready/Missing readiness across many rows).
+	cp._selected_station = "workbench"
+	cp._selected_recipe_id = "craft_ember_amulet"
+	cp.refresh()
+	await _shot("craft_1280_workbench")
+
+	# 640x360 — normal recipe (short, affordable).
+	DisplayServer.window_set_size(Vector2i(640, 360))
+	get_window().content_scale_size = Vector2i(640, 360)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	cp._refit()
+	cp._selected_station = "hand"
+	cp._selected_recipe_id = "craft_torch"
+	cp.refresh()
+	await _shot("craft_640_normal")
+
+	# 640x360 — worst-case multi-material recipe (ember amulet: 3 deep materials +
+	# a full gear description) — proves the Craft action stays on-screen.
+	cp._selected_station = "workbench"
+	cp._selected_recipe_id = "craft_ember_amulet"
+	cp.refresh()
+	await _shot("craft_640_multimaterial")
+
+	# 640x360 — locked-station build card (Furnace).
+	cp._selected_station = "furnace"
+	cp.refresh()
+	await _shot("craft_640_locked")
+	cp.close()
+	get_window().content_scale_size = _cr_css0
+	DisplayServer.window_set_size(_cr_win0)
+
+
+## Slice 4.2 full-dock evidence: the centered command tray now reads
+## Goal | Craft | Map | Edit. Capture the whole HUD at four target resolutions,
+## then the crafting panel OPENED by activating the real Craft chip control at
+## 1280 and 640. Window + content_scale_size are driven together so each PNG is
+## native size. The mouse is parked in a corner for the clean dock shots so the
+## "Crafting (C)" hover tooltip never obscures the hotbar.
+func _shoot_dock(root: Node2D, world: Node2D, player: CharacterBody2D, hud: CanvasLayer, hall: Node2D) -> void:
+	world.setup(4242)
+	root._position_actors()
+	player.get_node("Camera2D").reset_smoothing()
+	# A lived-in dock: gear + supplies so vessels / hotbar / wings read populated.
+	player.tool_tier = 2
+	player.axe_tier = 1
+	player.inventory.from_dict({
+		"wood": 40, "stone": 40, "ore": 8, "coal": 8, "food": 6, "torch": 5})
+	player.inventory_changed.emit()
+	hall.stockpile = {"wood": 20, "stone": 16, "food": 12, "coal": 8}
+	hall.stockpile_changed.emit()
+	hall.stations_built = {"workbench": true, "furnace": false, "anvil": false}
+	var cp = root._craft_panel
+	var craft_chip: Button = hud._command_toggles["Craft"] as Button
+	var _win0: Vector2i = DisplayServer.window_get_size()
+	var _css0: Vector2i = get_window().content_scale_size
+
+	# Full-dock at each target resolution (craft panel closed so the tray shows).
+	# Park the cursor away from the tray so no chip tooltip covers the dock.
+	if cp.is_open():
+		cp.close()
+	get_viewport().warp_mouse(Vector2(8, 8))
+	for sz: Vector2i in [Vector2i(640, 360), Vector2i(1280, 720),
+			Vector2i(1600, 900), Vector2i(1920, 1000)]:
+		DisplayServer.window_set_size(sz)
+		get_window().content_scale_size = sz
+		await get_tree().process_frame
+		await get_tree().process_frame
+		get_viewport().warp_mouse(Vector2(8, 8))
+		await _shot("dock_%dx%d" % [sz.x, sz.y])
+
+	# Crafting opened by activating the REAL Craft chip button at 1280 and 640.
+	for sz: Vector2i in [Vector2i(1280, 720), Vector2i(640, 360)]:
+		DisplayServer.window_set_size(sz)
+		get_window().content_scale_size = sz
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if cp.is_open():
+			cp.close()
+		craft_chip.button_pressed = true    # activate the real chip -> opens the panel
+		cp._selected_station = "hand"
+		cp._selected_recipe_id = "craft_torch"
+		cp._refit()
+		cp.refresh()
+		await _shot("craft_from_button_%dx%d" % [sz.x, sz.y])
+		craft_chip.button_pressed = false   # activate the chip again -> closes
+
+	get_window().content_scale_size = _css0
+	DisplayServer.window_set_size(_win0)
+
+
 ## Item-wiring shots (renewable tree loop + placeable deep blocks). Split out so a
 ## focused run (COHERONIA_SHOTS=iw) can capture just these two without the full
 ## 26-shot tour — the long tour can stall on window-focus in an unattended run.
@@ -549,6 +763,33 @@ func _shoot_celestial(root: Node2D, world: Node2D, player: CharacterBody2D, hud:
 	cel.set_sky_baseline(root._sky_baseline_y())   # world regenerated → refresh the arc altitude
 	cel.set_sky_visible(true)
 
+	# Phase B evidence: the sun rises from beyond the LEFT edge, crosses the sky, and
+	# sets beyond the RIGHT edge; the moon then does the same. Nothing pops in mid-sky
+	# — each body enters and leaves the frame. Sequence spans dawn → dusk → transition
+	# → moonrise → midnight → moonset.
+	var _cel_seq := [
+		[0.005, false, "34a_sunrise_edge"],
+		[0.06, false, "34b_sunrise_partial"],
+		[cel.NIGHT_START * 0.5, false, "34c_midday"],
+		[0.60, false, "34d_sunset_partial"],
+		[cel.NIGHT_START - 0.006, false, "34e_pre_transition_sun"],
+		[cel.NIGHT_START + 0.015, true, "34f_post_transition_moon"],
+		[0.70, true, "34g_moonrise_partial"],
+		[cel.NIGHT_START + (1.0 - cel.NIGHT_START) * 0.5, true, "34h_midnight"],
+		[0.985, true, "34i_moonset"],
+	]
+	for _cs in _cel_seq:
+		root.time_of_day = float(_cs[0])
+		root.is_night = bool(_cs[1])
+		root.canvas_modulate.color = root.NIGHT_TINT if bool(_cs[1]) else root.DAY_TINT
+		if bool(_cs[1]):
+			cel._phase_f = 0.42          # bright waxing gibbous so the moon reads clearly
+			cel._rebuild_moon_texture()
+		cel.set_time(root.time_of_day)
+		cel._redraw_sky()
+		cam.reset_smoothing()
+		await _shot(str(_cs[2]))
+
 	# Midday sun: high, radiating warm light + flares.
 	root.time_of_day = 0.3
 	root.is_night = false
@@ -600,6 +841,144 @@ func _shoot_celestial(root: Node2D, world: Node2D, player: CharacterBody2D, hud:
 	cel._redraw_sky()
 	cam.reset_smoothing()
 	await _shot("36_shaft_occlusion")
+
+
+## Perception + Resonance showcase: the fog veil underground, then an Attunement
+## resonance pulse lighting up the objects of interest through it.
+func _shoot_perception(root: Node2D, world: Node2D, player: CharacterBody2D, hud: CanvasLayer) -> void:
+	world.setup(4242)
+	root._position_actors()
+	# Park the cursor off the dock so no chip tooltip covers a canonical HUD shot.
+	get_viewport().warp_mouse(Vector2(8, 8))
+	var cam: Camera2D = player.get_node("Camera2D")
+	cam.zoom = Vector2(1.7, 1.7)
+	world.enable_perception()
+	var uc: Vector2i = world.hall_info["center_cell"]
+	var ugy: int = world.hall_info["ground_y"]
+	# Carve a small underground room with a torch, and seat the player in it.
+	var home := Vector2i(uc.x, ugy + 14)
+	for ry in range(-2, 3):
+		for rx in range(-4, 5):
+			world.break_block(home + Vector2i(rx, ry))
+	world.place_block(home + Vector2i(-3, 2), "torch")
+	player.global_position = world.cell_center(home)
+	player.velocity = Vector2.ZERO
+	root.canvas_modulate.color = root.ambient_target_color()
+	cam.reset_smoothing()
+	var ts := float(world.tile_size())
+	var radius := 16
+	# Reveal an adjacent spot first so some terrain reads as REMEMBERED, then here.
+	world.update_perception(home + Vector2i(-9, 0), radius)
+	world.update_perception(world.cell_of(player.global_position), radius)
+	world.set_perception_view(player.global_position, float(radius) * ts, root.PERCEPTION_EDGE_TILES * ts)
+	await _shot("40_perception_veil")
+
+	# Resonance on the surface by the hall, where a pulse lights up the most: the town
+	# hall + settlers (green), dropped items (gold), and a staged enemy (red).
+	root.time_of_day = 0.3
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	cam.zoom = Vector2(1.5, 1.5)
+	var surface_cell := Vector2i(uc.x, ugy - 2)
+	player.global_position = world.cell_center(surface_cell)
+	player.velocity = Vector2.ZERO
+	cam.reset_smoothing()
+	var surf_radius := 22
+	world.update_perception(world.cell_of(player.global_position), surf_radius)
+	world.set_perception_view(player.global_position, float(surf_radius) * ts, root.PERCEPTION_EDGE_TILES * ts)
+	world.spawn_item_drop(world.cell_center(Vector2i(uc.x - 4, ugy - 2)), "wood", 3)
+	world.spawn_item_drop(world.cell_center(Vector2i(uc.x + 3, ugy - 2)), "iron_ore", 2)
+	var en: Node = root.spawn_enemy_for_test("surface_slime")
+	if en != null and en is Node2D:
+		(en as Node2D).global_position = world.cell_center(Vector2i(uc.x + 6, ugy - 2))
+	for _i in range(10):
+		await get_tree().physics_frame
+	root._on_attunement_resonance()
+	for _j in range(12):
+		await get_tree().physics_frame
+	await _shot("41_resonance_pulse")
+
+	# --- Staged behind-wall evidence: the targets sit OUT of line of sight behind a
+	# solid stone wall (not merely nearby inside a big radius). Proves a pulse reveals
+	# the enemy, NPC, item, and ore vein THROUGH the veil, that they re-hide on expiry,
+	# and that remembered terrain survives a serialize/reload of the seen-set.
+	world.setup(4242)
+	root._position_actors()
+	hud.visible = false                # isolate the staged targets from HUD chrome
+	world.enable_perception()
+	world.set_perception_force_visible({})
+	world.fluid_paused = true           # keep any nearby liquid out of the carved chamber
+	var s_uc: Vector2i = world.hall_info["center_cell"]
+	# Carve a wide UNDERGROUND room (unseen rock reads dark, so the veil is dramatic),
+	# then split it with a full-height solid wall: the player + a torch light the near
+	# half; the ore vein, enemy, NPC, and dropped item sit in the UNSEEN far half.
+	var s_home := Vector2i(s_uc.x, int(world.hall_info["ground_y"]) + 16)
+	for s_ry in range(-3, 4):
+		for s_rx in range(-5, 10):
+			world.break_block(s_home + Vector2i(s_rx, s_ry))
+	var s_floor := s_home.y + 3          # bottom air row (rests on solid below)
+	world.place_block(s_home + Vector2i(-4, 3), "torch")
+	for s_wy in range(-3, 4):
+		var s_wc: Vector2i = s_home + Vector2i(3, s_wy)
+		world.cells[s_wc] = "stone"; world._set_tile(s_wc, "stone")
+	var s_ore := Vector2i(s_home.x + 6, s_floor)
+	world.cells[s_ore] = "iron_ore"; world._set_tile(s_ore, "iron_ore")
+	player.global_position = world.cell_center(Vector2i(s_home.x - 3, s_floor))
+	player.velocity = Vector2.ZERO
+	cam.zoom = Vector2(2.1, 2.1)
+	cam.reset_smoothing()
+	for _sp in range(6):
+		await get_tree().physics_frame
+	world.update_perception(world.cell_of(player.global_position), 16)
+	var s_ts := float(world.tile_size())
+	var s_enemy: Node = root.spawn_enemy_for_test("surface_slime")
+	var s_subj: Node = root._spawn_citizen("farmhand")
+	var s_item: Node = world.spawn_item_drop(world.cell_center(Vector2i(s_home.x + 5, s_floor)), "wood", 2)
+	for s_pair in [[s_enemy, Vector2i(s_home.x + 6, s_floor - 1)], [s_subj, Vector2i(s_home.x + 7, s_floor)]]:
+		var s_nn: Node = s_pair[0]
+		if s_nn != null and s_nn is Node2D:
+			(s_nn as Node2D).global_position = world.cell_center(s_pair[1])
+			s_nn.set_physics_process(false); s_nn.set_process(false)
+	for s_gn in [s_enemy, s_subj, s_item]:
+		if s_gn != null:
+			world.gate_entity_visibility(s_gn)
+	world.refresh_entity_visibility()
+	root.canvas_modulate.color = root.ambient_target_color()
+	world.set_perception_view(player.global_position, 16.0 * s_ts, root.PERCEPTION_EDGE_TILES * s_ts)
+	await _shot("42a_fog_targets_hidden")
+	root._on_attunement_resonance()
+	for _sp2 in range(10):
+		await get_tree().physics_frame
+	await _shot("42b_resonance_reveals")
+	# Expire the pulse deterministically (age highlights past their life), then reconcile.
+	var s_dur: float = root._resonance_duration()
+	for s_hk in root._resonance_highlights.keys():
+		var s_hn = root._resonance_highlights[s_hk]
+		if is_instance_valid(s_hn):
+			s_hn._process(s_dur + 1.0)
+	if root._resonance_terrain_node != null and is_instance_valid(root._resonance_terrain_node):
+		root._resonance_terrain_node._process(s_dur + 1.0)
+	root._advance_resonance_travel(s_dur + 1.0)
+	await get_tree().process_frame
+	root._reconcile_resonance_visibility()
+	world.refresh_entity_visibility()
+	await _shot("42c_resonance_expired")
+	# Remembered terrain reconstructed from the SEEN-SET blob (the same Dictionary the
+	# SaveManager persists to disk under `perception_seen`): serialize it, reload it into
+	# a FRESH veil, then tighten sight so the room seen at radius 16 is now out of LOS.
+	# Without the reloaded seen-set it would read black (unseen); with it, the room renders
+	# as dimmed REMEMBERED terrain. NOTE: this is an in-memory seen-set serialize/reload,
+	# NOT a full SaveManager disk save/load (hence the accurate filename).
+	var s_blob: Dictionary = world.perception_serialized()
+	world.disable_perception()
+	world.enable_perception()
+	world.set_perception_seen_pending(s_blob)
+	var s_here: Vector2i = world.cell_of(player.global_position)
+	world.update_perception(s_here, 3)
+	world.set_perception_view(player.global_position, 3.0 * s_ts, root.PERCEPTION_EDGE_TILES * s_ts)
+	for _sp3 in range(4):
+		await get_tree().physics_frame
+	await _shot("42d_remembered_after_seenset_reload")
 
 
 func _shot(shot_name: String) -> void:

@@ -141,11 +141,15 @@ notes if the read is full (capstone bought) or partial (and which tiers missing)
 ## Secondary channels — glance only (record only if a value looks egregious)
 
 Not the D3 focus, but note any that feel obviously out of band during the runs:
-max health (Warden: Tempered Frame + Stand Together); armor protection; mining
-speed (Prospector: Stonewise + Practiced Swing + Master of the Deep); move speed
-(Trailseeker: Trailcraft + Farwalker + Deep Stride + Familiar Ground + Beyond the
-Known); Attunement pulse radius / duration / cost (Resonant); extra-yield roll
-rates (Clean Extraction / Stone Economy / Woodwise / Forager's Share).
+max health (Warden: Tempered Frame + Stand Together; **now also Hearthwright:
+Steady Placement + Coordinated Labor**; Orc ancestry +25); armor protection;
+mining speed (Prospector: Stonewise + Practiced Swing + Master of the Deep; Dwarf
++20% / Elf −15%); move speed (Trailseeker: Trailcraft + Farwalker + Deep Stride +
+Familiar Ground + Beyond the Known; **plus ancestry base: Goblin +12% / Elf +8% /
+Orc +5% / Dwarf −10%**); Attunement max/pulse (Resonant; Human +10 / Elf +8
+ancestry max); at-hearth recovery (**Hearthwright: Repairer's Example + Hearth
+Efficiency**); extra-yield roll rates (Clean Extraction / Stone Economy /
+Woodwise / Forager's Share).
 
 - [ ] No secondary channel is so lopsided it needs to jump the D3 queue. If one is,
       note it here (do not tune it now): ____________________________________
@@ -158,6 +162,44 @@ rates (Clean Extraction / Stone Economy / Woodwise / Forager's Share).
 - [ ] **Nothing was tuned.** Any proposed cap / de-dup is written as a recommendation
       for the S-07.2 tuning slice, not applied — that slice authors it against this
       evidence and is guarded by `s07_calling_stack_cap_holds`.
+
+## S-07 ancestry & Calling clarity re-tune (2026-09-09)
+
+This pass reworked the five playable ancestries and de-duplicated the calling
+skill trees for **legibility and truthfulness**, not power. It is an authorized
+measure-then-tune change (operator sign-off); no new mechanics, effect keys, or
+consumers were added — every value uses an already-wired hook.
+
+**Ancestry re-theme (5 playable — inert keys removed, each now has ≥2 distinct
+live levers; `dark_sight` reduced from 3 holders to 2):**
+
+| Ancestry | Live effects now | Pinned/smoke-locked |
+| --- | --- | --- |
+| Human | +8% XP, +10 max Attunement | learning >1 (was 1.05→1.08) |
+| Dwarf | dark 3, +20% stone/ore mining, −10% move, −15% jump | move 0.9, mining 1.2 |
+| Elf | +15% jump, +8% move, +8 max Attunement, −15% mining | jump >1 |
+| Orc | +25 max health, +5% move, −5% XP | health +25 |
+| Goblin | dark 3, +12% move, −20% max health | max health < baseline |
+
+**Calling de-dup (all 72 perks kept; effect keys redistributed within each lane
+using only wired hooks). Net effect on worst-case single-Calling stacking — most
+peaks went DOWN because repeated keys were split apart:**
+
+- Hearthwright repair-strength stack **fell** (four `repair_amount_mult` perks,
+  ×2.06 before innate, was eight perks). Added: +30 max health, ×1.44 assault
+  repair, ×1.38 at-hearth recovery — all modest, Runewright-only.
+- Vanguard flat weapon damage **fell** (×1.60, was ×1.84) and assault weapon
+  damage **fell** (×2.38, was ×2.62). Added: on-kill heal 6→12, and a wounded-
+  in-assault survival perk (`hostile_damage_mult_lowhp_threat` 0.85).
+- Oathbound wounded-survival worst case: 0.72 → **0.61** hostile-damage multiplier
+  (Last Watch × Unbroken × Press the Line). **Watch this in raid playtests.**
+- Resonant pulse **radius fell** (×1.44, was ~×1.9); pulse **cost fell**
+  (×0.61, was ×0.72); max Attunement rose +15 → +25.
+
+- [ ] Raid survivability at the new Oathbound floor (0.61) is not trivializing
+      assaults — note here if it is: ____________________________________
+- [ ] No ancestry feels strictly dominant in the first loop (esp. Goblin +12%
+      move vs. Dwarf −10%): ____________________________________
 
 ## Notes
 

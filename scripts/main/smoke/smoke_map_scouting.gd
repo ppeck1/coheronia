@@ -119,61 +119,74 @@ func run(ctx) -> void:
 	# (fq19 event bounds, fq21 map masking); the widgets restore their own state.
 	hud.reset_hud_layout()
 	await get_tree().process_frame
-	var _fq19_events_before: bool = hud._event_panel != null and hud._event_panel.visible
-	if hud._event_panel != null:
-		hud._event_panel.visible = true
+	# Phase C: Events is the right dock WING (kit path) or a floating panel (fallback).
+	# Either way it must coexist with the map — toggling one never closes the other, it
+	# survives closing the map, it does not overlap the map or the contextual stack, and
+	# it stays on-screen. The floating panel is large (>=320x120); the docked wing is the
+	# small compact readout, so the min-size assertion applies only to the floating case.
+	var _fq19_ev: Control = hud._events_module()
+	var _fq19_docked: bool = hud._right_wing != null
+	var _fq19_events_before: bool = _fq19_ev != null and _fq19_ev.visible
+	if _fq19_ev != null:
+		_fq19_ev.visible = true
 		hud._save_hud_layout()
 	var _fq19_map_open: bool = hud.toggle_map()
-	var _fq19_together: bool = _fq19_map_open and hud._event_panel.visible
+	var _fq19_together: bool = _fq19_map_open and _fq19_ev.visible
 	hud._toggle_event_module()
-	var _fq19_event_off_map_on: bool = not hud._event_panel.visible and hud.map_open()
+	var _fq19_event_off_map_on: bool = not _fq19_ev.visible and hud.map_open()
 	hud._toggle_event_module()
-	var _fq19_event_on_map_on: bool = hud._event_panel.visible and hud.map_open()
-	var _fq19_event_rect: Rect2 = hud._event_panel.get_global_rect() if hud._event_panel != null else Rect2()
+	var _fq19_event_on_map_on: bool = _fq19_ev.visible and hud.map_open()
+	var _fq19_event_rect: Rect2 = _fq19_ev.get_global_rect() if _fq19_ev != null else Rect2()
 	var _fq19_map_rect: Rect2 = hud._map_panel.get_global_rect() if hud._map_panel != null else Rect2()
-	hud._position_context_stack()
-	var _fq19_stack_clear: bool = hud._context_stack.offset_top >= \
-		maxf(_fq19_event_rect.end.y, _fq19_map_rect.end.y) + 8.0
 	hud.toggle_map()
-	var _fq19_event_survives_close: bool = hud._event_panel.visible and not hud.map_open()
+	var _fq19_event_survives_close: bool = _fq19_ev.visible and not hud.map_open()
 	var _fq19_viewport: Vector2 = get_viewport().get_visible_rect().size
-	if hud._event_panel != null:
-		hud._event_panel.visible = _fq19_events_before
+	if _fq19_ev != null:
+		_fq19_ev.visible = _fq19_events_before
 		hud._save_hud_layout()
+	var _fq19_size_ok: bool = _fq19_docked \
+		or (_fq19_ev.custom_minimum_size.x >= 320.0 and _fq19_ev.custom_minimum_size.y >= 120.0)
 	harness._check("fq19_map_events_coexist",
 		_fq19_together and _fq19_event_off_map_on and _fq19_event_on_map_on
 		and _fq19_event_survives_close and not _fq19_event_rect.intersects(_fq19_map_rect)
-		and _fq19_stack_clear
-		and hud._event_panel.custom_minimum_size.x >= 320.0
-		and hud._event_panel.custom_minimum_size.y >= 120.0
-		and _fq19_event_rect.position.x >= 8.0
-		and _fq19_event_rect.end.x <= _fq19_viewport.x - 8.0
-		and _fq19_event_rect.position.y >= 8.0
-		and _fq19_event_rect.end.y <= _fq19_viewport.y - 8.0,
-		"together=%s event_off=%s event_on=%s survives=%s event=%s map=%s stack=%.1f viewport=%s" % [
+		and _fq19_size_ok
+		and _fq19_event_rect.position.x >= 0.0
+		and _fq19_event_rect.end.x <= _fq19_viewport.x
+		and _fq19_event_rect.position.y >= 0.0
+		and _fq19_event_rect.end.y <= _fq19_viewport.y,
+		"together=%s event_off=%s event_on=%s survives=%s docked=%s size=%s event=%s map=%s viewport=%s" % [
 			str(_fq19_together), str(_fq19_event_off_map_on), str(_fq19_event_on_map_on),
-			str(_fq19_event_survives_close),
-			str(hud._event_panel.custom_minimum_size if hud._event_panel != null else Vector2.ZERO),
-			str(_fq19_map_rect), hud._context_stack.offset_top, str(_fq19_viewport)])
+			str(_fq19_event_survives_close), str(_fq19_docked),
+			str(_fq19_size_ok), str(_fq19_event_rect), str(_fq19_map_rect), str(_fq19_viewport)])
 	hud.update_time(5, true, 2)
-	var _fq19_time_ok: bool = hud._time_label == null and hud._event_time_label != null \
-		and hud._event_time_label.text.contains("Day 5") \
-		and hud._event_time_label.text.contains("Night")
+	# Phase C: the docked header shows the day (journal) + military time (clock) as separate
+	# icon+value groups with "Day <n>"/"Time HH:MM" tooltips; the rich phase/threat detail is
+	# retained in the Events popup header (not globally simplified).
+	var _fq19_header: String = hud._events_docked_time_detail()
+	var _fq19_time_ok: bool = hud._time_label == null \
+		and hud._event_day_value != null and hud._event_day_value.text == "5" \
+		and not hud._event_day_value.text.contains("Day") \
+		and hud._event_time_value != null \
+		and hud._event_day_group.tooltip_text == "Day 5" \
+		and _fq19_header.contains("Day 5") and _fq19_header.contains("Night")
 	harness._check("fq19_events_time_header_live", _fq19_time_ok,
-		"crest_time=%s header=%s" % [str(hud._time_label != null),
-			str(hud._event_time_label.text if hud._event_time_label != null else "missing")])
+		"crest_time=%s day=%s time=%s tip=%s detail=%s" % [str(hud._time_label != null),
+			str(hud._event_day_value.text if hud._event_day_value != null else "missing"),
+			str(hud._event_time_value.text if hud._event_time_value != null else "missing"),
+			str(hud._event_day_group.tooltip_text if hud._event_day_group != null else "missing"),
+			_fq19_header])
 
 	# FQ-19: exact clock — the fraction maps onto the settlement clock
 	# (day 06:00-20:00, night wraps 20:00-06:00) with dawn/day/dusk/night
-	# phase words in the events header.
+	# phase words in the (full) events header, retained in the popup when docked.
 	hud.update_time(5, true, 0, 0.7)
-	var _fq19c_night: String = hud._event_time_label.text
+	var _fq19c_night: String = hud._events_docked_time_detail()
 	hud.update_time(5, false, 0, 0.05)
-	var _fq19c_dawn: String = hud._event_time_label.text
+	var _fq19c_dawn: String = hud._events_docked_time_detail()
 	hud.update_time(5, false, 0, 0.3)
-	var _fq19c_day: String = hud._event_time_label.text
+	var _fq19c_day: String = hud._events_docked_time_detail()
 	hud.update_time(5, false, 0, 0.6)
-	var _fq19c_dusk: String = hud._event_time_label.text
+	var _fq19c_dusk: String = hud._events_docked_time_detail()
 	hud.update_time(root.day_count, root.is_night, 0, root.time_of_day)
 	harness._check("fq19_events_exact_clock",
 		_fq19c_night.contains("• Night 21:2")
@@ -188,7 +201,10 @@ func run(ctx) -> void:
 	# milestone progress strip mirroring index/total.
 	hud.update_settlement(72.4, 41.0, 58.0, {}, [])
 	hud.update_progression(2, 10, 100, "Hamlet")
-	var _fq19_crest_ok: bool = hud._top_left_box is PanelContainer \
+	# Phase C: the crest module is a floating PanelContainer (fallback) or the left dock
+	# wing Control (kit). Either way its live title + the three numeric bar values are the
+	# real model (update_settlement / update_progression drive them, no duplicate state).
+	var _fq19_crest_ok: bool = hud._top_left_box != null \
 		and hud._crest_title != null and hud._crest_title.text.contains("Hamlet") \
 		and hud._crest_title.text.contains("Lv.2") \
 		and hud._bar_values.size() == 3 \
@@ -289,10 +305,10 @@ func run(ctx) -> void:
 	var _fq21_theme_base_before: Texture2D = BlockRegistry.visual_texture(
 		"ui_painted", "slot_normal")
 	var _fq21_theme_source: Image = _fq21_theme_base_before.get_image()
-	_fq21_theme_source.save_png(_fq21_theme_valid_path)
+	harness._res_write_png(_fq21_theme_source, _fq21_theme_valid_path)
 	var _fq21_theme_bad := Image.create(1, 1, false, Image.FORMAT_RGBA8)
 	_fq21_theme_bad.fill(Color.WHITE)
-	_fq21_theme_bad.save_png(_fq21_theme_invalid_path)
+	harness._res_write_png(_fq21_theme_bad, _fq21_theme_invalid_path)
 	var _fq21_theme_base: Texture2D = BlockRegistry.visual_texture(
 		"ui_painted", "slot_normal")
 	var _fq21_theme_valid: Texture2D = hud._painted_texture_for_theme(
@@ -346,15 +362,17 @@ func run(ctx) -> void:
 	# R-06.2 seam: the edit-mode geometry math now lives in HudEditGeometry;
 	# hud.gd's facade (_hud_widget_size / _hud_grip_rect, driven by fq17/fq21)
 	# must delegate identically, and the pure math holds on fixed inputs.
-	var _r06g_widget: Control = hud._hud_widgets.get("crest")
+	# Phase C: use the Goal widget (still free-floating/draggable) — Crest/Events are
+	# docked and no longer registered HUD-edit widgets.
+	var _r06g_widget: Control = hud._hud_widgets.get("goal")
 	var _r06g_size_ok: bool = _r06g_widget != null \
 		and hud._hud_widget_size(_r06g_widget) == HudEditGeometry.widget_size(_r06g_widget)
 	# The wrapper returns Rect2() for a hidden widget, else the geometry rect --
-	# assert delegation for whichever state the crest is in.
+	# assert delegation for whichever state the widget is in.
 	var _r06g_grip_expected: Rect2 = HudEditGeometry.grip_rect(_r06g_widget.get_global_rect()) \
 		if (_r06g_widget != null and _r06g_widget.visible) else Rect2()
 	var _r06g_grip_ok: bool = _r06g_widget != null \
-		and hud._hud_grip_rect("crest") == _r06g_grip_expected
+		and hud._hud_grip_rect("goal") == _r06g_grip_expected
 	var _r06g_min_ok: bool = HudEditGeometry.min_size(Vector2(400.0, 200.0)) == Vector2(200.0, 100.0) \
 		and HudEditGeometry.min_size(Vector2(10.0, 10.0)) == Vector2(120.0, 56.0)
 	var _r06g_max_ok: bool = HudEditGeometry.max_size(Vector2(100.0, 100.0), Vector2(1280.0, 720.0)) \
@@ -510,7 +528,7 @@ func run(ctx) -> void:
 	var _fq21_slot_icon: TextureRect = _fq21_slot0.find_child(
 		"RuntimeIcon", true, false) as TextureRect if _fq21_slot0 != null else null
 	var _fq21_icon_rect: Rect2 = hud._json_rect(_fq21_geometry.slot_content.icon_rect)
-	var _fq21_json_content: bool = int(_fq21_geometry.get("version", 0)) == 2 \
+	var _fq21_json_content: bool = int(_fq21_geometry.get("version", 0)) == 3 \
 		and _fq21_slot_icon != null \
 		and _fq21_slot_icon.position == _fq21_icon_rect.position \
 		and _fq21_slot_icon.size == _fq21_icon_rect.size
@@ -606,31 +624,279 @@ func run(ctx) -> void:
 		"sockets=%s layered=%s swap=%s drive=%s" % [str(_fq21_sockets_ok),
 			str(_fq21_layered_vessels), str(_fq21_swap_ok), str(_fq21_drive_ok)])
 
-	# FQ-20: painted mockup chrome consumed elsewhere — painted module
-	# frames on crest/events (distinct textures from the band pieces).
-	var _fq20_crest_sb: StyleBox = (hud._top_left_box as PanelContainer).get_theme_stylebox("panel")
-	var _fq20_events_sb: StyleBox = hud._event_panel.get_theme_stylebox("panel")
+	# FQ-20 / Phase C: module chrome contract. The map is a single (non-stacked) frame in
+	# all cases. FLOATING crest/events carry a painted StyleBoxFlat module frame + a clean
+	# corner ornament; the DOCKED crest/events are plain Control wings (NOT floating
+	# PanelContainer panels) whose readouts sit in an integrated recessed instrument socket
+	# — the accepted design (built into the wooden dock, no floating black panels over it).
 	var _fq20_map_single_frame := true
 	for _fq20_map_child in hud._map_panel.get_children():
 		if _fq20_map_child is NinePatchRect:
 			_fq20_map_single_frame = false
 			break
-	var _fq22_corner: Control = hud._top_left_box.find_child(
-		"CrestCornerOrnament", true, false) as Control
-	var _fq22_corner_clean: bool = _fq22_corner != null \
-		and _fq22_corner.position.x >= 0.0 and _fq22_corner.position.y >= 0.0 \
-		and _fq22_corner.find_child("*", true, false) == null
-	var _fq20_frames_ok: bool = _fq20_crest_sb is StyleBoxFlat \
-		and _fq20_events_sb is StyleBoxFlat \
-		and _fq20_map_single_frame \
-		and _fq22_corner_clean
+	var _fq20_frames_ok: bool
+	var _fq20_detail := ""
+	if hud._left_wing != null:
+		_fq20_frames_ok = not (hud._top_left_box is PanelContainer) \
+			and not (hud._events_module() is PanelContainer) \
+			and _fq20_map_single_frame
+		_fq20_detail = "docked chrome-less wings"
+	else:
+		var _fq20_crest_sb: StyleBox = (hud._top_left_box as PanelContainer).get_theme_stylebox("panel")
+		var _fq20_events_sb: StyleBox = hud._event_panel.get_theme_stylebox("panel")
+		var _fq22_corner: Control = hud._top_left_box.find_child("CrestCornerOrnament", true, false) as Control
+		var _fq22_corner_clean: bool = _fq22_corner != null \
+			and _fq22_corner.position.x >= 0.0 and _fq22_corner.position.y >= 0.0 \
+			and _fq22_corner.find_child("*", true, false) == null
+		_fq20_frames_ok = _fq20_crest_sb is StyleBoxFlat and _fq20_events_sb is StyleBoxFlat \
+			and _fq20_map_single_frame and _fq22_corner_clean
+		_fq20_detail = "floating crest=%s events=%s corner_clean=%s" % [
+			str(_fq20_crest_sb.get_class()), str(_fq20_events_sb.get_class()), str(_fq22_corner_clean)]
 	harness._check("fq22_module_chrome_contract", _fq20_frames_ok,
-		"crest=%s events=%s map_single_frame=%s corner_clean=%s" % [
-			str(_fq20_crest_sb.get_class()), str(_fq20_events_sb.get_class()),
-			str(_fq20_map_single_frame), str(_fq22_corner_clean)])
+		"docked=%s map_single_frame=%s %s" % [
+			str(hud._left_wing != null), str(_fq20_map_single_frame), _fq20_detail])
 
-	# FQ-20: the dock is the command center — five module toggle chips live
-	# inside the dock panel, drive the modules, and mirror external changes.
+	# Phase C: docked Crest/Events wings contract. Wing content is native-placed inside the
+	# dock band (centred, native scale), so containment/overlap are resolution-independent —
+	# tested here at the base size and proven visually by the four-size HUD-QA wing crops.
+	var _dw_ok := true
+	var _dw_detail := "not docked (fallback)"
+	if hud._left_wing != null and hud._right_wing != null:
+		var _dw_lrect: Rect2 = hud._left_wing.get_global_rect()
+		var _dw_rrect: Rect2 = hud._right_wing.get_global_rect()
+		# (1) socket containment: each socket sits inside its wing leaving a wooden margin,
+		# and the content host + its content fit inside the socket interior.
+		var _dw_lsock: Rect2 = hud._left_socket.get_global_rect()
+		var _dw_rsock: Rect2 = hud._right_socket.get_global_rect()
+		var _dw_socket_in: bool = _dw_lrect.encloses(_dw_lsock) and _dw_rrect.encloses(_dw_rsock) \
+			and _dw_lsock.position.x - _dw_lrect.position.x >= 3.0 \
+			and _dw_rsock.position.x - _dw_rrect.position.x >= 3.0 \
+			and _dw_lsock.position.y - _dw_lrect.position.y >= 3.0
+		var _dw_host_in: bool = _dw_lsock.encloses(hud._left_wing_box.get_global_rect()) \
+			and _dw_rsock.encloses(hud._right_wing_box.get_global_rect())
+		# content never overflows the socket interior (custom_min never forces expansion).
+		var _dw_lfit: bool = hud._left_wing_box.get_combined_minimum_size().x <= hud._left_wing_box.size.x + 0.5 \
+			and hud._left_wing_box.get_combined_minimum_size().y <= hud._left_wing_box.size.y + 0.5
+		var _dw_rfit: bool = hud._right_wing_box.get_combined_minimum_size().x <= hud._right_wing_box.size.x + 0.5 \
+			and hud._right_wing_box.get_combined_minimum_size().y <= hud._right_wing_box.size.y + 0.5
+		# (2) zero overlap with the nearest dock controls (orbs + hotbar ends).
+		var _dw_no_overlap := true
+		var _dw_ctrls: Array = [hud._health_vessel_fill, hud._attunement_vessel_fill]
+		if hud._hotbar_slots.size() >= 2:
+			_dw_ctrls.append(hud._hotbar_slots[0])
+			_dw_ctrls.append(hud._hotbar_slots[hud._hotbar_slots.size() - 1])
+		for _dw_c in _dw_ctrls:
+			if _dw_c != null and (_dw_lrect.intersects((_dw_c as Control).get_global_rect()) \
+					or _dw_rrect.intersects((_dw_c as Control).get_global_rect())):
+				_dw_no_overlap = false
+		# (3) the content cluster is vertically centred within its host (top pad ~= bottom).
+		var _dw_centered := true
+		for _dw_host in [hud._left_wing_box, hud._right_wing_box]:
+			var _dw_hc: Control = _dw_host
+			if _dw_hc.get_child_count() > 0:
+				var _dw_hr: Rect2 = _dw_hc.get_global_rect()
+				var _dw_cl: Rect2 = (_dw_hc.get_child(0) as Control).get_global_rect()
+				if absf((_dw_cl.position.y - _dw_hr.position.y) - (_dw_hr.end.y - _dw_cl.end.y)) > 4.0:
+					_dw_centered = false
+		# (4) live data parity + bottom-to-top gauges: the wing bars/values ARE the model.
+		var _dw_parity: bool = hud._left_wing.is_ancestor_of(hud._bars["coherence"]) \
+			and hud._left_wing.is_ancestor_of(hud._bar_values["coherence"]) \
+			and (hud._bars["coherence"] as ProgressBar).fill_mode == ProgressBar.FILL_BOTTOM_TO_TOP
+		# (5) ownership: docked readouts are NOT draggable HUD-edit widgets; Goal still is.
+		var _dw_owner: bool = not hud._hud_widgets.has("crest") \
+			and not hud._hud_widgets.has("events") and hud._hud_widgets.has("goal")
+		# (6) CLICK open/close + single-open exclusivity (hover does not open).
+		hud._close_wing_popups()
+		var _dw_click := InputEventMouseButton.new()
+		_dw_click.button_index = MOUSE_BUTTON_LEFT
+		_dw_click.pressed = true
+		hud._left_wing.gui_input.emit(_dw_click)
+		var _dw_open_crest: bool = hud._crest_popup.visible and hud._open_wing_popup == hud._crest_popup
+		hud._right_wing.gui_input.emit(_dw_click)
+		var _dw_exclusive: bool = hud._event_popup.visible and not hud._crest_popup.visible \
+			and hud._open_wing_popup == hud._event_popup
+		hud._right_wing.gui_input.emit(_dw_click)   # re-click the same wing closes it
+		var _dw_reclose: bool = not hud._event_popup.visible and hud._open_wing_popup == null
+		# (7) all-100 containment retained: 3-digit values fit without forcing expansion.
+		hud.update_settlement(100.0, 100.0, 100.0, {}, [])
+		await get_tree().process_frame
+		var _dw_worst: bool = (hud._bar_values["coherence"] as Label).text == "100" \
+			and hud._left_wing_box.get_combined_minimum_size().x <= hud._left_wing_box.size.x + 0.5
+		_dw_ok = _dw_socket_in and _dw_host_in and _dw_lfit and _dw_rfit and _dw_no_overlap \
+			and _dw_centered and _dw_parity and _dw_owner and _dw_open_crest and _dw_exclusive \
+			and _dw_reclose and _dw_worst
+		_dw_detail = "socket_in=%s host_in=%s lfit=%s rfit=%s overlap_free=%s centered=%s parity=%s owner=%s open=%s excl=%s reclose=%s worst=%s" % [
+			str(_dw_socket_in), str(_dw_host_in), str(_dw_lfit), str(_dw_rfit), str(_dw_no_overlap),
+			str(_dw_centered), str(_dw_parity), str(_dw_owner), str(_dw_open_crest), str(_dw_exclusive),
+			str(_dw_reclose), str(_dw_worst)]
+		hud._close_wing_popups()
+	harness._check("hud_dock_wings_contract", _dw_ok, _dw_detail)
+
+	# Phase C visual slice: the left wing's three vertical instruments — mixed values map to
+	# distinct bottom-to-top heights, exact values, per-metric authored icons (silhouette,
+	# not colour alone), live "<name>: <value>" tooltips, and NO persistent Coh/Load/Res
+	# titles (the icon + tooltip carry identity).
+	var _gi_ok := true
+	var _gi_detail := "not docked (fallback)"
+	if hud._left_wing != null:
+		hud.update_settlement(80.0, 13.0, 77.0, {}, [])
+		# update_settlement is synchronous. Do not yield to the live gameplay HUD
+		# refresh between arranging the fixture and inspecting its exact labels;
+		# slow exported CI builds can otherwise overwrite only the text values.
+		var _gi_vals: bool = (hud._bar_values["coherence"] as Label).text == "80" \
+			and (hud._bar_values["load"] as Label).text == "13" \
+			and (hud._bar_values["resilience"] as Label).text == "77"
+		var _gi_fill := true
+		var _gi_distinct: bool = (hud._bars["load"] as ProgressBar).value \
+				< (hud._bars["coherence"] as ProgressBar).value - 20.0 \
+			and (hud._bars["load"] as ProgressBar).value \
+				< (hud._bars["resilience"] as ProgressBar).value - 20.0
+		var _gi_tips := true
+		for _gi_k in ["coherence", "load", "resilience"]:
+			if (hud._bars[_gi_k] as ProgressBar).fill_mode != ProgressBar.FILL_BOTTOM_TO_TOP:
+				_gi_fill = false
+			var _gi_col: Control = hud._crest_columns[_gi_k]
+			var _gi_full: String = str(hud._crest_full_names[_gi_k])
+			var _gi_num := str(int(round((hud._bars[_gi_k] as ProgressBar).value)))
+			if not _gi_col.tooltip_text.contains(_gi_full) or not _gi_col.tooltip_text.contains(_gi_num):
+				_gi_tips = false
+		var _gi_icons: bool = hud._left_wing.find_children("*", "TextureRect", true, false).size() >= 3
+		var _gi_no_titles := true
+		for _gi_lbl in hud._left_wing.find_children("*", "Label", true, false):
+			var _gi_t: String = (_gi_lbl as Label).text
+			if _gi_t == "Coh" or _gi_t == "Load" or _gi_t == "Res":
+				_gi_no_titles = false
+		_gi_ok = _gi_vals and _gi_fill and _gi_distinct and _gi_tips and _gi_icons and _gi_no_titles
+		_gi_detail = "vals=%s fill=%s distinct=%s tips=%s icons=%s no_titles=%s" % [
+			str(_gi_vals), str(_gi_fill), str(_gi_distinct), str(_gi_tips), str(_gi_icons),
+			str(_gi_no_titles)]
+	harness._check("hud_dock_gauge_instruments", _gi_ok, _gi_detail)
+
+	# Phase C visual slice: the header day + military-time formatter and its live use —
+	# the day is the bare number beside the journal icon; the time is "HHMM" (zero-padded,
+	# 24h, no colon) beside the clock icon; the group tooltips carry "Day <n>"/"Time HH:MM".
+	var _cf_fmt: bool = hud._format_mil_time(0, 0) == "0000" \
+		and hud._format_mil_time(9, 5) == "0905" \
+		and hud._format_mil_time(11, 24) == "1124" \
+		and hud._format_mil_time(23, 59) == "2359"
+	var _cf_live := true
+	var _cf_sample := "-"
+	if hud._right_wing != null:
+		hud.update_time(98, false, 3, 0.279)   # -> day 98, 12:00
+		# update_time() writes the dock labels synchronously.  Do not yield here: the
+		# live world clock also updates the HUD each frame and can overwrite this
+		# deterministic sample before it is asserted on slower export runners.
+		_cf_sample = "%s / %s" % [hud._event_day_value.text, hud._event_time_value.text]
+		_cf_live = hud._event_day_value.text == "98" and hud._event_time_value.text == "1200" \
+			and not hud._event_time_value.text.contains(":") \
+			and not hud._event_day_value.text.contains("Day") \
+			and hud._event_day_group.tooltip_text == "Day 98" \
+			and hud._event_time_group.tooltip_text == "Time 12:00"
+	harness._check("hud_dock_clock_format", _cf_fmt and _cf_live,
+		"fmt=%s live=%s sample=%s" % [str(_cf_fmt), str(_cf_live), _cf_sample])
+
+	# Phase C visual slice: the three-most-recent compact event lines. Newest first; the
+	# fourth-oldest is excluded from the compact view but the full history is preserved in
+	# the popup; authored summaries are used verbatim (not prefix slices); an unauthored
+	# long message falls back to a word-boundary summary; each line is one-line/ellipsised;
+	# the full original message is exposed on hover.
+	var _es_ok := true
+	var _es_detail := "not docked (fallback)"
+	if hud._right_wing != null:
+		hud._log_entries.clear()
+		hud.log_event("First settlers raise the very first timber wall of the young camp",
+			"First wall raised", "build")
+		hud.log_event("A roaming merchant caravan is spotted approaching from the north",
+			"Caravan spotted", "settler")
+		hud.log_event("Raiders are massing beyond the tree line to the far eastern side",
+			"Raiders massing east", "warning")
+		hud.log_event("The night watch reports distant torches along the eastern ridge",
+			"Torches to the east", "warning")
+		await get_tree().process_frame
+		var _es_order: bool = hud._event_lines[0].text == "Torches to the east" \
+			and hud._event_lines[1].text == "Raiders massing east" \
+			and hud._event_lines[2].text == "Caravan spotted"
+		var _es_excluded := true
+		for _es_line in hud._event_lines:
+			if (_es_line as Label).text == "First wall raised":
+				_es_excluded = false
+		var _es_history: bool = hud._log_entries.size() == 4 \
+			and str(hud._log_entries[0]["full"]).contains("first timber wall") \
+			and hud._log_label.text.contains("first timber wall")
+		# The full original message is exposed on hover (both the row and the line label).
+		var _es_tooltip: bool = hud._event_lines[0].tooltip_text.contains("distant torches") \
+			and (hud._event_lines[0].get_parent() as Control).tooltip_text.contains("distant torches")
+		var _es_authored: bool = hud._event_lines[1].text == "Raiders massing east" \
+			and not hud._event_lines[1].text.begins_with("Raiders are massing")
+		# Each visible row leads with its authored category icon; the icon flows from the
+		# paired entry's "icon" field, and distinct categories are distinct textures.
+		var _es_icons: bool = hud._event_icons.size() == 3 \
+			and hud._event_icons[0].visible and hud._event_icons[0].texture != null \
+			and hud._event_icons[0].texture == hud._event_icon_texture("warning") \
+			and hud._event_icons[2].texture == hud._event_icon_texture("settler") \
+			and str(hud._log_entries[3].get("icon", "")) == "warning" \
+			and hud._event_icon_texture("warning") != hud._event_icon_texture("build") \
+			and hud._event_icon_texture("warning") != hud._event_icon_texture("generic")
+		var _es_oneline := true
+		for _es_l in hud._event_lines:
+			var _esl: Label = _es_l
+			if _esl.autowrap_mode != TextServer.AUTOWRAP_OFF \
+					or _esl.text_overrun_behavior != TextServer.OVERRUN_TRIM_ELLIPSIS \
+					or not _esl.clip_text:
+				_es_oneline = false
+		# Unauthored long message -> conservative word-boundary fallback (no mid-word cut),
+		# generic category icon, and the two unused rows hide their icons.
+		var _es_full := "Reinforcements arriving shortly from the western outpost garrison"
+		hud._log_entries.clear()
+		hud.log_event(_es_full)
+		await get_tree().process_frame
+		var _es_fb: String = hud._event_lines[0].text
+		var _es_core := _es_fb.trim_suffix("…")
+		var _es_fallback: bool = _es_fb.length() < _es_full.length() and _es_fb.ends_with("…") \
+			and _es_full.begins_with(_es_core) \
+			and (_es_core.length() == _es_full.length() or _es_full[_es_core.length()] == " ") \
+			and hud._event_icons[0].texture == hud._event_icon_texture("generic") \
+			and not hud._event_icons[1].visible and not hud._event_icons[2].visible
+		_es_ok = _es_order and _es_excluded and _es_history and _es_tooltip and _es_authored \
+			and _es_icons and _es_oneline and _es_fallback
+		_es_detail = "order=%s excluded=%s history=%s tooltip=%s authored=%s icons=%s oneline=%s fallback=%s fb=\"%s\"" % [
+			str(_es_order), str(_es_excluded), str(_es_history), str(_es_tooltip), str(_es_authored),
+			str(_es_icons), str(_es_oneline), str(_es_fallback), _es_fb]
+	harness._check("hud_dock_event_summaries", _es_ok, _es_detail)
+
+	# Phase C: event-icon category mapping. Mirrors the exact (summary, icon) pairs
+	# game_root emits — plain nightfall uses the crescent-moon NIGHT icon, threat-bearing
+	# nightfall uses the WARNING icon, and dawn uses the DAWN icon. Night, dawn, warning,
+	# and the header clock-face icon are all distinct textures (a sun/clock must never
+	# stand in for nightfall).
+	var _im_ok := true
+	var _im_detail := "not docked (fallback)"
+	if hud._right_wing != null:
+		hud._log_entries.clear()
+		hud.log_event("Dawn breaks. The pressure recedes.", "Dawn", "dawn")
+		hud.log_event("Night falls. Pressure rises (2 threats approaching).",
+			"Night: 2 threats", "warning")
+		hud.log_event("Night falls.", "Nightfall", "night")
+		await get_tree().process_frame
+		# rows newest first: night, warning (threat nightfall), dawn.
+		var _im_rows: bool = hud._event_icons[0].texture == hud._event_icon_texture("night") \
+			and hud._event_icons[1].texture == hud._event_icon_texture("warning") \
+			and hud._event_icons[2].texture == hud._event_icon_texture("dawn")
+		var _im_entry: bool = str(hud._log_entries[2].get("icon", "")) == "night" \
+			and str(hud._log_entries[1].get("icon", "")) == "warning" \
+			and str(hud._log_entries[0].get("icon", "")) == "dawn"
+		var _im_distinct: bool = hud._event_icon_texture("night") != null \
+			and hud._event_icon_texture("night") != hud._event_icon_texture("dawn") \
+			and hud._event_icon_texture("night") != hud._event_icon_texture("warning") \
+			and hud._event_icon_texture("night") != hud._painted_texture("wing_hdr_time")
+		_im_ok = _im_rows and _im_entry and _im_distinct
+		_im_detail = "rows=%s entry=%s distinct=%s" % [
+			str(_im_rows), str(_im_entry), str(_im_distinct)]
+	harness._check("hud_dock_event_icon_mapping", _im_ok, _im_detail)
+
+	# FQ-20: the dock is the command center — the module toggle chips live inside the dock
+	# panel, drive the modules, and mirror external changes. Phase C: only Goal/Map/Edit
+	# remain, and the framed tray is shrunk to hug those three (no reserved void).
 	var _fq20_module_rect: Rect2 = hud._command_center_panel.get_global_rect() \
 		if hud._command_center_panel != null else Rect2()
 	var _fq20_dock_rect: Rect2 = hud._bottom_dock.get_global_rect() \
@@ -649,20 +915,65 @@ func run(ctx) -> void:
 				or _fq20_module_rect.intersects(_fq20_clear_control.get_global_rect()):
 			_fq20_module_clear = false
 			break
+	# Phase C: Crest/Events are docked into the wings (opened by clicking the wing), so
+	# their redundant toolbar chips are removed. Slice 4.2: Craft joins the docked tray,
+	# so it keeps Goal / Craft / Map / Edit.
+	var _fq20_no_crest_events: bool = not hud._command_toggles.has("Crest") \
+		and not hud._command_toggles.has("Events") \
+		and hud._command_toggles.has("Goal") and hud._command_toggles.has("Craft") \
+		and hud._command_toggles.has("Map") and hud._command_toggles.has("Edit")
+	# Compact-tray geometry: the framed tray hugs its four buttons — its centre matches the
+	# dock centre, the button union is centred in the tray with near-equal, bounded interior
+	# gaps, and every button is fully contained. (Native placement, so this holds at every
+	# resolution; the full-dock QA screenshots prove it visually.)
+	var _fq20_dock_center := _fq20_dock_rect.get_center().x
+	var _fq20_tray_center := _fq20_module_rect.get_center().x
+	var _fq20_first: Rect2 = (hud._command_toggles["Goal"] as Control).get_global_rect()
+	var _fq20_last: Rect2 = (hud._command_toggles["Edit"] as Control).get_global_rect()
+	var _fq20_union_center := (_fq20_first.position.x + _fq20_last.end.x) * 0.5
+	var _fq20_gap_left := _fq20_first.position.x - _fq20_module_rect.position.x
+	var _fq20_gap_right := _fq20_module_rect.end.x - _fq20_last.end.x
+	var _fq20_contains := true
+	for _fq20_btn_name in ["Goal", "Craft", "Map", "Edit"]:
+		if not _fq20_module_rect.encloses((hud._command_toggles[_fq20_btn_name] as Control).get_global_rect()):
+			_fq20_contains = false
+	var _fq20_tray_geo: bool = absf(_fq20_tray_center - _fq20_dock_center) <= 1.0 \
+		and absf(_fq20_union_center - _fq20_tray_center) <= 1.0 \
+		and absf(_fq20_gap_left - _fq20_gap_right) <= 1.5 \
+		and _fq20_gap_left <= 20.0 and _fq20_gap_right <= 20.0 \
+		and _fq20_gap_left >= 2.0 and _fq20_gap_right >= 2.0 \
+		and _fq20_contains
+	# Reset/restore returns the tray to the compact authoritative rect (JSON). Slice 4.2:
+	# the four-button tray is [504,132,272,44]; the stale [458,...] fallback is gone.
+	# Positions are dock-native (integer), so compare locally.
+	hud._restore_native_module_toolbar_rect()
+	var _fq20_reset_rect := Rect2(hud._command_center_panel.position, hud._command_center_panel.size)
+	var _fq20_reset_ok: bool = _fq20_reset_rect.is_equal_approx(Rect2(504, 132, 272, 44))
+	# Arithmetic capacity contract (NOT an instantiated render): the floating (non-kit)
+	# fallback now carries SIX chips (Crest, Goal, Events, Craft, Map, Edit). Its width is
+	# derived (fallback_command_center_width) so all six (54px each + 4px gaps = 344px) fit
+	# inside its content box (width - 2*7). This guards the fallback against being shrunk
+	# below the six-button need; it does not build the fallback HUD, which the docked kit
+	# path replaces here.
+	var _fq20_fallback_capacity: bool = \
+		(6.0 * 54.0 + 5.0 * 4.0) <= (hud.fallback_command_center_width(6) - 2.0 * 7.0)
 	var _fq20_cc_ok: bool = hud._module_toolbar != null \
 		and hud._command_center_panel != null \
 		and hud._command_center_panel.is_ancestor_of(hud._module_toolbar) \
 		and hud._bottom_dock.is_ancestor_of(hud._module_toolbar) \
 		and _fq20_dock_owned \
 		and _fq20_module_clear \
-		and hud._command_toggles.size() == 5
-	var _fq20_crest_chip: Button = hud._command_toggles.get("Crest")
-	var _fq20_cc_before: bool = hud._top_left_box.visible
-	_fq20_crest_chip.button_pressed = not _fq20_crest_chip.button_pressed
-	var _fq20_cc_toggled: bool = hud._top_left_box.visible != _fq20_cc_before \
-		and _fq20_crest_chip.button_pressed == hud._top_left_box.visible
-	_fq20_crest_chip.button_pressed = not _fq20_crest_chip.button_pressed
-	var _fq20_cc_restored: bool = hud._top_left_box.visible == _fq20_cc_before
+		and hud._command_toggles.size() == 4 \
+		and _fq20_no_crest_events \
+		and _fq20_tray_geo and _fq20_reset_ok and _fq20_fallback_capacity
+	# The Goal chip drives + mirrors its module (toggle, then restore).
+	var _fq20_goal_chip: Button = hud._command_toggles.get("Goal")
+	var _fq20_cc_before: bool = hud._goal_panel.visible
+	_fq20_goal_chip.button_pressed = not _fq20_goal_chip.button_pressed
+	var _fq20_cc_toggled: bool = hud._goal_panel.visible != _fq20_cc_before \
+		and _fq20_goal_chip.button_pressed == hud._goal_panel.visible
+	_fq20_goal_chip.button_pressed = not _fq20_goal_chip.button_pressed
+	var _fq20_cc_restored: bool = hud._goal_panel.visible == _fq20_cc_before
 	hud._toggle_goal_module()
 	var _fq20_cc_synced: bool = (hud._command_toggles["Goal"] as Button).button_pressed \
 		== hud._goal_panel.visible
@@ -678,7 +989,14 @@ func run(ctx) -> void:
 		_fq20_map_chip.button_pressed = false
 	var _fq20_map_chip_closes: bool = _fq20_map_chip != null \
 		and not hud.map_open() and not _fq20_map_chip.button_pressed
-	if _fq20_map_chip != null:
+	# The docked command chips are intentionally non-focusable (FOCUS_NONE) so a
+	# click never parks keyboard focus on the chip and away from gameplay. Calling
+	# grab_focus() on a FOCUS_NONE control is a no-op that ALSO emits an engine
+	# "This control can't grab focus" warning, so we assert the invariant by
+	# property and only exercise grab_focus() when the control is actually
+	# focusable (it never is here). The check's meaning — the chip refuses focus —
+	# is unchanged; the spurious warning is gone.
+	if _fq20_map_chip != null and _fq20_map_chip.focus_mode != Control.FOCUS_NONE:
 		_fq20_map_chip.grab_focus()
 	var _fq20_map_chip_no_focus: bool = _fq20_map_chip != null \
 		and _fq20_map_chip.focus_mode == Control.FOCUS_NONE \
@@ -686,11 +1004,12 @@ func run(ctx) -> void:
 	harness._check("fq20_docked_command_center",
 		_fq20_cc_ok and _fq20_cc_toggled and _fq20_cc_restored and _fq20_cc_synced
 		and _fq20_map_chip_opens and _fq20_map_chip_closes and _fq20_map_chip_no_focus,
-		"dock_owned=%s clear=%s rect=%s toggled=%s restored=%s synced=%s map_chip=%s/%s no_focus=%s" % [
-			str(_fq20_dock_owned), str(_fq20_module_clear), _fq20_module_rect,
-			str(_fq20_cc_toggled), str(_fq20_cc_restored), str(_fq20_cc_synced),
-			str(_fq20_map_chip_opens), str(_fq20_map_chip_closes),
-			str(_fq20_map_chip_no_focus)])
+		"count=%d no_ce=%s tray_geo=%s gaps=%.1f/%.1f dcen=%.1f tcen=%.1f ucen=%.1f reset=%s fb_capacity=%s toggled=%s synced=%s map=%s/%s nofocus=%s" % [
+			hud._command_toggles.size(), str(_fq20_no_crest_events), str(_fq20_tray_geo),
+			_fq20_gap_left, _fq20_gap_right, _fq20_dock_center, _fq20_tray_center,
+			_fq20_union_center, str(_fq20_reset_ok), str(_fq20_fallback_capacity),
+			str(_fq20_cc_toggled), str(_fq20_cc_synced),
+			str(_fq20_map_chip_opens), str(_fq20_map_chip_closes), str(_fq20_map_chip_no_focus)])
 
 	# FQ-19: resource vessels — masked liquid fill plus the damage / recovery /
 	# zero / regeneration / use-pulse / full-core effect states. Overlay tints

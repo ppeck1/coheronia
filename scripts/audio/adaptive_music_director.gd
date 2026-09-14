@@ -102,6 +102,37 @@ func _ready() -> void:
 	_setup_layer_bed()
 
 
+## Release active playback before the node/tree disappears.  In particular,
+## AudioStreamInteractive and AudioStreamSynchronized keep their OGG packet
+## sequences alive until both playback and the composite stream are detached;
+## relying on SceneTree teardown order leaks those resources on Linux/X11.
+## Idempotent so the smoke closeout can release the audio thread before quit,
+## while _exit_tree remains the production safety net.
+func shutdown() -> void:
+	set_process(false)
+	for player_node in [_stinger_player, _layer_player, _context_player]:
+		if player_node == null or not is_instance_valid(player_node):
+			continue
+		var audio_player := player_node as AudioStreamPlayer
+		audio_player.stop()
+		audio_player.stream = null
+	_stingers.clear()
+	_stinger_cooldowns.clear()
+	_stem_order.clear()
+	_stem_targets.clear()
+	_stem_volumes.clear()
+	_clip_index.clear()
+	_manifest.clear()
+	_enabled = false
+	_layer_enabled = false
+	_pending = ""
+	_duck_db = 0.0
+
+
+func _exit_tree() -> void:
+	shutdown()
+
+
 ## FQ-09U3: the narrow event surface — game_root's music_event signal
 ## (nightfall/dawn/raid_warning/base_advance) and the player's
 ## attunement_pulsed. Both guarded so the director works in any test tree.

@@ -60,12 +60,12 @@ A Path's tiers open by the count of skills already purchased in that Path (a liv
 | Tier 1 | Decisive Strikes | `decisive_strikes` | 1 | `weapon_damage_mult` | 1.15 | live | Your weapons strike hostile creatures with extra force. |
 | Tier 1 | Relentless | `relentless` | 1 | `heal_on_xp_kill` | 6 | live | Defeating an XP-granting hostile creature restores health. |
 | Tier 2 | Momentum | `momentum` | 1 | `weapon_damage_mult` | 1.1 | live | Battle momentum sharpens your blows against hostile creatures. |
-| Tier 2 | Executioner | `executioner` | 1 | `weapon_damage_mult` | 1.15 | live | You hit hostile creatures harder, cutting down wounded foes faster. |
+| Tier 2 | Executioner | `executioner` | 1 | `heal_on_xp_kill` | 6 | live | Executioner: felling an XP-granting foe restores health, so you can press the attack. |
 | Tier 2 | Threat Hunter | `threat_hunter` | 1 | `weapon_damage_mult_threat` | 1.2 | live | Weapon attacks deal additional damage to enemies belonging to an active settlement threat. |
 | Tier 2 | Counterforce | `counterforce` | 1 | `weapon_damage_mult` | 1.1 | live | You answer blows with harder weapon strikes against hostile creatures. |
 | Tier 3 | Steel Rhythm | `steel_rhythm` | 1 | `weapon_damage_mult_threat` | 1.15 | live | You strike assault enemies harder while the settlement is under attack. |
 | Tier 3 | Breachbreaker | `breachbreaker` | 1 | `weapon_damage_mult_threat` | 1.15 | live | You hit assault enemies (those at the settlement) with extra force. |
-| Tier 3 | Press the Line | `press_the_line` | 1 | `weapon_damage_mult_threat` | 1.1 | live | You press assault enemies with heavier weapon strikes. |
+| Tier 3 | Press the Line | `press_the_line` | 1 | `hostile_damage_mult_lowhp_threat` | 0.85 | live | Press the Line: while wounded during an assault you take less hostile damage, so you can keep fighting. |
 | Tier 3 | Victory's Breath | `victorys_breath` | 1 | `threat_end_restore` | 25 | live | Successfully ending a settlement threat restores health and Attunement. |
 | Capstone | Threatbreaker | `threatbreaker` | 1 | `weapon_damage_mult_threat` | 1.5 | live | Threatbreaker: your weapons devastate assault enemies attacking the settlement. |
 
@@ -114,16 +114,16 @@ A Path's tiers open by the count of skills already purchased in that Path (a liv
 | Tier | Skill | ID | Cost | Effect key | Value | Support | Description |
 |---|---|---|---|---|---|---|---|
 | Tier 1 | Long Measure | `long_measure` | 1 | `build_repair_reach_bonus` | 1 | live | Increases building-placement reach without affecting mining, combat, harvesting, or pickup reach. |
-| Tier 1 | Steady Placement | `steady_placement` | 1 | `build_repair_reach_bonus` | 1 | live | Steady hands extend your building-placement reach. |
+| Tier 1 | Steady Placement | `steady_placement` | 1 | `max_health_bonus` | 15 | live | Long hours at the worksite toughen you, permanently increasing maximum health. |
 | Tier 1 | Practiced Repairs | `practiced_repairs` | 1 | `repair_amount_mult` | 1.2 | live | Player-performed structure repairs restore additional structure health. |
 | Tier 2 | Economical Construction | `economical_construction` | 1 | `repair_amount_mult` | 1.15 | live | Skilled construction makes each structure repair restore more health. |
-| Tier 2 | Salvager | `salvager` | 1 | `repair_amount_mult` | 1.15 | live | Salvaged materials make your structure repairs restore more health. |
-| Tier 2 | Repairer's Example | `repairers_example` | 1 | `repair_amount_mult` | 1.15 | live | Your example makes your own structure repairs more effective. |
+| Tier 2 | Salvager | `salvager` | 1 | `repair_amount_mult_threat` | 1.2 | live | Salvaged materials make your structure repairs restore more health during a settlement assault. |
+| Tier 2 | Repairer's Example | `repairers_example` | 1 | `heal_mult_settlement_or_threat` | 1.2 | live | Working the hearth, food and passive recovery restore more health inside settlement bounds or during an assault. |
 | Tier 2 | Foundation Sense | `foundation_sense` | 1 | `build_repair_reach_bonus` | 1 | live | A sure sense of foundations extends your building-placement reach. |
 | Tier 3 | Reinforced Work | `reinforced_work` | 1 | `repair_amount_mult` | 1.15 | live | Reinforced work: your repairs restore more structure health. |
-| Tier 3 | Coordinated Labor | `coordinated_labor` | 1 | `build_repair_reach_bonus` | 1 | live | Coordinated labor extends how far you can place settlement structures. |
-| Tier 3 | Hearth Efficiency | `hearth_efficiency` | 1 | `repair_amount_mult` | 1.1 | live | Efficient work at the hearth strengthens your structure repairs. |
-| Tier 3 | Swift Maintenance | `swift_maintenance` | 1 | `repair_amount_mult` | 1.15 | live | Swift maintenance: each repair restores more structure health. |
+| Tier 3 | Coordinated Labor | `coordinated_labor` | 1 | `max_health_bonus` | 15 | live | Coordinated labor at the settlement builds your endurance and maximum health. |
+| Tier 3 | Hearth Efficiency | `hearth_efficiency` | 1 | `heal_mult_settlement_or_threat` | 1.15 | live | Efficient work at the hearth: recovery is stronger inside settlement bounds or during an assault. |
+| Tier 3 | Swift Maintenance | `swift_maintenance` | 1 | `repair_amount_mult_threat` | 1.2 | live | Swift maintenance: repairs restore more structure health during a settlement assault. |
 | Capstone | Keeper of Foundations | `keeper_of_foundations` | 1 | `repair_amount_mult` | 1.3 | live | Keeper of Foundations: your structure repairs restore far more health. |
 
 ### Resonant (Runewright)
@@ -138,10 +138,10 @@ A Path's tiers open by the count of skills already purchased in that Path (a liv
 | Tier 2 | Efficient Resonance | `efficient_resonance` | 1 | `pulse_cost_mult` | 0.85 | live | Attunement pulses consume less Attunement. |
 | Tier 2 | Inscribed Conduit | `inscribed_conduit` | 1 | `equip_attunement_amp` | 1.2 | live | Increases the maximum-Attunement bonus supplied by equipped rings, amulets, and other Attunement-bearing gear. |
 | Tier 2 | Harmonic Equipment | `harmonic_equipment` | 1 | `attunement_equipment_effect_amp` | 1.15 | live | Amplifies the maximum-Attunement bonus supplied by equipped rings and amulets. |
-| Tier 2 | Echo Mapping | `echo_mapping` | 1 | `pulse_radius_mult` | 1.1 | live | Echo-mapping widens the reach of every attunement pulse. |
+| Tier 2 | Echo Mapping | `echo_mapping` | 1 | `attunement_bonus` | 10 | live | Echo-mapping sharpens your senses, deepening your maximum Attunement reserve. |
 | Tier 3 | Deep Illumination | `deep_illumination` | 1 | `pulse_duration_mult_underground` | 1.25 | live | Underground, your attunement pulses shine longer. |
 | Tier 3 | Structured Pulse | `structured_pulse` | 1 | `pulse_duration_mult` | 1.15 | live | Structured pulses linger longer, lighting the space around you. |
-| Tier 3 | Full Resonance | `full_resonance` | 1 | `pulse_radius_mult` | 1.15 | live | Your attunement pulses reach a greater radius. |
+| Tier 3 | Full Resonance | `full_resonance` | 1 | `pulse_cost_mult` | 0.85 | live | Full resonance flows efficiently — your pulses cost less Attunement. |
 | Tier 3 | Reserve Channel | `reserve_channel` | 1 | `pulse_cost_mult` | 0.85 | live | You channel attunement efficiently — your pulses cost less. |
 | Capstone | Living Resonance | `living_resonance` | 1 | `pulse_radius_mult` | 1.25 | live | Living Resonance: your attunement pulses reach dramatically farther. |
 

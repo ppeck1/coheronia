@@ -8,7 +8,7 @@ signal attunement_changed(attunement: float, max_attunement: float)
 signal breath_changed(breath: float, max_breath: float)   # underwater air supply
 signal attunement_pulsed   # FQ-09U3: fires only when a pulse actually casts
 signal mined(block_id: String, drops: Dictionary)
-signal items_picked_up(items: Dictionary)   # R-08 slice 3: {item_id: count} swept off the ground
+signal items_picked_up(items: Dictionary)   # {item_id: count} swept off the ground (gameplay)
 signal crafted(recipe_id: String)
 signal placed(block_id: String)
 signal player_event(message: String)
@@ -18,6 +18,18 @@ const SPEED := 140.0
 const JUMP_VELOCITY := -300.0
 const GRAVITY := 820.0
 const REACH_TILES := 5.0
+
+## Wooden Platform one-way drop-through. The platform's one-way collision lives on
+## its own TileSet physics layer (bit 2 -> collision-mask layer number 2). Holding
+## Move Down and pressing Jump while standing on a platform temporarily removes ONLY
+## that layer from the player's mask so the body falls through, then restores it once
+## the body is clear of the platform (or after a conservative failsafe timeout).
+const PLATFORM_ID := "wood_platform"
+const PLATFORM_MASK_BIT := 2          # 1-based collision-mask layer number (bit 2)
+const PLATFORM_DROP_SEC := 0.35       # failsafe: mask can never stay off longer
+const BODY_HALF_HEIGHT := 14.0        # half of the Player.tscn CollisionShape (28px)
+var _platform_drop_timer := 0.0
+var _platform_drop_top_y := 0.0       # the platform-top Y the body dropped from
 ## R-08 slice 3: loose ground items within this radius are swept into the
 ## backpack. Wider than the block the player stands on (so their own mining lands
 ## in the pack immediately) but well inside mining reach, so a block broken at
@@ -99,6 +111,10 @@ var ancestry_jump_mult := 1.0
 var stone_ore_mine_mult := 1.0
 var ancestry_health_bonus := 0.0
 var learning_speed_mult := 1.0
+# Perception + Resonance: extra cells of sight this ancestry keeps in darkness
+# ("dark-adapted" cave/underground folk). Consumed by game_root's composable
+# sight-radius resolver, scaled by how dark the surroundings are (0 in full day).
+var perception_dark_sight := 0.0
 # FQ-05 ancestry hooks: additive max-attunement bonus and regen multiplier.
 # Every live ancestry defaults to 0.0 / 1.0, so non-magic characters play
 # exactly as before; future magic-user lanes set these via player_effects.
@@ -181,11 +197,40 @@ var _low_health_active := false  # tracks whether the "badly hurt" message alrea
 
 @onready var player_visual = get_node_or_null("PlayerVisual")
 
+## Render-position interpolation mirror. 2D physics interpolation smooths the drawn
+## body between physics ticks but exposes no getter for that interpolated transform, so
+## we snapshot the post-move position each physics tick and reconstruct it in
+## render_global_position(). Presentation that must follow the SMOOTH on-screen player
+## — the perception veil's per-pixel FOV rim — samples that instead of the stepped
+## logical global_position, which otherwise shimmers against the interpolated
+## player/terrain (the fog-of-war-only above-ground jitter). Reset by teleport().
+var _interp_prev_pos := Vector2.ZERO
+var _interp_curr_pos := Vector2.ZERO
+
 
 func _ready() -> void:
 	_load_player_defaults()
+	_interp_prev_pos = global_position
+	_interp_curr_pos = global_position
 	if player_visual != null:
 		player_visual.sync_from_player()
+
+
+## Book-keep the render-interpolation mirror: shift the current snapshot to previous and
+## capture the live (post-move) position as the new current. Runs every physics tick,
+## including frozen frames (so prev==curr and the rim can't oscillate between two stale
+## positions while a modal is open).
+func _snapshot_render_position() -> void:
+	_interp_prev_pos = _interp_curr_pos
+	_interp_curr_pos = global_position
+
+
+## The player's interpolated on-screen world position for the CURRENT render frame — the
+## smooth value 2D physics interpolation draws the body at, rebuilt from the last two
+## physics snapshots by the engine's own interpolation fraction. Presentation-only;
+## gameplay/collision must always use the authoritative global_position.
+func render_global_position() -> Vector2:
+	return _interp_prev_pos.lerp(_interp_curr_pos, Engine.get_physics_interpolation_fraction())
 
 
 ## Reads data/character_data.json's player_defaults section (same registry
@@ -242,6 +287,68 @@ func dock_assignments_to_array() -> Array:
 	return hotbar.duplicate()
 
 
+## Toolbar invariant (single owner): a non-empty dock slot must reference a
+## dock-assignable item the backpack actually holds (count > 0). Clears every
+## slot that fails the test IN PLACE — slot positions and the selected slot are
+## preserved (a cleared selected slot stays selected but empty), neighbours never
+## shift, and nothing is auto-reassigned. This is the one reconciliation path:
+## it is wired to `inventory_changed`, so it runs after every authoritative
+## inventory mutation (place/use, craft, eat, deposit/withdraw, bucket
+## conversion, death loss) and on load; the HUD only renders the result. Bucket
+## conversion redirects the selected slot to the replacement bucket BEFORE its
+## emit, so that (count > 0) slot is preserved here, not cleared. Returns true
+## if any slot was cleared.
+func reconcile_dock() -> bool:
+	var changed := false
+	for i in range(hotbar.size()):
+		var item_id := hotbar[i]
+		if item_id == "":
+			continue
+		if not BlockRegistry.is_dock_assignable_item(item_id) or inventory.count(item_id) <= 0:
+			hotbar[i] = ""
+			changed = true
+	return changed
+
+
+# --- Wooden Platform drop-through ---------------------------------------------
+
+## True when the body is resting on a Wooden Platform's one-way top surface. Reads
+## the block just below the feet (the platform tile the collision strip belongs to).
+func _is_on_wood_platform() -> bool:
+	if world == null or not is_on_floor():
+		return false
+	var feet := global_position + Vector2(0, BODY_HALF_HEIGHT)
+	for dy in [1.0, 3.0, 5.0]:
+		if world.block_at(world.cell_of(feet + Vector2(0, dy))) == PLATFORM_ID:
+			return true
+	return false
+
+
+## Begin a drop-through: suppress the jump, drop only the one-way-platform layer
+## from the collision mask, and nudge the body downward so it starts falling. The
+## platform-top the body was standing on is recorded (the feet rest on it), so the
+## layer is restored only once the whole body has fallen clear of that surface.
+func _begin_platform_drop() -> void:
+	_platform_drop_timer = PLATFORM_DROP_SEC
+	_platform_drop_top_y = global_position.y + BODY_HALF_HEIGHT   # feet == platform top
+	set_collision_mask_value(PLATFORM_MASK_BIT, false)
+	velocity.y = maxf(velocity.y, 40.0)
+
+
+## Per-frame: restore the platform layer once the body's TOP has fallen below the
+## platform surface it dropped from (feet safely below, no re-catch), or when the
+## conservative failsafe timeout elapses — the layer can never stay off
+## indefinitely. Solid-terrain collision (bit 1) is never touched here.
+func _tick_platform_drop(delta: float) -> void:
+	if _platform_drop_timer <= 0.0:
+		return
+	_platform_drop_timer -= delta
+	var head_y := global_position.y - BODY_HALF_HEIGHT
+	if _platform_drop_timer <= 0.0 or head_y > _platform_drop_top_y + 1.0:
+		set_collision_mask_value(PLATFORM_MASK_BIT, true)
+		_platform_drop_timer = 0.0
+
+
 ## Applies a shell character (appearance, traits, role effects) to this
 ## player. Resets ancestry effects to defaults; call apply_ancestry_effects
 ## afterwards when an ancestry should be active.
@@ -257,6 +364,7 @@ func apply_character(character: Dictionary) -> void:
 	ancestry_swim_speed_mult = 1.0
 	ancestry_water_breathing = false
 	ancestry_breath_capacity_mult = 1.0
+	perception_dark_sight = 0.0
 	species_id = str(character.get("species", "human"))
 	body_variant = GameState.normalize_body_variant(
 		str(character.get("body_variant", "masculine")))
@@ -318,6 +426,8 @@ func apply_ancestry_effects(effects: Dictionary) -> void:
 	ancestry_swim_speed_mult = float(effects.get("swim_speed_mult", 1.0))
 	ancestry_water_breathing = bool(effects.get("water_breathing", false))
 	ancestry_breath_capacity_mult = float(effects.get("breath_capacity_mult", 1.0))
+	# Perception + Resonance: dark-adapted ancestries keep extra sight in the dark.
+	perception_dark_sight = float(effects.get("dark_sight", 0.0))
 	breath = minf(breath, max_breath())
 	breath_changed.emit(breath, max_breath())
 	_clamp_attunement()
@@ -326,6 +436,7 @@ func apply_ancestry_effects(effects: Dictionary) -> void:
 func _physics_process(delta: float) -> void:
 	if GameState.hud_edit_mode or GameState.craft_panel_open or GameState.modal_panel_open:
 		velocity = Vector2.ZERO
+		_snapshot_render_position()   # keep the interp mirror alive (prev==curr while frozen)
 		return
 	# Liquid physics: while the body centre is below a liquid's TRUE surface (its
 	# fill level, not merely the cell), movement slows and the player turns
@@ -346,13 +457,24 @@ func _physics_process(delta: float) -> void:
 		if in_liquid:   # cap the sink rate so heavy liquids slow the descent too
 			velocity.y = minf(velocity.y, BlockRegistry.liquid_sink_speed(submerged))
 	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = JUMP_VELOCITY * ancestry_jump_mult
+		if Input.is_action_pressed("move_down") and _is_on_wood_platform():
+			# Drop through the platform instead of jumping: suppress the jump and
+			# briefly ignore only the one-way-platform layer so the body falls.
+			_begin_platform_drop()
+		else:
+			velocity.y = JUMP_VELOCITY * ancestry_jump_mult
 	elif in_liquid and Input.is_action_pressed("jump"):
-		# Hold jump to swim upward toward the surface.
+		# Hold jump to swim upward toward the surface (unchanged: drop-through only
+		# fires when standing on a platform, so underwater swimming is untouched).
 		velocity.y = -BlockRegistry.liquid_swim_up_speed(submerged) * ancestry_swim_speed_mult
 	var direction := Input.get_axis("move_left", "move_right")
 	velocity.x = direction * SPEED * move_mult
 	move_and_slide()
+	_tick_platform_drop(delta)
+	# Snapshot the post-move position for the render-interpolation mirror (below), so
+	# presentation that must track the SMOOTH on-screen position samples the interpolated
+	# value, not this stepped physics-tick one.
+	_snapshot_render_position()
 	_hurt_cooldown = maxf(0.0, _hurt_cooldown - delta)
 	_eat_cooldown = maxf(0.0, _eat_cooldown - delta)
 	attack_swing_t = maxf(0.0, attack_swing_t - delta)
@@ -575,7 +697,7 @@ func collect_ground_drops() -> bool:
 			d.queue_free()
 	if not picked.is_empty():
 		inventory_changed.emit()
-		items_picked_up.emit(picked)   # HUD raises a "+N Item" pickup toast
+		items_picked_up.emit(picked)   # gameplay signal (no HUD toast listener)
 	return not picked.is_empty()
 
 
@@ -1178,6 +1300,28 @@ func _apply_collapse_loss() -> bool:
 	return changed
 
 
+## Physics-interpolation-safe relocation. Sets the position, clears carried velocity
+## (unless asked to keep it), and resets both the body's interpolation snapshot and the
+## camera's smoothing so neither the character NOR the view visibly sweeps from the old
+## spot. Use this for any real teleport — respawn, save/load restore, world entry — in
+## place of a bare `global_position =`, which under 2D physics interpolation would streak
+## across the world. (Order matters: set the transform first, THEN reset — Godot resets
+## the interpolation snapshot to the CURRENT transform.)
+func teleport(pos: Vector2, keep_velocity: bool = false) -> void:
+	global_position = pos
+	if not keep_velocity:
+		velocity = Vector2.ZERO
+	# Collapse the render-interpolation mirror onto the destination so the veil rim (and
+	# anything else reading render_global_position) snaps there instead of sweeping.
+	_interp_prev_pos = pos
+	_interp_curr_pos = pos
+	reset_physics_interpolation()
+	var cam := get_node_or_null("Camera2D") as Camera2D
+	if cam != null:
+		cam.reset_smoothing()
+		cam.reset_physics_interpolation()
+
+
 func respawn(supplies_lost: bool = false) -> void:
 	health = max_health
 	health_changed.emit(health, max_health)
@@ -1189,8 +1333,9 @@ func respawn(supplies_lost: bool = false) -> void:
 	if world != null and not world.hall_info.is_empty():
 		# FQ-09M: dust where the player fell and where they come to.
 		ActionFx.spawn(world, "dust_puff", global_position)
-		global_position = world.cell_center(world.hall_info["center_cell"]) + Vector2(-48, -24)
-		velocity = Vector2.ZERO
+		# Interpolation-safe: without the reset inside teleport() the collapsed player
+		# (and camera) would streak across the whole world to the Town Hall.
+		teleport(world.cell_center(world.hall_info["center_cell"]) + Vector2(-48, -24))
 		ActionFx.spawn(world, "dust_puff", global_position)
 	_regen_active = false
 	var _msg := "You collapsed and awoke near the Town Hall."

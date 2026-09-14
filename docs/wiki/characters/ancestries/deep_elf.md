@@ -2,13 +2,13 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Ancestry` page. Current status: `planned`.
+> `Ancestry` page. Current status: `design_only`.
 
 | Field | Value |
 |---|---|
 | ID | `deep_elf` |
 | Page type | Ancestry |
-| Status | planned |
+| Status | design_only |
 | Implementation phase | C |
 | Implementation priority | 6 |
 | Spawn band | underground |
@@ -29,6 +29,7 @@ No authored ancestry body art is currently attached to this entry.
 | Bucket | Effect | Value |
 |---|---|---|
 | player_effects | dark_vision | True |
+| player_effects | dark_sight | 8 |
 | player_effects | mushroom_harvest_mult | 1.2 |
 | player_effects | crystal_harvest_mult | 1.2 |
 | player_effects | underground_movement_mult | 1.1 |

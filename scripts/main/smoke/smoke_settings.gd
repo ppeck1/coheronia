@@ -382,6 +382,388 @@ func run(ctx) -> void:
 		"ok=%s bad=[%s] axe=%s sword=%s armor=%s" % [str(_ci_ok), _ci_bad,
 			str(_ci_axe), str(_ci_sword), str(_ci_armor)])
 
+	# --- Slice 4.1: crafting panel LAYOUT CONTRACT at both target sizes ---
+	# The redesigned panel must stay fully contained + usable at a full 1280x720
+	# AND a minimum 640x360. This project stretches canvas_items/expand, so the
+	# LOGICAL viewport (the space the UI lays out in, and what _refit + every
+	# get_global_rect() read) is the design canvas, NOT the OS window pixels:
+	# resizing the window merely rescales a fixed 1280x720 canvas, so a 640x360
+	# window would test nothing new. The faithful lever for the min-resolution
+	# case is content_scale_size, which genuinely shrinks the logical viewport to
+	# 640x360 and reflows the panel into it. The detail pane is a single scroll
+	# region above a PINNED action row, so the Craft/Build button (and the panel
+	# footer) can never be pushed off-screen no matter how tall the content. Fully
+	# self-contained: content_scale_size/aspect, inventory, built stations, panel
+	# open state, and the live station/recipe selection are all captured/restored.
+	var _cl_prev: Vector2i = get_window().content_scale_size
+	var _cl_aspect_prev: int = get_window().content_scale_aspect
+	var _cl_inv0: Dictionary = player.inventory.to_dict()
+	var _cp3 = root._craft_panel
+	var _cl_open0: bool = _cp3.is_open()
+	var _cl_built0: Dictionary = hall.stations_built.duplicate(true)
+	var _cl_stn0: String = _cp3.selected_station()
+	var _cl_rid0: String = _cp3.selected_recipe_id()
+	hall.stations_built["workbench"] = true    # so furnace/anvil prereqs read met
+	hall.stations_built["furnace"] = false     # keep furnace locked for the build card
+	player.inventory.from_dict({"wood": 6, "stone": 6})   # torch/platform/door OK; seeds short
+	player.inventory_changed.emit()
+	_cp3._selected_station = "hand"
+	_cp3._selected_recipe_id = "craft_torch"
+	_cp3.open()
+	# `expand` deliberately changes the logical height to follow the host-window
+	# aspect ratio. CI runners do not all expose a 16:9 window, so use IGNORE while
+	# exercising these two exact logical design canvases, then restore the project
+	# setting below. This tests the panel contract, not runner window geometry.
+	get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_IGNORE
+	var _cl_fail := ""
+	for _cl_sz: Vector2i in [Vector2i(1280, 720), Vector2i(640, 360)]:
+		get_window().content_scale_size = _cl_sz
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_cp3._refit()
+		_cp3.refresh()
+		await get_tree().process_frame
+		var _vp := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+		# (0) the LOGICAL viewport actually REACHED the intended size (narrow
+		# tolerance); otherwise "contained" is trivially true on a canvas that
+		# never shrank, and the 640x360 case would prove nothing.
+		if absf(_vp.size.x - float(_cl_sz.x)) > 2.0 or absf(_vp.size.y - float(_cl_sz.y)) > 2.0:
+			_cl_fail += "vp_unreached@%s(got %dx%d) " % [_cl_sz, int(_vp.size.x), int(_vp.size.y)]
+		# (1) entire outer panel (incl. its bottom border) within the viewport;
+		# detail pane + station selector within the panel.
+		if not _vp.grow(1.0).encloses(_cp3.panel_rect()):
+			_cl_fail += "panel_oob@%s " % _cl_sz
+		if not _cp3.panel_rect().grow(1.0).encloses(_cp3.detail_panel_rect()):
+			_cl_fail += "detail_oob@%s " % _cl_sz
+		if not _cp3.panel_rect().grow(1.0).encloses(_cp3.station_bar_rect()):
+			_cl_fail += "stations_oob@%s " % _cl_sz
+		# (2) the footer Close button is visible (non-degenerate) and within view.
+		var _cbr: Rect2 = _cp3.close_button_rect()
+		if _cbr.size.x < 1.0 or _cbr.size.y < 1.0 or not _vp.grow(1.0).encloses(_cbr):
+			_cl_fail += "close_oob@%s " % _cl_sz
+		# (3) Craft action VISIBLE within the viewport (a real on-screen rect, not
+		# a clipped ghost) and correctly ENABLED (torch is affordable here).
+		var _ab: Button = _cp3.action_button()
+		if _ab == null or not _ab.is_visible_in_tree() \
+				or not _vp.grow(1.0).encloses(_ab.get_global_rect()):
+			_cl_fail += "action_oob@%s " % _cl_sz
+		elif _ab.disabled:
+			_cl_fail += "action_wrongdisabled@%s " % _cl_sz
+		# (4) the pinned action row is a SIBLING BELOW the scroll, never inside it:
+		# it starts at/after the scroll's bottom and the scroll never encloses it.
+		var _dsr: Rect2 = _cp3.detail_scroll_rect()
+		var _dar: Rect2 = _cp3.detail_action_rect()
+		if _dsr.grow(1.0).encloses(_dar) or _dar.position.y < _dsr.end.y - 2.0:
+			_cl_fail += "action_in_scroll@%s " % _cl_sz
+		# (5) the detail pane has EXACTLY ONE scroll region (the outer authority);
+		# a second nested scroll would fight it and could hide the action.
+		if _cp3.detail_scroll_count() != 1:
+			_cl_fail += "detail_scrolls=%d@%s " % [_cp3.detail_scroll_count(), _cl_sz]
+		# (6) when the detail content is taller than its scroll viewport, the outer
+		# scroll actually has range to reach the overflow (never a dead clip).
+		if _cp3.detail_content_rect().size.y > _dsr.size.y + 2.0 and not _cp3.detail_scroll_has_range():
+			_cl_fail += "overflow_no_range@%s " % _cl_sz
+		# (7) compact status policy: every tile face is exactly Ready/Missing/Locked.
+		for _st: String in _cp3.tile_status_texts():
+			if _st not in ["Ready", "Missing", "Locked"]:
+				_cl_fail += "status[%s]@%s " % [_st, _cl_sz]
+		# (8) tiles clip their own children, never bleed horizontally out of the
+		# grid viewport (vertical overflow is clipped by the scroll), never overlap.
+		if not _cp3.grid_clips():
+			_cl_fail += "grid_noclip@%s " % _cl_sz
+		var _tiles: Array = _cp3.recipe_tiles()
+		var _gv: Rect2 = _cp3.grid_viewport_rect()
+		for _t in _tiles:
+			var _tb := _t as Button
+			if not _tb.clip_contents:
+				_cl_fail += "tile_noclip@%s " % _cl_sz
+			var _tr: Rect2 = _tb.get_global_rect()
+			if _tr.position.x < _gv.position.x - 2.0 or _tr.end.x > _gv.end.x + 2.0:
+				_cl_fail += "tile_hoob@%s " % _cl_sz
+		for _i in range(_tiles.size()):
+			for _j in range(_i + 1, _tiles.size()):
+				if (_tiles[_i] as Button).get_global_rect().grow(-1.0).intersects(
+						(_tiles[_j] as Button).get_global_rect().grow(-1.0)):
+					_cl_fail += "overlap@%s " % _cl_sz
+	# a short recipe correctly DISABLES the action (crop_seeds needs food we lack).
+	_cp3._selected_recipe_id = "craft_seeds"
+	_cp3.refresh()
+	await get_tree().process_frame
+	var _ab2: Button = _cp3.action_button()
+	if _ab2 == null or not _ab2.disabled:
+		_cl_fail += "short_action_not_disabled "
+	# worst case at 640x360: a LOCKED station's Build card is the tallest content;
+	# its Build action must stay reachable (on-screen + pinned outside the scroll),
+	# and if the card overflows, the single scroll must have range to reach it.
+	get_window().content_scale_size = Vector2i(640, 360)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_cp3._refit()
+	_cp3._selected_station = "furnace"
+	_cp3.refresh()
+	await get_tree().process_frame
+	var _vp2 := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+	var _bb: Button = _cp3.action_button()
+	if _bb == null or not _bb.is_visible_in_tree() or not _vp2.grow(1.0).encloses(_bb.get_global_rect()):
+		_cl_fail += "build_action_oob "
+	if _cp3.detail_scroll_rect().grow(1.0).encloses(_cp3.detail_action_rect()) \
+			or _cp3.detail_action_rect().position.y < _cp3.detail_scroll_rect().end.y - 2.0:
+		_cl_fail += "build_action_in_scroll "
+	if _cp3.detail_content_rect().size.y > _cp3.detail_scroll_rect().size.y + 2.0 \
+			and not _cp3.detail_scroll_has_range():
+		_cl_fail += "build_overflow_no_range "
+	# live resize + restore preserves the selected station/recipe.
+	_cp3._selected_station = "hand"
+	_cp3._selected_recipe_id = "craft_wood_platform"
+	_cp3.refresh()
+	get_window().content_scale_size = Vector2i(1280, 720)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_cp3._refit()
+	_cp3.refresh()
+	await get_tree().process_frame
+	if _cp3.selected_station() != "hand" or _cp3.selected_recipe_id() != "craft_wood_platform":
+		_cl_fail += "selection_lost "
+	harness._check("r07_craft_panel_layout_contract", _cl_fail == "",
+		("issues: " + _cl_fail.strip_edges()) if _cl_fail != "" else "contained + usable at 1280x720 and 640x360")
+	# restore ALL captured harness state: built stations, inventory, logical
+	# viewport (content_scale_size/aspect), selection, and panel open state; settle.
+	_cp3.close()
+	hall.stations_built = _cl_built0
+	player.inventory.from_dict(_cl_inv0)
+	player.inventory_changed.emit()
+	get_window().content_scale_size = _cl_prev
+	get_window().content_scale_aspect = _cl_aspect_prev
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_cp3._selected_station = _cl_stn0
+	_cp3._selected_recipe_id = _cl_rid0
+	if _cl_open0:
+		_cp3.open()
+		_cp3._refit()
+		_cp3.refresh()
+	await get_tree().process_frame
+
+	# --- Slice 4.2: Craft joins the centered command tray (Goal | Craft | Map |
+	# Edit). Prove the docked chip roster, that the chip and the C shortcut share
+	# ONE toggle path (identical open/close), mutual exclusion with the other
+	# panels, that the pressed state tracks every close route (chip, C, Escape,
+	# Close), the four-button tray geometry/centering, and that the six-button
+	# floating fallback is wide enough. Self-contained: every panel/craft state
+	# touched is captured and restored. ---
+	var _cc = root._craft_panel
+	var _cc_fail := ""
+	# Capture state to restore.
+	var _cc_craft0: bool = _cc.is_open()
+	var _cc_inv0: bool = hud.inventory_panel_open()
+	var _cc_skill0: bool = hud.skill_panel_open()
+	var _cc_char0: bool = hud.character_panel_open()
+	var _cc_town0: bool = hud.town_panel_open()
+	var _cc_docked: bool = hud._left_wing != null and hud._right_wing != null
+	# The C-key route is fed through game_root._unhandled_input, which early-returns
+	# under edit/workzone mode; force them off for the test and restore afterwards.
+	var _cc_edit0: bool = GameState.hud_edit_mode
+	var _cc_wz0: bool = GameState.workzone_mode
+	GameState.hud_edit_mode = false
+	GameState.workzone_mode = false
+	var _craft_btn: Button = hud._command_toggles["Craft"] as Button
+
+	# (a) docked roster: exactly Goal / Craft / Map / Edit; Crest + Events absent;
+	# the Craft chip carries the discoverable tooltip. (Only asserted when docked —
+	# the floating fallback legitimately keeps Crest/Events.)
+	var _cc_labels: Array = hud.command_toggle_labels()
+	if "Craft" not in _cc_labels:
+		_cc_fail += "no_craft_chip "
+	if hud.command_toggle_tooltip("Craft") != "Crafting (C)":
+		_cc_fail += "craft_tooltip[%s] " % hud.command_toggle_tooltip("Craft")
+	if _cc_docked:
+		if _cc_labels != ["Goal", "Craft", "Map", "Edit"]:
+			_cc_fail += "docked_labels=%s " % str(_cc_labels)
+		if "Crest" in _cc_labels or "Events" in _cc_labels:
+			_cc_fail += "crest_or_events_docked "
+
+	# (b) the CHIP and the C KEY share one path. Prove it by driving the REAL
+	# controls — flip the actual Craft toggle button (exercising its `toggled`
+	# connection) and feed a real "craft" InputEventAction through game_root's
+	# gameplay input handler — and require each to open AND close the panel while
+	# the chip's pressed state follows.
+	if _cc.is_open():
+		_cc.close()
+		await get_tree().process_frame
+	_craft_btn.button_pressed = true                   # real button -> open
+	await get_tree().process_frame
+	if not _cc.is_open() or not hud.command_toggle_pressed("Craft") or not GameState.craft_panel_open:
+		_cc_fail += "btn_open_failed "
+	_craft_btn.button_pressed = false                  # real button -> close
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "btn_close_failed "
+	_drive_craft_action(root)                          # real C action -> open
+	await get_tree().process_frame
+	if not _cc.is_open() or not hud.command_toggle_pressed("Craft"):
+		_cc_fail += "c_open_failed "
+	_drive_craft_action(root)                          # real C action -> close
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "c_close_failed "
+
+	# (c) mutual exclusion, proven INDEPENDENTLY for each panel (they also close one
+	# another, so a sequential open would leave only the last one open). For every
+	# panel: close Craft + all modals, open just that panel, open Craft via the REAL
+	# button, and assert THAT panel closed while Craft opened.
+	var _excl_panels := [
+		["Inventory", Callable(hud, "inventory_panel_open"), Callable(hud, "toggle_inventory_panel")],
+		["Character", Callable(hud, "character_panel_open"), Callable(hud, "toggle_character_panel")],
+		["Skills", Callable(hud, "skill_panel_open"), Callable(hud, "toggle_skill_panel")],
+		["TownHall", Callable(hud, "town_panel_open"), Callable(hud, "toggle_town_panel")],
+	]
+	for _ep in _excl_panels:
+		var _ep_name: String = _ep[0]
+		var _ep_open: Callable = _ep[1]
+		var _ep_toggle: Callable = _ep[2]
+		if _cc.is_open():
+			_cc.close()
+		if hud.inventory_panel_open():
+			hud.toggle_inventory_panel()
+		if hud.character_panel_open():
+			hud.toggle_character_panel()
+		if hud.skill_panel_open():
+			hud.toggle_skill_panel()
+		if hud.town_panel_open():
+			hud.toggle_town_panel()
+		await get_tree().process_frame
+		_ep_toggle.call()                              # open just this panel
+		await get_tree().process_frame
+		if not bool(_ep_open.call()):
+			_cc_fail += "excl_%s_not_open " % _ep_name
+		_craft_btn.button_pressed = true               # open Craft via the real button
+		await get_tree().process_frame
+		if not _cc.is_open() or bool(_ep_open.call()):
+			_cc_fail += "excl_%s_transition[craft=%s panel=%s] " % [_ep_name,
+				str(_cc.is_open()), str(bool(_ep_open.call()))]
+		_craft_btn.button_pressed = false              # close Craft for the next case
+		await get_tree().process_frame
+
+	# (d) the chip pressed state tracks EVERY close route: the panel Close button,
+	# Escape, the C action, and the chip itself. Each opens via the real button/C.
+	if _cc.is_open():
+		_cc.close()
+		await get_tree().process_frame
+	_craft_btn.button_pressed = true                   # open (button)
+	await get_tree().process_frame
+	if not hud.command_toggle_pressed("Craft"):
+		_cc_fail += "pressed_missing_after_open "
+	_cc._close_btn.pressed.emit()                      # close via the Close button
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "close_btn_untracked "
+	_craft_btn.button_pressed = true                   # reopen (button)
+	await get_tree().process_frame
+	var _cc_esc := InputEventAction.new()
+	_cc_esc.action = "ui_cancel"
+	_cc_esc.pressed = true
+	_cc._input(_cc_esc)                                # close via Escape
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "escape_untracked "
+	_drive_craft_action(root)                          # reopen (C action)
+	await get_tree().process_frame
+	_drive_craft_action(root)                          # close via C action
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "c_untracked "
+	_craft_btn.button_pressed = true                   # reopen (button)
+	await get_tree().process_frame
+	_craft_btn.button_pressed = false                  # close via the chip itself
+	await get_tree().process_frame
+	if _cc.is_open() or hud.command_toggle_pressed("Craft"):
+		_cc_fail += "chip_untracked "
+
+	# (e) four-button tray geometry: each 58x24, all contained + centered, union
+	# and tray centers agree within 1px, gaps balanced + compact, no overlap with
+	# hotbar / orbs / wings.
+	if _cc_docked:
+		var _tray: Rect2 = hud.command_tray_rect()
+		var _vpc := get_viewport().get_visible_rect().size
+		var _rects: Array[Rect2] = []
+		for _lbl in ["Goal", "Craft", "Map", "Edit"]:
+			var _br: Rect2 = hud.command_button_rect(_lbl)
+			_rects.append(_br)
+			if absf(_br.size.x - 58.0) > 1.0 or absf(_br.size.y - 24.0) > 1.0:
+				_cc_fail += "btn_size[%s=%s] " % [_lbl, _br.size]
+			if not _tray.grow(2.0).encloses(_br):
+				_cc_fail += "btn_oob[%s] " % _lbl
+		if not Rect2(Vector2.ZERO, _vpc).grow(1.0).encloses(_tray):
+			_cc_fail += "tray_oob "
+		# centered on the viewport (native 640) and union-vs-tray agreement.
+		var _tray_cx: float = _tray.position.x + _tray.size.x * 0.5
+		if absf(_tray_cx - _vpc.x * 0.5) > 2.0:
+			_cc_fail += "tray_offcenter[%.1f] " % _tray_cx
+		var _union_l: float = _rects[0].position.x
+		var _union_r: float = _rects[0].end.x
+		for _r in _rects:
+			_union_l = minf(_union_l, _r.position.x)
+			_union_r = maxf(_union_r, _r.end.x)
+		if absf((_union_l + _union_r) * 0.5 - _tray_cx) > 1.0:
+			_cc_fail += "union_vs_tray[%.1f/%.1f] " % [(_union_l + _union_r) * 0.5, _tray_cx]
+		# gaps between consecutive buttons: balanced (<=1px spread) and compact (~4px).
+		var _gaps: Array[float] = []
+		for _gi in range(3):
+			_gaps.append(_rects[_gi + 1].position.x - _rects[_gi].end.x)
+		var _gmin: float = _gaps[0]
+		var _gmax: float = _gaps[0]
+		for _g in _gaps:
+			_gmin = minf(_gmin, _g)
+			_gmax = maxf(_gmax, _g)
+		if _gmax - _gmin > 1.0 or _gmax > 6.0 or _gmin < 2.0:
+			_cc_fail += "gaps=%s " % str(_gaps)
+		# no overlap with the hotbar slots, orbs, or wings.
+		for _nb in hud.command_tray_neighbor_rects():
+			if _tray.grow(-1.0).intersects((_nb as Rect2).grow(-1.0)):
+				_cc_fail += "tray_overlap "
+				break
+
+	# (f) reset/restore uses the new authoritative rectangle (504,132,272,44), not
+	# the stale [458,132,364,44]; the tray stays centered afterwards.
+	var _kit_layout: Dictionary = hud._load_hud_kit_layout()
+	var _auth_rect: Rect2 = hud._json_rect(_kit_layout.get("module_toolbar_rect"))
+	if _auth_rect != Rect2(Vector2(504.0, 132.0), Vector2(272.0, 44.0)):
+		_cc_fail += "authority_rect=%s " % str(_auth_rect)
+	if _cc_docked:
+		hud._restore_native_module_toolbar_rect()
+		await get_tree().process_frame
+		var _tray2: Rect2 = hud.command_tray_rect()
+		var _vpc2 := get_viewport().get_visible_rect().size
+		if absf(_tray2.position.x + _tray2.size.x * 0.5 - _vpc2.x * 0.5) > 2.0:
+			_cc_fail += "restore_offcenter "
+
+	# (g) the six-button floating fallback is wide enough to contain all six chips
+	# (union = 6*54 + 5*4) with room for the frame — never a clipped width.
+	var _fb_w: float = hud.fallback_command_center_width(6)
+	if _fb_w < 6.0 * 54.0 + 5.0 * 4.0:
+		_cc_fail += "fallback_clips6[%.1f] " % _fb_w
+
+	harness._check("r07_craft_command_chip", _cc_fail == "",
+		("issues: " + _cc_fail.strip_edges()) if _cc_fail != "" \
+			else "Craft chip: docked roster, shared C/chip toggle, exclusion, all close paths tracked, tray centered, fallback fits 6")
+
+	# restore panel/craft state touched above.
+	if _cc.is_open():
+		_cc.close()
+	if hud.inventory_panel_open() != _cc_inv0:
+		hud.toggle_inventory_panel()
+	if hud.skill_panel_open() != _cc_skill0:
+		hud.toggle_skill_panel()
+	if hud.character_panel_open() != _cc_char0:
+		hud.toggle_character_panel()
+	if hud.town_panel_open() != _cc_town0:
+		hud.toggle_town_panel()
+	if _cc_craft0:
+		_cc.open()
+	GameState.hud_edit_mode = _cc_edit0
+	GameState.workzone_mode = _cc_wz0
+	await get_tree().process_frame
+
 	# --- 2026-08-18: the mouse wheel must not re-zoom the world while a scrolling
 	# menu is open (HUD editor / crafting / any inventory-class modal); it zooms only
 	# in free play. Drive game_root._handle_view_input with a synthetic wheel event
@@ -422,3 +804,55 @@ func run(ctx) -> void:
 	_wz_prof["view_zoom"] = _wz_saved0
 	harness._check("s07_wheel_zoom_swallowed_in_menus", _wz_ok,
 		"wheel swallowed under each menu flag + still zooms with all menus closed")
+
+	# --- Above-ground jitter fix (2026-08-21) ---
+	# The player moves in _physics_process; without 2D physics interpolation the body
+	# only advanced at the physics tick while the smoothed Camera2D re-followed every
+	# RENDER frame, so the character shimmered against the world (worst on the vertical
+	# velocity swings of a jump). The systemic fix is engine-level physics interpolation,
+	# which the whole presentation now leans on — so guard the invariant: it must stay ON,
+	# the camera's position smoothing (the smooth follow the fix preserves rather than
+	# disabling) must stay ON, and the player must expose an interpolation-safe teleport()
+	# that repositions + clears velocity without the visible cross-world sweep a bare
+	# `global_position =` now causes. (The interpolation snapshot reset is a visual-only op
+	# that can't be sampled headless, but the reposition contract can, and a regression
+	# that flips the setting off is caught.)
+	var _pi_on: bool = bool(ProjectSettings.get_setting("physics/common/physics_interpolation", false))
+	var _pi_cam: Camera2D = player.get_node_or_null("Camera2D")
+	var _pi_smooth: bool = _pi_cam != null and _pi_cam.position_smoothing_enabled
+	# The load-bearing pairing: with interpolation ON the camera MUST smooth on the
+	# physics clock (CAMERA2D_PROCESS_PHYSICS = 0), else its smoothing runs on the render
+	# clock over non-interpolated positions while the player renders interpolated — they
+	# diverge and the character jitters, worst while jumping. Default IDLE is the bug.
+	var _pi_cam_physics: bool = _pi_cam != null \
+		and _pi_cam.process_callback == Camera2D.CAMERA2D_PROCESS_PHYSICS
+	var _pi_has_teleport: bool = player.has_method("teleport")
+	var _pi_prev_pos: Vector2 = player.global_position
+	var _pi_prev_vel: Vector2 = player.velocity
+	player.velocity = Vector2(123.0, -45.0)
+	var _pi_dest: Vector2 = _pi_prev_pos + Vector2(200.0, -80.0)
+	player.teleport(_pi_dest)
+	# The fog-veil rim reads the INTERPOLATED render position; after a teleport its mirror
+	# must be collapsed onto the destination (no cross-world sweep of the sight circle).
+	var _pi_render_ok: bool = player.has_method("render_global_position") \
+		and (player.render_global_position() as Vector2).is_equal_approx(_pi_dest)
+	var _pi_moved: bool = player.global_position.is_equal_approx(_pi_dest) \
+		and player.velocity == Vector2.ZERO
+	player.teleport(_pi_prev_pos)        # restore prior position for later modules
+	player.velocity = _pi_prev_vel
+	harness._check("jitter_physics_interpolation_and_safe_teleport",
+		_pi_on and _pi_smooth and _pi_cam_physics and _pi_has_teleport and _pi_moved \
+			and _pi_render_ok,
+		"interp=%s smoothing=%s cam_physics=%s teleport=%s moved=%s render=%s" % [str(_pi_on),
+			str(_pi_smooth), str(_pi_cam_physics), str(_pi_has_teleport), str(_pi_moved),
+			str(_pi_render_ok)])
+
+
+## Slice 4.2: feed a real "craft" action through the SAME gameplay input handler
+## the C key reaches (game_root._unhandled_input), proving the input mapping — not
+## just the shared method — routes to the crafting toggle.
+func _drive_craft_action(root) -> void:
+	var ev := InputEventAction.new()
+	ev.action = "craft"
+	ev.pressed = true
+	root._unhandled_input(ev)

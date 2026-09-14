@@ -2,13 +2,13 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Ancestry` page. Current status: `planned`.
+> `Ancestry` page. Current status: `live`.
 
 | Field | Value |
 |---|---|
 | ID | `goblin` |
 | Page type | Ancestry |
-| Status | planned |
+| Status | live |
 | Implementation phase | B |
 | Implementation priority | 4 |
 | Spawn band | surface_shallow |
@@ -52,11 +52,10 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 
 | Bucket | Effect | Value |
 |---|---|---|
-| player_effects | hitbox_reduction | 0.7 |
-| player_effects | trap_cost_reduction | 0.7 |
-| player_effects | material_recovery_chance | 0.25 |
+| player_effects | dark_sight | 3 |
+| player_effects | move_speed_mult | 1.12 |
 | player_effects | health_reduction | 0.8 |
-| player_effects | notes | ['smaller hitbox', 'cheaper traps', 'material recovery chance', 'lower health'] |
+| player_effects | notes | [] |
 | settlement_effects | repair_cost_reduction | 0.7 |
 | settlement_effects | trap_cost_reduction_settlement | 0.7 |
 | settlement_effects | salvage_resilience_bonus | 1.1 |

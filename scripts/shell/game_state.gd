@@ -189,7 +189,14 @@ func _json_object_or_null(path: String) -> Variant:
 	var text := FileAccess.get_file_as_string(path)
 	if text.strip_edges() == "":
 		return null
-	var parsed = JSON.parse_string(text)
+	# Use the instance parser, not JSON.parse_string(): a corrupt save is an
+	# expected, recovered path here (see _load_json_recover), so it must NOT emit
+	# an engine "Parse JSON failed" ERROR. JSON.parse_string() push_errors to the
+	# log on bad input; JSON.new().parse() returns the code silently instead.
+	var json := JSON.new()
+	if json.parse(text) != OK:
+		return null
+	var parsed: Variant = json.data
 	return parsed if parsed is Dictionary else null
 
 

@@ -2,13 +2,13 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Ancestry` page. Current status: `planned`.
+> `Ancestry` page. Current status: `design_only`.
 
 | Field | Value |
 |---|---|
 | ID | `deep_gnome` |
 | Page type | Ancestry |
-| Status | planned |
+| Status | design_only |
 | Implementation phase | D |
 | Implementation priority | None |
 | Spawn band | underground |
@@ -28,6 +28,7 @@ No authored ancestry body art is currently attached to this entry.
 
 | Bucket | Effect | Value |
 |---|---|---|
+| player_effects | dark_sight | 5 |
 | player_effects | crystal_machine_bonus | 1.15 |
 | player_effects | precision_crafting_mult | 1.2 |
 | player_effects | automation_bonus_deep | 1.15 |

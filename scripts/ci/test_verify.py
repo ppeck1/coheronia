@@ -11,10 +11,12 @@ Run:  python scripts/ci/test_verify.py       (or: python -m unittest -v)
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import verify  # noqa: E402
@@ -85,6 +87,55 @@ class FatalMarkerTests(unittest.TestCase):
     def test_detects_each_fatal_marker(self):
         for marker in verify.FATAL_MARKERS:
             self.assertIn(marker, verify.scan_fatal_markers(f"...{marker}..."))
+
+
+class LifecycleLeakTests(unittest.TestCase):
+    def test_clean_output_has_no_leaks(self):
+        self.assertEqual(verify.scan_lifecycle_leaks("SMOKE PASS: all good\n"), [])
+
+    def test_detects_rid_objectdb_and_resource_leaks(self):
+        # The exact four lines a leaking smoke printed before the balance-report
+        # fake-node teardown fix. Godot logs two at WARNING level, so the scan
+        # must not depend on the ERROR prefix.
+        text = (
+            "ERROR: 3 RID allocations of type 'P11GodotBody2D' were leaked at exit.\n"
+            'WARNING: 6 RIDs of type "CanvasItem" were leaked.\n'
+            "WARNING: ObjectDB instances leaked at exit (run with --verbose ...).\n"
+            "ERROR: 1 resources still in use at exit (run with --verbose ...).\n")
+        self.assertEqual(len(verify.scan_lifecycle_leaks(text)), 4)
+
+
+class UnexpectedErrorTests(unittest.TestCase):
+    def test_no_allowlist_json_error_is_flagged(self):
+        # There is deliberately no allowlist: corrupt-save recovery is silent at
+        # the source (game_state uses JSON.new().parse()), so a surviving
+        # "Parse JSON failed" ERROR is unexpected and must be flagged.
+        text = "ERROR: Parse JSON failed. Error at line 0: Expected key\n"
+        self.assertEqual(len(verify.scan_unexpected_errors(text)), 1)
+
+    def test_leak_and_fatal_lines_not_double_reported(self):
+        text = ("ERROR: 3 RID allocations of type 'X' were leaked at exit.\n"
+                "SCRIPT ERROR: Parse Error\n")
+        self.assertEqual(verify.scan_unexpected_errors(text), [])
+
+    def test_genuine_error_is_flagged(self):
+        self.assertEqual(
+            len(verify.scan_unexpected_errors("ERROR: Some genuine engine failure\n")), 1)
+
+
+class SmokeRuntimeArgsTests(unittest.TestCase):
+    def test_ci_safe_renderer_and_audio_are_explicit(self):
+        self.assertEqual(verify.SMOKE_RUNTIME_ARGS, [
+            "--rendering-method", "gl_compatibility",
+            "--rendering-driver", "opengl3",
+            "--audio-driver", "Dummy",
+        ])
+
+    def test_verbose_shutdown_diagnostics_are_opt_in(self):
+        with mock.patch.dict(os.environ, {"COHERONIA_GODOT_VERBOSE": "1"}):
+            self.assertEqual(verify.smoke_runtime_args()[0], "--verbose")
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertNotIn("--verbose", verify.smoke_runtime_args())
 
 
 class ValidateResultTests(unittest.TestCase):
@@ -171,6 +222,27 @@ class EvaluateRunTests(unittest.TestCase):
                 expected_commit=COMMIT)
             self.assertTrue(any("fatal marker" in m for m in msgs))
 
+    def test_lifecycle_leak_with_pass_json_fails(self):
+        # rc == 0 and JSON says PASS, but the process leaked at exit -> fail closed.
+        with ResultFixture(make_result(["a", "b"])) as path:
+            out = ("ERROR: 3 RID allocations of type 'X' were leaked at exit.\n"
+                   "SMOKE PASS\n")
+            msgs = verify.evaluate_run("SRC", 0, out, path, expected_commit=COMMIT)
+            self.assertTrue(any("lifecycle leak" in m for m in msgs))
+
+    def test_unexpected_error_with_pass_json_fails(self):
+        with ResultFixture(make_result(["a", "b"])) as path:
+            out = "ERROR: unexpected engine failure\nSMOKE PASS\n"
+            msgs = verify.evaluate_run("SRC", 0, out, path, expected_commit=COMMIT)
+            self.assertTrue(any("unexpected Godot error" in m for m in msgs))
+
+    def test_json_error_now_fails_run(self):
+        # With the allowlist removed, a "Parse JSON failed" ERROR fails the run.
+        with ResultFixture(make_result(["a", "b"])) as path:
+            out = "ERROR: Parse JSON failed. Error at line 0: Expected key\nSMOKE PASS\n"
+            msgs = verify.evaluate_run("SRC", 0, out, path, expected_commit=COMMIT)
+            self.assertTrue(any("unexpected Godot error" in m for m in msgs))
+
     def test_stale_missing_result_fails(self):
         # prepare_results deletes any prior file; if the run writes none, the
         # missing file is a hard failure (proves "written by this invocation").
@@ -200,6 +272,33 @@ class EvaluateRunTests(unittest.TestCase):
                 verify.evaluate_run("EXPORT", 0, "SMOKE PASS\n", path,
                                     expected_commit=COMMIT,
                                     exact_skip_allowlist=allow), [])
+
+
+class ProjectVersionTests(unittest.TestCase):
+    def test_valid_prerelease(self):
+        self.assertEqual(
+            verify.parse_project_version('config/version="0.7.0-alpha"'), "0.7.0-alpha")
+
+    def test_valid_plain(self):
+        self.assertEqual(
+            verify.parse_project_version('[application]\nconfig/version="1.2.3"\n'), "1.2.3")
+
+    def test_missing_key_raises(self):
+        with self.assertRaises(ValueError):
+            verify.parse_project_version('config/name="Coheronia"\nconfig/features="4.6"\n')
+
+    def test_malformed_raises(self):
+        with self.assertRaises(ValueError):
+            verify.parse_project_version('config/version="0.7"\n')
+
+    def test_empty_value_raises(self):
+        with self.assertRaises(ValueError):
+            verify.parse_project_version('config/version=""\n')
+
+    def test_does_not_match_config_features(self):
+        # A near-miss key must not be mistaken for config/version.
+        with self.assertRaises(ValueError):
+            verify.parse_project_version('config/version_note="1.0.0"\n')
 
 
 class PrepareResultsTests(unittest.TestCase):

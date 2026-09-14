@@ -38,6 +38,41 @@ const STORM_TINT := Color(0.55, 0.58, 0.66)
 # torches/lanterns/the pulse stay the readable local lights.
 const CAVE_TINT := Color(0.10, 0.11, 0.16)
 const CAVE_FADE_CELLS := 6.0   # smooth band below the local sky line
+# Perception + Resonance (fog-of-war veil; ON by default via the `fog_of_war` world rule,
+# suppressed under the dev harnesses). Sight radius in cells:
+# a base LOS range, widened in open daylight and pinched at night/underground. These
+# are prototype values, tuned in the Phase A readability playtest.
+const PERCEPTION_RADIUS_BASE := 18
+const PERCEPTION_RADIUS_DAYLIGHT_BONUS := 8
+const PERCEPTION_EDGE_TILES := 3.0   # width of the soft radial sight rim, in cells
+# Perception + Resonance (Phase B): the Attunement pulse reveals nearby objects of
+# interest as temporary contours. Detection reach in cells (× the Calling pulse-radius
+# multiplier), and per-category caps so a lava lake or crowd never floods the screen.
+const RESONANCE_BASE_RADIUS_CELLS := 12
+# The SINGLE authority for how long a resonance highlight lasts — intentionally longer
+# than the Attunement light pulse (data-driven, ~4 s): the light is a brief flash, the
+# detection lingers so you can act on what it revealed. Balance (Phase D) tunes this and
+# may move it to data alongside the pulse fields.
+const RESONANCE_DURATION_SEC := 10.0
+const RESONANCE_ENTITY_CAP := 24
+const RESONANCE_CELL_CAP := 6000                            # safety bound on batched terrain cells
+# Entity highlights RECOLOUR the sprite toward these marks (shader, masked to silhouette),
+# so they are saturated hues (not multiply-tints): a strong red enemy, a yellow settler.
+const RESONANCE_HOSTILE_MARK := Color(1.0, 0.13, 0.10)      # threats — red
+const RESONANCE_ALLY_MARK := Color(0.25, 1.0, 0.35)         # settlers — green
+const RESONANCE_ITEM_MARK := Color(1.0, 0.78, 0.22)         # drops — gold
+const RESONANCE_ENTITY_BRIGHTEN := 1.7                      # extra brightness at full mark
+# Per-category fill opacity for terrain cells (ore kept subtle so a vein doesn't glow).
+const RESONANCE_INTERACT_STRENGTH := 0.85
+const RESONANCE_HAZARD_STRENGTH := 0.7
+const RESONANCE_ORE_STRENGTH := 0.4
+# Terrain highlights ADDITIVELY fill the cell, so these are ordinary (<=1) hues.
+const RESONANCE_STRUCTURE_COLOR := Color(0.55, 0.82, 1.0)   # doors/stations — cyan
+const RESONANCE_HALL_COLOR := Color(0.25, 1.0, 0.35)        # town hall — green (matches settlers)
+const RESONANCE_HAZARD_COLOR := Color(1.0, 0.6, 0.28)       # liquids — amber
+const RESONANCE_ORE_COLOR := Color(0.85, 0.75, 0.35)        # ore veins — warm gold
+const RESONANCE_STATUS_COLOR := Color(0.6, 0.85, 1.0)       # the "Resonance" status chip
+const ResonanceContourScript := preload("res://scripts/fx/resonance_contour.gd")
 # WD-3: the deepest stratum glows an ember red. The ambient tint multiplies the
 # scene, so a red-dominant dark tint reads as red-lit gloom; lava adds its own
 # emitted light on top.
@@ -79,6 +114,33 @@ var time_of_day := 0.25
 # when the character moved. Ease it at the same rate as the global tint so the two
 # depth models stay in step and the background never snaps. -1.0 = not yet primed.
 var _viewer_darkness_smooth := -1.0
+# Perception + Resonance: last cell and effective integer LOS radius used to compute
+# the perception mask. Either changing invalidates LOS; sentinels mean not primed.
+var _perception_last_cell := Vector2i(2147483647, 2147483647)
+var _perception_last_los_radius := -1
+# Perception + Resonance (Phase B): world-canvas container the pulse contours draw in
+# (pixel-locked to terrain, kept bright through the CanvasModulate by _sync_resonance_ambient
+# — see _ready), and the set of terrain block ids the pulse treats as interactables (doors,
+# craft stations, town hall). Built once in _ready.
+var _resonance_layer: Node2D
+var _resonance_interest_blocks: Dictionary = {}
+var _resonance_ore_blocks: Dictionary = {}
+var _resonance_highlights: Dictionary = {}   # entity instance_id -> active highlight node
+var _resonance_forced_last := false          # had forced-visible entities last frame
+# Perception + Resonance (Phase B travel): a pulse's highlight TRAVELS with the
+# character for its whole life — while `_resonance_remaining` > 0 the marked region is
+# re-scanned around the moving character (throttled), refreshing the terrain batch and
+# adding newly in-range entities, so walking into a new area keeps revealing objects
+# instead of leaving a stagnant snapshot where the pulse first fired.
+var _resonance_terrain_node: Node2D = null   # the single batched terrain highlight for the live pulse
+var _resonance_remaining := 0.0              # seconds left on the live pulse (0 == none active)
+var _resonance_travel_accum := 0.0           # throttle accumulator for the travel re-scan
+var _resonance_last_scan_cell := Vector2i(2147483647, 2147483647)  # cell last re-scanned at
+const RESONANCE_TRAVEL_INTERVAL := 0.2       # seconds between travel re-scans
+const RESONANCE_ENTITY_TOTAL_CAP := 48       # bound on entities kept lit across a whole travel
+# Generic timed status effects + their HUD element. Effects register via
+# add_status_effect(); _tick_status_effects counts them down and drives the widget.
+var _status_effects: Array = []              # [{id,label,color,remaining,duration}]; HUD owns the widget
 var _celestial: Node2D   # M5-A: sun/moon sky renderer (presentation-only)
 # Per-NPC work-zone drag assignment (feedback): a modal mode where two world clicks
 # define the rectangle a settler works in. A world-space preview draws the pending rect.
@@ -152,6 +214,10 @@ func _ready() -> void:
 	_load_character_carried_state(saved_state)
 	# Grant role starter items once per character (flag prevents duplication).
 	_grant_role_items()
+	# Toolbar invariant: seed a brand-new character's default dock from the items
+	# it now possesses (the grant lands after the carried state loads, so the
+	# earlier reconcile ran against an empty backpack).
+	_finalize_starter_dock()
 	_position_actors()
 	if not saved_state.is_empty():
 		# Saved player position overrides the default spawn.
@@ -162,12 +228,28 @@ func _ready() -> void:
 	# local sky line (minus the viewer's depth), so a mined cross-section viewed
 	# from the surface finally reads dark instead of lit-from-the-surface.
 	world.enable_cave_depth_shading(CAVE_TINT, CAVE_FADE_CELLS)
+	# Perception + Resonance arc: the veil follows the `fog_of_war` world rule (ON by
+	# default; the dev harnesses suppress it so their evidence stays byte-identical). A
+	# restored seen set was stashed into
+	# world by apply_state above; enable_perception adopts it, then we seed LOS from
+	# the player's spawn cell.
+	if _perception_should_enable():
+		world.enable_perception()
+		var _p0: Vector2i = world.cell_of(player.global_position)
+		var _visual_radius := _perception_radius()
+		var _los_radius := _visual_radius + int(PERCEPTION_EDGE_TILES) + 1
+		world.update_perception(_p0, _los_radius)
+		world.set_perception_view(player.global_position,
+			float(_visual_radius) * float(world.tile_size()),
+			PERCEPTION_EDGE_TILES * float(world.tile_size()))
+		_perception_last_cell = _p0
+		_perception_last_los_radius = _los_radius
 	hud.update_inventory()
 	hud.update_health(player.health, player.max_health)
 	hud.update_attunement(player.attunement, player.max_attunement())
 	hud.update_breath(player.breath, player.max_breath())
 	_refresh_hud_progression()
-	log_event("Welcome to Coheronia. Shelter and light the Town Hall.")
+	log_event("Welcome to Coheronia. Shelter and light the Town Hall.", "Welcome", "crest")
 	hud.set_save_hint(save_manager.has_save())
 	settlement.compute()
 	contracts.evaluate()   # R-09: latch any active contract already satisfied on load
@@ -184,6 +266,13 @@ func _ready() -> void:
 	# it tracks the aim cell but is NOT dimmed by the world's day/night/cave
 	# CanvasModulate (otherwise the ghost vanishes underground). Layer 0 sits above
 	# the root world canvas and below the HUD (layer 1).
+	# Jitter (2026-08-21): with 2D physics interpolation now enabled engine-wide, this
+	# follow_viewport layer derives its scroll from the SAME interpolated camera
+	# transform as the world canvas each render frame, so the quantized (cell-snapped)
+	# ghost stays pixel-locked to terrain — it no longer needs to move into the world
+	# canvas (which would re-introduce the underground CanvasModulate dimming this layer
+	# exists to dodge). Left here deliberately; revisit only if a preview shimmer is
+	# observed, in which case mirror the resonance container's ambient-divide trick.
 	var _preview_layer := CanvasLayer.new()
 	_preview_layer.name = "BuildPreviewLayer"
 	_preview_layer.follow_viewport_enabled = true
@@ -192,6 +281,30 @@ func _ready() -> void:
 	_build_preview = BuildPreviewScript.new()
 	_preview_layer.add_child(_build_preview)
 	_build_preview.setup(player, world)
+	# Perception + Resonance (Phase B): a container for the pulse's terrain-highlight
+	# contours. It lives IN THE WORLD CANVAS (child of `world`, z above terrain) — the
+	# SAME canvas the tiles render in — so the fills are pixel-locked to the terrain and
+	# cannot jitter against the smoothed player camera. (The systemic above-ground jump
+	# jitter — a body stepping at the physics tick under a camera that re-smoothed every
+	# render frame — is now fixed engine-wide by 2D physics interpolation; this
+	# world-canvas placement remains as strictly-correct, belt-and-suspenders pixel
+	# locking and is preserved per the 917e045 fix.) To stay bright
+	# through the day/night + cave-darkness CanvasModulate that dims this canvas, we
+	# pre-divide the container by the live ambient (_sync_resonance_ambient), exactly like
+	# the celestial sun/moon renderer. Interest-block set = craft stations + doors + hall.
+	_resonance_layer = Node2D.new()
+	_resonance_layer.name = "ResonanceContours"
+	_resonance_layer.z_index = 80          # above terrain; matches the contour nodes' own z
+	_resonance_layer.z_as_relative = false
+	_resonance_layer.light_mask = 0
+	world.add_child(_resonance_layer)
+	_sync_resonance_ambient()
+	for _res_static_id in ["door", "door_open", "town_hall_core"]:
+		_resonance_interest_blocks[_res_static_id] = true
+	for _res_station in BlockRegistry.station_defs():
+		_resonance_interest_blocks[str((_res_station as Dictionary).get("id", ""))] = true
+	for _res_ore in world.ORE_IDS:
+		_resonance_ore_blocks[str(_res_ore)] = true
 	# R-07: the unified crafting panel (C). Crafting/building lives here; the Town
 	# Hall panel keeps only Repair.
 	_craft_panel = CraftPanelScript.new()
@@ -199,6 +312,9 @@ func _ready() -> void:
 	_craft_panel.setup(player, town_hall)
 	_craft_panel.craft_requested.connect(_on_craft_panel_craft)
 	_craft_panel.build_requested.connect(_on_craft_panel_build)
+	# Slice 4.2: the panel drives the docked Craft chip's pressed state through
+	# every open/close route (chip, C, Escape, Close). hud exists by now.
+	_craft_panel.open_changed.connect(hud.set_craft_open)
 	_contracts_panel = ContractsPanelScript.new()
 	add_child(_contracts_panel)
 	_contracts_panel.setup(self)
@@ -261,7 +377,14 @@ func _grant_role_items() -> void:
 ## Wave F: reads carried_tool_tiers dict {pick, axe}; old chars with only
 ## carried_tool_tier migrate to {pick: N, axe: 0} (the axe must be crafted).
 ## Always calls inventory_changed so the HUD refreshes.
+## Set when this character has no saved dock row yet (fresh/legacy): its default
+## dock is (re)seeded from possessed items after the starter grant, since the
+## grant happens after the carried state loads. See _finalize_starter_dock().
+var _starter_dock_pending := false
+
+
 func _load_character_carried_state(saved_state: Dictionary) -> void:
+	_starter_dock_pending = false
 	if GameState.current_character.is_empty():
 		player.inventory.from_dict({})
 		player.inventory.set_layout([])
@@ -309,6 +432,9 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 				player.dock_assignments_to_array())
 	else:
 		# Legacy character (no carried_inventory key): migrate from world save once.
+		# No saved dock row exists yet, so the default dock is seeded from the
+		# items the character actually possesses after the grant below.
+		_starter_dock_pending = true
 		var legacy: Dictionary = save_manager.legacy_player_carried(saved_state)
 		var migrated_from_world := not legacy.is_empty()
 		if migrated_from_world:
@@ -346,6 +472,19 @@ func _load_character_carried_state(saved_state: Dictionary) -> void:
 			GameState.mark_items_granted(char_id)
 	_migrate_legacy_pick_token()
 	player.inventory_changed.emit()
+
+
+## Toolbar invariant closeout for world entry. A character with no saved dock
+## row (fresh/legacy) gets the default dock (re)applied now that its starter
+## items exist, then reconciled so only possessed defaults remain. A returning
+## character keeps its saved dock (already reconciled on load); this only
+## reconciles it once more as a final invariant pass. No dock is ever
+## auto-populated with items the character does not hold.
+func _finalize_starter_dock() -> void:
+	if _starter_dock_pending:
+		player.set_dock_assignments(GameState.default_dock_assignments())
+		_starter_dock_pending = false
+	player.reconcile_dock()
 
 
 ## Wave B/F: applies the current character's carried state to the player.
@@ -450,9 +589,10 @@ func _refresh_goals() -> void:
 		var goal: Dictionary = _goal_tracker.current()
 		hud.update_goal(goal)
 		if newly and not bool(goal.get("all_done", false)):
-			log_event("Goal: %s" % str(goal.get("text", "")))
+			log_event("Goal: %s" % str(goal.get("text", "")), "New goal", "goal")
 		elif newly:
-			log_event("All starting goals complete — the settlement stands.")
+			log_event("All starting goals complete — the settlement stands.",
+				"Goals complete", "goal")
 
 
 ## FQ-15: everything the map panel needs, computed on demand (when the panel is
@@ -561,8 +701,14 @@ func _wire_references() -> void:
 
 
 func _wire_signals() -> void:
+	# Toolbar invariant: reconcile the dock against authoritative inventory BEFORE
+	# the HUD renders it, so an exhausted (count 0) or no-longer-assignable item is
+	# cleared from every dock slot on the same mutation that emptied it. The player
+	# owns the mutation; the HUD only renders the reconciled state.
+	player.inventory_changed.connect(player.reconcile_dock)
 	player.inventory_changed.connect(hud.update_inventory)
-	player.items_picked_up.connect(hud.notify_pickup)   # R-08 slice 3: pickup toast
+	# Routine ground pickups refresh inventory/hotbar counts (via inventory_changed); they
+	# no longer raise a screen-space toast, so there is no HUD listener on items_picked_up.
 	player.health_changed.connect(hud.update_health)
 	player.attunement_changed.connect(hud.update_attunement)
 	player.breath_changed.connect(hud.update_breath)
@@ -570,6 +716,7 @@ func _wire_signals() -> void:
 	player.crafted.connect(_on_player_crafted)
 	player.placed.connect(_on_player_placed)
 	player.player_event.connect(log_event)
+	player.attunement_pulsed.connect(_on_attunement_resonance)   # Phase B: resonance ping
 	town_hall.stockpile_changed.connect(func() -> void:
 		hud.update_inventory()
 		settlement.compute()
@@ -594,6 +741,9 @@ func _wire_signals() -> void:
 	player.npc_inspected.connect(hud.open_npc_panel)                       # citizen panel from a world click
 	hud.withdraw_requested.connect(_on_withdraw_requested)           # M2 stockpile withdraw
 	hud.withdraw_all_requested.connect(_on_withdraw_all_requested)
+	# Slice 4.2: the HUD Craft chip and the C shortcut share one toggle path.
+	# (The panel->chip open_changed link is wired where _craft_panel is built.)
+	hud.craft_requested.connect(_toggle_crafting_panel)
 
 
 func _position_actors() -> void:
@@ -608,6 +758,13 @@ func _position_actors() -> void:
 	camera.limit_top = -200
 	# Apply the player's saved view zoom (how much of the world is on screen).
 	DisplaySettings.apply_zoom(GameState.profile, camera)
+	# World entry: the player was just placed with a direct global_position. Under 2D
+	# physics interpolation reset the body's interpolation snapshot and the camera
+	# smoothing here, so the opening frame shows the player at the Town Hall rather than
+	# sweeping in from the origin.
+	player.reset_physics_interpolation()
+	camera.reset_smoothing()
+	camera.reset_physics_interpolation()
 
 
 const _DEPTH_CHECK_INTERVAL := 3.0
@@ -615,6 +772,9 @@ const _DEPTH_CHECK_INTERVAL := 3.0
 func _process(delta: float) -> void:
 	_advance_time(delta)
 	_advance_cave_spawns(delta)
+	_tick_status_effects(delta)
+	_advance_resonance_travel(delta)
+	_reconcile_resonance_visibility()
 	_depth_check_timer += delta
 	if _depth_check_timer >= _DEPTH_CHECK_INTERVAL:
 		_depth_check_timer = 0.0
@@ -628,11 +788,6 @@ func _process(delta: float) -> void:
 		if _map_refresh_timer >= 0.3:
 			_map_refresh_timer = 0.0
 			hud.update_map(map_snapshot())
-	# FQ-19: contextual interaction prompt — shown only while the Town Hall is
-	# actually in interact range and no modal panel already owns the screen.
-	var _near_hall: bool = not hud.town_panel_open() \
-		and player.global_position.distance_to(town_hall.global_position) <= INTERACT_RANGE
-	hud.set_interaction_prompt("[E] Town Hall" if _near_hall else "")
 	if GameState.workzone_mode and _workzone_preview != null:
 		_workzone_preview.queue_redraw()   # follow the aim cell while dragging the zone
 
@@ -651,7 +806,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		if save_manager.save_game():
 			log_event("Game saved (F5).")
 			hud.set_save_hint(true)
-			hud.notify_saved()
 		else:
 			log_event("Save failed.")
 	elif event.is_action_pressed("load_game"):
@@ -689,16 +843,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_try_interact()
 	elif event.is_action_pressed("craft"):
 		# R-07: C opens the unified crafting panel (replaces the old instant torch).
-		if hud.inventory_panel_open():
-			hud.toggle_inventory_panel()
-		if hud.skill_panel_open():
-			hud.toggle_skill_panel()
-		if hud.character_panel_open():
-			hud.toggle_character_panel()
-		if hud.town_panel_open():
-			hud.toggle_town_panel()
-		if _craft_panel != null:
-			_craft_panel.toggle()
+		# Slice 4.2: both C and the HUD Craft chip route through one shared path.
+		_toggle_crafting_panel()
 	elif event.is_action_pressed("ui_cancel"):
 		# R-07: Esc closes an open panel first; otherwise it opens the pause menu
 		# (which freezes the sim and offers Resume/Settings/Save/Save & Quit)
@@ -774,7 +920,6 @@ func _on_pause_save() -> void:
 	if ok:
 		log_event("Game saved.")
 		hud.set_save_hint(true)
-		hud.notify_saved()
 	else:
 		log_event("Save failed.")
 	if _pause_menu != null:
@@ -833,6 +978,7 @@ func _advance_time(delta: float) -> void:
 	canvas_modulate.color = canvas_modulate.color.lerp(ambient_target_color(), delta * 1.5)
 	if _celestial != null:
 		_celestial.set_ambient(canvas_modulate.color)   # keep the world-canvas sky bodies bright
+	_sync_resonance_ambient()   # ...and the world-canvas resonance fills bright through the tint
 	# Feed the same viewer-depth factor to the per-column depth shader so it only
 	# darkens terrain DEEPER than the player (no double-dim with the tint above).
 	# Eased like the tint above (first frame snaps to avoid a fade-in from black) so
@@ -848,6 +994,332 @@ func _advance_time(delta: float) -> void:
 	# vertical shaft) keeps its ambient light. Presentation-only.
 	if _celestial != null:
 		world.set_sky_admission(_celestial.sky_direction(), _celestial.sky_admit_strength())
+	# Perception + Resonance: recompute line of sight when the character crosses a
+	# tile boundary OR the effective integer radius changes as darkness eases. Resolve
+	# the visual radius once so the mask and shader use the same value this frame.
+	# The mask is computed a few cells BEYOND the visual radius so the smooth radial
+	# rim (below) fades within marked terrain, never against a hard mask edge.
+	if world.perception_enabled():
+		var _pcell: Vector2i = world.cell_of(player.global_position)
+		var _visual_radius := _perception_radius()
+		var _los_radius := _visual_radius + int(PERCEPTION_EDGE_TILES) + 1
+		if _pcell != _perception_last_cell or _los_radius != _perception_last_los_radius:
+			_perception_last_cell = _pcell
+			_perception_last_los_radius = _los_radius
+			world.update_perception(_pcell, _los_radius)
+		# Smooth per-pixel FOV rim, updated every frame so it glides with the character.
+		# Use the INTERPOLATED render position, not the stepped logical global_position:
+		# the rim is a world-space circle, so a per-physics-tick origin shimmers against
+		# the interpolated player/terrain every render frame (the fog-of-war-only
+		# above-ground jitter, worst on jumps). render_global_position() matches what the
+		# engine actually draws the body at this frame.
+		var _ts := float(world.tile_size())
+		world.set_perception_view(player.render_global_position(),
+			float(_visual_radius) * _ts, PERCEPTION_EDGE_TILES * _ts)
+
+
+## Perception (the fog-of-war veil) is on when the map's `fog_of_war` world rule is set —
+## which DEFAULTS ON for ordinary gameplay (see world_settings.json defaults) — or is
+## force-enabled by the COHERONIA_PERCEPTION dev override. The deterministic dev harnesses
+## (smoke / screenshot tour / HUD QA) SUPPRESS that default below unless the override is
+## set, so the baseline fog never perturbs their evidence or curated screenshots.
+func _perception_should_enable() -> bool:
+	if OS.get_environment("COHERONIA_PERCEPTION") == "1":
+		return true
+	# The deterministic dev harnesses (smoke, screenshot tour, HUD QA) opt in ONLY via
+	# the explicit env flag above — never via the world's default rule — so the baseline
+	# fog default can't perturb their evidence or curated screenshots.
+	for _harness_env in ["COHERONIA_SMOKE", "COHERONIA_SHOTS", "COHERONIA_HUD_QA"]:
+		if OS.get_environment(_harness_env) == "1":
+			return false
+	return config().rule("fog_of_war")
+
+
+## Composable sight-radius resolver (cells): a base day/night range, PLUS an ancestry
+## "dark sight" bonus that grows as the surroundings darken, all scaled by pluggable
+## gear / weather / Calling multipliers. Visibility and lighting stay separate — this
+## bounds what is PERCEIVED, not how bright it is. Each multiplier is a documented
+## join point; they default to 1.0 until their module is wired.
+func _perception_radius() -> int:
+	var dark: float = clampf(_viewer_darkness_smooth, 0.0, 1.0)
+	var base := float(PERCEPTION_RADIUS_BASE) + (1.0 - dark) * float(PERCEPTION_RADIUS_DAYLIGHT_BONUS)
+	# Dark-adapted ancestries keep extra reach in the dark (0 in full daylight).
+	base += player.perception_dark_sight * dark
+	var mult := _perception_gear_sight_mult() \
+		* _perception_weather_sight_mult() \
+		* _perception_calling_sight_mult()
+	return maxi(1, int(round(base * mult)))
+
+
+## Sight-radius modifier hooks — no-op (1.0) join points for future modules, so those
+## systems have access without new consumers wired now (operator scope 2026-08-20).
+func _perception_gear_sight_mult() -> float:
+	return 1.0   # helmets / goggles / lantern gear (Perception + Resonance follow-up)
+
+
+func _perception_weather_sight_mult() -> float:
+	return 1.0   # fog / storm / night weather (follow-up)
+
+
+func _perception_calling_sight_mult() -> float:
+	return 1.0   # Trailseeker Calling sight bonus (Phase C)
+
+
+## Perception + Resonance (Phase B): an Attunement pulse fired — reveal objects of
+## interest across the visible screen, REGARDLESS of line of sight (the pulse says
+## "something is there" without lifting the veil around it). Base targets: hostiles,
+## settlers, dropped items, interactable structures (doors / craft stations / hall),
+## liquid hazards, AND ore veins (operator-chosen: ore is in the universal pulse; the
+## Prospector Calling variant in Phase C EXTENDS it — greater range / through thicker
+## rock / deeper — rather than being the only ore sense). Threat/repair/marked-enemy
+## emphasis are the other Phase C variants. Works whether or not fog is on.
+func _on_attunement_resonance() -> void:
+	if _resonance_layer == null or player == null or world == null:
+		return
+	# Drop stale entity-highlight references (expired / freed) before re-marking.
+	for _k in _resonance_highlights.keys():
+		if not is_instance_valid(_resonance_highlights[_k]):
+			_resonance_highlights.erase(_k)
+	# Base reach = the whole visible screen (× the Calling/ancestry/skill hooks), so the
+	# ping isn't a tiny bubble around the character.
+	var center: Vector2 = player.global_position
+	var region := _resonance_region()
+	var dur := _resonance_duration()
+	_resonance_mark_group("threats", RESONANCE_HOSTILE_MARK, region, center, dur, RESONANCE_ENTITY_CAP)
+	_resonance_mark_group("subjects", RESONANCE_ALLY_MARK, region, center, dur, RESONANCE_ENTITY_CAP)
+	_resonance_mark_group("item_drops", RESONANCE_ITEM_MARK, region, center, dur, RESONANCE_ENTITY_CAP)
+	_resonance_mark_terrain(region, dur)
+	# Prime the travel state so the highlight follows the character for its whole life.
+	_resonance_remaining = dur
+	_resonance_travel_accum = 0.0
+	_resonance_last_scan_cell = world.cell_of(center)
+	# Make freshly-highlighted out-of-sight entities visible immediately (not next frame).
+	_reconcile_resonance_visibility()
+	# Surface the effect on the status HUD as a live countdown.
+	add_status_effect("resonance", "Resonance", dur, RESONANCE_STATUS_COLOR)
+
+
+## The world-space region a pulse scans: the visible viewport, expanded about its centre
+## by the Calling pulse-radius × the ancestry/skill hook (both default 1.0 = exactly the
+## screen). Falls back to a radius box around the character if there is no camera.
+func _resonance_region() -> Rect2:
+	var scale := maxf(0.1, calling_pulse_radius_mult() * _resonance_extra_radius_mult())
+	var vp := get_viewport()
+	if vp != null:
+		# Invert the viewport's canvas transform to get the exact visible WORLD rect
+		# (robust to camera position, zoom, and the project's stretch mode).
+		var inv := vp.get_canvas_transform().affine_inverse()
+		var view_size: Vector2 = vp.get_visible_rect().size
+		var rect := Rect2(inv * Vector2.ZERO, Vector2.ZERO)
+		rect = rect.expand(inv * Vector2(view_size.x, 0.0))
+		rect = rect.expand(inv * view_size)
+		rect = rect.expand(inv * Vector2(0.0, view_size.y))
+		var c := rect.get_center()
+		var half := rect.size * 0.5 * scale
+		return Rect2(c - half, half * 2.0)
+	# Fallback: a radius box around the character.
+	var r := float(_resonance_radius_cells()) * float(world.tile_size())
+	return Rect2(player.global_position - Vector2(r, r), Vector2(r, r) * 2.0)
+
+
+## Highlight the nearest `cap` grouped entities within `region` by tinting each one's
+## sprite (masked to the object) for `dur`. Re-pulsing an already-lit entity refreshes
+## it rather than stacking a second highlight (which would corrupt restore). During a
+## TRAVEL re-scan pass `add_only` is set: existing highlights are left to run on their
+## own timeline (refreshing them every tick would reset their onset and make them
+## flicker), and only newly in-range entities are lit — with `dur` = the pulse's
+## remaining life so they expire together with it.
+func _resonance_mark_group(group: String, mark: Color, region: Rect2, center: Vector2,
+		dur: float, cap: int, add_only: bool = false) -> void:
+	var found: Array = []
+	for n in get_tree().get_nodes_in_group(group):
+		if n is Node2D and region.has_point((n as Node2D).global_position):
+			found.append([center.distance_squared_to((n as Node2D).global_position), n])
+	found.sort_custom(func(a, b): return a[0] < b[0])
+	for i in mini(found.size(), cap):
+		var target: Node2D = found[i][1]
+		var iid := target.get_instance_id()
+		var existing = _resonance_highlights.get(iid)
+		if existing != null and is_instance_valid(existing):
+			if not add_only:
+				existing.refresh_entity(mark, RESONANCE_ENTITY_BRIGHTEN, dur)
+		else:
+			if add_only and _resonance_highlights.size() >= RESONANCE_ENTITY_TOTAL_CAP:
+				break   # bound the number of entities a single travelling pulse keeps lit
+			var c = ResonanceContourScript.new()
+			_resonance_layer.add_child(c)
+			c.setup_entity(target, mark, RESONANCE_ENTITY_BRIGHTEN, dur)
+			_resonance_highlights[iid] = c
+
+
+## Scan the pulse region for interactable terrain (doors / stations / hall), ore veins,
+## and surface-liquid hazards, and (re)drive the SINGLE batched terrain highlight node so
+## the whole visible area lights up. Reuses one node for the pulse's life: a fresh pulse
+## restarts its envelope (refresh_cells); a travel re-scan swaps its cells in place
+## (set_cells, in _advance_resonance_travel) so the fade timeline is preserved.
+func _resonance_mark_terrain(region: Rect2, dur: float) -> void:
+	var entries := _collect_resonance_terrain_entries(region)
+	if entries.is_empty():
+		# Keep an existing node alive (it will fade out on its own) but let it show empty
+		# rather than freeing it mid-pulse; a later travel tick may refill it.
+		if _resonance_terrain_node != null and is_instance_valid(_resonance_terrain_node):
+			_resonance_terrain_node.set_cells(entries)
+		return
+	var box := Vector2(float(world.tile_size()), float(world.tile_size()))
+	if _resonance_terrain_node != null and is_instance_valid(_resonance_terrain_node):
+		_resonance_terrain_node.refresh_cells(entries, dur)
+	else:
+		var c = ResonanceContourScript.new()
+		_resonance_layer.add_child(c)
+		c.setup_cells(entries, box, dur)
+		_resonance_terrain_node = c
+
+
+## Collect the interesting cells in `region` as batch entries ([world_pos, color,
+## strength]), capped so a huge pool never floods the view. Pure — no node side effects.
+func _collect_resonance_terrain_entries(region: Rect2) -> Array:
+	var min_c: Vector2i = world.cell_of(region.position)
+	var max_c: Vector2i = world.cell_of(region.end)
+	var entries: Array = []
+	for cy in range(min_c.y, max_c.y + 1):
+		for cx in range(min_c.x, max_c.x + 1):
+			var cell := Vector2i(cx, cy)
+			var id: String = world.block_at(cell)
+			if id == "air":
+				continue
+			var cc: Vector2 = world.cell_center(cell)
+			if id == "town_hall_core":
+				entries.append([cc, RESONANCE_HALL_COLOR, RESONANCE_INTERACT_STRENGTH])
+			elif _resonance_interest_blocks.has(id):
+				entries.append([cc, RESONANCE_STRUCTURE_COLOR, RESONANCE_INTERACT_STRENGTH])
+			elif _resonance_ore_blocks.has(id):
+				entries.append([cc, RESONANCE_ORE_COLOR, RESONANCE_ORE_STRENGTH])
+			elif BlockRegistry.is_liquid(id) and world.block_at(cell + Vector2i(0, -1)) == "air":
+				entries.append([cc, RESONANCE_HAZARD_COLOR, RESONANCE_HAZARD_STRENGTH])
+			if entries.size() >= RESONANCE_CELL_CAP:
+				break
+		if entries.size() >= RESONANCE_CELL_CAP:
+			break
+	return entries
+
+
+## Keep the world-canvas resonance contours bright despite the day/night + cave-darkness
+## CanvasModulate that dims this canvas: pre-divide the container by the live ambient so
+## CanvasModulate multiplies the additive fills back to full strength (the same trick the
+## celestial sun/moon renderer uses). `modulate` propagates to the child contour nodes.
+func _sync_resonance_ambient() -> void:
+	if not is_instance_valid(_resonance_layer):
+		return
+	var c: Color = canvas_modulate.color if canvas_modulate != null else Color(1, 1, 1)
+	_resonance_layer.modulate = Color(1.0 / maxf(0.02, c.r), 1.0 / maxf(0.02, c.g),
+		1.0 / maxf(0.02, c.b), 1.0)
+
+
+## While a pulse is live, the highlight TRAVELS with the character: count the pulse down
+## and (throttled) re-scan the region around the moving character — refreshing the terrain
+## batch to the current view and lighting newly in-range entities — so exploring a new area
+## keeps revealing objects instead of leaving a stale snapshot where the pulse first fired.
+func _advance_resonance_travel(delta: float) -> void:
+	if _resonance_remaining <= 0.0:
+		return
+	_resonance_remaining -= delta
+	if _resonance_remaining <= 0.0:
+		_resonance_remaining = 0.0
+		_resonance_terrain_node = null   # its own timer fades/frees it at the same moment
+		return
+	if player == null or world == null:
+		return
+	_resonance_travel_accum += delta
+	if _resonance_travel_accum < RESONANCE_TRAVEL_INTERVAL:
+		return
+	_resonance_travel_accum = 0.0
+	var center: Vector2 = player.global_position
+	var cell: Vector2i = world.cell_of(center)
+	# Terrain re-scan only when the character actually crossed a tile (terrain is static
+	# otherwise), but always keep the batch node's cells current to the moved view.
+	if cell != _resonance_last_scan_cell:
+		_resonance_last_scan_cell = cell
+		var region := _resonance_region()
+		if _resonance_terrain_node != null and is_instance_valid(_resonance_terrain_node):
+			_resonance_terrain_node.set_cells(_collect_resonance_terrain_entries(region))
+		# Add entities that scrolled into range (existing ones keep their own timelines).
+		_resonance_mark_group("threats", RESONANCE_HOSTILE_MARK, region, center,
+			_resonance_remaining, RESONANCE_ENTITY_CAP, true)
+		_resonance_mark_group("subjects", RESONANCE_ALLY_MARK, region, center,
+			_resonance_remaining, RESONANCE_ENTITY_CAP, true)
+		_resonance_mark_group("item_drops", RESONANCE_ITEM_MARK, region, center,
+			_resonance_remaining, RESONANCE_ENTITY_CAP, true)
+
+
+## Resonance detection reach (cells) and highlight lifetime (seconds), each composed
+## from the Calling pulse multipliers × an ancestry/skill hook that defaults to 1.0 —
+## the documented join point for making resonance stronger/weaker per character later.
+func _resonance_radius_cells() -> int:
+	return maxi(1, int(round(RESONANCE_BASE_RADIUS_CELLS \
+		* calling_pulse_radius_mult() * _resonance_extra_radius_mult())))
+
+
+func _resonance_duration() -> float:
+	return RESONANCE_DURATION_SEC * calling_pulse_duration_mult() * _resonance_extra_duration_mult()
+
+
+func _resonance_extra_radius_mult() -> float:
+	return 1.0   # hook: ancestry / skill-tree / level scaling (follow-up)
+
+
+func _resonance_extra_duration_mult() -> float:
+	return 1.0   # hook: ancestry / skill-tree / level scaling (follow-up)
+
+
+## Keep resonance-highlighted entities visible through the veil for the pulse's life,
+## overriding the line-of-sight entity gating — a resonance ping is meant to reveal what
+## you canNOT currently see. Runs each frame while any highlight is active (plus one
+## frame after the last expires, so it re-hides if still out of sight).
+func _reconcile_resonance_visibility() -> void:
+	if not world.perception_enabled():
+		return
+	var ids := {}
+	for k in _resonance_highlights.keys():
+		if is_instance_valid(_resonance_highlights[k]):
+			ids[k] = true
+	var active := not ids.is_empty()
+	if active or _resonance_forced_last:
+		world.set_perception_force_visible(ids)
+		world.refresh_entity_visibility()
+	_resonance_forced_last = active
+
+
+## Register (or refresh) a timed status effect on the status HUD. Generic entry point
+## for future systems (potions, weather, ...); the resonance pulse is the first caller.
+func add_status_effect(id: String, label: String, duration: float, color: Color) -> void:
+	for e in _status_effects:
+		if str(e.get("id", "")) == id:
+			e["remaining"] = maxf(float(e.get("remaining", 0.0)), duration)
+			e["duration"] = maxf(float(e.get("duration", 0.0)), duration)
+			e["label"] = label
+			e["color"] = color
+			_refresh_status_hud()
+			return
+	_status_effects.append({"id": id, "label": label, "color": color,
+		"remaining": duration, "duration": duration})
+	_refresh_status_hud()
+
+
+func _tick_status_effects(delta: float) -> void:
+	if _status_effects.is_empty():
+		return
+	var kept: Array = []
+	for e in _status_effects:
+		e["remaining"] = float(e.get("remaining", 0.0)) - delta
+		if e["remaining"] > 0.0:
+			kept.append(e)
+	_status_effects = kept
+	_refresh_status_hud()
+
+
+func _refresh_status_hud() -> void:
+	if hud != null:
+		hud.update_status_effects(_status_effects)
 
 
 ## FQ-09W: 0 = sky-exposed, 1 = fully buried. Column-skylight approximation:
@@ -930,7 +1402,7 @@ func _advance_storm(delta: float) -> void:
 		town_hall.queue_redraw()
 	if storm_time_left <= 0.0:
 		storm_active = false
-		log_event("The storm passes.")
+		log_event("The storm passes.", "Storm passes", "storm")
 		if player.health > 0.0:
 			award_xp("storm_survived")
 		settlement.compute()
@@ -939,7 +1411,8 @@ func _advance_storm(delta: float) -> void:
 func start_storm() -> void:
 	storm_active = true
 	storm_time_left = STORM_DURATION
-	log_event("A storm batters the settlement! Exposed structures take damage.")
+	log_event("A storm batters the settlement! Exposed structures take damage.",
+		"Storm hits", "storm")
 	settlement.compute()
 
 
@@ -965,9 +1438,10 @@ func _on_nightfall() -> void:
 		spawn_count = clampi(int(round(float(base_count) * float(scaling.get("density_mult", 1.0)))), 1, 5)
 	if spawn_count > 0:
 		log_event("Night falls. Pressure rises (%d threat%s approaching)." % [
-			spawn_count, "" if spawn_count == 1 else "s"])
+			spawn_count, "" if spawn_count == 1 else "s"],
+			"Night: %d threat%s" % [spawn_count, "" if spawn_count == 1 else "s"], "warning")
 	else:
-		log_event("Night falls.")
+		log_event("Night falls.", "Nightfall", "night")
 	for i in range(spawn_count):
 		_spawn_surface_slime(i)
 	_maybe_spawn_thornrat()
@@ -1013,7 +1487,8 @@ func _on_dawn() -> void:
 		# Fix 5: spare underground enemies — cave crawlers persist through dawn.
 		if threat.family != "underground":
 			threat.queue_free()
-	log_event("Dawn breaks. The pressure recedes." if survived > 0 else "Dawn breaks.")
+	log_event("Dawn breaks. The pressure recedes." if survived > 0 else "Dawn breaks.",
+		"Dawn", "dawn")
 	award_xp("night_survived")
 	consume_daily_food()
 	sync_roster_to_population()   # M3-B: the visible roster tracks the population authority
@@ -1042,11 +1517,12 @@ func consume_daily_food() -> void:
 		return
 	var result: Dictionary = town_hall.consume_food(daily_food_need())
 	if result["eaten"] >= result["needed"]:
-		log_event("Settlers ate %d food from the stockpile." % result["eaten"])
+		log_event("Settlers ate %d food from the stockpile." % result["eaten"],
+			"%d consumed" % result["eaten"], "food")
 		award_xp("subject_fed")
 	else:
 		log_event("Food shortage! Settlers needed %d food, found %d. Gather berries." % [
-			result["needed"], result["eaten"]])
+			result["needed"], result["eaten"]], "Shortage", "food")
 	_update_population(result, coherence_at_dawn)
 
 
@@ -1057,12 +1533,14 @@ func _update_population(meal: Dictionary, coherence_at_dawn: float) -> void:
 	if meal["eaten"] < meal["needed"]:
 		if town_hall.population > 1:
 			town_hall.population -= 1
-			log_event("A settler left after going hungry. Population is now %d." % town_hall.population)
+			log_event("A settler left after going hungry. Population is now %d." % town_hall.population,
+				"Settler left", "settler")
 	elif coherence_at_dawn >= growth_threshold() and food_ok \
 			and town_hall.population < mini(effective_population_cap(), housing_capacity()):
 		# M2-B: growth needs BOTH the base-level cap and available housing.
 		town_hall.population += 1
-		log_event("Drawn by a thriving settlement, a settler arrived. Population is now %d." % town_hall.population)
+		log_event("Drawn by a thriving settlement, a settler arrived. Population is now %d." % town_hall.population,
+			"Settler arrived", "settler")
 	town_hall.stockpile_changed.emit()
 
 
@@ -1108,7 +1586,7 @@ func _maybe_spawn_raider() -> void:
 	var spawn_x: int = hall_cell.x + side * 35
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("WARNING: A raider approaches the settlement!")
+	log_event("WARNING: A raider approaches the settlement!", "Raider incoming", "warning")
 	music_event.emit("raid_warning")
 
 
@@ -1136,7 +1614,7 @@ func _maybe_spawn_thornrat() -> void:
 	var spawn_x: int = hall_cell.x + side * 18
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("A Thornrat skitters toward the crops.")
+	log_event("A Thornrat skitters toward the crops.", "Thornrat", "warning")
 
 
 ## FQ-13: a torchbearer raider joins later raids (its own, later spawn_rule). It
@@ -1165,7 +1643,7 @@ func _maybe_spawn_torchbearer() -> void:
 	var spawn_x: int = hall_cell.x + side * 38
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("WARNING: A Torchbearer moves to burn the Town Hall!")
+	log_event("WARNING: A Torchbearer moves to burn the Town Hall!", "Torchbearer", "warning")
 	music_event.emit("raid_warning")
 
 
@@ -1195,7 +1673,7 @@ func _maybe_spawn_sapper() -> void:
 	var spawn_x: int = hall_cell.x + side * 40
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
-	log_event("WARNING: A Sapper moves to breach the settlement walls!")
+	log_event("WARNING: A Sapper moves to breach the settlement walls!", "Sapper", "warning")
 	music_event.emit("raid_warning")
 
 
@@ -1347,7 +1825,7 @@ func spawn_enemy_for_test(enemy_id: String) -> Node:
 
 
 func _on_threat_died() -> void:
-	log_event("A threat was destroyed.")
+	log_event("A threat was destroyed.", "Threat down", "warning")
 	award_xp("enemy_defeated")
 	# Snapshot the assault state WITH this dying threat still counted, so the
 	# deferred refresh (after its queue_free) can tell whether this defeat is the
@@ -1384,7 +1862,7 @@ func _refresh_threat_display() -> void:
 		if restore > 0.0:
 			player.heal(restore)
 			player.restore_attunement(restore)
-			log_event("The assault is repelled — you catch your breath.")
+			log_event("The assault is repelled — you catch your breath.", "Repelled", "warning")
 	_assault_before_death = false
 
 
@@ -1469,7 +1947,7 @@ func _on_repair_requested() -> void:
 func _on_build_station_requested(station_id: String) -> void:
 	var station_name := str(BlockRegistry.station_def(station_id).get("display_name", station_id))
 	if town_hall.build_station(station_id):
-		log_event("Built the %s." % station_name)
+		log_event("Built the %s." % station_name, "Built %s" % station_name, "build")
 		award_xp("tool_crafted")
 		contracts.evaluate()   # R-09: station_built reads live station state
 		_craft_confirm_fx(town_hall.global_position)
@@ -1492,6 +1970,24 @@ func _on_craft_station_requested(recipe_id: String) -> void:
 	else:
 		log_event("Cannot craft %s (station not built, slot occupied, or stockpile short)." % recipe_name)
 	hud.refresh_town_panel()
+
+
+## Slice 4.2: the ONE crafting open/close path, shared by the C shortcut and the
+## HUD Craft chip. Crafting is mutually exclusive with the inventory-class panels,
+## so those are closed first (preserving the pre-slice behaviour). CraftPanel's
+## own open_changed signal drives the HUD chip's pressed state, so this never
+## touches the chip directly.
+func _toggle_crafting_panel() -> void:
+	if hud.inventory_panel_open():
+		hud.toggle_inventory_panel()
+	if hud.skill_panel_open():
+		hud.toggle_skill_panel()
+	if hud.character_panel_open():
+		hud.toggle_character_panel()
+	if hud.town_panel_open():
+		hud.toggle_town_panel()
+	if _craft_panel != null:
+		_craft_panel.toggle()
 
 
 ## R-07: the unified crafting panel routes a craft to the right backend by the
@@ -1566,13 +2062,19 @@ func _craft_confirm_fx(at: Vector2) -> void:
 	ActionFx.spawn(world, "forge_spark", at + Vector2(0, -20))
 
 
-func log_event(message: String) -> void:
-	hud.log_event(message)
+## Forward an event to the HUD. `compact_summary` is an optional short label the docked
+## Events wing shows in place of the full message; `icon_id` picks its category glyph.
+func log_event(message: String, compact_summary: String = "", icon_id: String = "") -> void:
+	hud.log_event(message, compact_summary, icon_id)
 
 
 func load_game() -> bool:
 	if not save_manager.load_game():
 		return false
+	# Loading can replace both explored state and the player's position without either
+	# differing from the cached LOS inputs. Force one reconciliation on the next frame.
+	_perception_last_cell = Vector2i(2147483647, 2147483647)
+	_perception_last_los_radius = -1
 	# Wave B: restore character-owned carried state after world state is applied.
 	_apply_character_carried_state()
 	hud.update_time(day_count, is_night, _live_threat_count(), time_of_day)
@@ -1986,7 +2488,8 @@ func accept_contract(id: String) -> bool:
 func claim_contract(id: String) -> bool:
 	var res: Dictionary = contracts.claim(id)
 	if bool(res.get("ok", false)):
-		log_event("Contract complete: %s" % str(contracts.definition(id).get("title", id)))
+		log_event("Contract complete: %s" % str(contracts.definition(id).get("title", id)),
+			"Contract done", "goal")
 		_refresh_hud_progression()
 	return bool(res.get("ok", false))
 
@@ -2062,6 +2565,7 @@ func apply_time_state(data: Dictionary) -> void:
 	canvas_modulate.color = ambient_target_color()
 	if _celestial != null:
 		_celestial.set_ambient(canvas_modulate.color)
+	_sync_resonance_ambient()
 	# Re-prime the eased viewer-darkness so entering/loading a world snaps to its
 	# depth instead of easing in from the previous world's value.
 	_viewer_darkness_smooth = -1.0
@@ -2168,7 +2672,7 @@ func _check_base_level() -> void:
 		if _meets_base_level_requires(bl.get("requires", {})):
 			base_level = next_lv
 			var name_str: String = _base_level_display_name()
-			log_event("Settlement advanced to %s!" % name_str)
+			log_event("Settlement advanced to %s!" % name_str, "Advanced", "build")
 			music_event.emit("base_advance")
 			_refresh_hud_progression()
 		break

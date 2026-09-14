@@ -2,13 +2,13 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Ancestry` page. Current status: `planned`.
+> `Ancestry` page. Current status: `design_only`.
 
 | Field | Value |
 |---|---|
 | ID | `dragonkin` |
 | Page type | Ancestry |
-| Status | planned |
+| Status | design_only |
 | Implementation phase | E |
 | Implementation priority | 8 |
 | Spawn band | special |

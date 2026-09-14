@@ -2,13 +2,13 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Ancestry` page. Current status: `planned`.
+> `Ancestry` page. Current status: `design_only`.
 
 | Field | Value |
 |---|---|
 | ID | `deep_dwarf` |
 | Page type | Ancestry |
-| Status | planned |
+| Status | design_only |
 | Implementation phase | C |
 | Implementation priority | None |
 | Spawn band | underground |
@@ -28,6 +28,7 @@ No authored ancestry body art is currently attached to this entry.
 
 | Bucket | Effect | Value |
 |---|---|---|
+| player_effects | dark_sight | 7 |
 | player_effects | ore_mining_mult | 1.25 |
 | player_effects | fall_damage_reduction_stone | 0.5 |
 | player_effects | notes | ['better underground visibility', 'reduced fall damage on stone'] |

@@ -13,6 +13,15 @@ const MIN_ZOOM := 1.0       # widest view — most world visible, smallest conte
 const MAX_ZOOM := 3.0       # closest view — least world, largest content
 const DEFAULT_ZOOM := 1.25  # a wider default than the old fixed 2.0 (see more map)
 const ZOOM_STEP := 0.125    # one wheel notch / +/- key press
+## Pixel-art tradeoff (2026-08-21): zoom is a free-floating magnification, so a
+## non-integer value (the 1.25 default, or any 0.125 step that isn't a whole number)
+## maps a nearest-neighbour world texel to a fractional count of screen pixels. That can
+## leave a faint pixel SHIMMER on fast motion at non-integer zooms — a separate concern
+## from the physics/camera jitter fixed by 2D physics interpolation. INTEGER zooms
+## (1.0 / 2.0 / 3.0) present crispest. Kept fractional deliberately to preserve the
+## existing zoom-granularity and saved-profile surface; snapping to integer-only zoom is
+## a product decision, not a silent change. If that's ever desired, clamp the step set
+## here and update the pause-menu Settings slider + this doc together.
 
 # S-07.1b (F6 taste): how strongly an open modal dims the rest of the HUD. Stored
 # as the scrim overlay's alpha; a per-player preference like zoom/volume.

@@ -79,7 +79,8 @@
       "scarcity_increases": false,
       "weather_affects_survival": true,
       "lighting_affects_safety": true,
-      "darkness_increases_enemies": true
+      "darkness_increases_enemies": true,
+      "fog_of_war": true
     },
     "generation": {
       "terrain_amplitude": 1.0,

@@ -8,6 +8,7 @@
     "bucket_lava": { "display_name": "Bucket of Lava", "color": "ce4b1a", "description": "A bucket full of lava. Place on an empty spot to pour it out — mind the burn." },
     "grass": { "color": "4d9e40", "description": "Surface turf. Drops dirt." },
     "wood": { "color": "9e7338", "description": "Building material and fuel." },
+    "wood_platform": { "display_name": "Wooden Platform", "color": "b5843f", "description": "A thin plank you stand on and jump up through from below. Hold Down and press Jump to drop through it." },
     "stone": { "color": "73757f", "description": "Sturdy building material." },
     "hellstone": { "display_name": "Hellstone", "color": "b5471c", "description": "Ember-veined rock from the deep hell layer. Needs a tier-2 pick." },
     "obsidian": { "display_name": "Obsidian", "color": "3a3352", "description": "Glassy volcanic stone, forged where lava meets water. Needs a tier-2 pick." },

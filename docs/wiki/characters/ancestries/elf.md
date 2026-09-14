@@ -2,13 +2,13 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Ancestry` page. Current status: `planned`.
+> `Ancestry` page. Current status: `live`.
 
 | Field | Value |
 |---|---|
 | ID | `elf` |
 | Page type | Ancestry |
-| Status | planned |
+| Status | live |
 | Implementation phase | B |
 | Implementation priority | 3 |
 | Spawn band | surface |
@@ -53,10 +53,10 @@ This ancestry currently maps to live player body art, so the current wiki mirror
 | Bucket | Effect | Value |
 |---|---|---|
 | player_effects | jump_bonus | 0.15 |
-| player_effects | forest_movement_mult | 1.1 |
-| player_effects | fall_damage_reduction | 0.5 |
-| player_effects | carry_efficiency_mult | 0.8 |
-| player_effects | notes | ['higher jump', 'better forest movement', 'reduced fall damage', 'plant detection'] |
+| player_effects | move_speed_mult | 1.08 |
+| player_effects | attunement_bonus | 8 |
+| player_effects | stone_ore_mining_mult | 0.85 |
+| player_effects | notes | [] |
 | settlement_effects | tree_recovery_mult | 1.1 |
 | settlement_effects | animal_aggression_reduction | 0.8 |
 | settlement_effects | forest_shelter_coherence_bonus | 1.05 |

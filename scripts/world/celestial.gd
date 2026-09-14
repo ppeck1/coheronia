@@ -27,6 +27,13 @@ const SUN_GLOW_R := 88.0
 const SUN_CORE_R := 44.0
 const MOON_R := 36.0
 const MOON_TEX_PX := 128     # moon texture resolution (square) — hi-res for a soft edge
+# Maximum drawn extent (radius, px) of each body INCLUDING its soft corona/halo. The
+# offscreen entry/exit margin is based on this real visible size — not a % of the
+# viewport width — so the WHOLE body (glow and all) clears the edge before it appears
+# and after it leaves. Sun: the broad outer corona (largest sprite in _draw_bodies).
+# Moon: the cool halo. Kept in sync with the actual draw calls below.
+const SUN_MAX_EXTENT := SUN_GLOW_R * 2.6
+const MOON_MAX_EXTENT := MOON_R * 2.4
 # The arc is anchored to a FIXED sky altitude in world space (not the camera view), so
 # the bodies sit high above the surface and slide off-screen as you descend — never
 # floating over rock. X follows the camera; Y rides this fixed baseline.
@@ -172,20 +179,29 @@ func moon_phase() -> int:
 
 
 ## Pure geometry so the smoke can assert the arc without rendering: where the sun and
-## moon sit for a given time-of-day and which is up. X sweeps across the visible width
-## (rise left → set right) so the body is always above the surface you're on; Y rides a
-## FIXED sky altitude (`baseline_y`, world-space) and peaks `ARC_HEIGHT_PX` above it at
-## noon — so underground (camera far below the baseline) the body is off-screen. When
+## moon sit for a given time-of-day and which is up. X sweeps from fully beyond the LEFT
+## viewport edge to fully beyond the RIGHT edge (rise offscreen-left → set offscreen-right)
+## so the body genuinely enters and leaves the frame rather than appearing mid-sky; Y
+## rides a FIXED sky altitude (`baseline_y`, world-space) and peaks `ARC_HEIGHT_PX` above
+## it at noon — so underground (camera far below the baseline) the body is off-screen. When
 ## `baseline_y` is NAN (pure-geometry callers) it falls back to a view-relative altitude.
+## The horizontal travel is bounded by the active body's MAX visible extent (corona/halo),
+## so at frac=0 the whole body sits just past the left edge and at frac=1 just past the
+## right — see SUN_MAX_EXTENT / MOON_MAX_EXTENT.
 static func positions(t: float, view: Rect2, baseline_y := NAN) -> Dictionary:
-	var margin := view.size.x * 0.08
-	var span := view.size.x - margin * 2.0
 	var is_night := t >= NIGHT_START
 	var frac := t / NIGHT_START if not is_night \
 		else (t - NIGHT_START) / (1.0 - NIGHT_START)
 	frac = clampf(frac, 0.0, 1.0)
+	# Travel from (left edge - extent) to (right edge + extent): at frac=0 the body's
+	# rightmost extent is exactly at the left edge (fully offscreen), at frac=1 its
+	# leftmost extent is exactly at the right edge (fully offscreen), and the midpoint
+	# (frac=0.5, noon/midnight) sits at the horizontal centre = the arc peak.
+	var extent := SUN_MAX_EXTENT if not is_night else MOON_MAX_EXTENT
+	var start_x := view.position.x - extent
+	var end_x := view.position.x + view.size.x + extent
 	var base_y := baseline_y if not is_nan(baseline_y) else view.position.y + view.size.y * 0.40
-	var body := Vector2(view.position.x + margin + span * frac,
+	var body := Vector2(lerpf(start_x, end_x, frac),
 		base_y - sin(frac * PI) * ARC_HEIGHT_PX)
 	return {
 		"is_night": is_night,
@@ -291,7 +307,7 @@ func _draw_bodies() -> void:
 		# Smooth, layered soft-glow sprites (a broad warm corona → tighter bright glow),
 		# then a solid core. Using the shared radial gradient means a continuous falloff
 		# with no stacked-circle banding or hard flare polygons.
-		_draw_glow(s, SUN_GLOW_R * 2.6, Color(1.0, 0.82, 0.45, 0.22))
+		_draw_glow(s, SUN_MAX_EXTENT, Color(1.0, 0.82, 0.45, 0.22))
 		_draw_glow(s, SUN_GLOW_R * 1.5, Color(1.0, 0.86, 0.5, 0.45))
 		_draw_glow(s, SUN_CORE_R * 1.6, Color(1.0, 0.9, 0.55, 0.7))
 		_sky.draw_circle(s, SUN_CORE_R, SUN_CORE)
@@ -309,7 +325,7 @@ func _draw_bodies() -> void:
 		# A cool, subtle halo (blue, far fainter than the sun) that grows with how full
 		# the moon is; smooth gradient sprite, no banding.
 		if lit > 0.05:
-			_draw_glow(m, MOON_R * 2.4, Color(0.6, 0.72, 1.0, 0.10 * lit))
+			_draw_glow(m, MOON_MAX_EXTENT, Color(0.6, 0.72, 1.0, 0.10 * lit))
 		if _moon_tex != null:
 			var side := MOON_R * 2.0
 			_sky.draw_texture_rect(_moon_tex, Rect2(m - Vector2(MOON_R, MOON_R),
