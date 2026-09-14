@@ -71,14 +71,14 @@ static, Linux, and Windows checks are required for merge.
 S-07 was a stabilization and truthfulness arc; it held its no-new-mechanics boundary and
 shipped as `v0.7-alpha`. Remaining visual polish (panel art-language consistency, fog
 grading, resonance art, and wooden-platform art) and large controller extractions remain
-focused follow-up work. The current arc is **S-08.0 Enemy Expansion Foundation**, a
-behavior-preserving refactor of the enemy runtime/data/spawn seams (no new enemies or
-mechanics) — see [`WORK_ORDER_S08_ENEMY_FOUNDATION.md`](WORK_ORDER_S08_ENEMY_FOUNDATION.md).
+focused follow-up work. **S-08.0 Enemy Expansion Foundation is MERGED** to `main` (merge
+`29fee40`, PR #15) — see [`WORK_ORDER_S08_ENEMY_FOUNDATION.md`](WORK_ORDER_S08_ENEMY_FOUNDATION.md).
+The current arc is **S-08.1 Lantern Leech** — the first single-enemy vertical slice on the
+S-08.0 foundation — see [`WORK_ORDER_S08_1_LANTERN_LEECH.md`](WORK_ORDER_S08_1_LANTERN_LEECH.md).
 
-## S-08.0 status (on `s08-enemy-foundation`)
+## S-08.0 status — MERGED (`29fee40`, PR #15)
 
-The parity-only foundation is **implemented** and under review (PR #15, amended after
-architectural review):
+The parity-only foundation shipped after architectural review:
 
 - **Registry** (`enemy_registry.gd`) is the spawnability authority: classifies
   live/planned/mini_boss/boss, validates each definition at load, and `is_spawnable` requires
@@ -106,10 +106,14 @@ set remains exactly the eight. Data truthfulness: `hp` documented as decorative
 
 ## Recommended next
 
-1. Review + merge the S-08.0 implementation PR, then plan the first planned-enemy activation
-   (e.g. Broodmother Crawler) against the per-enemy completion contract and the
-   decisions-required list in the work order §10–§11.
-2. Remaining visual-polish and controller-extraction follow-ups as capacity allows.
+1. **S-08.1 Lantern Leech** — the first single-enemy vertical slice on the S-08.0 foundation:
+   activate `lantern_leech` (underground, cave-pool/water-adjacent) with an explicit cap,
+   eligibility, lifecycle, stats, cool lantern glow (presentation-only), real `glow_gland`/`oil`
+   items each with a meaningful use, and deterministic director tests — preserving the eight
+   and their deterministic balance report. Uses `actor_kind: simple_ground` (no new
+   controller). See [`WORK_ORDER_S08_1_LANTERN_LEECH.md`](WORK_ORDER_S08_1_LANTERN_LEECH.md).
+2. Later planned-enemy activations (incl. Broodmother Crawler) against the per-enemy
+   completion contract and the decisions-required list in the foundation work order §10–§11.
 
 Calling-balance tuning remains measure-first: record the worst-case conditional stacking
 results in [`PLAYTEST_CHECKLIST.md`](PLAYTEST_CHECKLIST.md) before making data changes.
