@@ -29,7 +29,7 @@ func run(ctx) -> void:
 
 	# Fix 16: use root's shared registry instances instead of creating duplicates.
 	var enemy_reg = root._enemy_registry
-	harness._check("enemies_json_loads", enemy_reg.live_defs().size() == 8,
+	harness._check("enemies_json_loads", enemy_reg.live_defs().size() == 9,
 		"%d live defs" % enemy_reg.live_defs().size())
 
 	# S-07.1c: every FRESH enemy spawns at full health — hp == max_hp and the hurt
@@ -439,17 +439,20 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 			"bubbles": false, "light": false},
 	}
 
-	# (1) the live enemy set is exactly the expected eight ids.
+	# (1) the eight FOUNDING enemies must all remain live (parity). S-08.1 activates a
+	# ninth (lantern_leech), so this asserts the eight are preserved as a subset rather
+	# than that the total is exactly eight; the ninth activation + total live count are
+	# checked separately by s08_1_lantern_leech_activated.
 	var _s08_live_ids := {}
 	for _d in enemy_reg.live_defs():
 		_s08_live_ids[str(_d.get("id", ""))] = true
-	var _s08_set_ok: bool = _s08_live_ids.size() == _s08_expect.size()
+	var _s08_set_ok := true
 	for _eid in _s08_expect:
 		if not _s08_live_ids.has(_eid):
 			_s08_set_ok = false
 	harness._check("s08_live_set_is_the_eight", _s08_set_ok,
-		"live=%d expected=%d ids=%s" % [_s08_live_ids.size(), _s08_expect.size(),
-			str(_s08_live_ids.keys())])
+		"founding %d all live=%s live_total=%d ids=%s" % [_s08_expect.size(), str(_s08_set_ok),
+			_s08_live_ids.size(), str(_s08_live_ids.keys())])
 
 	# (2) every live enemy's effective runtime values match the parity contract,
 	# recomputed from the live threat_hp() baseline and the enemy-difficulty axis.
@@ -752,3 +755,105 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 		and str(EnemySpawnDirector.raid_intent(_rb_ctx, 0.0).get("enemy_id")) == "raider_basic"
 	harness._check("s08_director_raid_intents", _intent_ok,
 		"eligibility (day/stock/lure) + roll-threshold intents match inlined logic")
+
+	# --- S-08.1: Lantern Leech vertical slice ---------------------------------
+	# (17) lantern_leech is the ninth live enemy with the expected cave-pool profile
+	# (underground, frail, cool carried light, underground dawn persistence) without
+	# disturbing the founding eight (checked above by s08_enemy_runtime_parity).
+	for _llc in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_llc):
+			_llc.queue_free()
+	await get_tree().process_frame
+	var _ll: Node = root.spawn_enemy_for_test("lantern_leech")
+	await get_tree().process_frame
+	var _ll_diff: float = root.config().difficulty("enemy")
+	var _ll_hp: int = maxi(1, int(round(float(root.threat_hp()) * 0.8)))
+	var _ll_ok: bool = enemy_reg.is_spawnable("lantern_leech") and enemy_reg.is_valid("lantern_leech") \
+		and enemy_reg.live_defs().size() == 9 \
+		and _ll != null and str(_ll.enemy_id) == "lantern_leech" \
+		and str(_ll.family) == "underground" \
+		and _ll.hp == _ll_hp and _ll.max_hp == _ll_hp \
+		and is_equal_approx(float(_ll.contact_damage), 5.0 * _ll_diff) \
+		and is_equal_approx(float(_ll.move_speed), 22.0) \
+		and not _ll.visual_light.is_empty() and _ll.has_carried_light() \
+		and _ll.persists_through_dawn()
+	harness._check("s08_1_lantern_leech_activated", _ll_ok,
+		"spawnable=%s live=%d hp=%d/%d(exp %d) light=%s persists=%s" % [
+			str(enemy_reg.is_spawnable("lantern_leech")), enemy_reg.live_defs().size(),
+			(_ll.hp if _ll != null else -1), (_ll.max_hp if _ll != null else -1), _ll_hp,
+			str(_ll != null and _ll.has_carried_light()),
+			str(_ll != null and _ll.persists_through_dawn())])
+
+	# (18) the director selects lantern_leech near a cave pool when under cap, and
+	# falls back deterministically (crawler at cap / no water; lava wins; water > ore).
+	var _ll_sel_ok: bool = \
+		EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg, true, true) == "lantern_leech" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg, true, false) == "cave_crawler" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg, false, true) == "cave_crawler" \
+		and EnemySpawnDirector.select_cave_enemy_id(true, false, enemy_reg, true, true) == "lava_slime" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg, true, true) == "lantern_leech" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg, false, true) == "ore_tick" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg, true, false) == "ore_tick"
+	harness._check("s08_1_lantern_leech_cave_selection", _ll_sel_ok,
+		"water+cap=lantern; at-cap/no-water=crawler; lava wins; water>ore; ore when no water; water+ore at-cap falls back to ore")
+
+	# (19) the SAVE CONTRACT round-trips: a damaged lantern leech restores its id, hp,
+	# max_hp, carried light, and dawn policy (not just the id + light).
+	_ll.hp = 1   # damage it so the hp/max_hp round-trip is meaningful (max_hp stays 2)
+	var _ll_ser: Array = root.serialize_threats()
+	root.apply_threats(_ll_ser)
+	await get_tree().process_frame
+	var _ll_restored: Node = null
+	for _r in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_r) and str(_r.enemy_id) == "lantern_leech":
+			_ll_restored = _r
+	harness._check("s08_1_lantern_leech_saves",
+		_ll_restored != null and _ll_restored.hp == 1 and _ll_restored.max_hp == 2
+		and _ll_restored.has_carried_light() and _ll_restored.persists_through_dawn(),
+		"restored=%s hp=%s max=%s light=%s" % [
+			str(_ll_restored != null),
+			(str(_ll_restored.hp) if _ll_restored != null else "n/a"),
+			(str(_ll_restored.max_hp) if _ll_restored != null else "n/a"),
+			str(_ll_restored != null and _ll_restored.has_carried_light())])
+
+	# (20) both drops are REAL loot with a live consumer: a killed lantern leech spills
+	# glow_gland + oil as ground drops the player collects, and the craft_lantern_glow
+	# recipe actually consumes both from the stockpile to yield a lantern.
+	for _lc in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_lc):
+			_lc.queue_free()
+	await get_tree().process_frame
+	var _pl = root.player
+	var _hall = root.town_hall
+	var _glow_before: int = _pl.inventory.count("glow_gland")
+	var _oil_before: int = _pl.inventory.count("oil")
+	var _ll_kill: Node = root.spawn_enemy_for_test("lantern_leech")
+	_ll_kill.global_position = _pl.global_position
+	_ll_kill.drop_chance_override = 1.0
+	_ll_kill.take_hit(99)
+	await get_tree().process_frame
+	_pl.collect_ground_drops()
+	var _dropped_ok: bool = _pl.inventory.count("glow_gland") > _glow_before \
+		and _pl.inventory.count("oil") > _oil_before
+	# craft the lantern from the two materials via the town_hall stockpile path
+	_hall.stockpile["glow_gland"] = 1
+	_hall.stockpile["oil"] = 1
+	var _lantern_before: int = _pl.inventory.count("lantern")
+	var _crafted: bool = _hall.craft_from_stockpile("craft_lantern_glow", _pl)
+	var _craft_ok: bool = _crafted \
+		and _pl.inventory.count("lantern") > _lantern_before \
+		and int(_hall.stockpile.get("glow_gland", 0)) == 0 \
+		and int(_hall.stockpile.get("oil", 0)) == 0
+	harness._check("s08_1_lantern_leech_loot_consumer",
+		_dropped_ok and _craft_ok
+		and BlockRegistry.item_icon("glow_gland") != null
+		and BlockRegistry.item_icon("oil") != null,
+		"dropped(glow+oil)=%s crafted=%s lantern_gained=%s inputs_consumed=%s" % [
+			str(_dropped_ok), str(_crafted),
+			str(_pl.inventory.count("lantern") > _lantern_before),
+			str(int(_hall.stockpile.get("glow_gland", 0)) == 0 and int(_hall.stockpile.get("oil", 0)) == 0)])
+
+	for _llc2 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_llc2):
+			_llc2.queue_free()
+	await get_tree().process_frame

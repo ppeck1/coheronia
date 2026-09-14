@@ -242,7 +242,12 @@
       "id": "lantern_leech",
       "display_name": "Lantern Leech",
       "family": "underground",
-      "status": "planned",
+      "status": "live",
+      "contact_damage": 5,
+      "speed": 22,
+      "hp": 2,
+      "hp_mult": 0.8,
+      "visual_light": { "radius": 64, "color": [0.45, 0.85, 1.0], "energy": 0.85 },
       "location": "Cave pools",
       "density": {
         "count_min": 1,

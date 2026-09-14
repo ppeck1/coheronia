@@ -28,6 +28,7 @@ Lantern is a live item with both acquisition and active use in the current build
 |---|---|---|---|
 | Block drop | [Lantern](../blocks/lantern.md) | 1x | Current block harvest result. |
 | Recipe output | Lantern | 1x at [Town Hall](../stations/town_hall.md) | Output route: inventory. |
+| Recipe output | Glowlamp Lantern | 1x at [Town Hall](../stations/town_hall.md) | Output route: inventory. |
 
 ## Current Uses
 

@@ -92,6 +92,9 @@ const STORM_MAX_DPS := 3.0
 ## Cave crawler spawning: checks every N seconds when player is underground.
 const CAVE_SPAWN_INTERVAL := 30.0
 const CAVE_CRAWLER_CAP := 2
+## S-08.1: explicit cap on live Lantern Leeches (cave-pool dwellers), in addition to
+## the overall underground-family cave cap above.
+const LANTERN_LEECH_CAP := 2
 ## Minimum connected open-air cells a cave spawn point must sit in, so underground
 ## enemies only appear in real chambers/tunnels, never in a 1-2 cell rock pocket.
 const CAVE_MIN_OPEN_CELLS := 6
@@ -1636,11 +1639,15 @@ func _advance_cave_spawns(delta: float) -> void:
 		return
 	_cave_spawn_timer = 0.0
 	# Fix 8c: count live underground-family enemies (not just cave_crawler id).
+	# S-08.1: also count live lantern leeches for their own explicit cap.
 	var crawler_count := 0
+	var lantern_count := 0
 	for t in get_tree().get_nodes_in_group("threats"):
 		if is_instance_valid(t) and not t.is_queued_for_deletion():
 			if t.family == "underground":
 				crawler_count += 1
+			if str(t.enemy_id) == "lantern_leech":
+				lantern_count += 1
 	if EnemySpawnDirectorClass.cave_at_cap(crawler_count, CAVE_CRAWLER_CAP):
 		return
 	# Only spawn if the player is underground (below the surface y).
@@ -1665,16 +1672,23 @@ func _advance_cave_spawns(delta: float) -> void:
 	# cycle (the timer already reset, so it retries next interval).
 	if _open_air_count(spawn_cell, CAVE_MIN_OPEN_CELLS) < CAVE_MIN_OPEN_CELLS:
 		return
-	# FQ-13/M4-B: near lava the underground spawn is a lava slime (molten dweller);
-	# near an ore vein it is an ore tick; otherwise the usual cave crawler. The
-	# selection lives in the spawn director; the lava probe short-circuits the ore
-	# query exactly as before so no extra world scan runs when lava is adjacent.
+	# FQ-13/M4-B/S-08.1: near lava -> lava slime; near a cave pool (water) -> lantern
+	# leech (under its cap); near an ore vein -> ore tick; otherwise the cave crawler.
+	# The selection + priority live in the spawn director. lava short-circuits the
+	# other probes (top priority), but water and ore are evaluated INDEPENDENTLY: a
+	# cell near both water and ore must still fall back to the ore tick when the leech
+	# is at its cap, so `ore_near` must not be suppressed by `water_near`.
 	var lava_near: bool = _lava_near(spawn_cell, 3)
+	var water_near: bool = (not lava_near) and _water_near(spawn_cell, 2)
 	var ore_near: bool = (not lava_near) and world.has_ore_within(spawn_cell, 2)
-	var eid: String = EnemySpawnDirectorClass.select_cave_enemy_id(lava_near, ore_near, _enemy_registry)
+	var lantern_ok: bool = lantern_count < LANTERN_LEECH_CAP
+	var eid: String = EnemySpawnDirectorClass.select_cave_enemy_id(
+		lava_near, ore_near, _enemy_registry, water_near, lantern_ok)
 	var event := "A Cave Crawler lurks in the dark below."
 	if eid == "lava_slime":
 		event = "A Lava Slime oozes from the molten rock."
+	elif eid == "lantern_leech":
+		event = "A Lantern Leech drifts by the cave pool, glowing softly."
 	elif eid == "ore_tick":
 		event = "An Ore Tick clings to the ore nearby."
 	var def: Dictionary = _enemy_registry.def_for_spawn(eid)
@@ -1712,6 +1726,16 @@ func _lava_near(cell: Vector2i, radius: int) -> bool:
 	for dy in range(-radius, radius + 1):
 		for dx in range(-radius, radius + 1):
 			if world.block_at(cell + Vector2i(dx, dy)) == "lava":
+				return true
+	return false
+
+
+## S-08.1: true when a water (cave-pool) cell sits within `radius` (Chebyshev) of
+## `cell` — the lantern-leech spawn trigger, mirroring _lava_near.
+func _water_near(cell: Vector2i, radius: int) -> bool:
+	for dy in range(-radius, radius + 1):
+		for dx in range(-radius, radius + 1):
+			if world.block_at(cell + Vector2i(dx, dy)) == "water":
 				return true
 	return false
 

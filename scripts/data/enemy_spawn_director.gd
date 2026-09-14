@@ -71,12 +71,18 @@ static func cave_at_cap(underground_count: int, cap: int) -> bool:
 	return underground_count >= cap
 
 
-## Which underground enemy belongs at a cave spawn: a lava dweller in molten rock,
-## an ore tick beside a vein, else the default cave crawler — skipping any variant
-## the registry cannot spawn (fail closed) and falling back to the crawler.
-static func select_cave_enemy_id(lava_near: bool, ore_near: bool, registry) -> String:
+## Which underground enemy belongs at a cave spawn, in priority order: a lava dweller
+## in molten rock, a lantern leech beside a cave pool (S-08.1; only when `water_near`
+## and under its cap via `lantern_ok`), an ore tick beside a vein, else the default
+## cave crawler — skipping any variant the registry cannot spawn (fail closed) and
+## falling back to the crawler. `water_near`/`lantern_ok` default false so existing
+## three-argument callers behave exactly as before.
+static func select_cave_enemy_id(lava_near: bool, ore_near: bool, registry,
+		water_near := false, lantern_ok := false) -> String:
 	if lava_near and registry.is_spawnable("lava_slime"):
 		return "lava_slime"
+	if water_near and lantern_ok and registry.is_spawnable("lantern_leech"):
+		return "lantern_leech"
 	if ore_near and registry.is_spawnable("ore_tick"):
 		return "ore_tick"
 	return "cave_crawler"

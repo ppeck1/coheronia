@@ -71,14 +71,14 @@ static, Linux, and Windows checks are required for merge.
 S-07 was a stabilization and truthfulness arc; it held its no-new-mechanics boundary and
 shipped as `v0.7-alpha`. Remaining visual polish (panel art-language consistency, fog
 grading, resonance art, and wooden-platform art) and large controller extractions remain
-focused follow-up work. The current arc is **S-08.0 Enemy Expansion Foundation**, a
-behavior-preserving refactor of the enemy runtime/data/spawn seams (no new enemies or
-mechanics) — see [`WORK_ORDER_S08_ENEMY_FOUNDATION.md`](WORK_ORDER_S08_ENEMY_FOUNDATION.md).
+focused follow-up work. **S-08.0 Enemy Expansion Foundation is MERGED** to `main` (merge
+`29fee40`, PR #15) — see [`WORK_ORDER_S08_ENEMY_FOUNDATION.md`](WORK_ORDER_S08_ENEMY_FOUNDATION.md).
+The current arc is **S-08.1 Lantern Leech** — the first single-enemy vertical slice on the
+S-08.0 foundation — see [`WORK_ORDER_S08_1_LANTERN_LEECH.md`](WORK_ORDER_S08_1_LANTERN_LEECH.md).
 
-## S-08.0 status (on `s08-enemy-foundation`)
+## S-08.0 status — MERGED (`29fee40`, PR #15)
 
-The parity-only foundation is **implemented** and under review (PR #15, amended after
-architectural review):
+The parity-only foundation shipped after architectural review:
 
 - **Registry** (`enemy_registry.gd`) is the spawnability authority: classifies
   live/planned/mini_boss/boss, validates each definition at load, and `is_spawnable` requires
@@ -104,12 +104,23 @@ deterministic, and `SAVE_VERSION` (`0.6`)/`gen_version` (`5`) are unchanged. The
 set remains exactly the eight. Data truthfulness: `hp` documented as decorative
 (effective HP = `threat_hp()` × `hp_mult`), `density`/`region_density` relabelled design-only.
 
+## S-08.1 status (on `s08.1-lantern-leech`)
+
+**Lantern Leech is activated** — the ninth live enemy (underground cave-pool dweller). It
+spawns near a `water` cell via the director's water branch (`game_root._water_near` + the
+extended `select_cave_enemy_id`), capped at `LANTERN_LEECH_CAP`=2, `actor_kind: simple_ground`
+(no new controller), a presentation-only cool cyan lantern glow, underground dawn persistence,
+and save round-trip. `glow_gland`/`oil` are real items consumed by the new `craft_lantern_glow`
+recipe → `lantern` (no dead-end loot). Ships with the code-drawn fallback sprite (canonical art
+deferred, documented). The founding eight are unchanged (`s08_enemy_runtime_parity`) and the
+fixed-seed balance report stays deterministic. Windowed smoke **630/630**; `SAVE_VERSION`
+(`0.6`)/`gen_version` (`5`) unchanged.
+
 ## Recommended next
 
-1. Review + merge the S-08.0 implementation PR, then plan the first planned-enemy activation
-   (e.g. Broodmother Crawler) against the per-enemy completion contract and the
-   decisions-required list in the work order §10–§11.
-2. Remaining visual-polish and controller-extraction follow-ups as capacity allows.
+1. Review + merge the S-08.1 implementation PR.
+2. Later planned-enemy activations (incl. Broodmother Crawler) against the per-enemy
+   completion contract and the decisions-required list in the foundation work order §10–§11.
 
 Calling-balance tuning remains measure-first: record the worst-case conditional stacking
 results in [`PLAYTEST_CHECKLIST.md`](PLAYTEST_CHECKLIST.md) before making data changes.

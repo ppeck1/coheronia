@@ -66,6 +66,20 @@
       "station": "town_hall"
     },
     {
+      "recipe_id": "craft_lantern_glow",
+      "display_name": "Glowlamp Lantern",
+      "inputs": {
+        "glow_gland": 1,
+        "oil": 1
+      },
+      "outputs": {
+        "lantern": 1
+      },
+      "icon": "lantern",
+      "note": "S-08.1: a lantern crafted from Lantern Leech materials (glow_gland + oil), giving both cave-pool drops a live consumer.",
+      "station": "town_hall"
+    },
+    {
       "recipe_id": "basic_pick_upgrade",
       "display_name": "Basic Pick Upgrade",
       "inputs": {

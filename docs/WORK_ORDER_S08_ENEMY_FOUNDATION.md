@@ -1,7 +1,8 @@
 # Work Order — S-08.0 Enemy Expansion Foundation
 
-**Status:** IMPLEMENTED (parity-only foundation landed on `s08-enemy-foundation`; PR open
-for architectural review). Opened after `v0.7-alpha`, release commit `f1509b7`.
+**Status:** **MERGED** to `main` (merge commit `29fee40`, PR #15) after architectural
+review. Opened after `v0.7-alpha`, release commit `f1509b7`. The first activation slice is
+**S-08.1 Lantern Leech** — see [`WORK_ORDER_S08_1_LANTERN_LEECH.md`](WORK_ORDER_S08_1_LANTERN_LEECH.md).
 **Type:** Behavior-preserving foundation / refactor. **Not** a content or balance arc.
 **Authority order:** this document sits at rung 5 of the source-of-truth hierarchy in
 [`CLAUDE.md`](../CLAUDE.md); the running game + smoke suite, `data/*.json`,
@@ -93,14 +94,29 @@ numbers**.
 
 ## 4. Baseline measurement (first implementation step)
 
-Before touching code, the implementation run must capture the **measured effective runtime
-values at `normal` difficulty** for all eight live enemies and pin them in this section:
-HP, speed, contact damage, Hall DPS, severity, spawn route, dawn policy, loot, collision
-bounds, and special behavior. Those measured numbers become the parity oracle; the refactor
-must preserve them exactly at the agreed comparison points.
+The measured baseline is pinned by the smoke contract `s08_enemy_runtime_parity` (in
+`scripts/main/smoke/smoke_enemies.gd`), which recomputes each value live from the same inputs
+the spawner uses and asserts the actor matches. Measured at the smoke harness baseline —
+**difficulty 1.0, day 1**, so `threat_hp()` = `round(3 × 1.0)` = **3** — the eight are:
 
-> Measured-baseline table: **TBD at S-08.0 implementation start** (do not fill with
-> un-measured numbers).
+| Enemy | Family | HP = round(3×`hp_mult`) | Contact = dmg×diff | Hall DPS = 4×diff×`hall_mult` | Speed | Severity | Dawn | Special |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| `surface_slime` | surface | 3 | 8 | 4 | 38 | 10 | recedes | — |
+| `thornrat` | surface | 2 | 4 | 4 | 66 | 10 | recedes | crop-eater |
+| `cave_crawler` | underground | 3 | 8 | 4 | 38 | 10 | persists | — |
+| `ore_tick` | underground | 2 | 3 | 4 | 30 | 10 | persists | ore-near spawn |
+| `lava_slime` | underground | 4 | 10 | 4 | 26 | 10 | persists | lava_immune + bubbles |
+| `raider_basic` | raider | 3 | 8 | 4 | 38 | 10 | recedes | raid `spawn_rule` d5/s25 |
+| `raider_torchbearer` | raider | 5 | 10 | 10 | 34 | 10 | recedes | carried light; d8/s40 |
+| `raider_sapper` | raider | 4 | 9 | 6 | 32 | 10 | recedes | breaks walls; d10/s50 |
+
+Effective HP is `max(1, round(threat_hp() × hp_mult))`; contact damage scales with the
+enemy-difficulty axis; Hall DPS is `4 × difficulty × hall_dps_mult`; `SEVERITY` is the shared
+`simple_threat.SEVERITY = 10`. Spawn routes: surface_slime by night count; thornrat/raiders
+by their `spawn_rule` in `_spawn_night_raids`; cave_crawler/ore_tick/lava_slime by
+`_advance_cave_spawns` (ore-near → ore_tick, lava-near → lava_slime). Dawn: underground
+persists, surface/raid recede. Loot per the `drops` tables. These are the parity oracle the
+refactor preserved (windowed smoke 626/626, deterministic balance report).
 
 ## 5. Responsibility map (target seams)
 
