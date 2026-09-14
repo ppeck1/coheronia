@@ -294,10 +294,10 @@ Dated shipped milestones, newest first (full detail in [`docs/HANDOFF.md`](docs/
 <details>
 <summary><h2>🗺️ Roadmap</h2></summary>
 
-The full adaptive-music arc, the opening cinematic, and the first real art pass are done. Current work is tracked in [`docs/HANDOFF.md`](docs/HANDOFF.md) and the active [work order](docs/WORK_ORDER_S07_STABILIZE_POLISH_DECOMPOSE.md) — the project is in stabilization/release-hardening toward **v0.7-alpha**, not a new mechanics arc (the early [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) is a historical scoping record). Forward-looking directions:
+The full adaptive-music arc, the opening cinematic, and the first real art pass are done. **`v0.7-alpha` is released** — the S-07 stabilization + Perception/Resonance candidate merged to `main` and is tagged [`v0.7-alpha`](https://github.com/ppeck1/coheronia/releases/tag/v0.7-alpha) (release commit `f1509b7`). Current work is tracked in [`docs/HANDOFF.md`](docs/HANDOFF.md) and the active [work order](docs/WORK_ORDER_S08_ENEMY_FOUNDATION.md) (the early [`docs/FABLE_TASK_QUEUE.md`](docs/FABLE_TASK_QUEUE.md) is a historical scoping record). Forward-looking directions:
 
-- **Next up** — the next code arc is intentionally unselected; stabilization and playtesting come first.
-- **More enemies** from a 16-entry design roster (mini-bosses and the hollow_king / world_worm bosses remain), each landing with its gameplay consumer.
+- **Next up — S-08.0 Enemy Expansion Foundation.** A behavior-preserving refactor of the enemy runtime, data, and spawn seams (definition/registry, factory, shared actor, behavior seam, spawn director) so later enemies land cleanly. **No new enemies, balance, world content, or save-format changes in this foundation slice** — the live set stays the current eight.
+- **More enemies** from the design roster (mini-bosses and the hollow_king / world_worm bosses remain), each landing later on the S-08 foundation with its own gameplay consumer.
 - **Art backlog** — polish the HUD chrome one contract-safe PNG at a time; extend body-specific gear beyond the covered crude armor/pick/axe families; refine action poses.
 - **Deeper systems** sketched in [`docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md`](docs/FUTURE_PROGRESSION_RESEARCH_AND_BASE_LEVELS.md): a research bench, more perk lanes, underground-start generation for deep ancestries, and a civic layer (laws, districts, factions). Ancestries beyond the five playable ones exist as validated data awaiting their phases.
 
