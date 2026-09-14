@@ -541,3 +541,37 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 			str(enemy_reg.is_spawnable("surface_slime")), str(_s08_independent),
 			str(enemy_reg.def_for_spawn("ash_wasp").is_empty()),
 			str(enemy_reg.def_for_spawn("definitely_not_an_enemy").is_empty())])
+
+	# (6) the factory is the single construction path and fails closed at SPAWN:
+	# an unknown or planned id builds NO actor (never a default Surface Slime).
+	for _t0 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t0):
+			_t0.queue_free()
+	await get_tree().process_frame
+	var _s08_unknown_node: Node = root.spawn_enemy_for_test("definitely_not_an_enemy")
+	var _s08_planned_node: Node = root.spawn_enemy_for_test("ash_wasp")
+	await get_tree().process_frame
+	var _s08_after: int = get_tree().get_nodes_in_group("threats").size()
+	harness._check("s08_factory_unknown_and_planned_no_actor",
+		_s08_unknown_node == null and _s08_planned_node == null and _s08_after == 0,
+		"unknown=%s planned=%s live_threats=%d" % [
+			str(_s08_unknown_node == null), str(_s08_planned_node == null), _s08_after])
+
+	# (7) save restoration fails closed too: a save array mixing a live id with a
+	# non-live/typo id restores ONLY the live actor (no phantom Surface Slime).
+	root.apply_threats([
+		{"x": 100.0, "y": 100.0, "hp": 2, "max_hp": 3, "enemy_id": "raider_basic"},
+		{"x": 120.0, "y": 100.0, "hp": 2, "max_hp": 3, "enemy_id": "ghost_of_typo"},
+	])
+	await get_tree().process_frame
+	var _s08_restored: Array = get_tree().get_nodes_in_group("threats")
+	var _s08_ids: Array[String] = []
+	for _r in _s08_restored:
+		_s08_ids.append(str(_r.enemy_id))
+	harness._check("s08_factory_save_restore_fail_closed",
+		_s08_restored.size() == 1 and _s08_ids == ["raider_basic"],
+		"restored=%d ids=%s" % [_s08_restored.size(), str(_s08_ids)])
+	for _r in _s08_restored:
+		if is_instance_valid(_r):
+			_r.queue_free()
+	await get_tree().process_frame

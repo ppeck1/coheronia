@@ -14,6 +14,7 @@ const CelestialScript := preload("res://scripts/world/celestial.gd")   # M5-A su
 const SUBJECT_JOBS := ["farmhand", "repairer", "hauler", "defender"]   # R-08 + M3-C defender
 const ActionFx := preload("res://scripts/fx/action_fx.gd")   # FQ-09M confirmations
 const EnemyRegistryClass := preload("res://scripts/data/enemy_registry.gd")
+const EnemyFactoryClass := preload("res://scripts/data/enemy_factory.gd")
 const ProgressionRegistryClass := preload("res://scripts/data/progression_registry.gd")
 const AncestryRegistryClass := preload("res://scripts/data/ancestry_registry.gd")
 const GoalTrackerScript := preload("res://scripts/main/goal_tracker.gd")
@@ -1767,47 +1768,26 @@ func _lava_near(cell: Vector2i, radius: int) -> bool:
 	return false
 
 
-## Generic enemy spawner configured from a def dict.
+## Generic enemy spawner: the single runtime entry point for building a live
+## hostile actor. Construction/configuration is delegated to EnemyFactory (the
+## stateless data->actor seam); game_root owns tree insertion and the died wiring.
+## Returns null (fail closed) for an empty/non-live def — an unknown or planned id
+## never becomes a default Surface Slime. Callers that dereference the result must
+## null-check (see apply_threats).
 func _spawn_enemy_at(def: Dictionary, pos: Vector2) -> Node:
 	var scaling := {"density_mult": 1.0, "loot_mult": 1.0}
 	if _enemy_registry != null:
 		scaling = _enemy_registry.scaling_for_difficulty(config().difficulty("enemy"))
-	var threat := SimpleThreatScene.instantiate()
-	threat.world = world
-	threat.town_hall = town_hall
-	threat.player = player
-	threat.position = pos
-	threat.enemy_id = str(def.get("id", "surface_slime"))
-	threat.family = str(def.get("family", "surface"))
-	threat.drops = def.get("drops", [])
-	threat.loot_mult = float(scaling.get("loot_mult", 1.0))
-	# FQ-13: per-def hp_mult scales the shared threat_hp baseline (frail thornrat/
-	# ore tick <1.0, tanky torchbearer >1.0); default 1.0 leaves the original
-	# three enemies unchanged.
-	threat.hp = maxi(1, int(round(float(threat_hp()) * float(def.get("hp_mult", 1.0)))))
-	# S-07.1c: a FRESH enemy spawns at full health — max_hp must match hp so a
-	# frail enemy (hp_mult < 1, e.g. thornrat/ore_tick) never spawns already
-	# showing a partial hurt bar. Without this, simple_threat._ready runs
-	# max_hp = maxi(3, hp), leaving a 1-2 hp enemy pinned to a max of 3.
-	# The load path (apply_threats) overrides both hp/max_hp AFTER _ready, so a
-	# saved damaged enemy is unaffected by this line.
-	threat.max_hp = threat.hp
-	# FQ-13: hall_dps_mult lets the torchbearer burn structures faster than a
-	# basic raider without changing the shared base rate.
-	threat.hall_dps = 4.0 * config().difficulty("enemy") * float(def.get("hall_dps_mult", 1.0))
-	threat.targets_crops = bool(def.get("targets_crops", false))
-	# FQ-01: data-driven contact damage/speed from the def, falling back to
-	# the simple_threat.gd consts when the def omits them. contact_damage
-	# scales with enemy difficulty like hall_dps.
-	threat.contact_damage = float(def.get("contact_damage", threat.PLAYER_DAMAGE)) \
-		* config().difficulty("enemy")
-	threat.move_speed = float(def.get("speed", threat.SPEED))
-	threat.breaks_walls = bool(def.get("breaks_walls", false))   # M4-A raider_sapper
-	threat.emits_bubbles = bool(def.get("emits_bubbles", false))   # M4-B lava_slime
-	threat.lava_immune = bool(def.get("lava_immune", false))
-	# S-07.1c: presentation-only carried torch light (raider_torchbearer). Visual
-	# only — never touches settlement scoring, the world light grid, or spawn safety.
-	threat.visual_light = def.get("visual_light", {})
+	var threat := EnemyFactoryClass.build(def, pos, {
+		"world": world,
+		"town_hall": town_hall,
+		"player": player,
+		"base_hp": threat_hp(),
+		"difficulty": config().difficulty("enemy"),
+		"loot_mult": float(scaling.get("loot_mult", 1.0)),
+	})
+	if threat == null:
+		return null
 	threat.died.connect(_on_threat_died)
 	threats.add_child(threat)
 	return threat
@@ -2532,6 +2512,11 @@ func apply_threats(data: Array) -> void:
 			def = _enemy_registry.get_def(eid)
 		var pos := Vector2(float(entry.get("x", 0)), float(entry.get("y", 0)))
 		var threat := _spawn_enemy_at(def, pos)
+		# Fail closed: a saved entry with an unknown or non-live enemy_id builds no
+		# actor (rather than silently restoring a default Surface Slime). Valid saves
+		# only ever carry live ids, so this is behavior-preserving for real saves.
+		if threat == null:
+			continue
 		# Override hp/max_hp from save (after add_child/_ready ran max_hp = maxi(max_hp, hp)).
 		threat.hp = int(entry.get("hp", 3))
 		threat.max_hp = int(entry.get("max_hp", maxi(3, threat.hp)))
