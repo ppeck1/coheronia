@@ -1550,7 +1550,8 @@ func _spawn_surface_slime(index: int) -> void:
 	var def: Dictionary = {}
 	if _enemy_registry != null:
 		def = _enemy_registry.def_for_spawn("surface_slime")
-	# Fix 9: guard against empty def (mirrors _maybe_spawn_raider and _advance_cave_spawns).
+	# Fail closed: def_for_spawn returns {} if surface_slime is not spawnable
+	# (missing/invalid), mirroring the raid loop and _advance_cave_spawns guards.
 	if def.is_empty():
 		return
 	var side := -1 if index % 2 == 0 else 1
