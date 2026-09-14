@@ -380,3 +380,126 @@ func run(ctx) -> void:
 		BlockRegistry.visual_assets.has("frame_semantics")
 		and "opening" in _p4_fs and "VARIANT" in _p4_fs and "ANIMATION" in _p4_fs,
 		"has=%s" % str(BlockRegistry.visual_assets.has("frame_semantics")))
+
+	await _s08_enemy_foundation_baseline(ctx)
+
+
+## ---------------------------------------------------------------------------
+## S-08.0 Enemy Expansion Foundation — parity baseline.
+##
+## Pins the eight live enemies' effective RUNTIME values so the foundation
+## refactor (registry / factory / director) can prove behavior parity. The
+## expected profile below is the balance contract (authored in data/enemies.json);
+## the numeric HP/contact/hall values are recomputed live from the same inputs the
+## spawner uses (threat_hp() baseline, enemy-difficulty axis) so the assertions are
+## robust to the harness difficulty rather than hard-coding a single number.
+## All checks are additive; no existing check is renamed.
+## ---------------------------------------------------------------------------
+func _s08_enemy_foundation_baseline(ctx) -> void:
+	var harness = ctx.harness
+	var root = ctx.root
+	var enemy_reg = root._enemy_registry
+
+	# The live set is EXACTLY these eight, and this is the parity contract.
+	var _s08_expect := {
+		"surface_slime": {
+			"family": "surface", "hp_mult": 1.0, "contact": 8.0, "speed": 38.0,
+			"hall_mult": 1.0, "crops": false, "walls": false, "lava": false,
+			"bubbles": false, "light": false},
+		"thornrat": {
+			"family": "surface", "hp_mult": 0.7, "contact": 4.0, "speed": 66.0,
+			"hall_mult": 1.0, "crops": true, "walls": false, "lava": false,
+			"bubbles": false, "light": false},
+		"cave_crawler": {
+			"family": "underground", "hp_mult": 1.0, "contact": 8.0, "speed": 38.0,
+			"hall_mult": 1.0, "crops": false, "walls": false, "lava": false,
+			"bubbles": false, "light": false},
+		"ore_tick": {
+			"family": "underground", "hp_mult": 0.7, "contact": 3.0, "speed": 30.0,
+			"hall_mult": 1.0, "crops": false, "walls": false, "lava": false,
+			"bubbles": false, "light": false},
+		"lava_slime": {
+			"family": "underground", "hp_mult": 1.2, "contact": 10.0, "speed": 26.0,
+			"hall_mult": 1.0, "crops": false, "walls": false, "lava": true,
+			"bubbles": true, "light": false},
+		"raider_basic": {
+			"family": "raider", "hp_mult": 1.0, "contact": 8.0, "speed": 38.0,
+			"hall_mult": 1.0, "crops": false, "walls": false, "lava": false,
+			"bubbles": false, "light": false},
+		"raider_torchbearer": {
+			"family": "raider", "hp_mult": 1.5, "contact": 10.0, "speed": 34.0,
+			"hall_mult": 2.5, "crops": false, "walls": false, "lava": false,
+			"bubbles": false, "light": true},
+		"raider_sapper": {
+			"family": "raider", "hp_mult": 1.3, "contact": 9.0, "speed": 32.0,
+			"hall_mult": 1.5, "crops": false, "walls": true, "lava": false,
+			"bubbles": false, "light": false},
+	}
+
+	# (1) the live enemy set is exactly the expected eight ids.
+	var _s08_live_ids := {}
+	for _d in enemy_reg.live_defs():
+		_s08_live_ids[str(_d.get("id", ""))] = true
+	var _s08_set_ok: bool = _s08_live_ids.size() == _s08_expect.size()
+	for _eid in _s08_expect:
+		if not _s08_live_ids.has(_eid):
+			_s08_set_ok = false
+	harness._check("s08_live_set_is_the_eight", _s08_set_ok,
+		"live=%d expected=%d ids=%s" % [_s08_live_ids.size(), _s08_expect.size(),
+			str(_s08_live_ids.keys())])
+
+	# (2) every live enemy's effective runtime values match the parity contract,
+	# recomputed from the live threat_hp() baseline and the enemy-difficulty axis.
+	var _s08_diff: float = root.config().difficulty("enemy")
+	var _s08_base_hp: int = root.threat_hp()
+	var _s08_parity_ok := true
+	var _s08_first_bad := ""
+	var _s08_sev_ok := true
+	for _eid in _s08_expect:
+		var _ex: Dictionary = _s08_expect[_eid]
+		var _n: Node = root.spawn_enemy_for_test(_eid)
+		if _n == null:
+			_s08_parity_ok = false
+			if _s08_first_bad == "":
+				_s08_first_bad = "%s: null actor" % _eid
+			continue
+		var _exp_hp: int = maxi(1, int(round(float(_s08_base_hp) * float(_ex["hp_mult"]))))
+		var _exp_contact: float = float(_ex["contact"]) * _s08_diff
+		var _exp_hall: float = 4.0 * _s08_diff * float(_ex["hall_mult"])
+		var _bad_fields: Array[String] = []
+		if str(_n.enemy_id) != _eid:
+			_bad_fields.append("id(%s)" % _n.enemy_id)
+		if str(_n.family) != str(_ex["family"]):
+			_bad_fields.append("family(%s!=%s)" % [_n.family, _ex["family"]])
+		if _n.hp != _exp_hp or _n.max_hp != _exp_hp:
+			_bad_fields.append("hp(%d/%d!=%d)" % [_n.hp, _n.max_hp, _exp_hp])
+		if not is_equal_approx(float(_n.contact_damage), _exp_contact):
+			_bad_fields.append("contact(%.3f!=%.3f)" % [_n.contact_damage, _exp_contact])
+		if not is_equal_approx(float(_n.hall_dps), _exp_hall):
+			_bad_fields.append("hall(%.3f!=%.3f)" % [_n.hall_dps, _exp_hall])
+		if not is_equal_approx(float(_n.move_speed), float(_ex["speed"])):
+			_bad_fields.append("speed(%.3f!=%.3f)" % [_n.move_speed, float(_ex["speed"])])
+		if bool(_n.targets_crops) != bool(_ex["crops"]):
+			_bad_fields.append("crops")
+		if bool(_n.breaks_walls) != bool(_ex["walls"]):
+			_bad_fields.append("walls")
+		if bool(_n.lava_immune) != bool(_ex["lava"]):
+			_bad_fields.append("lava")
+		if bool(_n.emits_bubbles) != bool(_ex["bubbles"]):
+			_bad_fields.append("bubbles")
+		if (not _n.visual_light.is_empty()) != bool(_ex["light"]):
+			_bad_fields.append("light")
+		if not _bad_fields.is_empty():
+			_s08_parity_ok = false
+			if _s08_first_bad == "":
+				_s08_first_bad = "%s: %s" % [_eid, ", ".join(_bad_fields)]
+		# severity is a shared constant today (documented truthfulness gap).
+		if not is_equal_approx(float(_n.SEVERITY), 10.0):
+			_s08_sev_ok = false
+		if is_instance_valid(_n):
+			_n.queue_free()
+	await get_tree().process_frame
+	harness._check("s08_enemy_runtime_parity", _s08_parity_ok,
+		_s08_first_bad if not _s08_parity_ok else "all 8 match contract (base_hp=%d diff=%.2f)" % [_s08_base_hp, _s08_diff])
+	harness._check("s08_enemy_severity_shared_constant", _s08_sev_ok,
+		"every live enemy .SEVERITY == 10.0 (shared)")
