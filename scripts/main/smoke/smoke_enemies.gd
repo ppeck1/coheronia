@@ -29,7 +29,7 @@ func run(ctx) -> void:
 
 	# Fix 16: use root's shared registry instances instead of creating duplicates.
 	var enemy_reg = root._enemy_registry
-	harness._check("enemies_json_loads", enemy_reg.live_defs().size() == 10,
+	harness._check("enemies_json_loads", enemy_reg.live_defs().size() == 11,
 		"%d live defs" % enemy_reg.live_defs().size())
 
 	# S-07.1c: every FRESH enemy spawns at full health — hp == max_hp and the hurt
@@ -870,7 +870,7 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 	var _sk_hp: int = maxi(1, int(round(float(root.threat_hp()) * 0.7)))
 	harness._check("s08_2_sporekin_activated",
 		enemy_reg.is_spawnable("sporekin") and enemy_reg.is_valid("sporekin")
-		and enemy_reg.live_defs().size() == 10
+		and enemy_reg.live_defs().size() == 11
 		and _sk != null and str(_sk.enemy_id) == "sporekin"
 		and str(_sk.family) == "underground"
 		and _sk.hp == _sk_hp and _sk.max_hp == _sk_hp
@@ -1009,4 +1009,135 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 	for _t6 in get_tree().get_nodes_in_group("threats"):
 		if is_instance_valid(_t6):
 			_t6.queue_free()
+	await get_tree().process_frame
+
+	# --- S-08.3: Stoneback Beetle vertical slice -------------------------------
+	# (26) stoneback_beetle is the eleventh live enemy: an ARMORED, SLOW underground
+	# bruiser (high hp_mult, lowest cave speed), NO carried light, underground dawn
+	# persistence — without disturbing the earlier live enemies (parity checked above).
+	for _sb in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_sb):
+			_sb.queue_free()
+	await get_tree().process_frame
+	var _bt: Node = root.spawn_enemy_for_test("stoneback_beetle")
+	await get_tree().process_frame
+	var _bt_diff: float = root.config().difficulty("enemy")
+	var _bt_hp: int = maxi(1, int(round(float(root.threat_hp()) * 1.8)))
+	harness._check("s08_3_stoneback_beetle_activated",
+		enemy_reg.is_spawnable("stoneback_beetle") and enemy_reg.is_valid("stoneback_beetle")
+		and enemy_reg.live_defs().size() == 11
+		and _bt != null and str(_bt.enemy_id) == "stoneback_beetle"
+		and str(_bt.family) == "underground"
+		and _bt.hp == _bt_hp and _bt.max_hp == _bt_hp
+		and is_equal_approx(float(_bt.contact_damage), 7.0 * _bt_diff)
+		and is_equal_approx(float(_bt.move_speed), 16.0)
+		and _bt.visual_light.is_empty() and not _bt.has_carried_light()
+		and _bt.persists_through_dawn(),
+		"spawnable=%s live=%d hp=%d/%d(exp %d) speed=%s no_light=%s persists=%s" % [
+			str(enemy_reg.is_spawnable("stoneback_beetle")), enemy_reg.live_defs().size(),
+			(_bt.hp if _bt != null else -1), (_bt.max_hp if _bt != null else -1), _bt_hp,
+			(str(_bt.move_speed) if _bt != null else "n/a"),
+			str(_bt != null and _bt.visual_light.is_empty()),
+			str(_bt != null and _bt.persists_through_dawn())])
+
+	# (27) selection priority: a rare stone-cavern cell (stone_rare, not deep) is the
+	# beetle; the branch sits BELOW deep/sporekin (a deep cell is still sporekin) and
+	# only ever replaces the crawler fallback. lava/water/ore/leech keep priority; a
+	# non-rare or at-cap cell (stone_rare=false) falls back to the crawler.
+	var _bt_sel_ok: bool = \
+		EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg, false, false, false, true) == "stoneback_beetle" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg, false, false, false, false) == "cave_crawler" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg, false, false, true, true) == "sporekin" \
+		and EnemySpawnDirector.select_cave_enemy_id(true, false, enemy_reg, false, false, false, true) == "lava_slime" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg, false, false, false, true) == "ore_tick" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg, true, true, false, true) == "lantern_leech"
+	harness._check("s08_3_stoneback_cave_selection", _bt_sel_ok,
+		"stone_rare=beetle; deep still sporekin; lava/water/ore/leech keep priority; not-rare/at-cap=crawler")
+
+	# (28) the rarity gate is deterministic and portable (no RNG draw): rarity<=0
+	# disables it, rarity==1 marks every cell, the same cell always returns the same
+	# bucket, and a real rarity yields BOTH beetle and non-beetle cells (genuinely rare).
+	var _bt_r_off: bool = not EnemySpawnDirector.stone_cavern_rare(Vector2i(3, 7), 0) \
+		and not EnemySpawnDirector.stone_cavern_rare(Vector2i(3, 7), -4)
+	var _bt_r_all: bool = EnemySpawnDirector.stone_cavern_rare(Vector2i(3, 7), 1) \
+		and EnemySpawnDirector.stone_cavern_rare(Vector2i(-9, 2), 1)
+	var _bt_r_det: bool = EnemySpawnDirector.stone_cavern_rare(Vector2i(11, 5), 8) \
+		== EnemySpawnDirector.stone_cavern_rare(Vector2i(11, 5), 8)
+	var _bt_true := 0
+	var _bt_false := 0
+	for _bx in range(0, 40):
+		for _by in range(0, 40):
+			if EnemySpawnDirector.stone_cavern_rare(Vector2i(_bx, _by), 8):
+				_bt_true += 1
+			else:
+				_bt_false += 1
+	var _bt_mixed: bool = _bt_true > 0 and _bt_false > 0 and _bt_true < _bt_false
+	harness._check("s08_3_stoneback_rarity_gate",
+		_bt_r_off and _bt_r_all and _bt_r_det and _bt_mixed,
+		"off=%s all=%s deterministic=%s mixed(true=%d<false=%d)=%s" % [
+			str(_bt_r_off), str(_bt_r_all), str(_bt_r_det), _bt_true, _bt_false, str(_bt_mixed)])
+
+	# (29) loot is REAL, already-consumed material (no new item/recipe/mechanic): a
+	# killed beetle spills its primary drop `stone` as a ground drop the player collects,
+	# and an EXISTING sink consumes it — build_station("workbench") spends stone from the
+	# stockpile. Stockpile + station state are snapshotted and restored so no cross-module
+	# state leaks.
+	for _bc in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_bc):
+			_bc.queue_free()
+	await get_tree().process_frame
+	var _stone_before: int = _pl.inventory.count("stone")
+	var _bt_kill: Node = root.spawn_enemy_for_test("stoneback_beetle")
+	_bt_kill.global_position = _pl.global_position
+	_bt_kill.drop_chance_override = 1.0
+	_bt_kill.take_hit(99)
+	await get_tree().process_frame
+	_pl.collect_ground_drops()
+	var _stone_dropped: bool = _pl.inventory.count("stone") > _stone_before
+	var _wb_was_built: bool = bool(_hall.stations_built.get("workbench", false))
+	var _sp_stone_prev: Variant = _hall.stockpile.get("stone", null)
+	var _sp_wood_prev: Variant = _hall.stockpile.get("wood", null)
+	_hall.stations_built["workbench"] = false
+	_hall.stockpile["stone"] = 6
+	_hall.stockpile["wood"] = 12
+	var _built: bool = _hall.build_station("workbench")
+	var _stone_consumed: bool = _built and int(_hall.stockpile.get("stone", 0)) == 0
+	_hall.stations_built["workbench"] = _wb_was_built
+	if _sp_stone_prev == null:
+		_hall.stockpile.erase("stone")
+	else:
+		_hall.stockpile["stone"] = _sp_stone_prev
+	if _sp_wood_prev == null:
+		_hall.stockpile.erase("wood")
+	else:
+		_hall.stockpile["wood"] = _sp_wood_prev
+	harness._check("s08_3_stoneback_loot_consumer",
+		_stone_dropped and _stone_consumed and BlockRegistry.item_icon("stone") != null,
+		"stone_dropped=%s built=%s stone_consumed=%s" % [
+			str(_stone_dropped), str(_built), str(_stone_consumed)])
+
+	# (30) stoneback_beetle id + hp/max_hp round-trip through save.
+	for _bt4 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_bt4):
+			_bt4.queue_free()
+	await get_tree().process_frame
+	var _bt2: Node = root.spawn_enemy_for_test("stoneback_beetle")
+	_bt2.hp = 1
+	await get_tree().process_frame
+	root.apply_threats(root.serialize_threats())
+	await get_tree().process_frame
+	var _bt_restored: Node = null
+	for _bt5 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_bt5) and str(_bt5.enemy_id) == "stoneback_beetle":
+			_bt_restored = _bt5
+	harness._check("s08_3_stoneback_saves",
+		_bt_restored != null and _bt_restored.hp == 1 and _bt_restored.max_hp == _bt_hp
+		and _bt_restored.persists_through_dawn(),
+		"restored=%s hp=%s max=%s(exp %d)" % [str(_bt_restored != null),
+			(str(_bt_restored.hp) if _bt_restored != null else "n/a"),
+			(str(_bt_restored.max_hp) if _bt_restored != null else "n/a"), _bt_hp])
+
+	for _bt6 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_bt6):
+			_bt6.queue_free()
 	await get_tree().process_frame
