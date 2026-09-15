@@ -41,4 +41,4 @@ Glow Gland is a live item with both acquisition and active use in the current bu
 
 ## Notes
 
-- Recommended first implementation sink: cave lamp or alchemy light.
+- No additional manual notes.

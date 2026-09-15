@@ -20,6 +20,7 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 |---|---|---|---|
 | Lantern | ore x2, wood x1 | lantern x1 | inventory |
 | Glowlamp Lantern | glow_gland x1, oil x1 | lantern x1 | inventory |
+| Cook Mushrooms | culinary_mushroom x2 | food x1 | inventory |
 | Basic Pick Upgrade | wood x3, stone x5 | pickaxe: pick_forged | Town Hall upgrade route |
 | Axe | wood x4, stone x2 | axe: axe_crude | Town Hall forge route |
 | Crude Sword | wood x2, stone x3 | weapon: sword_crude | Town Hall equip route |

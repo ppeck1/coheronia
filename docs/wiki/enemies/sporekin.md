@@ -2,23 +2,27 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Enemy` page. Current status: `planned`.
+> `Enemy` page. Current status: `live`.
 
 | Field | Value |
 |---|---|
 | ID | `sporekin` |
 | Page type | Enemy |
-| Status | planned |
+| Status | live |
 | Family | underground |
 | Location | Fungal caves |
-| Role | Fungal cave cluster enemy, provides alchemy and crafting materials |
+| Role | Deep-cave cluster dweller; harvested for edible mushrooms |
 | Image path | `art/generated/enemies/sporekin.png` |
 | Visual family | No authored image. |
 | Fallback / placeholder | Code-drawn hostile shape fallback when authored sprite art is absent. |
+| hp | 2 |
+| contact_damage | 3 |
+| speed | 30 |
+| hp_mult | 0.7 |
 
 ## Summary
 
-Sporekin is a planned enemy entry loaded from `data/enemies.json`.
+Sporekin is a live enemy entry loaded from `data/enemies.json`.
 
 ## Visual Family
 
@@ -30,8 +34,7 @@ No authored art is currently attached to this visual family.
 
 | Drop | Chance | Notes |
 |---|---|---|
-| [Spores](../items/spores.md) | 65% | Planned drop only. |
-| [Fungal Thread](../items/fungal_thread.md) | 35% | Planned drop only. |
+| [Culinary Mushroom](../items/culinary_mushroom.md) | 70% | Live drop table. |
 
 ## Related Pages
 

@@ -95,6 +95,10 @@ const CAVE_CRAWLER_CAP := 2
 ## S-08.1: explicit cap on live Lantern Leeches (cave-pool dwellers), in addition to
 ## the overall underground-family cave cap above.
 const LANTERN_LEECH_CAP := 2
+## S-08.2: Sporekin spawn in DEEP caves (this many cells below the surface) as a small
+## CLUSTER (arriving together), still bounded by the overall underground cave cap.
+const SPOREKIN_MIN_DEPTH := 24
+const SPOREKIN_CLUSTER := 3
 ## Minimum connected open-air cells a cave spawn point must sit in, so underground
 ## enemies only appear in real chambers/tunnels, never in a 1-2 cell rock pocket.
 const CAVE_MIN_OPEN_CELLS := 6
@@ -1682,8 +1686,11 @@ func _advance_cave_spawns(delta: float) -> void:
 	var water_near: bool = (not lava_near) and _water_near(spawn_cell, 2)
 	var ore_near: bool = (not lava_near) and world.has_ore_within(spawn_cell, 2)
 	var lantern_ok: bool = lantern_count < LANTERN_LEECH_CAP
+	# S-08.2: a deep cave with no closer context is Sporekin territory.
+	var spawn_surf: int = world.surface.get(spawn_cell.x, spawn_cell.y)
+	var deep: bool = (spawn_cell.y - spawn_surf) >= SPOREKIN_MIN_DEPTH
 	var eid: String = EnemySpawnDirectorClass.select_cave_enemy_id(
-		lava_near, ore_near, _enemy_registry, water_near, lantern_ok)
+		lava_near, ore_near, _enemy_registry, water_near, lantern_ok, deep)
 	var event := "A Cave Crawler lurks in the dark below."
 	if eid == "lava_slime":
 		event = "A Lava Slime oozes from the molten rock."
@@ -1691,11 +1698,54 @@ func _advance_cave_spawns(delta: float) -> void:
 		event = "A Lantern Leech drifts by the cave pool, glowing softly."
 	elif eid == "ore_tick":
 		event = "An Ore Tick clings to the ore nearby."
+	elif eid == "sporekin":
+		event = "Sporekin cluster from the fungal deep."
 	var def: Dictionary = _enemy_registry.def_for_spawn(eid)
 	if def.is_empty():
 		return
-	_spawn_enemy_at(def, world.cell_center(spawn_cell))
+	# S-08.2: sporekin arrive as a small cluster (bounded by the underground cap);
+	# every other cave enemy spawns singly.
+	if eid == "sporekin":
+		_spawn_sporekin_cluster(def, spawn_cell, crawler_count)
+	else:
+		_spawn_enemy_at(def, world.cell_center(spawn_cell))
 	log_event(event)
+
+
+## S-08.2: spawn a small Sporekin cluster within the spawn cell's OWN connected cave
+## space. The count is the director's cluster_size — the desired cluster clamped to
+## the slots remaining under the underground cap — so a fresh deep cave yields a pair
+## and the existing cap is never exceeded. Cells are drawn from a flood fill of
+## connected air (nearest-first), so cluster-mates share the chamber and none land in
+## a disconnected pocket across rock; a small chamber simply yields a smaller cluster.
+func _spawn_sporekin_cluster(def: Dictionary, spawn_cell: Vector2i, existing_underground: int) -> void:
+	var want: int = EnemySpawnDirectorClass.cluster_size(
+		existing_underground, CAVE_CRAWLER_CAP, SPOREKIN_CLUSTER)
+	if want <= 0:
+		return
+	for c: Vector2i in _connected_air_cells(spawn_cell, want):
+		_spawn_enemy_at(def, world.cell_center(c))
+
+
+## Return up to `limit` open-air cells connected to `start` (orthogonal BFS, so the
+## nearest cells come first, always including `start`). Used to place a cave cluster
+## inside one contiguous chamber rather than in separate air pockets.
+func _connected_air_cells(start: Vector2i, limit: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if limit <= 0 or world.block_at(start) != "air":
+		return out
+	var seen := {start: true}
+	var queue: Array[Vector2i] = [start]
+	while not queue.is_empty() and out.size() < limit:
+		var c: Vector2i = queue.pop_front()
+		out.append(c)
+		for nb: Vector2i in [c + Vector2i(1, 0), c + Vector2i(-1, 0),
+				c + Vector2i(0, 1), c + Vector2i(0, -1)]:
+			if seen.has(nb) or world.block_at(nb) != "air":
+				continue
+			seen[nb] = true
+			queue.append(nb)
+	return out
 
 
 ## Counts connected open-air cells reachable from `start` (orthogonal flood fill),

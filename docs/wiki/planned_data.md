@@ -36,15 +36,11 @@ These pages exist because planned enemy data references them. They are not live 
 | [Antlers](items/antlers.md) | Hollow Stag | Trophy, ritual focus, or prestige trade. |
 | [Clay](items/clay.md) | Mudling | Bricks, pottery, or furnace upgrade. |
 | [Forged Seal](items/forged_seal.md) | False Taxman | Civic quest or treasury sink. |
-| [Fungal Thread](items/fungal_thread.md) | Sporekin | Wraps, filters, or attunement cloth. |
 | [Fuse Cord](items/fuse_cord.md) | Raider Sapper | Demolition or trap recipes. |
-| [Glow Gland](items/glow_gland.md) | Lantern Leech | Cave lamp or alchemy light. |
 | [Hide](items/hide.md) | Burrow Maw; Hollow Stag | Medium armor or packs. |
 | [Mud](items/mud.md) | Mudling | Clay prep or farming amendment. |
-| [Oil](items/oil.md) | Lantern Leech | Lantern fuel or fire weapons. |
 | [Picks](items/picks.md) | Raider Sapper | Tool repair or iron salvage. |
 | [Reed Fiber](items/reed_fiber.md) | Mudling | Rope, nets, or matting. |
-| [Spores](items/spores.md) | Sporekin | Medicine, poison, or farming catalyst. |
 | [Stone Plates](items/stone_plates.md) | Stoneback Beetle | Armor or barricade plating. |
 | [Teeth](items/teeth.md) | Burrow Maw | Dagger, charm, or trophy. |
 | [Venison](items/venison.md) | Hollow Stag | Feast or trade good. |

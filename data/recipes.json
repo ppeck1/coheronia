@@ -80,6 +80,19 @@
       "station": "town_hall"
     },
     {
+      "recipe_id": "cook_culinary_mushroom",
+      "display_name": "Cook Mushrooms",
+      "inputs": {
+        "culinary_mushroom": 2
+      },
+      "outputs": {
+        "food": 1
+      },
+      "icon": "food",
+      "note": "S-08.2: cooks Sporekin mushrooms into food at the Town Hall, giving the drop a live food consumer (no alchemy).",
+      "station": "town_hall"
+    },
+    {
       "recipe_id": "basic_pick_upgrade",
       "display_name": "Basic Pick Upgrade",
       "inputs": {

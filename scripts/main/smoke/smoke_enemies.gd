@@ -29,7 +29,7 @@ func run(ctx) -> void:
 
 	# Fix 16: use root's shared registry instances instead of creating duplicates.
 	var enemy_reg = root._enemy_registry
-	harness._check("enemies_json_loads", enemy_reg.live_defs().size() == 9,
+	harness._check("enemies_json_loads", enemy_reg.live_defs().size() == 10,
 		"%d live defs" % enemy_reg.live_defs().size())
 
 	# S-07.1c: every FRESH enemy spawns at full health — hp == max_hp and the hurt
@@ -769,7 +769,6 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 	var _ll_diff: float = root.config().difficulty("enemy")
 	var _ll_hp: int = maxi(1, int(round(float(root.threat_hp()) * 0.8)))
 	var _ll_ok: bool = enemy_reg.is_spawnable("lantern_leech") and enemy_reg.is_valid("lantern_leech") \
-		and enemy_reg.live_defs().size() == 9 \
 		and _ll != null and str(_ll.enemy_id) == "lantern_leech" \
 		and str(_ll.family) == "underground" \
 		and _ll.hp == _ll_hp and _ll.max_hp == _ll_hp \
@@ -856,4 +855,158 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 	for _llc2 in get_tree().get_nodes_in_group("threats"):
 		if is_instance_valid(_llc2):
 			_llc2.queue_free()
+	await get_tree().process_frame
+
+	# --- S-08.2: Sporekin vertical slice --------------------------------------
+	# (21) sporekin is the tenth live enemy: underground, frail, NO carried light,
+	# underground dawn persistence — without disturbing the earlier live enemies.
+	for _sc in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_sc):
+			_sc.queue_free()
+	await get_tree().process_frame
+	var _sk: Node = root.spawn_enemy_for_test("sporekin")
+	await get_tree().process_frame
+	var _sk_diff: float = root.config().difficulty("enemy")
+	var _sk_hp: int = maxi(1, int(round(float(root.threat_hp()) * 0.7)))
+	harness._check("s08_2_sporekin_activated",
+		enemy_reg.is_spawnable("sporekin") and enemy_reg.is_valid("sporekin")
+		and enemy_reg.live_defs().size() == 10
+		and _sk != null and str(_sk.enemy_id) == "sporekin"
+		and str(_sk.family) == "underground"
+		and _sk.hp == _sk_hp and _sk.max_hp == _sk_hp
+		and is_equal_approx(float(_sk.contact_damage), 3.0 * _sk_diff)
+		and is_equal_approx(float(_sk.move_speed), 30.0)
+		and _sk.visual_light.is_empty() and not _sk.has_carried_light()
+		and _sk.persists_through_dawn(),
+		"spawnable=%s live=%d hp=%d/%d(exp %d) no_light=%s persists=%s" % [
+			str(enemy_reg.is_spawnable("sporekin")), enemy_reg.live_defs().size(),
+			(_sk.hp if _sk != null else -1), (_sk.max_hp if _sk != null else -1), _sk_hp,
+			str(_sk != null and _sk.visual_light.is_empty()),
+			str(_sk != null and _sk.persists_through_dawn())])
+
+	# (22) deep-cave selection + cluster sizing: a deep cave with no closer context
+	# is sporekin, shallow is crawler; lava/water/ore keep priority; the cluster is
+	# clamped to the remaining slots under the underground cap.
+	var _sk_sel_ok: bool = \
+		EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg, false, false, true) == "sporekin" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg, false, false, false) == "cave_crawler" \
+		and EnemySpawnDirector.select_cave_enemy_id(true, false, enemy_reg, false, false, true) == "lava_slime" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, true, enemy_reg, false, false, true) == "ore_tick" \
+		and EnemySpawnDirector.select_cave_enemy_id(false, false, enemy_reg, true, true, true) == "lantern_leech" \
+		and EnemySpawnDirector.cluster_size(0, 2, 3) == 2 \
+		and EnemySpawnDirector.cluster_size(1, 2, 3) == 1 \
+		and EnemySpawnDirector.cluster_size(2, 2, 3) == 0
+	harness._check("s08_2_sporekin_deep_cave_selection", _sk_sel_ok,
+		"deep=sporekin; shallow=crawler; lava/water/ore keep priority; cluster clamps to cap")
+
+	# (23) a real deep-cave cluster spawns more than one sporekin at once but never
+	# exceeds the underground cap; a cap-full cave spawns none.
+	for _sc2 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_sc2):
+			_sc2.queue_free()
+	await get_tree().process_frame
+	var _sk_def: Dictionary = enemy_reg.def_for_spawn("sporekin")
+	var _w = root.world
+	var _hc: Vector2i = _w.hall_info.get("center_cell", Vector2i(int(_w.width) / 2, 0))
+	var _air_cell := Vector2i(_hc.x + 40, int(_w.surface.get(_hc.x + 40, _hc.y)) - 4)
+	root._spawn_sporekin_cluster(_sk_def, _air_cell, 0)
+	await get_tree().process_frame
+	var _cluster_n := 0
+	for _t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t) and str(_t.enemy_id) == "sporekin":
+			_cluster_n += 1
+	for _t2 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t2):
+			_t2.queue_free()
+	await get_tree().process_frame
+	root._spawn_sporekin_cluster(_sk_def, _air_cell, 2)   # existing == cap -> spawns none
+	await get_tree().process_frame
+	var _capfull_n: int = get_tree().get_nodes_in_group("threats").size()
+	harness._check("s08_2_sporekin_cluster",
+		_cluster_n == 2 and _capfull_n == 0,
+		"cluster=%d (want 2) capfull_adds=%d (want 0)" % [_cluster_n, _capfull_n])
+
+	# (23b) the cluster draws only from the spawn cell's CONNECTED cave space: build a
+	# two-cell chamber (A-B) walled off from a separate air pocket, and confirm
+	# _connected_air_cells returns {A, B} and never the disconnected island.
+	var _ca_A := Vector2i(120, 50)
+	var _ca_B := _ca_A + Vector2i(1, 0)
+	var _ca_island := _ca_A + Vector2i(3, 0)   # air, but across a wall at A+(2,0)
+	var _ca_air: Array[Vector2i] = [_ca_A, _ca_B, _ca_island]
+	var _ca_stone: Array[Vector2i] = [
+		_ca_A + Vector2i(-1, 0), _ca_A + Vector2i(0, -1), _ca_A + Vector2i(0, 1),
+		_ca_B + Vector2i(0, -1), _ca_B + Vector2i(0, 1), _ca_A + Vector2i(2, 0),
+		_ca_island + Vector2i(1, 0), _ca_island + Vector2i(0, -1), _ca_island + Vector2i(0, 1)]
+	var _ca_saved := {}
+	for _c in (_ca_air + _ca_stone):
+		_ca_saved[_c] = [_w.cells.get(_c), _w.deltas.get(_c)]
+	for _c in _ca_air:
+		_w.cells[_c] = "air"
+		_w.deltas[_c] = "air"
+	for _c in _ca_stone:
+		_w.cells[_c] = "stone"
+		_w.deltas[_c] = "stone"
+	var _ca_out: Array = root._connected_air_cells(_ca_A, 10)
+	var _ca_ok: bool = _ca_out.size() == 2 and _ca_out.has(_ca_A) and _ca_out.has(_ca_B) \
+		and not _ca_out.has(_ca_island)
+	for _c in _ca_saved:
+		var _sv: Array = _ca_saved[_c]
+		if _sv[0] == null:
+			_w.cells.erase(_c)
+		else:
+			_w.cells[_c] = _sv[0]
+		if _sv[1] == null:
+			_w.deltas.erase(_c)
+		else:
+			_w.deltas[_c] = _sv[1]
+	harness._check("s08_2_cluster_connected_air", _ca_ok,
+		"connected={A,B}=%s island_excluded=%s out=%s" % [
+			str(_ca_out.size() == 2), str(not _ca_out.has(_ca_island)), str(_ca_out)])
+
+	# (24) culinary_mushroom is real loot with a FOOD use: a killed sporekin drops it,
+	# the player collects it, and cook_culinary_mushroom turns it into food.
+	for _t3 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t3):
+			_t3.queue_free()
+	await get_tree().process_frame
+	var _mush_before: int = _pl.inventory.count("culinary_mushroom")
+	var _sk_kill: Node = root.spawn_enemy_for_test("sporekin")
+	_sk_kill.global_position = _pl.global_position
+	_sk_kill.drop_chance_override = 1.0
+	_sk_kill.take_hit(99)
+	await get_tree().process_frame
+	_pl.collect_ground_drops()
+	var _mush_dropped: bool = _pl.inventory.count("culinary_mushroom") > _mush_before
+	_hall.stockpile["culinary_mushroom"] = 2
+	var _food_before: int = _pl.inventory.count("food")
+	var _cooked: bool = _hall.craft_from_stockpile("cook_culinary_mushroom", _pl)
+	var _cook_ok: bool = _cooked and _pl.inventory.count("food") > _food_before \
+		and int(_hall.stockpile.get("culinary_mushroom", 0)) == 0
+	harness._check("s08_2_sporekin_loot_food",
+		_mush_dropped and _cook_ok and BlockRegistry.item_icon("culinary_mushroom") != null,
+		"dropped=%s cooked=%s food_gained=%s" % [str(_mush_dropped), str(_cooked),
+			str(_pl.inventory.count("food") > _food_before)])
+
+	# (25) sporekin id + hp round-trip through save.
+	for _t4 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t4):
+			_t4.queue_free()
+	await get_tree().process_frame
+	var _sk2: Node = root.spawn_enemy_for_test("sporekin")
+	_sk2.hp = 1
+	await get_tree().process_frame
+	root.apply_threats(root.serialize_threats())
+	await get_tree().process_frame
+	var _sk_restored: Node = null
+	for _t5 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t5) and str(_t5.enemy_id) == "sporekin":
+			_sk_restored = _t5
+	harness._check("s08_2_sporekin_saves",
+		_sk_restored != null and _sk_restored.hp == 1 and _sk_restored.persists_through_dawn(),
+		"restored=%s hp=%s" % [str(_sk_restored != null),
+			(str(_sk_restored.hp) if _sk_restored != null else "n/a")])
+
+	for _t6 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_t6):
+			_t6.queue_free()
 	await get_tree().process_frame

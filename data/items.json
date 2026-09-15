@@ -36,6 +36,7 @@
     "oil": { "display_name": "Cave Oil", "color": "2e2a1f", "description": "Flammable oil from a Lantern Leech. Lantern fuel — craft a lantern with a glow gland." },
     "berry_bush": { "color": "337330", "description": "A food-bearing bush." },
     "food": { "display_name": "Food", "color": "c94f4f", "description": "Restores health when eaten (H)." },
+    "culinary_mushroom": { "display_name": "Culinary Mushroom", "color": "b98a5e", "description": "An edible cave mushroom from a Sporekin. Cook two into food at the Town Hall." },
     "slime_gel": { "display_name": "Slime Gel", "color": "8c4fc9", "description": "Sticky residue from slimes.", "future_use": true },
     "meat": { "display_name": "Raw Meat", "color": "b5573f", "description": "Thornrat meat. Cook it at the furnace for food." },
     "thorn_quill": { "display_name": "Thorn Quill", "color": "6b7a3a", "description": "A barbed quill from a thornrat.", "future_use": true },

@@ -182,12 +182,18 @@ Keep meaningful action above the lower-quarter text band.
 | Family | Ids | Arrives with | Size |
 |---|---|---|---|
 | Stations | workbench, furnace, anvil | FQ-11 | 16x16 blocks (possibly multi-tile) |
-| Enemies (data-planned) | ash_wasp, mudling, hollow_stag, lantern_leech, stoneback_beetle, sporekin, burrow_maw, raider_sapper, hungry_deserter, false_taxman; bosses hollow_king, world_worm | later waves | 16x16+ |
+| Enemies (data-planned) | ash_wasp, mudling, hollow_stag, stoneback_beetle, burrow_maw, hungry_deserter, false_taxman; bosses hollow_king, world_worm | later waves | 16x16+ |
 | Action effects | mining/chop arc, placement pulse, hurt/collapse feedback, forge confirmation | FQ-09M | small transparent overlays |
 | Back walls | ore_cave_wall, fungal_wall, crystal_wall, timber_wall | with their environments | 16x16 seamless |
 | Backgrounds | cave_far, deep_cavern_far | with cave backdrop wiring | 640x360 |
 | Ancestry sprites (deep/planned) | deep_dwarf, deep_elf, deep_goblin, gnome, deep_gnome, lizardfolk, dragonkin (6 dragonkin types) | phase C-E ancestries | 16x32 |
 | UI replacement art | native dock chrome and framed panels | current HUD polish pass via HUD Asset Replacement Studio | contract-specific native canvases |
+
+`lantern_leech` and `sporekin` were activated (S-08.1 / S-08.2) and are **live**
+with a code-drawn fallback (plus the leech's carried light), so their canonical
+16x16 sprites are a deferred art follow-up, not a runtime gap — they are no
+longer on the planned "do not produce early" list. `raider_sapper` is likewise
+live and already ships authored art.
 
 ## Prompt Packs
 
