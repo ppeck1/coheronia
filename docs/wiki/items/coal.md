@@ -27,6 +27,7 @@ Coal is a live item with both acquisition and active use in the current build.
 | Source type | Source | Quantity / chance | Notes |
 |---|---|---|---|
 | Block drop | [Coal Seam](../blocks/coal.md) | 1x | Current block harvest result. |
+| Enemy drop | [Stoneback Beetle](../enemies/stoneback_beetle.md) | 18% drop chance | Live acquisition only if the enemy is live. |
 
 ## Current Uses
 

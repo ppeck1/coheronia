@@ -88,7 +88,6 @@ This page is the item landing page for the current Coheronia wiki tree. It is me
 | [Hide](items/hide.md) | planned | [Hollow Stag](enemies/hollow_stag.md), [Burrow Maw](enemies/burrow_maw.md) | Recommended first implementation sink: medium armor or packs. |
 | [Mud](items/mud.md) | planned | [Mudling](enemies/mudling.md) | Recommended first implementation sink: clay prep or farming amendment. |
 | [Reed Fiber](items/reed_fiber.md) | planned | [Mudling](enemies/mudling.md) | Recommended first implementation sink: rope, nets, or matting. |
-| [Stone Plates](items/stone_plates.md) | planned | [Stoneback Beetle](enemies/stoneback_beetle.md) | Recommended first implementation sink: armor or barricade plating. |
 | [Teeth](items/teeth.md) | planned | [Burrow Maw](enemies/burrow_maw.md) | Recommended first implementation sink: dagger, charm, or trophy. |
 | [Venison](items/venison.md) | planned | [Hollow Stag](enemies/hollow_stag.md) | Recommended first implementation sink: feast or trade good. |
 | [Venom](items/venom.md) | planned | [Ash Wasp](enemies/ash_wasp.md) | Recommended first implementation sink: toxin, trap, or advanced craft. |

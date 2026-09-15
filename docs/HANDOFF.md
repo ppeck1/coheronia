@@ -75,8 +75,11 @@ focused follow-up work. **S-08.0 Enemy Expansion Foundation is MERGED** to `main
 `29fee40`, PR #15) — see [`WORK_ORDER_S08_ENEMY_FOUNDATION.md`](WORK_ORDER_S08_ENEMY_FOUNDATION.md).
 The current mode is **single-enemy activation slices** on the foundation:
 **S-08.1 Lantern Leech** (merged, `17a9bdd`, PR #16 —
-[`WORK_ORDER_S08_1_LANTERN_LEECH.md`](WORK_ORDER_S08_1_LANTERN_LEECH.md)) and now
-**S-08.2 Sporekin** ([`WORK_ORDER_S08_2_SPOREKIN.md`](WORK_ORDER_S08_2_SPOREKIN.md)).
+[`WORK_ORDER_S08_1_LANTERN_LEECH.md`](WORK_ORDER_S08_1_LANTERN_LEECH.md)),
+**S-08.2 Sporekin** (merged, `abedccd`, PR #17 —
+[`WORK_ORDER_S08_2_SPOREKIN.md`](WORK_ORDER_S08_2_SPOREKIN.md)), and now
+**S-08.3 Stoneback Beetle**
+([`WORK_ORDER_S08_3_STONEBACK_BEETLE.md`](WORK_ORDER_S08_3_STONEBACK_BEETLE.md)).
 
 ## S-08.0 status — MERGED (`29fee40`, PR #15)
 
@@ -113,7 +116,7 @@ director's water branch (`_water_near` + `select_cave_enemy_id`), cap `LANTERN_L
 `simple_ground`, presentation-only cool cyan lantern glow, underground dawn persistence, save
 round-trip. `glow_gland`/`oil` → `craft_lantern_glow` → `lantern`. Code-drawn fallback sprite.
 
-## S-08.2 status (on `s08.2-sporekin`)
+## S-08.2 Sporekin — MERGED (`abedccd`, PR #17)
 
 **Sporekin is activated** — the tenth live enemy (underground deep-cave **cluster** dweller).
 It spawns in deep caves (`spawn_cell` depth ≥ `SPOREKIN_MIN_DEPTH`=24, no closer context) as a
@@ -129,9 +132,27 @@ report stays deterministic. Windowed smoke **635/635**; `SAVE_VERSION` (`0.6`)/`
 as live drop materials with real sinks; the retired `spores`/`fungal_thread` planned hooks were
 removed.)
 
+## S-08.3 status (on `s08.3-stoneback-beetle`)
+
+**Stoneback Beetle is activated** — the eleventh live enemy (rare, armored, slow underground
+stone-cavern bruiser). It spawns on a deterministic-rare stone-cavern cell via the director's
+new `stone_rare` branch — `EnemySpawnDirector.stone_cavern_rare(cell, STONEBACK_BEETLE_RARITY=8)`,
+a spatial hash that draws **no new RNG** (preserving the S-08.1/S-08.2 zero-new-RNG property) —
+bounded by `STONEBACK_BEETLE_CAP`=1. The branch sits **below** sporekin's `deep` branch, so
+sporekin's eligibility is byte-identical; the beetle only carves a rare fraction out of the
+crawler fallback. `actor_kind: simple_ground` (no new controller), no carried light, underground
+dawn persistence, save round-trip. **"Armored" = high `hp_mult` (1.8, tankiest cave enemy) + low
+`speed` (16, slowest) — no defense/armor mechanic** (the schema has none). Loot uses **existing
+items with existing sinks only** — `stone` (primary) + a lower chance of `coal`/`copper_ore`/
+`iron_ore`; the primary `stone` drop's consumer (`town_hall.build_station`) is demonstrated live
+in smoke. No new item, recipe, or mechanic. Code-drawn fallback sprite (canonical art deferred,
+documented). The ten earlier live enemies are unchanged (`s08_enemy_runtime_parity`,
+`s08_live_set_is_the_eight`) and the fixed-seed balance report stays deterministic.
+`SAVE_VERSION` (`0.6`)/`gen_version` (`5`) unchanged.
+
 ## Recommended next
 
-1. Review + merge the S-08.2 implementation PR.
+1. Review + merge the S-08.3 implementation PR.
 2. Later planned-enemy activations (incl. Broodmother Crawler) against the per-enemy
    completion contract and the decisions-required list in the foundation work order §10–§11.
 

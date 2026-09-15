@@ -99,6 +99,11 @@ const LANTERN_LEECH_CAP := 2
 ## CLUSTER (arriving together), still bounded by the overall underground cave cap.
 const SPOREKIN_MIN_DEPTH := 24
 const SPOREKIN_CLUSTER := 3
+## S-08.3: Stoneback Beetle — a rare, armored, slow underground bruiser. It has its own
+## small cap (on top of the overall cave cap) and a deterministic 1-in-N spatial rarity,
+## so it is an occasional stone-cavern sighting that never draws from the cave-spawn RNG.
+const STONEBACK_BEETLE_CAP := 1
+const STONEBACK_BEETLE_RARITY := 8
 ## Minimum connected open-air cells a cave spawn point must sit in, so underground
 ## enemies only appear in real chambers/tunnels, never in a 1-2 cell rock pocket.
 const CAVE_MIN_OPEN_CELLS := 6
@@ -1643,15 +1648,19 @@ func _advance_cave_spawns(delta: float) -> void:
 		return
 	_cave_spawn_timer = 0.0
 	# Fix 8c: count live underground-family enemies (not just cave_crawler id).
-	# S-08.1: also count live lantern leeches for their own explicit cap.
+	# S-08.1/S-08.3: also count live lantern leeches and stoneback beetles for their
+	# own explicit caps (on top of the overall underground-family cap).
 	var crawler_count := 0
 	var lantern_count := 0
+	var beetle_count := 0
 	for t in get_tree().get_nodes_in_group("threats"):
 		if is_instance_valid(t) and not t.is_queued_for_deletion():
 			if t.family == "underground":
 				crawler_count += 1
 			if str(t.enemy_id) == "lantern_leech":
 				lantern_count += 1
+			if str(t.enemy_id) == "stoneback_beetle":
+				beetle_count += 1
 	if EnemySpawnDirectorClass.cave_at_cap(crawler_count, CAVE_CRAWLER_CAP):
 		return
 	# Only spawn if the player is underground (below the surface y).
@@ -1689,8 +1698,14 @@ func _advance_cave_spawns(delta: float) -> void:
 	# S-08.2: a deep cave with no closer context is Sporekin territory.
 	var spawn_surf: int = world.surface.get(spawn_cell.x, spawn_cell.y)
 	var deep: bool = (spawn_cell.y - spawn_surf) >= SPOREKIN_MIN_DEPTH
+	# S-08.3: under the beetle's own cap, a deterministic-rare stone-cavern cell is a
+	# Stoneback Beetle. The gate never draws from the RNG stream (spatial hash), so the
+	# cave-spawn ordering and the fixed-seed balance report are untouched.
+	var beetle_ok: bool = beetle_count < STONEBACK_BEETLE_CAP
+	var stone_rare: bool = beetle_ok and EnemySpawnDirectorClass.stone_cavern_rare(
+		spawn_cell, STONEBACK_BEETLE_RARITY)
 	var eid: String = EnemySpawnDirectorClass.select_cave_enemy_id(
-		lava_near, ore_near, _enemy_registry, water_near, lantern_ok, deep)
+		lava_near, ore_near, _enemy_registry, water_near, lantern_ok, deep, stone_rare)
 	var event := "A Cave Crawler lurks in the dark below."
 	if eid == "lava_slime":
 		event = "A Lava Slime oozes from the molten rock."
@@ -1700,6 +1715,8 @@ func _advance_cave_spawns(delta: float) -> void:
 		event = "An Ore Tick clings to the ore nearby."
 	elif eid == "sporekin":
 		event = "Sporekin cluster from the fungal deep."
+	elif eid == "stoneback_beetle":
+		event = "A Stoneback Beetle grinds out of the stone cavern."
 	var def: Dictionary = _enemy_registry.def_for_spawn(eid)
 	if def.is_empty():
 		return

@@ -270,7 +270,11 @@
       "id": "stoneback_beetle",
       "display_name": "Stoneback Beetle",
       "family": "underground",
-      "status": "planned",
+      "status": "live",
+      "contact_damage": 7,
+      "speed": 16,
+      "hp": 6,
+      "hp_mult": 1.8,
       "location": "Stone caverns",
       "density": {
         "count_min": 1,
@@ -279,11 +283,23 @@
       },
       "drops": [
         {
-          "item_id": "stone_plates",
-          "chance": 0.8
+          "item_id": "stone",
+          "chance": 0.85
+        },
+        {
+          "item_id": "coal",
+          "chance": 0.18
+        },
+        {
+          "item_id": "copper_ore",
+          "chance": 0.12
+        },
+        {
+          "item_id": "iron_ore",
+          "chance": 0.06
         }
       ],
-      "role": "Rare stone cavern dweller, provides construction material"
+      "role": "Rare armored cavern dweller; a slow stone-plated bruiser that yields stone and the occasional ore"
     },
     {
       "id": "sporekin",
