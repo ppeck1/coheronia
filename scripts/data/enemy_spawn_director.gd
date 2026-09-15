@@ -78,7 +78,8 @@ static func cave_at_cap(underground_count: int, cap: int) -> bool:
 ## falling back to the crawler. `water_near`/`lantern_ok` default false so existing
 ## three-argument callers behave exactly as before.
 static func select_cave_enemy_id(lava_near: bool, ore_near: bool, registry,
-		water_near := false, lantern_ok := false, deep := false) -> String:
+		water_near := false, lantern_ok := false, deep := false,
+		stone_rare := false) -> String:
 	if lava_near and registry.is_spawnable("lava_slime"):
 		return "lava_slime"
 	if water_near and lantern_ok and registry.is_spawnable("lantern_leech"):
@@ -88,6 +89,13 @@ static func select_cave_enemy_id(lava_near: bool, ore_near: bool, registry,
 	# S-08.2: a deep cave with no closer context is Sporekin territory (cluster).
 	if deep and registry.is_spawnable("sporekin"):
 		return "sporekin"
+	# S-08.3: a rare stone-cavern nook is a Stoneback Beetle. This branch sits BELOW the
+	# deep/sporekin branch, so sporekin's eligibility is byte-identical — the beetle only
+	# ever carves a rare fraction out of the crawler fallback (as leech/ore/sporekin each
+	# did). `stone_rare` folds in the beetle's own cap and the deterministic rarity gate;
+	# it defaults false so existing six-argument callers behave exactly as before.
+	if stone_rare and registry.is_spawnable("stoneback_beetle"):
+		return "stoneback_beetle"
 	return "cave_crawler"
 
 
@@ -96,3 +104,20 @@ static func select_cave_enemy_id(lava_near: bool, ore_near: bool, registry,
 ## cap so the existing cap is never exceeded. Pure; game_root does the placement.
 static func cluster_size(existing_underground: int, cap: int, desired: int) -> int:
 	return maxi(0, mini(desired, cap - existing_underground))
+
+
+## S-08.3: deterministic "rare stone cavern" gate for the Stoneback Beetle. A stable
+## integer hash of the spawn cell is bucketed 1-in-`rarity`, so a genuinely uncommon
+## subset of cave cells are beetle nooks WITHOUT drawing from the RNG stream — the
+## fixed-seed balance report and every other cave-spawn roll stay byte-identical
+## (S-08.1/S-08.2 added zero new RNG draws; this preserves that). `rarity <= 0`
+## disables the gate; `rarity == 1` marks every cell (tuning/testing convenience).
+## Pure and portable (explicit hash + posmod, not the engine `hash()`), so the smoke
+## outcome is identical on the Linux and Windows CI targets.
+static func stone_cavern_rare(cell: Vector2i, rarity: int) -> bool:
+	if rarity <= 0:
+		return false
+	if rarity == 1:
+		return true
+	var h: int = (cell.x * 73856093) ^ (cell.y * 19349663)
+	return posmod(h, rarity) == 0

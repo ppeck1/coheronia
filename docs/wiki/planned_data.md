@@ -41,7 +41,6 @@ These pages exist because planned enemy data references them. They are not live 
 | [Mud](items/mud.md) | Mudling | Clay prep or farming amendment. |
 | [Picks](items/picks.md) | Raider Sapper | Tool repair or iron salvage. |
 | [Reed Fiber](items/reed_fiber.md) | Mudling | Rope, nets, or matting. |
-| [Stone Plates](items/stone_plates.md) | Stoneback Beetle | Armor or barricade plating. |
 | [Teeth](items/teeth.md) | Burrow Maw | Dagger, charm, or trophy. |
 | [Venison](items/venison.md) | Hollow Stag | Feast or trade good. |
 | [Venom](items/venom.md) | Ash Wasp | Toxin, trap, or advanced craft. |
