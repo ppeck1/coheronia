@@ -44,6 +44,11 @@ func _run() -> void:
 		print("SHOTS complete (dock) -> user://shots")
 		get_tree().quit(0)
 		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "bg":
+		await _shoot_backdrop(root, world, player)
+		print("SHOTS complete (backdrop) -> user://shots")
+		get_tree().quit(0)
+		return
 	world.setup(4242)
 	root._position_actors()
 	player.get_node("Camera2D").reset_smoothing()
@@ -979,6 +984,52 @@ func _shoot_perception(root: Node2D, world: Node2D, player: CharacterBody2D, hud
 	for _sp3 in range(4):
 		await get_tree().physics_frame
 	await _shot("42d_remembered_after_seenset_reload")
+
+
+## Scenic-backdrop shots (COHERONIA_SHOTS_FOCUS=bg): frame the surface horizon so
+## the whole backdrop stack (sky, clouds, far/mid ranges, near hills) reads, then
+## capture it at two camera zooms and at day / dusk / night so the day-night
+## CanvasModulate tinting can be judged. Cosmetic staging only — never saved, never
+## part of smoke/validation.
+func _shoot_backdrop(root: Node2D, world: Node2D, player: CharacterBody2D) -> void:
+	world.setup(4242)
+	root._position_actors()
+	var cam: Camera2D = player.get_node("Camera2D")
+	var tile: float = float(world.tile_size())
+	var hall_cell: Vector2i = world.hall_info["center_cell"]
+	var ground_y: int = world.hall_info["ground_y"]
+	# Lift the view so the surface sits in the lower third and the full range stack
+	# + sky fill the frame.
+	var eye := Vector2((float(hall_cell.x) + 0.5) * tile, (float(ground_y) - 5.0) * tile)
+	cam.global_position = eye
+	cam.zoom = Vector2(1.0, 1.0)
+	cam.reset_smoothing()
+	root.time_of_day = 0.32
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	await _shot("bg_01_day")
+	# Pan right a full view to confirm the parallax strips tile with no seam.
+	cam.global_position = eye + Vector2(640.0, 0.0)
+	cam.reset_smoothing()
+	await _shot("bg_02_day_panned")
+	# Dusk: warm low-sun tint.
+	cam.global_position = eye
+	cam.reset_smoothing()
+	root.canvas_modulate.color = Color(0.62, 0.46, 0.44)
+	await _shot("bg_03_dusk")
+	# Night.
+	root.time_of_day = 0.72
+	root.is_night = true
+	root.canvas_modulate.color = root.NIGHT_TINT
+	await _shot("bg_04_night")
+	# A tighter zoom (reads the pixel scale + stepped edges at closer range).
+	root.time_of_day = 0.32
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	cam.zoom = Vector2(2.0, 2.0)
+	cam.global_position = eye + Vector2(0.0, 2.0 * tile)
+	cam.reset_smoothing()
+	await _shot("bg_05_day_zoomed")
 
 
 func _shot(shot_name: String) -> void:

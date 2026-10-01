@@ -1,21 +1,36 @@
 #!/usr/bin/env python3
-"""Procedural scenic-backdrop art generator (biome-aware).
+"""Procedural scenic-backdrop art generator (biome-aware, pixel-art).
 
-Reads data/biomes.json for each biome's layer ids/sizes and renders the tiling
-parallax art the in-game backdrop (scripts/world/world_backdrop.gd) draws behind
-the world: an opaque full-frame sky gradient with a horizon glow, soft cloud
-bands, and stacked mountain/hill silhouette strips with atmospheric perspective
-(far = light and hazy, near = dark), snow caps on the far range, and a jagged
-near treeline. Ridgelines are sums of integer-frequency sines so every strip
-tiles seamlessly left<->right.
+Reads data/biomes.json for each biome's layer ids/sizes/format and renders the
+tiling parallax art the in-game backdrop (scripts/world/world_backdrop.gd) draws
+behind the world: an opaque full-frame sky gradient with a horizon glow, a band
+of elongated pixel clouds, and stacked mountain/hill silhouette strips with
+atmospheric perspective (far = light + hazy, near = dark).
 
-Palettes are sampled from the prologue frames (art/generated/opening) so the
-world reads as one place. The art is authored at a neutral daytime base; the
-game's day/night CanvasModulate tints it to dusk/night for free. Adding a biome
-= a new entry in biomes.json + a palette here.
+Design goals (one coherent pixel-art scene, varied across seeds and along a strip):
 
-    python scripts/art/gen_backgrounds.py            # surface + a preview PNG
+  * ONE contour language. Ridgelines are tileable value noise sampled on a
+    CIRCLE (the ring closes once across the strip width, so the left and right
+    edges are the same sample -> a seamless horizontal tile with NO repeated
+    triangular-summit rhythm). Distant = broad connected masses; middle = the
+    same mass with a few nested slope/shadow contours; near = simpler darker
+    forms with a jagged treeline.
+  * ONE pixel treatment. Strips are rasterized at NATIVE resolution with HARD
+    stepped edges (no supersample/LANCZOS downscale) and a small set of flat
+    tones (quantized bands + ordered dither). Clouds share that edge scale and
+    palette discipline: elongated contour masses, a restrained underside, and a
+    few internal marks -- never sphere-lit airbrush, never mountain-shaped.
+
+Tuning has one home below: STYLE (shared discipline) + PROFILES (per-biome sky
+and per-layer shape/palette). data/biomes.json stays authoritative for the
+runtime layer CONTRACT (ids, sizes, format, parallax, rise); this file never
+restates those. Each layer has its own independent seed stream, so retuning one
+layer never rearranges the others.
+
+    python scripts/art/gen_backgrounds.py            # canonical surface art + preview
     python scripts/art/gen_backgrounds.py --all      # every biome in biomes.json
+    python scripts/art/gen_backgrounds.py --seed 42  # PREVIEW an alt seed to build/
+                                                      # (never overwrites canonical art)
 """
 from __future__ import annotations
 
@@ -28,276 +43,337 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
 BG_DIR = ROOT / "art/generated/backgrounds"
+BUILD = ROOT / "build"
 
-# Per-biome palettes keyed by layer art id (+ a "sky" entry). Daytime base tones.
-PALETTES = {
+# --- Shared style discipline (the one knob set every layer obeys) -------------
+# Keep this tiny: it is the "pixel scale + tone treatment" the whole scene
+# shares. Per-layer SHAPE and PALETTE live in PROFILES.
+STYLE = {
+    "dither": 0.85,     # ordered-dither strength folded into every band quantize
+    "field": 256,       # value-noise lattice size (periodic); covers all ring radii
+}
+# 4x4 ordered (Bayer) dither matrix, centred to [-0.5, 0.5).
+_BAYER = (np.array([[0, 8, 2, 10], [12, 4, 14, 6],
+                    [3, 11, 1, 9], [15, 7, 13, 5]]) + 0.5) / 16.0 - 0.5
+
+
+# --- Per-biome profiles: sky + per-layer shape/palette ------------------------
+# kind "range" = broad mountain mass (+ optional nested contours / snow / haze);
+# kind "hills" = simpler near form (+ treeline); art ending "clouds" = cloud band.
+# feat_px = approximate major-feature wavelength in PIXELS, so every strip shares
+#   one contour SCALE regardless of its declared width (far = broad, near = small).
+PROFILES = {
     "surface": {
         "sky": {
-            # A deeper, more saturated true-blue (cooler/indigo lean) so the pale
-            # grey-blue mountains clearly read AGAINST the sky instead of blending
-            # into it; warm horizon kept for the glow.
             "stops": [(0.0, (24, 38, 92)), (0.40, (40, 76, 150)), (0.70, (80, 126, 188)),
                       (0.86, (196, 192, 178)), (1.0, (218, 206, 184))],
             "glow": {"y": 0.86, "color": (244, 216, 168), "strength": 0.42, "spread": 0.09},
         },
-        "surface_clouds": {"count": 9, "seed": 7, "base": (240, 244, 250),
-                           "light_dir": (-0.55, -0.72), "bump": 0.11, "levels": 4},
+        "surface_clouds": {
+            "seed": 7, "count": 9,
+            "body": (238, 242, 249), "shadow": (198, 206, 223), "rim": (250, 252, 255),
+            "length": (150, 360), "thick": (16, 34), "band": (0.30, 0.78),
+            "underside": 3, "marks": 2, "feat_px": 46,
+        },
         "surface_range_far": {
-            "grad": [(0.0, (150, 166, 198)), (0.45, (126, 144, 182)), (1.0, (102, 122, 164))],
-            "rim": (206, 218, 238), "haze": 0.22, "haze_col": (150, 170, 202),
-            "see_through": 0.10, "seed": 903, "snow": True, "bands": 6,
-            "style": "peaks", "peaks": 7, "peak_w": (0.032, 0.070), "peak_h": (0.52, 0.80),
-            "foot": 0.12, "jag": 0.06, "sharp": 1.28, "base_frac": 0.88},
+            "kind": "range", "seed": 903,
+            "grad": [(0.0, (166, 180, 208)), (0.5, (130, 148, 186)), (1.0, (102, 122, 164))],
+            "rim": (210, 221, 240), "rim_px": 1, "bands": 4,
+            "base_frac": 0.90, "amp": 0.46, "feat_px": 300, "octaves": 4,
+            "haze": 0.08, "see_through": 0.06,
+            "snow": True, "snow_col": (234, 240, 248),
+        },
         "surface_range_mid": {
-            "grad": [(0.0, (86, 106, 146)), (0.45, (60, 80, 122)), (1.0, (38, 56, 98))],
-            "rim": (132, 156, 194), "haze": 0.05, "haze_col": (120, 142, 182),
-            "see_through": 0.0, "seed": 517, "snow": True, "bands": 6,
-            "style": "peaks", "peaks": 6, "peak_w": (0.05, 0.11), "peak_h": (0.40, 0.70),
-            "foot": 0.10, "jag": 0.045, "sharp": 1.3, "base_frac": 0.82},
+            "kind": "range", "seed": 517,
+            "grad": [(0.0, (84, 104, 146)), (0.5, (58, 78, 120)), (1.0, (36, 54, 96))],
+            "rim": (128, 152, 192), "rim_px": 1, "bands": 4,
+            "base_frac": 0.82, "amp": 0.58, "feat_px": 232, "octaves": 4,
+            "relief_var": 0.42,
+            "haze": 0.06, "see_through": 0.0,
+            "contours": 2, "contour_step": 0.16, "contour_shade": 0.9,
+        },
         "surface_hills_near": {
-            "grad": [(0.0, (86, 118, 84)), (0.35, (58, 82, 60)), (0.7, (34, 50, 42)),
-                     (1.0, (16, 26, 24))],
-            "rim": (104, 138, 96), "haze": 0.0, "seed": 277, "amp": 0.42,
-            "base_frac": 0.64, "treeline": True, "bands": 7},
+            "kind": "hills", "seed": 277,
+            "grad": [(0.0, (84, 116, 82)), (0.4, (54, 78, 58)), (0.72, (32, 48, 40)),
+                     (1.0, (15, 25, 23))],
+            "rim": (104, 138, 96), "rim_px": 1, "bands": 3, "dither": 0.35,
+            "base_frac": 0.60, "amp": 0.44, "feat_px": 170, "octaves": 4,
+            "treeline": 0.07,
+        },
     },
 }
 
 
-def _sines(x: float, w: int, freqs, falloff: float, rng) -> np.ndarray:
+# --- Tileable value noise (cosine-interpolated, sampled on a ring) ------------
+def _value_field(seed: int, g: int) -> np.ndarray:
+    """A g x g lattice of random scalars in [0,1); indexed with wrap, so it is a
+    periodic (toroidal) noise field."""
+    return np.random.default_rng(seed).random((g, g))
+
+
+def _sample_field(field: np.ndarray, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Cosine-interpolated value noise at float coords (vectorised, wrapping).
+    Easing S(t)=0.5(1-cos(pi t)) gives smooth lattice interpolation."""
+    g = field.shape[0]
+    x0 = np.floor(x).astype(np.int64)
+    y0 = np.floor(y).astype(np.int64)
+    sx = 0.5 * (1.0 - np.cos(np.pi * (x - x0)))
+    sy = 0.5 * (1.0 - np.cos(np.pi * (y - y0)))
+    x0 %= g; y0 %= g
+    x1 = (x0 + 1) % g; y1 = (y0 + 1) % g
+    v00 = field[y0, x0]; v10 = field[y0, x1]
+    v01 = field[y1, x0]; v11 = field[y1, x1]
+    a = v00 * (1 - sx) + v10 * sx
+    b = v01 * (1 - sx) + v11 * sx
+    return a * (1 - sy) + b * sy
+
+
+def _fbm_ring(w: int, seed: int, feat_px: float, octaves: int = 4,
+              gain: float = 0.5, lacunarity: float = 2.0) -> np.ndarray:
+    """Seamless 0..1 profile of length `w`: fractal value noise read around a
+    circle so the ends meet. The base octave crosses ~w/feat_px lattice cells per
+    loop (feat_px = major-feature wavelength in px), so the SAME feat_px gives the
+    SAME on-screen feature size on any strip width. Octaves add finer, decorrelated
+    detail. The traversal closes at x=w==x=0, so the strip tiles with no seam."""
+    g = STYLE["field"]
+    field = _value_field(seed, g)
+    orng = np.random.default_rng(seed ^ 0x9E3779B9)   # independent octave offsets
+    ang = 2.0 * np.pi * (np.arange(w) / float(w))
     out = np.zeros(w)
-    amp, total = 1.0, 0.0
-    for f in freqs:
-        out += amp * np.sin(2 * np.pi * f * x / w + rng.uniform(0, 2 * np.pi))
-        total += amp
-        amp *= falloff
-    return out / total               # -1..1
+    amp, norm = 1.0, 0.0
+    cells = max(1.0, w / float(feat_px))              # base ring circumference (cells)
+    for o in range(octaves):
+        radius = (cells * lacunarity ** o) / (2.0 * np.pi)
+        ox, oy = orng.uniform(0, g, size=2)
+        out += amp * _sample_field(field, ox + radius * np.cos(ang),
+                                   oy + radius * np.sin(ang))
+        norm += amp
+        amp *= gain
+    out /= norm
+    lo, hi = np.percentile(out, 3), np.percentile(out, 97)   # robust full-relief stretch
+    return np.clip((out - lo) / max(1e-6, hi - lo), 0.0, 1.0)
 
 
-def _ridge(w: int, height: int, cfg: dict, k: int = 1) -> np.ndarray:
-    """Ridge-top y (in px, 0 = strip top) per column; tiles because every term is an
-    integer-frequency sine. `k` = width / 640: all frequencies scale by k so a wider
-    strip keeps the SAME feature size but a longer (k*640) tiling period — far less
-    visible repetition — instead of just stretching."""
-    rng = np.random.default_rng(cfg["seed"])
-    x = np.arange(w)
-    h = _sines(x, w, tuple(f * k for f in (1, 2, 3, 4, 6)), 0.56, rng)
-    detail = cfg.get("detail", 0.0)
-    if detail:
-        ridged = 1.0 - np.abs(_sines(x, w, tuple(f * k for f in (6, 10, 16)), 0.72, rng))
-        h += detail * 0.40 * (ridged * 2.0 - 1.0)
-    if cfg.get("treeline"):                               # organic forest edge
-        for f, a in ((29, 0.10), (47, 0.07), (83, 0.05)):
-            h += a * np.sin(2 * np.pi * (f * k) * x / w + rng.uniform(0, 2 * np.pi))
-    h = np.clip(h, -1.4, 1.4)
-    frac = np.clip(cfg["base_frac"] - 0.5 * cfg["amp"] * h, 0.02, 0.98)
-    return frac * height
-
-
-def _smooth(a: np.ndarray, k: int) -> np.ndarray:
-    """Periodic moving-average smoothing (keeps the strip tileable)."""
-    if k < 2:
-        return a
-    ker = np.ones(k) / k
-    pad = np.concatenate([a[-k:], a, a[:k]])
-    return np.convolve(pad, ker, "same")[k:-k]
-
-
-def _blur2d(a: np.ndarray, k: int) -> np.ndarray:
-    """Separable box blur (for softening the cloud height field before shading)."""
-    if k < 2:
-        return a
-    ker = np.ones(k) / k
-    a = np.apply_along_axis(lambda m: np.convolve(m, ker, "same"), 1, a)
-    a = np.apply_along_axis(lambda m: np.convolve(m, ker, "same"), 0, a)
-    return a
-
-
+# --- Colour helpers -----------------------------------------------------------
 def _grad(frac: np.ndarray, stops: list) -> np.ndarray:
-    """Smooth multi-stop vertical gradient -> (...,3), interpolated per channel."""
+    """Multi-stop vertical gradient -> (...,3), interpolated per channel."""
     pos = np.array([s[0] for s in stops])
     cols = np.array([s[1] for s in stops], float)
     return np.stack([np.interp(frac, pos, cols[:, c]) for c in range(3)], axis=-1)
 
 
-def _peaks(w: int, height: int, cfg: dict, k: int = 1) -> np.ndarray:
-    """ANGULAR mountains: tall triangular summits punching up out of a jagged range
-    floor (rolling foothills + sharp ridged sub-crests). `foot`/`jag` set the range
-    chaos, `sharp` the flank angularity (higher = pointier). `k` = width/640 scales
-    frequencies + peak count so a wider strip keeps the same peak SIZE but a longer
-    tiling period (less visible repetition)."""
-    rng = np.random.default_rng(cfg["seed"])
-    x = np.arange(w)
-    H = float(height)
-    baseline = cfg.get("base_frac", 0.8) * H
-    roll = _sines(x, w, tuple(f * k for f in (2, 3, 5)), 0.6, rng) * 0.5 + 0.5
-    ridged = 1.0 - np.abs(_sines(x, w, tuple(f * k for f in (8, 13, 21, 33)), 0.72, rng))
-    ry = baseline - (cfg.get("foot", 0.26) * roll + cfg.get("jag", 0.20) * ridged) * H
-    for _ in range(int(round(cfg.get("peaks", 7) * k))):
-        px = rng.uniform(0, w)
-        pw = rng.uniform(*cfg.get("peak_w", (0.04, 0.09))) * w / k   # constant px size
-        ph = rng.uniform(*cfg.get("peak_h", (0.5, 0.95))) * H
-        dx = np.minimum(np.abs(x - px), w - np.abs(x - px))
-        tent = np.clip(1.0 - dx / pw, 0.0, 1.0) ** cfg.get("sharp", 1.15)
-        ry = np.minimum(ry, baseline - ph * tent)
-    ry += 0.010 * H * _sines(x, w, tuple(f * k for f in (45, 67)), 0.7, rng)
-    return np.clip(ry, 0.02 * H, 0.98 * H)
+def _quantize(frac: np.ndarray, bands: int, dither: float | None = None) -> np.ndarray:
+    """Flatten a 0..1 field into `bands` flat steps with ordered dither so the
+    tone treatment reads as deliberate pixel-art banding, not a smooth ramp.
+    `dither` overrides the shared STYLE strength (near hills use less so the green
+    reads as flat planes, not a busy grain)."""
+    h, w = frac.shape
+    amt = STYLE["dither"] if dither is None else dither
+    dith = _BAYER[np.arange(h)[:, None] % 4, np.arange(w)[None, :] % 4] * amt
+    return np.clip(np.floor((frac + dith / bands) * bands) / bands, 0.0, 1.0)
 
 
+# --- Mountain / hill strip ----------------------------------------------------
 def _make_strip(w: int, height: int, cfg: dict) -> Image.Image:
-    """Supersampled so ridge edges anti-alias smoothly on downscale; filled with a
-    multi-stop gradient plus an atmospheric haze blend toward the crest, soft rim
-    light, and softly-tapered snow. Colour is defined for EVERY pixel (only alpha
-    masks the ridge) so the downscale never bleeds a dark fringe along the crest."""
-    ss = 3
-    W, H = w * ss, height * ss
-    k = max(1, round(w / 640))              # tiling-period multiplier (wider = less repeat)
-    if cfg.get("style") == "peaks":
-        ry = _peaks(W, H, cfg, k)           # angular mountains (kept crisp, no smoothing)
-    else:
-        ry = _smooth(_ridge(W, H, cfg, k), 3 * ss + 1)   # rolling hills / forest
-    yy = np.arange(H)[:, None]
-    dist = yy - ry[None, :]                                   # px below the crest
-    frac = np.clip(dist / np.maximum(1.0, H - ry[None, :]), 0, 1)
-    # Optional dithered banding of the fill gradient so the mountains carry the SAME
-    # pixel-art tone treatment as the clouds (quantized bands + ordered dither).
-    bands = cfg.get("bands", 0)
-    if bands:
-        bayer = (np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]])
-                 + 0.5) / 16.0 - 0.5
-        dith = bayer[np.arange(H)[:, None] % 4, np.arange(W)[None, :] % 4] * 0.8
-        fq = np.clip(np.floor((frac + dith / bands) * bands) / bands, 0, 1)
-        col = _grad(fq, cfg["grad"])
-    else:
-        col = _grad(frac, cfg["grad"])
-    # atmospheric haze: colour lifts toward the sky tone near the crest
-    haze = cfg.get("haze", 0.0)
-    if haze:
-        hc = np.array(cfg.get("haze_col", (210, 220, 236)), float)
-        m = ((1.0 - frac) * haze)[..., None]
-        col = col * (1 - m) + hc[None, None, :] * m
-    # soft rim light just under the crest
-    rim = np.clip(1.0 - dist / (3.0 * ss), 0, 1) * (dist >= 0)
-    col = col * (1 - 0.45 * rim[..., None]) + np.array(cfg["rim"], float)[None, None, :] * (0.45 * rim[..., None])
-    # soft snow caps hugging the higher peaks
-    if cfg.get("snow"):
-        # Cap only the TIPS of the tallest peaks (white-capped at times), not whole
-        # mountains: snowline at the upper third of the range, and only a few px down
-        # from each qualifying summit.
-        snowline = np.percentile(ry, 34)
-        span = max(1.0, snowline - float(ry.min()))
-        peak = np.clip((snowline - ry) / span, 0, 1)      # 0 at snowline .. 1 at the tip
-        depth = np.maximum(1.0, (2.0 + 5.0 * peak)[None, :] * ss)
-        snow = np.clip(1.0 - dist / depth, 0, 1) ** 1.5 * (dist >= 0) * (peak[None, :] > 0.18)
-        col = col * (1 - snow[..., None]) + 246.0 * snow[..., None]
-    alpha = np.where(dist >= 0, 255.0 * (1.0 - cfg.get("see_through", 0.0) * (1.0 - frac)), 0.0)
-    img = np.dstack([np.clip(col, 0, 255), alpha]).astype(np.uint8)
-    return Image.fromarray(img, "RGBA").resize((w, height), Image.LANCZOS)
+    """A silhouette strip rasterised at NATIVE resolution with hard stepped edges
+    and flat quantized tones. The ridgeline is tileable ring noise (broad masses,
+    no triangle rhythm). Optional nested contours (middle), atmospheric haze +
+    hard snow caps (far), and a jagged treeline (near) all fold into the SAME tone
+    ladder so every layer shares one shading treatment."""
+    H = float(height)
+    prof = _fbm_ring(w, cfg["seed"], cfg["feat_px"], cfg.get("octaves", 4))
+    if cfg.get("kind") == "hills" and cfg.get("treeline"):
+        # a soft low-frequency fringe = organic forest edge (its own seed stream).
+        # Wider wavelength = a few gentle lobes, not a busy row of tiny bumps.
+        prof = np.clip(prof + cfg["treeline"] *
+                       (_fbm_ring(w, cfg["seed"] + 991, cfg["feat_px"] * 0.5, 2) - 0.5), 0, 1)
+    # Per-column relief envelope: a very-broad second ring scales the amplitude up
+    # and down across the strip so whole massifs read taller/shorter (and so wider
+    # at the base) -- more mass-to-mass variation WITHOUT adding high-frequency
+    # peakiness. 0 = uniform relief.
+    amp = cfg["amp"]
+    rv = cfg.get("relief_var", 0.0)
+    if rv:
+        slow = _fbm_ring(w, cfg["seed"] + 701, cfg["feat_px"] * 2.6, 2)
+        amp = cfg["amp"] * ((1.0 - rv) + rv * 2.0 * slow)
+    ridge = np.clip(cfg["base_frac"] - amp * prof, 0.02, 0.98) * H   # crest y (px)
 
-
-def _make_clouds(w: int, height: int, cfg: dict) -> Image.Image:
-    """Chunky pixel-art cumulus: each cloud is a union of round bumps (pillowy top)
-    on a flat base, hard-edged (no soft alpha), shaded with three FLAT tone bands
-    from a bright top down to a shadowed underside. Reads as blocky pixel clouds,
-    not a soft airbrush, and tiles in x."""
-    rng = np.random.default_rng(cfg.get("seed", 7))
-    xx = np.arange(w)[None, :]
     yy = np.arange(height)[:, None]
-    hf = np.zeros((height, w))                          # cloud thickness (sphere height)
-    # Chaotic quantity + free vertical placement: a varied number of clouds scattered
-    # across the WHOLE sky band (not a single height), each with very different bump
-    # counts/sizes. Slots keep the big clouds from merging into a slab; a handful of
-    # random small puffs add extra chaos.
-    n = max(3, cfg.get("count", 6) + int(rng.integers(-1, 3)))
-    for i in range(n):
-        cx = (i + 0.5) / n * w + rng.uniform(-0.42, 0.42) * (w / n)
-        cw = rng.uniform(52, 116)
-        base = rng.uniform(height * 0.32, height * 0.80)   # free vertical, margin from edges
-        bumps = int(rng.integers(3, 8))
-        for b in range(bumps):
-            jitter = rng.uniform(-0.18, 0.18)
-            bx = cx + ((b + 0.5) / bumps - 0.5 + jitter) * cw
-            r = cw * rng.uniform(0.14, 0.34)
-            rx = r * rng.uniform(0.85, 1.5)                # elliptical + varied so no
-            ry = r * rng.uniform(0.7, 1.1)                 # bump is a perfect circle
-            by = base - r * rng.uniform(0.15, 1.1)
-            dx = np.minimum(np.abs(xx - bx), w - np.abs(xx - bx))
-            d = (dx / rx) ** 2 + ((yy - by) / ry) ** 2
-            hf = np.maximum(hf, np.sqrt(np.maximum(0.0, 1.0 - d)) * min(rx, ry))
-    for _ in range(int(rng.integers(1, 4))):               # a few scattered small wisps
-        bx, by = rng.uniform(0, w), rng.uniform(height * 0.15, height * 0.9)
-        rx, ry = rng.uniform(10, 26), rng.uniform(7, 16)
-        dx = np.minimum(np.abs(xx - bx), w - np.abs(xx - bx))
-        d = (dx / rx) ** 2 + ((yy - by) / ry) ** 2
-        hf = np.maximum(hf, np.sqrt(np.maximum(0.0, 1.0 - d)) * min(rx, ry))
-    mask = hf > 0.6
-    # Rounded VOLUME shading from the thickness gradient lit by a direction. The height
-    # field is BLURRED first so the shading reads as one cohesive cloud volume rather
-    # than a pile of separate spheres; quantized + ordered-dithered for a pixel look.
-    hn = _blur2d(hf, 7) / max(1.0, float(hf.max()))
-    gy, gx = np.gradient(hn)
-    ld = np.array(cfg.get("light_dir", (-0.55, -0.72)), float)
-    lz = 0.55
-    lvec = np.array([ld[0], ld[1], lz])
-    lvec /= np.linalg.norm(lvec)
-    bz = cfg.get("bump", 0.11)
-    nx, ny = -gx, -gy
-    nl = np.sqrt(nx * nx + ny * ny + bz * bz) + 1e-6
-    diff = (nx * lvec[0] + ny * lvec[1] + bz * lvec[2]) / nl
-    # bright cloud, gentle directional shading (not a heavy grey)
-    shade = np.clip(0.74 + 0.42 * np.clip(diff, -0.3, 1.0), 0.5, 1.12)
-    levels = float(cfg.get("levels", 4))
-    bayer = (np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) + 0.5) / 16.0 - 0.5
-    dith = bayer[yy[:, 0] % 4][:, xx[0] % 4] * 0.5      # subtle dither, not noise
-    q = np.clip(np.floor((shade + dith / levels) * levels) / levels, 0.46, 1.12)
-    base_col = np.array(cfg.get("base", (240, 244, 250)), float)
+    dist = yy - ridge[None, :]                                   # px below the crest
+    frac = np.clip(dist / np.maximum(1.0, H - ridge[None, :]), 0, 1)
+
+    # atmospheric haze: lift the fill toward the sky tone near the crest (far ranges)
+    if cfg.get("haze"):
+        frac = np.clip(frac - cfg["haze"] * (1.0 - frac), 0, 1)
+
+    # nested slope/shadow contours (middle): step the tone down one notch below
+    # each inner contour line, so the mass reads as a few folded planes.
+    shade = np.zeros_like(frac)
+    for k in range(1, cfg.get("contours", 0) + 1):
+        inner = ridge + k * cfg["contour_step"] * H + \
+            (_fbm_ring(w, cfg["seed"] + 37 * k, cfg["feat_px"] * 0.6, 3) - 0.5) * 0.04 * H
+        shade += (yy >= inner[None, :]).astype(float)
+    bands = cfg.get("bands", 4)
+    fq = _quantize(frac, bands, cfg.get("dither"))
+    if cfg.get("contours"):
+        fq = np.clip(fq + shade * (cfg.get("contour_shade", 0.9) / bands), 0, 1)
+    col = _grad(fq, cfg["grad"])
+
+    # hard rim highlight: the top rim_px rows of the mass catch the light (a flat
+    # stepped band, not a soft falloff).
+    rim_px = cfg.get("rim_px", 0)
+    if rim_px:
+        rim = (dist >= 0) & (dist < rim_px)
+        col = np.where(rim[..., None], np.array(cfg["rim"], float)[None, None, :], col)
+
+    # hard snow caps on just the tallest tips (far range): small flat white shapes.
+    if cfg.get("snow"):
+        snowline = np.percentile(ridge, 24)
+        span = max(1.0, snowline - float(ridge.min()))
+        peak = np.clip((snowline - ridge) / span, 0, 1)          # 0 at snowline..1 at tip
+        depth = (1.0 + 2.5 * peak)[None, :]
+        cap = (dist >= 0) & (dist < depth) & (peak[None, :] > 0.55)
+        col = np.where(cap[..., None], np.array(cfg["snow_col"], float)[None, None, :], col)
+
+    see = cfg.get("see_through", 0.0)
+    alpha = np.where(dist >= 0, 255.0 * (1.0 - see * (1.0 - frac)), 0.0)
+    img = np.dstack([np.clip(col, 0, 255), alpha]).astype(np.uint8)
+    return Image.fromarray(img, "RGBA")
+
+
+# --- Clouds -------------------------------------------------------------------
+def _make_clouds(w: int, height: int, cfg: dict) -> Image.Image:
+    """Elongated pixel clouds: each cloud is one horizontal contour mass (a
+    lozenge top envelope lumped by tileable noise) with a FLAT base, a restrained
+    darker underside, and a couple of internal marks. Hard edges, 2-3 flat tones,
+    tiles in x. Not sphere-lit, not mountain-shaped."""
+    rng = np.random.default_rng(cfg.get("seed", 7))
+    H = float(height)
+    body = np.array(cfg.get("body", (238, 242, 249)), float)
+    shadow = np.array(cfg.get("shadow", (198, 206, 223)), float)
+    rim = np.array(cfg.get("rim", (250, 252, 255)), float)
     img = np.zeros((height, w, 4), float)
-    img[..., :3] = np.clip(base_col[None, None, :] * q[..., None], 0, 255)
-    img[..., 3] = np.where(mask, 255.0, 0.0)            # hard pixel edges
+    # deformation noise shared across the band so each cloud's lumps match the
+    # scene's edge scale and wrap seamlessly at the strip join.
+    defo = _fbm_ring(w, cfg["seed"] + 5, cfg.get("feat_px", 46), 3)
+    n = max(3, cfg.get("count", 9) + int(rng.integers(-1, 3)))
+    lo_b, hi_b = cfg.get("band", (0.30, 0.78))
+    base_len = cfg.get("length", (150, 360))
+    base_thick = cfg.get("thick", (16, 34))
+    # A few RECOGNIZABLE cloud proportions so they do not all read as one flat
+    # lozenge. Each type scales the base length/thickness and sets the top-contour
+    # power (low = broad flat top, high = fuller rounded crown). `w` = pick weight.
+    types = cfg.get("types", [
+        {"w": 3, "len": (0.95, 1.25), "thick": (0.85, 1.05), "pow": 0.72},  # bank (flat)
+        {"w": 2, "len": (1.35, 1.85), "thick": (0.45, 0.65), "pow": 0.95},  # long thin streak
+        {"w": 2, "len": (0.55, 0.80), "thick": (1.35, 1.75), "pow": 0.48},  # tall rounded puff
+    ])
+    weights = np.array([t["w"] for t in types], float)
+    weights /= weights.sum()
+    xcol = np.arange(w)
+    for i in range(n):
+        t = types[int(rng.choice(len(types), p=weights))]
+        cx = (i + 0.5) / n * w + rng.uniform(-0.40, 0.40) * (w / n)
+        L = rng.uniform(*base_len) * rng.uniform(*t["len"])
+        thick = rng.uniform(*base_thick) * rng.uniform(*t["thick"])
+        cy = rng.uniform(lo_b, hi_b) * H
+        flip = -1.0 if rng.random() < 0.5 else 1.0    # break left/right symmetry
+        # wrapped signed distance from the cloud centre, in [-w/2, w/2]
+        dxc = ((xcol - cx + w / 2.0) % w) - w / 2.0
+        u = dxc / L + 0.5                              # 0..1 across the cloud span
+        inside = (u > 0.0) & (u < 1.0)
+        env = np.sqrt(np.clip(np.sin(np.pi * np.clip(u, 0, 1)), 0, 1))   # rounded ends
+        env = env ** t["pow"]
+        lump = 0.60 + 0.40 * defo                      # noisy top, restrained
+        tilt = 1.0 + 0.10 * flip * (u - 0.5)           # gentle asymmetric lean
+        top = cy - env * thick * lump * tilt
+        base = cy + np.minimum(2.0, env * 2.0)         # nearly flat underside
+        for x in np.nonzero(inside)[0]:
+            t0 = int(np.ceil(top[x]))
+            b0 = int(np.floor(base[x]))
+            if b0 < t0 or t0 >= height or b0 < 0:
+                continue
+            t0 = max(0, t0); b0 = min(height - 1, b0)
+            img[t0:b0 + 1, x, :3] = body
+            img[t0:b0 + 1, x, 3] = 255.0
+            img[t0, x, :3] = rim                       # 1px lit top edge
+            und = cfg.get("underside", 3)
+            if und and b0 - und >= t0:
+                img[b0 - und + 1:b0 + 1, x, :3] = shadow   # restrained underside band
+        # a few internal marks: short darker strokes a little above the base
+        for _ in range(cfg.get("marks", 2)):
+            mu = rng.uniform(0.28, 0.72)
+            mx = int((cx + (mu - 0.5) * L) % w)
+            mlen = int(rng.uniform(0.10, 0.22) * L)
+            my = int(cy - thick * rng.uniform(0.10, 0.30))
+            for xx in range(mx, mx + mlen):
+                c = xx % w
+                if 0 <= my < height and img[my, c, 3] > 0:
+                    img[my, c, :3] = shadow
     return Image.fromarray(img.astype(np.uint8), "RGBA")
 
 
+# --- Sky ----------------------------------------------------------------------
 def _make_sky(w: int, height: int, cfg: dict) -> Image.Image:
-    stops = cfg["stops"]
-    grad = np.zeros((height, 3))
-    for i, y in enumerate(np.linspace(0, 1, height)):
-        for j in range(len(stops) - 1):
-            y0, c0 = stops[j]
-            y1, c1 = stops[j + 1]
-            if y0 <= y <= y1:
-                t = (y - y0) / max(1e-6, y1 - y0)
-                grad[i] = np.array(c0) * (1 - t) + np.array(c1) * t
-                break
-        else:
-            grad[i] = np.array(stops[-1][1])
+    """A restrained vertical gradient with a warm horizon glow and a faint dither
+    to break 8-bit banding. Opaque; the day/night CanvasModulate tints it in game."""
+    pos = np.array([s[0] for s in cfg["stops"]])
+    cols = np.array([s[1] for s in cfg["stops"]], float)
+    yf = np.linspace(0, 1, height)
+    grad = np.stack([np.interp(yf, pos, cols[:, c]) for c in range(3)], axis=-1)
     img = np.repeat(grad[:, None, :], w, axis=1)
     g = cfg["glow"]
     gw = np.exp(-(((np.arange(height) - g["y"] * height) / (g["spread"] * height)) ** 2))
     gw = (gw * g["strength"])[:, None, None]
     img = img * (1 - gw) + np.array(g["color"], float)[None, None, :] * gw
-    # ordered-ish dither breaks 8-bit banding across the smooth gradient
-    img += np.random.default_rng(7).uniform(-1.4, 1.4, img.shape)
+    img += np.random.default_rng(7).uniform(-1.2, 1.2, img.shape)
     return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), "RGB")
 
 
-def _layer_image(w: int, h: int, art: str, pal: dict) -> Image.Image:
+# --- Dispatch + preview -------------------------------------------------------
+def _layer_image(w: int, h: int, art: str, pal: dict, seed_shift: int = 0) -> Image.Image:
+    cfg = dict(pal[art])
+    if seed_shift:
+        cfg["seed"] = int(cfg.get("seed", 0)) + seed_shift
     if art.endswith("clouds"):
-        return _make_clouds(w, h, pal[art])
-    return _make_strip(w, h, pal[art])
+        return _make_clouds(w, h, cfg)
+    return _make_strip(w, h, cfg)
 
 
-def _preview(biome: dict, pal: dict, sky: Image.Image, out: Path) -> None:
+def _seam_check(img: Image.Image, out: Path, crop: int = 80) -> None:
+    """Emit a join montage: the strip's RIGHT edge butted against its LEFT edge,
+    so a seam in SHAPE or COLOUR at the x-wrap is visible (periodic formulas alone
+    are not proof of an invisible pixel seam)."""
+    w = img.width
+    c = min(crop, w // 2)
+    left = img.crop((0, 0, c, img.height))
+    right = img.crop((w - c, 0, w, img.height))
+    canvas = Image.new("RGBA", (c * 2 + 2, img.height), (255, 0, 255, 255))
+    canvas.alpha_composite(right.convert("RGBA"), (0, 0))         # ...right | left...
+    canvas.alpha_composite(left.convert("RGBA"), (c + 2, 0))
+    canvas.convert("RGB").save(out)
+
+
+def _preview(biome: dict, pal: dict, sky: Image.Image, out: Path,
+             seed_shift: int = 0, pan: float = 0.0) -> None:
+    """Full-scene composite at the game's native 640x360 frame, honouring each
+    layer's declared order, dimensions, rise, and parallax (via `pan`, a fake
+    camera x) so composition can be judged offline. The running game is the final
+    authority."""
     W, H = sky.size
     canvas = sky.convert("RGBA")
     horizon = int(H * 0.64)
     for layer in biome["layers"]:
-        img = _layer_image(int(layer["width"]), int(layer["height"]),
-                           layer["art"], pal)
-        if layer.get("anchor") == "sky":
-            y = int(layer.get("anchor_y", 40))
-        else:
-            y = horizon - img.height
-        canvas.alpha_composite(img, (0, y))
-    # a dark earth band so the preview reads as a full frame
+        lw, lh = int(layer["width"]), int(layer["height"])
+        img = _layer_image(lw, lh, layer["art"], pal, seed_shift)
+        rise = float(layer.get("rise", 0.0))
+        par = float(layer.get("parallax", 0.3))
+        bottom = horizon - rise
+        scroll = pan * par
+        x = -(scroll % lw)
+        while x < W:
+            canvas.alpha_composite(img, (int(round(x)), int(bottom - lh)))
+            x += lw
     earth = Image.new("RGBA", (W, H - horizon), (26, 30, 30, 255))
     canvas.alpha_composite(earth, (0, horizon))
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -305,26 +381,39 @@ def _preview(biome: dict, pal: dict, sky: Image.Image, out: Path) -> None:
     print(f"  preview -> {out.relative_to(ROOT)}")
 
 
-def build(biomes: dict, only: str | None, preview: bool) -> int:
-    BG_DIR.mkdir(parents=True, exist_ok=True)
+def build(biomes: dict, only: str | None, preview: bool,
+          seed_shift: int = 0) -> int:
+    """Write canonical art when seed_shift==0; otherwise write a PREVIEW-ONLY set
+    to build/ and never touch the canonical assets."""
+    canonical = seed_shift == 0
+    if canonical:
+        BG_DIR.mkdir(parents=True, exist_ok=True)
+    BUILD.mkdir(parents=True, exist_ok=True)
     for name, biome in biomes["biomes"].items():
         if only and name != only:
             continue
-        pal = PALETTES.get(name)
+        pal = PROFILES.get(name)
         if pal is None:
-            print(f"  (no palette for biome '{name}'; skipping art)")
+            print(f"  (no profile for biome '{name}'; skipping art)")
             continue
         sky_spec = biome["sky"]
         sky = _make_sky(int(sky_spec["width"]), int(sky_spec["height"]), pal["sky"])
-        sky.save(BG_DIR / f"{sky_spec['art']}.png")
-        print(f"  {name}/{sky_spec['art']} {sky.size} RGB")
+        if canonical:
+            sky.save(BG_DIR / f"{sky_spec['art']}.png")
+            print(f"  {name}/{sky_spec['art']} {sky.size} RGB")
         for layer in biome["layers"]:
             img = _layer_image(int(layer["width"]), int(layer["height"]),
-                               layer["art"], pal)
-            img.save(BG_DIR / f"{layer['art']}.png")
-            print(f"  {name}/{layer['art']} {img.size} RGBA")
+                               layer["art"], pal, seed_shift)
+            if canonical:
+                img.save(BG_DIR / f"{layer['art']}.png")
+                print(f"  {name}/{layer['art']} {img.size} RGBA")
+                _seam_check(img, BUILD / f"seam_{layer['art']}.png")
         if preview:
-            _preview(biome, pal, sky, ROOT / f"build/backdrop_preview_{name}.png")
+            tag = "" if canonical else f"_seed{seed_shift}"
+            _preview(biome, pal, sky, BUILD / f"backdrop_preview_{name}{tag}.png",
+                     seed_shift)
+            _preview(biome, pal, sky, BUILD / f"backdrop_pan_{name}{tag}.png",
+                     seed_shift, pan=900.0)
     return 0
 
 
@@ -332,10 +421,12 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--all", action="store_true", help="every biome (default: surface)")
     ap.add_argument("--no-preview", action="store_true")
+    ap.add_argument("--seed", type=int, default=0,
+                    help="preview an ALTERNATE seed to build/ (never overwrites canonical art)")
     args = ap.parse_args()
     biomes = json.loads((ROOT / "data/biomes.json").read_text(encoding="utf-8"))
     only = None if args.all else biomes.get("default_biome", "surface")
-    return build(biomes, only, not args.no_preview)
+    return build(biomes, only, not args.no_preview, seed_shift=args.seed)
 
 
 if __name__ == "__main__":
