@@ -49,6 +49,11 @@ func _run() -> void:
 		print("SHOTS complete (backdrop) -> user://shots")
 		get_tree().quit(0)
 		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "trees":
+		await _shoot_trees(root, world, player)
+		print("SHOTS complete (trees) -> user://shots")
+		get_tree().quit(0)
+		return
 	world.setup(4242)
 	root._position_actors()
 	player.get_node("Camera2D").reset_smoothing()
@@ -1030,6 +1035,41 @@ func _shoot_backdrop(root: Node2D, world: Node2D, player: CharacterBody2D) -> vo
 	cam.global_position = eye + Vector2(0.0, 2.0 * tile)
 	cam.reset_smoothing()
 	await _shot("bg_05_day_zoomed")
+
+
+## Trees v6 preview (COHERONIA_SHOTS_FOCUS=trees): stamps the new fuller tree_cells_v6
+## crowns across a clear stretch of surface (existing leaf/trunk tiles) so the new
+## SHAPE can be seen in the real engine before the gen_version default is flipped.
+## Cosmetic staging only — directly sets cells (trees aren't placeable); never saved.
+func _shoot_trees(root: Node2D, world: Node2D, player: CharacterBody2D) -> void:
+	world.setup(4242)
+	root._position_actors()
+	var cam: Camera2D = player.get_node("Camera2D")
+	var tile: float = float(world.tile_size())
+	var hall_cell: Vector2i = world.hall_info["center_cell"]
+	var gy0: int = int(world.hall_info["ground_y"])
+	var base_x: int = hall_cell.x + 9
+	var xs: Array = [base_x, base_x + 7, base_x + 14, base_x + 21, base_x + 28]
+	for bx in xs:
+		var gy: int = int(world.surface.get(bx, gy0))
+		for entry in WorldGen.tree_cells_v6(4242, bx, gy):
+			var pos: Vector2i = entry[0]
+			if world.block_at(pos) == "air":
+				world.cells[pos] = str(entry[1])
+				world._set_tile(pos, str(entry[1]))
+	for _f in range(10):
+		await get_tree().physics_frame
+	root.time_of_day = 0.32
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	cam.zoom = Vector2(2.0, 2.0)
+	cam.global_position = Vector2((float(base_x + 14) + 0.5) * tile, (float(gy0) - 4.0) * tile)
+	cam.reset_smoothing()
+	await _shot("trees_v6_day")
+	cam.zoom = Vector2(1.4, 1.4)
+	cam.global_position = Vector2((float(base_x + 14) + 0.5) * tile, (float(gy0) - 6.0) * tile)
+	cam.reset_smoothing()
+	await _shot("trees_v6_wide")
 
 
 func _shot(shot_name: String) -> void:

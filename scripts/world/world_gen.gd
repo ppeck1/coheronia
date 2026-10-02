@@ -133,7 +133,7 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 		var x_cursor := 4
 		while x_cursor < width - 4:
 			if rng.randf() < 0.55 * tree_density:
-				_grow_tree(cells, rng, x_cursor, surface[x_cursor])
+				_grow_tree(cells, rng, x_cursor, surface[x_cursor], gen_version, world_seed)
 			x_cursor += rng.randi_range(7, 14)
 
 	# Berry bushes: surface food source, own seed channel. Trees occupy the
@@ -571,10 +571,145 @@ static func tree_layout(trunk_h: int, x: int, ground_y: int) -> Array:
 	return out
 
 
-## Stamps one tree: a tree_trunk column topped by a small tree_leaves canopy.
-## Trees never overwrite existing cells, so they cannot swallow terrain.
+## Trees v6 (gen_version >= 6): a taller leaning trunk topped by a FULLER, rounded
+## multi-lobe tree_leaves crown (apex + two side lobes), deterministic from a
+## stable hash of (world_seed, root, salt) -- NOT call-order RNG, so the same site
+## grows the same tree regardless of generation order. Ported from the approved
+## offline prototype (scripts/proto/tree_plan_preview.py, S1-S3 block aesthetic):
+## coverage-quantized lobes, keep only the crown mass connected to the trunk top,
+## then fill 1-cell pits so it reads full. Pure geometry; the caller skips occupied
+## cells. The legacy tree_layout (gen_version < 6) is unchanged for save-compat.
+const TREE_V6_MIN_H := 5
+const TREE_V6_MAX_H := 8
+
+
+static func tree_cells_v6(world_seed: int, x: int, ground_y: int) -> Array:
+	var r := _tree_rng(world_seed, x, ground_y, 101)
+	var height := r.randi_range(TREE_V6_MIN_H, TREE_V6_MAX_H)
+	var lean := (r.randf() * 2.0 - 1.0) * 0.7
+	var trunk: Array[Vector2i] = []
+	var prev := Vector2i(x, ground_y - 1)
+	trunk.append(prev)
+	for i in range(1, height):
+		var t := float(i) / float(height - 1)
+		var cur := Vector2i(x + int(round(lean * t)), ground_y - 1 - i)
+		if absi(cur.x - prev.x) == 1 and cur.y != prev.y:
+			trunk.append(Vector2i(prev.x, cur.y))          # vertical-first bridge (4-connected)
+		if cur != prev:
+			trunk.append(cur)
+		prev = cur
+	var top: Vector2i = trunk[trunk.size() - 1]
+	var spread := 1.4 + 0.18 * float(height)
+	var lobes := [
+		[float(top.x), float(top.y) - 0.6, 2.5, 2.0],      # apex lobe
+		[float(top.x) - spread, float(top.y) + 0.5, 2.0, 1.7],
+		[float(top.x) + spread, float(top.y) + 0.5, 2.0, 1.7],
+	]
+	var trunk_set := {}
+	for c in trunk:
+		trunk_set[c] = true
+	var leaf := {}
+	for cy in range(top.y - 5, top.y + 3):
+		for cx in range(top.x - 6, top.x + 7):
+			if cy >= ground_y:
+				continue
+			var f := -9.0
+			for L in lobes:
+				var d := sqrt(pow((float(cx) - L[0]) / L[2], 2.0) + pow((float(cy) - L[1]) / L[3], 2.0))
+				f = maxf(f, 1.0 - d)
+			f += 0.55 * (_cnoise(world_seed, cx, cy) - 0.5)
+			var p := Vector2i(cx, cy)
+			if f > 0.12 and not trunk_set.has(p):
+				leaf[p] = true
+	leaf = _crown_connected(leaf, trunk_set, top)
+	leaf = _crown_fill_pits(leaf, trunk_set, ground_y)
+	var out: Array = []
+	for c in trunk:
+		if c.y >= 0:
+			out.append([c, "tree_trunk"])
+	for c in leaf.keys():
+		if c.y >= 0:
+			out.append([c, "tree_leaves"])
+	return out
+
+
+## Stable per-site RNG (deterministic hash, not call-order dependent).
+static func _tree_rng(world_seed: int, x: int, ground_y: int, salt: int) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (world_seed * 73856093) ^ (x * 19349663) ^ (ground_y * 83492791) ^ (salt * 40503)
+	return rng
+
+
+## Stable scalar noise in [0,1) from a cell hash (for the irregular crown edge).
+static func _cnoise(world_seed: int, x: int, y: int) -> float:
+	var h := world_seed * 374761393 + x * 668265263 + y * 2654435761
+	h = (h ^ (h >> 13)) * 1274126177
+	h = h ^ (h >> 16)
+	return float(absi(h) % 1000) / 1000.0
+
+
+## Keep only crown cells 4-connected to the trunk top (drop floating blobs).
+static func _crown_connected(leaf: Dictionary, trunk_set: Dictionary, top: Vector2i) -> Dictionary:
+	var n4 := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	var out := {}
+	var stack: Array[Vector2i] = []
+	for p in leaf.keys():
+		for d in n4:
+			if trunk_set.has(p + d):
+				if not out.has(p):
+					out[p] = true
+					stack.append(p)
+				break
+	while not stack.is_empty():
+		var c: Vector2i = stack.pop_back()
+		for d in n4:
+			var nb: Vector2i = c + d
+			if leaf.has(nb) and not out.has(nb):
+				out[nb] = true
+				stack.append(nb)
+	return out
+
+
+## Fill 1-cell pits (air boxed in on >=3 sides by crown/wood) so the crown reads full.
+static func _crown_fill_pits(leaf: Dictionary, trunk_set: Dictionary, ground_y: int) -> Dictionary:
+	var n4 := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for _pass in range(2):
+		if leaf.is_empty():
+			break
+		var minx := 1 << 30
+		var maxx := -(1 << 30)
+		var miny := 1 << 30
+		var maxy := -(1 << 30)
+		for p in leaf.keys():
+			minx = mini(minx, p.x); maxx = maxi(maxx, p.x)
+			miny = mini(miny, p.y); maxy = maxi(maxy, p.y)
+		var add: Array[Vector2i] = []
+		for cy in range(miny, maxy + 1):
+			for cx in range(minx, maxx + 1):
+				var p := Vector2i(cx, cy)
+				if cy >= ground_y or leaf.has(p) or trunk_set.has(p):
+					continue
+				var n := 0
+				for d in n4:
+					if leaf.has(p + d) or trunk_set.has(p + d):
+						n += 1
+				if n >= 3:
+					add.append(p)
+		for p in add:
+			leaf[p] = true
+	return leaf
+
+
+## Stamps one tree: gen_version >= 6 grows the fuller v6 crown; older worlds keep
+## the legacy 3-5 trunk + 3x2 canopy (byte-identical). Trees never overwrite cells.
 static func _grow_tree(cells: Dictionary, rng: RandomNumberGenerator,
-		x: int, surf_y: int) -> void:
+		x: int, surf_y: int, gen_version: int = 1, world_seed: int = 0) -> void:
+	if gen_version >= 6:
+		for entry in tree_cells_v6(world_seed, x, surf_y):
+			var vpos: Vector2i = entry[0]
+			if not cells.has(vpos):
+				cells[vpos] = str(entry[1])
+		return
 	var trunk_h := rng.randi_range(TREE_MIN_H, TREE_MAX_H)
 	for entry in tree_layout(trunk_h, x, surf_y):
 		var pos: Vector2i = entry[0]
