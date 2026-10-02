@@ -278,9 +278,17 @@ func _tick_tree_growth(delta: float) -> void:
 ## fails safely and retries; canopy cells that are occupied are skipped, exactly as
 ## world-gen never overwrites terrain. Returns true when the tree was stamped.
 func _mature_sapling(cell: Vector2i) -> bool:
-	var trunk_h: int = WorldGen.TREE_MIN_H + (absi(hash(cell)) \
-		% (WorldGen.TREE_MAX_H - WorldGen.TREE_MIN_H + 1))
-	var layout: Array = WorldGen.tree_layout(trunk_h, cell.x, cell.y + 1)
+	# A planted sapling grows the SAME shape world-gen produces for this world's
+	# generation version: the fuller v6 crown in gen_version >= 6 worlds, else the
+	# legacy canopy. Keeps natural + planted trees consistent per version.
+	var gv: int = GameState.current_config.gen_version() if GameState.current_config != null else 1
+	var layout: Array
+	if gv >= 6:
+		layout = WorldGen.tree_cells_v6(world_seed, cell.x, cell.y + 1)
+	else:
+		var trunk_h: int = WorldGen.TREE_MIN_H + (absi(hash(cell)) \
+			% (WorldGen.TREE_MAX_H - WorldGen.TREE_MIN_H + 1))
+		layout = WorldGen.tree_layout(trunk_h, cell.x, cell.y + 1)
 	# Validate the trunk column is clear before placing anything (fail safely).
 	for entry in layout:
 		var pos: Vector2i = entry[0]
@@ -289,6 +297,8 @@ func _mature_sapling(cell: Vector2i) -> bool:
 	for entry in layout:
 		var pos: Vector2i = entry[0]
 		var id: String = str(entry[1])
+		if pos.x < 0 or pos.x >= width:
+			continue
 		# Skip an occupied canopy cell (never swallow terrain); the trunk column is
 		# already verified clear above, and the sapling cell is overwritten by trunk.
 		if pos != cell and block_at(pos) != "air":

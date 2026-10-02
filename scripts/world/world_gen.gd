@@ -27,7 +27,10 @@ const LIQUID_BLOCK_IDS := ["lava", "water"]
 ##        so a pool touching a non-solid decoration (tree/bush) kept a real open
 ##        face the fluid sim would pour through on the first nearby disturbance.
 ##        v5 seals those faces (see _encapsulate_liquids); v3/v4 stay byte-identical.
-const CURRENT_GEN_VERSION := 5
+## v6 (2026-10-02): natural trees grow the fuller multi-lobe v6 crown
+## (tree_cells_v6). v1-v5 keep the legacy 3-5 trunk + 3x2 canopy, byte-identical
+## (new shape gated on gen_version >= 6; existing worlds load their stamped version).
+const CURRENT_GEN_VERSION := 6
 
 ## v4: a generated liquid pocket (lava or water) smaller than this many connected
 ## same-liquid cells is removed at gen time, so the caves keep only real pools
@@ -133,7 +136,7 @@ static func generate(world_seed: int, config: WorldConfig) -> Dictionary:
 		var x_cursor := 4
 		while x_cursor < width - 4:
 			if rng.randf() < 0.55 * tree_density:
-				_grow_tree(cells, rng, x_cursor, surface[x_cursor], gen_version, world_seed)
+				_grow_tree(cells, rng, x_cursor, surface[x_cursor], gen_version, world_seed, width)
 			x_cursor += rng.randi_range(7, 14)
 
 	# Berry bushes: surface food source, own seed channel. Trees occupy the
@@ -703,10 +706,13 @@ static func _crown_fill_pits(leaf: Dictionary, trunk_set: Dictionary, ground_y: 
 ## Stamps one tree: gen_version >= 6 grows the fuller v6 crown; older worlds keep
 ## the legacy 3-5 trunk + 3x2 canopy (byte-identical). Trees never overwrite cells.
 static func _grow_tree(cells: Dictionary, rng: RandomNumberGenerator,
-		x: int, surf_y: int, gen_version: int = 1, world_seed: int = 0) -> void:
+		x: int, surf_y: int, gen_version: int = 1, world_seed: int = 0,
+		width: int = 0) -> void:
 	if gen_version >= 6:
 		for entry in tree_cells_v6(world_seed, x, surf_y):
 			var vpos: Vector2i = entry[0]
+			if width > 0 and (vpos.x < 0 or vpos.x >= width):
+				continue                                   # keep the crown in-bounds
 			if not cells.has(vpos):
 				cells[vpos] = str(entry[1])
 		return
