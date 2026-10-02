@@ -44,6 +44,22 @@ func _run() -> void:
 		print("SHOTS complete (dock) -> user://shots")
 		get_tree().quit(0)
 		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "bg":
+		await _shoot_backdrop(root, world, player)
+		print("SHOTS complete (backdrop) -> user://shots")
+		get_tree().quit(0)
+		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "trees":
+		await _shoot_trees(root, world, player)
+		print("SHOTS complete (trees) -> user://shots")
+		get_tree().quit(0)
+		return
+	# Canonical shots reflect a CURRENT new world — gen_version 6, so the fuller
+	# v6 trees appear. Preserve the rest of the active config (size/preset/seed).
+	var _tour_cfg: Dictionary = GameState.current_config.data.duplicate(true) \
+		if GameState.current_config != null else WorldConfig.from_preset("folk_kingdom")
+	_tour_cfg["gen_version"] = WorldGen.CURRENT_GEN_VERSION
+	GameState.current_config = WorldConfig.new(_tour_cfg)
 	world.setup(4242)
 	root._position_actors()
 	player.get_node("Camera2D").reset_smoothing()
@@ -979,6 +995,87 @@ func _shoot_perception(root: Node2D, world: Node2D, player: CharacterBody2D, hud
 	for _sp3 in range(4):
 		await get_tree().physics_frame
 	await _shot("42d_remembered_after_seenset_reload")
+
+
+## Scenic-backdrop shots (COHERONIA_SHOTS_FOCUS=bg): frame the surface horizon so
+## the whole backdrop stack (sky, clouds, far/mid ranges, near hills) reads, then
+## capture it at two camera zooms and at day / dusk / night so the day-night
+## CanvasModulate tinting can be judged. Cosmetic staging only — never saved, never
+## part of smoke/validation.
+func _shoot_backdrop(root: Node2D, world: Node2D, player: CharacterBody2D) -> void:
+	world.setup(4242)
+	root._position_actors()
+	var cam: Camera2D = player.get_node("Camera2D")
+	var tile: float = float(world.tile_size())
+	var hall_cell: Vector2i = world.hall_info["center_cell"]
+	var ground_y: int = world.hall_info["ground_y"]
+	# Lift the view so the surface sits in the lower third and the full range stack
+	# + sky fill the frame.
+	var eye := Vector2((float(hall_cell.x) + 0.5) * tile, (float(ground_y) - 5.0) * tile)
+	cam.global_position = eye
+	cam.zoom = Vector2(1.0, 1.0)
+	cam.reset_smoothing()
+	root.time_of_day = 0.32
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	await _shot("bg_01_day")
+	# Pan right a full view to confirm the parallax strips tile with no seam.
+	cam.global_position = eye + Vector2(640.0, 0.0)
+	cam.reset_smoothing()
+	await _shot("bg_02_day_panned")
+	# Dusk: warm low-sun tint.
+	cam.global_position = eye
+	cam.reset_smoothing()
+	root.canvas_modulate.color = Color(0.62, 0.46, 0.44)
+	await _shot("bg_03_dusk")
+	# Night.
+	root.time_of_day = 0.72
+	root.is_night = true
+	root.canvas_modulate.color = root.NIGHT_TINT
+	await _shot("bg_04_night")
+	# A tighter zoom (reads the pixel scale + stepped edges at closer range).
+	root.time_of_day = 0.32
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	cam.zoom = Vector2(2.0, 2.0)
+	cam.global_position = eye + Vector2(0.0, 2.0 * tile)
+	cam.reset_smoothing()
+	await _shot("bg_05_day_zoomed")
+
+
+## Trees v6 preview (COHERONIA_SHOTS_FOCUS=trees): stamps the new fuller tree_cells_v6
+## crowns across a clear stretch of surface (existing leaf/trunk tiles) so the new
+## SHAPE can be seen in the real engine before the gen_version default is flipped.
+## Cosmetic staging only — directly sets cells (trees aren't placeable); never saved.
+func _shoot_trees(root: Node2D, world: Node2D, player: CharacterBody2D) -> void:
+	world.setup(4242)
+	root._position_actors()
+	var cam: Camera2D = player.get_node("Camera2D")
+	var tile: float = float(world.tile_size())
+	var hall_cell: Vector2i = world.hall_info["center_cell"]
+	var gy0: int = int(world.hall_info["ground_y"])
+	var base_x: int = hall_cell.x + 9
+	var xs: Array = [base_x, base_x + 7, base_x + 14, base_x + 21, base_x + 28]
+	for bx in xs:
+		var gy: int = int(world.surface.get(bx, gy0))
+		for entry in WorldGen.tree_cells_v6(4242, bx, gy):
+			var pos: Vector2i = entry[0]
+			if world.block_at(pos) == "air":
+				world.cells[pos] = str(entry[1])
+	world._redraw_all()                                # draw with full neighbours (edge tones)
+	for _f in range(10):
+		await get_tree().physics_frame
+	root.time_of_day = 0.32
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	cam.zoom = Vector2(2.0, 2.0)
+	cam.global_position = Vector2((float(base_x + 14) + 0.5) * tile, (float(gy0) - 4.0) * tile)
+	cam.reset_smoothing()
+	await _shot("trees_v6_day")
+	cam.zoom = Vector2(1.4, 1.4)
+	cam.global_position = Vector2((float(base_x + 14) + 0.5) * tile, (float(gy0) - 6.0) * tile)
+	cam.reset_smoothing()
+	await _shot("trees_v6_wide")
 
 
 func _shot(shot_name: String) -> void:

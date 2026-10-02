@@ -61,6 +61,18 @@ var _tilemap: TileMapLayer
 var _fluid: RefCounted              # LQ-1: FluidSim, owns the active/sleep set + step logic
 var _lava_bubbles: Node2D          # LQ-2c: presentation-only rising-bubble overlay
 var _source_ids: Dictionary = {}    # block_id -> Array of tileset source ids (FQ-09V: one per variant)
+# Trees v6 look: three FLAT leaf tones [light, base, dark] (from the approved
+# prototype) chosen per crown cell by its edge/position in _set_tile, so the
+# canopy reads with the block-art directional shading instead of one flat green.
+var _leaf_tone_sids: Array = []
+const LEAF_TONES := [Color(0.478, 0.643, 0.376), Color(0.337, 0.518, 0.275),
+	Color(0.220, 0.376, 0.220)]
+# Trees v6 look: a wider SOLID trunk (code-drawn) so a fuller crown doesn't sit on
+# a thin bark sliver. Matches the prototype's wood + side-shade + light streak.
+var _trunk_sid: int = -1
+const TRUNK_WOOD := Color(0.470, 0.345, 0.204)
+const TRUNK_DARK := Color(0.369, 0.259, 0.157)
+const TRUNK_LIGHT := Color(0.549, 0.416, 0.259)
 # LQ-2: liquid block_id -> Array of LIQUID_FILL_LEVELS bottom-anchored fill-tile
 # source-id pools (bucket 1 = thinnest .. last = full). Each fill level retains
 # all authored variants so _set_tile can pick by fill level and deterministic cell hash.
@@ -278,9 +290,17 @@ func _tick_tree_growth(delta: float) -> void:
 ## fails safely and retries; canopy cells that are occupied are skipped, exactly as
 ## world-gen never overwrites terrain. Returns true when the tree was stamped.
 func _mature_sapling(cell: Vector2i) -> bool:
-	var trunk_h: int = WorldGen.TREE_MIN_H + (absi(hash(cell)) \
-		% (WorldGen.TREE_MAX_H - WorldGen.TREE_MIN_H + 1))
-	var layout: Array = WorldGen.tree_layout(trunk_h, cell.x, cell.y + 1)
+	# A planted sapling grows the SAME shape world-gen produces for this world's
+	# generation version: the fuller v6 crown in gen_version >= 6 worlds, else the
+	# legacy canopy. Keeps natural + planted trees consistent per version.
+	var gv: int = GameState.current_config.gen_version() if GameState.current_config != null else 1
+	var layout: Array
+	if gv >= 6:
+		layout = WorldGen.tree_cells_v6(world_seed, cell.x, cell.y + 1)
+	else:
+		var trunk_h: int = WorldGen.TREE_MIN_H + (absi(hash(cell)) \
+			% (WorldGen.TREE_MAX_H - WorldGen.TREE_MIN_H + 1))
+		layout = WorldGen.tree_layout(trunk_h, cell.x, cell.y + 1)
 	# Validate the trunk column is clear before placing anything (fail safely).
 	for entry in layout:
 		var pos: Vector2i = entry[0]
@@ -289,6 +309,8 @@ func _mature_sapling(cell: Vector2i) -> bool:
 	for entry in layout:
 		var pos: Vector2i = entry[0]
 		var id: String = str(entry[1])
+		if pos.x < 0 or pos.x >= width:
+			continue
 		# Skip an occupied canopy cell (never swallow terrain); the trunk column is
 		# already verified clear above, and the sapling cell is overwritten by trunk.
 		if pos != cell and block_at(pos) != "air":
@@ -1317,6 +1339,31 @@ func _set_tile(cell: Vector2i, block_id: String) -> void:
 		if fill_sids.size() > 1:
 			idx = posmod(hash(Vector3i(cell.x, cell.y, world_seed)), fill_sids.size())
 		_tilemap.set_cell(cell, fill_sids[idx], Vector2i.ZERO)
+	elif block_id == "tree_leaves" and not _leaf_tone_sids.is_empty():
+		# Directional 3-tone crown (trees v6 block art): lighter at the top/outer
+		# edge, darker on the underside + a few interior shadow patches, base
+		# elsewhere. A hash patch breaks up flat runs. Neighbour lookups read the
+		# live grid, so a redraw after an edit re-tones correctly.
+		var _above := block_at(cell + Vector2i(0, -1))
+		var _below := block_at(cell + Vector2i(0, 1))
+		var _top := _above != "tree_leaves" and _above != "tree_trunk"
+		var _bot := _below != "tree_leaves" and _below != "tree_trunk"
+		var _patch := posmod(hash(Vector3i(cell.x, cell.y, world_seed)), 100)
+		var _tone := 1
+		if _top or _patch > 76:
+			_tone = 0
+		if _bot or _patch < 20:
+			_tone = 2
+		_tilemap.set_cell(cell, _leaf_tone_sids[_tone], Vector2i.ZERO)
+	elif block_id == "tree_trunk" and _trunk_sid >= 0:
+		# A trunk cell boxed in by crown reads as foliage (the canopy covers the
+		# upper wood); otherwise draw the wider solid trunk.
+		if not _leaf_tone_sids.is_empty() \
+				and block_at(cell + Vector2i(-1, 0)) == "tree_leaves" \
+				and block_at(cell + Vector2i(1, 0)) == "tree_leaves":
+			_tilemap.set_cell(cell, _leaf_tone_sids[1], Vector2i.ZERO)
+		else:
+			_tilemap.set_cell(cell, _trunk_sid, Vector2i.ZERO)
 	else:
 		# FQ-09V: blocks with a variant pool pick one deterministically from
 		# world seed + cell position — the same world always renders the same
@@ -1465,6 +1512,50 @@ func _build_tileset() -> TileSet:
 				else:
 					tile_data.set_occluder(0, occluder)
 		_source_ids[block_id] = sids
+		if block_id == "tree_leaves":
+			_leaf_tone_sids = []
+			for tone_col: Color in LEAF_TONES:
+				var timg := Image.create(t, t, false, Image.FORMAT_RGBA8)
+				timg.fill(tone_col)
+				var tsrc := TileSetAtlasSource.new()
+				tsrc.texture = ImageTexture.create_from_image(timg)
+				tsrc.texture_region_size = Vector2i(t, t)
+				tsrc.create_tile(Vector2i.ZERO)
+				_leaf_tone_sids.append(ts.add_source(tsrc))
+				if BlockRegistry.blocks_light(block_id):
+					var ltd := tsrc.get_tile_data(Vector2i.ZERO, 0)
+					var locc := OccluderPolygon2D.new()
+					locc.polygon = square
+					if ltd.has_method("add_occluder_polygon"):
+						ltd.add_occluder_polygon(0)
+						ltd.set_occluder_polygon(0, 0, locc)
+					else:
+						ltd.set_occluder(0, locc)
+		if block_id == "tree_trunk":
+			var wimg := Image.create(t, t, false, Image.FORMAT_RGBA8)
+			wimg.fill(Color(0, 0, 0, 0))
+			var lo := t / 2 - 5
+			var hi := t / 2 + 6                      # ~11px solid wood bar
+			for wy in range(t):
+				for wx in range(lo, hi):
+					wimg.set_pixel(wx, wy, TRUNK_WOOD)
+				wimg.set_pixel(lo, wy, TRUNK_DARK)
+				wimg.set_pixel(hi - 1, wy, TRUNK_DARK)
+				wimg.set_pixel(lo + 2, wy, TRUNK_LIGHT)
+			var wsrc := TileSetAtlasSource.new()
+			wsrc.texture = ImageTexture.create_from_image(wimg)
+			wsrc.texture_region_size = Vector2i(t, t)
+			wsrc.create_tile(Vector2i.ZERO)
+			_trunk_sid = ts.add_source(wsrc)
+			if BlockRegistry.blocks_light(block_id):
+				var wtd := wsrc.get_tile_data(Vector2i.ZERO, 0)
+				var wocc := OccluderPolygon2D.new()
+				wocc.polygon = square
+				if wtd.has_method("add_occluder_polygon"):
+					wtd.add_occluder_polygon(0)
+					wtd.set_occluder_polygon(0, 0, wocc)
+				else:
+					wtd.set_occluder(0, wocc)
 	return ts
 
 
@@ -1546,6 +1637,8 @@ func _liquid_fill_textures(block_id: String, t: int, surface: bool = false) -> A
 func rebuild_tileset() -> void:
 	_source_ids.clear()
 	_liquid_source_ids.clear()   # LQ-2: rebuilt with fresh fill-tile sources below
+	_leaf_tone_sids.clear()
+	_trunk_sid = -1
 	_opaque_masks.clear()
 	_tilemap.tile_set = _build_tileset()
 	_redraw_all()

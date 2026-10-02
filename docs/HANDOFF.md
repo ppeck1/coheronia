@@ -129,6 +129,34 @@ report stays deterministic. Windowed smoke **635/635**; `SAVE_VERSION` (`0.6`)/`
 as live drop materials with real sinks; the retired `spores`/`fungal_thread` planned hooks were
 removed.)
 
+## Pixel trees + scenic backdrop (branch `feat/pixel-trees-and-backdrop`)
+
+Art/presentation + a gated world-gen bump. Independent of the S-08 enemy slices.
+
+- **Scenic backdrop rework**: `scripts/art/gen_backgrounds.py` rewritten so sky/clouds/
+  ranges/hills read as one coherent pixel-art scene (tileable ring-noise masses, elongated
+  clouds, hard stepped edges). Regenerated the five canonical surface PNGs. Controls in
+  `docs/BACKDROP_TUNING.md`. (`--seed` is an offline preview only; backdrop art is not seeded
+  per world.)
+
+- **Procedural trees — now in-engine.** Designed offline first in
+  `scripts/proto/tree_plan_preview.py` (S1 skeleton → S2 crown → S3 block aesthetic, approved),
+  then ported to GDScript:
+  - `WorldGen.tree_cells_v6` grows a taller leaning trunk + fuller multi-lobe crown,
+    deterministic from a stable per-site hash (not call-order RNG), rooted + pit-filled.
+  - **`CURRENT_GEN_VERSION` bumped 5 → 6** (the gated-migration pattern): new worlds grow the
+    v6 trees; worlds stamped ≤ 5 load their version and stay **byte-identical**. `SAVE_VERSION`
+    (`0.6`) unchanged. Planted saplings grow the v6 shape in gen ≥ 6 worlds.
+  - **3-tone directional crown shading + a wider solid trunk** render the approved block look
+    (flat light/base/dark leaf tones chosen by crown edge; in-crown trunk reads as foliage).
+    Pure presentation — no cells/collision/gravity/save change.
+  - Smoke `trees_v6_deterministic_rooted_fuller` added. Economy shifts up (more wood/seed per
+    tree) — accepted; revisit in a measure-first balance pass. Follow-ups: re-tone mined-cell
+    neighbours for crisp edges; optional `windswept` archetype.
+
+Verified at each step: windowed source smoke **642/642**, fixed-seed balance report
+deterministic, static gate + VERIFY PASS.
+
 ## Recommended next
 
 1. Review + merge the S-08.2 implementation PR.

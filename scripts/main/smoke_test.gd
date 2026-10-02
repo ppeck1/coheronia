@@ -810,6 +810,40 @@ func _run() -> void:
 	_check("fq09r_density_scales_tree_count", _fq09r_trunks_dense > _fq09r_trunks,
 		"default=%d dense=%d" % [_fq09r_trunks, _fq09r_trunks_dense])
 
+	# Trees v6 (gen_version >= 6): the fuller planner is deterministic per site,
+	# four-connected (every leaf reaches the root trunk cell via wood+leaf), and
+	# carries both trunk and a larger leaf crown than the legacy layout. Pure-gen
+	# check — drives WorldGen directly, independent of the gen1 baseline world.
+	var _v6a: Array = WorldGen.tree_cells_v6(4242, 20, 30)
+	var _v6b: Array = WorldGen.tree_cells_v6(4242, 20, 30)
+	var _v6c: Array = WorldGen.tree_cells_v6(4242, 24, 30)    # different root -> different tree
+	var _v6_det: bool = str(_v6a) == str(_v6b) and str(_v6a) != str(_v6c)
+	var _v6_cells := {}
+	var _v6_trunks := 0
+	var _v6_leaves := 0
+	for _e in _v6a:
+		_v6_cells[_e[0]] = str(_e[1])
+		if str(_e[1]) == "tree_trunk":
+			_v6_trunks += 1
+		else:
+			_v6_leaves += 1
+	# four-connected from the base trunk cell over the wood+leaf union.
+	var _v6_root := Vector2i(20, 29)
+	var _v6_seen := {_v6_root: true}
+	var _v6_stack: Array[Vector2i] = [_v6_root]
+	while not _v6_stack.is_empty():
+		var _c: Vector2i = _v6_stack.pop_back()
+		for _d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var _nb: Vector2i = _c + _d
+			if _v6_cells.has(_nb) and not _v6_seen.has(_nb):
+				_v6_seen[_nb] = true
+				_v6_stack.append(_nb)
+	var _v6_rooted: bool = _v6_seen.size() == _v6_cells.size()
+	_check("trees_v6_deterministic_rooted_fuller",
+		_v6_det and _v6_rooted and _v6_trunks >= 5 and _v6_leaves > 6,
+		"det=%s rooted=%s(%d/%d) trunks=%d leaves=%d" % [str(_v6_det), str(_v6_rooted),
+			_v6_seen.size(), _v6_cells.size(), _v6_trunks, _v6_leaves])
+
 	# Harvest: mining a trunk yields wood via the normal drop path; clearing
 	# leaves yields no economy resource — its ONLY possible drop is a renewable
 	# tree_seed (Item-wiring Phase 3), at a low chance, and nothing else.
