@@ -54,6 +54,12 @@ func _run() -> void:
 		print("SHOTS complete (trees) -> user://shots")
 		get_tree().quit(0)
 		return
+	# Canonical shots reflect a CURRENT new world — gen_version 6, so the fuller
+	# v6 trees appear. Preserve the rest of the active config (size/preset/seed).
+	var _tour_cfg: Dictionary = GameState.current_config.data.duplicate(true) \
+		if GameState.current_config != null else WorldConfig.from_preset("folk_kingdom")
+	_tour_cfg["gen_version"] = WorldGen.CURRENT_GEN_VERSION
+	GameState.current_config = WorldConfig.new(_tour_cfg)
 	world.setup(4242)
 	root._position_actors()
 	player.get_node("Camera2D").reset_smoothing()
