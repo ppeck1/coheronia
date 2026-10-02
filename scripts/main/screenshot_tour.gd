@@ -1056,7 +1056,7 @@ func _shoot_trees(root: Node2D, world: Node2D, player: CharacterBody2D) -> void:
 			var pos: Vector2i = entry[0]
 			if world.block_at(pos) == "air":
 				world.cells[pos] = str(entry[1])
-				world._set_tile(pos, str(entry[1]))
+	world._redraw_all()                                # draw with full neighbours (edge tones)
 	for _f in range(10):
 		await get_tree().physics_frame
 	root.time_of_day = 0.32
