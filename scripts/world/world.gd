@@ -90,6 +90,7 @@ const SURFACE_MATERIALS := {"grass": true, "dirt": true, "stone": true}
 var _surface_shape := false
 var _surface_shape_version := 1
 var _shaped_sids: Dictionary = {}           # material -> { profile_key:int -> source_id }
+var _shaped_wall_sids: Dictionary = {}      # wall material -> { profile_key -> source_id }
 var _surface_refreshing := false
 # LQ-2: liquid block_id -> Array of LIQUID_FILL_LEVELS bottom-anchored fill-tile
 # source-id pools (bucket 1 = thinnest .. last = full). Each fill level retains
@@ -475,6 +476,30 @@ func block_opaque_mask(block_id: String) -> BitMap:
 		mask.create_from_image_alpha(img, 0.1)
 		_opaque_masks[block_id] = mask
 	return _opaque_masks[block_id]
+
+
+## Shape-aware opaque mask for the mining crack overlay: an exposed shaped top
+## returns a mask with the top 0-2px cleared (so cracks never float in the
+## shaved region); otherwise the plain material mask. Cached by (id, profile).
+func surface_crack_mask(cell: Vector2i) -> BitMap:
+	var bid := block_at(cell)
+	if not (_surface_shape and _shaped_sids.has(bid) and block_at(cell + Vector2i(0, -1)) == "air"):
+		return block_opaque_mask(bid)
+	var key := _surface_profile_key(cell.x)
+	var ckey := bid + "#" + str(key)
+	if not _opaque_masks.has(ckey):
+		var t := tile_size()
+		var img: Image = _make_block_texture(bid, t).get_image().duplicate()
+		var sl := int(key / 9)
+		var sm := int((key % 9) / 3)
+		var sr := key % 3
+		for ux in range(t):
+			for uy in range(_profile_seg(sl, sm, sr, ux)):
+				img.set_pixel(ux, uy, Color(0, 0, 0, 0))
+		var m := BitMap.new()
+		m.create_from_image_alpha(img, 0.1)
+		_opaque_masks[ckey] = m
+	return _opaque_masks[ckey]
 
 
 func can_mine(cell: Vector2i, tool_tier: int) -> bool:
@@ -986,7 +1011,10 @@ func _rebuild_walls(config: WorldConfig) -> void:
 			continue   # column has no solid ground (all sky/water) — nothing to back
 		for y in range(sy, height):
 			var wall_id := "dirt_wall" if y <= sy + dirt_depth else "stone_wall"
-			_walls.set_cell(Vector2i(x, y), _wall_source_ids[wall_id], Vector2i.ZERO)
+			if _surface_shape and y == sy and _shaped_wall_sids.has(wall_id) and block_at(Vector2i(x, sy - 1)) == "air":
+				_walls.set_cell(Vector2i(x, y), _shaped_wall_sids[wall_id][_surface_profile_key(x)], Vector2i.ZERO)
+			else:
+				_walls.set_cell(Vector2i(x, y), _wall_source_ids[wall_id], Vector2i.ZERO)
 
 
 ## The wall id behind a cell ("" above the wall line) — a visual-only query.
@@ -1280,12 +1308,31 @@ func _build_wall_tileset() -> TileSet:
 	var ts := TileSet.new()
 	var t := tile_size()
 	ts.tile_size = Vector2i(t, t)
+	_shaped_wall_sids.clear()
 	for wall_id in WALL_MATERIALS:
+		var wtex := _make_wall_texture(wall_id, str(WALL_MATERIALS[wall_id]), t)
 		var src := TileSetAtlasSource.new()
-		src.texture = _make_wall_texture(wall_id, str(WALL_MATERIALS[wall_id]), t)
+		src.texture = wtex
 		src.texture_region_size = Vector2i(t, t)
 		src.create_tile(Vector2i.ZERO)
 		_wall_source_ids[wall_id] = ts.add_source(src)
+		# Shaped wall variants so an exposed cell's shaved top shows the backdrop
+		# (not a dark wall rim) through the 0-2px notch.
+		var wbase: Image = wtex.get_image()
+		var wvar := {}
+		for wl in range(SURFACE_MAX_D + 1):
+			for wm in range(SURFACE_MAX_D + 1):
+				for wr in range(SURFACE_MAX_D + 1):
+					var wimg2 := wbase.duplicate()
+					for wx in range(t):
+						for wy in range(_profile_seg(wl, wm, wr, wx)):
+							wimg2.set_pixel(wx, wy, Color(0, 0, 0, 0))
+					var wsrc2 := TileSetAtlasSource.new()
+					wsrc2.texture = ImageTexture.create_from_image(wimg2)
+					wsrc2.texture_region_size = Vector2i(t, t)
+					wsrc2.create_tile(Vector2i.ZERO)
+					wvar[wl * 9 + wm * 3 + wr] = ts.add_source(wsrc2)
+		_shaped_wall_sids[wall_id] = wvar
 	return ts
 
 
@@ -1617,7 +1664,9 @@ func _build_tileset() -> TileSet:
 						std.set_collision_polygon_points(0, 0, square)
 						if BlockRegistry.blocks_light(block_id):
 							var socc := OccluderPolygon2D.new()
-							socc.polygon = square
+							socc.polygon = PackedVector2Array([Vector2(-t / 2.0, -t / 2.0 + sl),
+								Vector2(0.0, -t / 2.0 + sm), Vector2(t / 2.0, -t / 2.0 + sr),
+								Vector2(t / 2.0, t / 2.0), Vector2(-t / 2.0, t / 2.0)])
 							if std.has_method("add_occluder_polygon"):
 								std.add_occluder_polygon(0)
 								std.set_occluder_polygon(0, 0, socc)
