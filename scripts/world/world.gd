@@ -73,6 +73,24 @@ var _trunk_sid: int = -1
 const TRUNK_WOOD := Color(0.470, 0.345, 0.204)
 const TRUNK_DARK := Color(0.369, 0.259, 0.157)
 const TRUNK_LIGHT := Color(0.549, 0.416, 0.259)
+# Terrain surface shaping (S2, RENDER-ONLY — see docs/WORK_ORDER_TERRAIN_SURFACE_SHAPING.md).
+# Exposed natural tops (grass/dirt/stone with air directly above) render with a
+# deterministic 0-2px inward micro-relief on their TOP face. Collision stays the
+# full square (the shaped tiles keep identical collision/occlusion), mining stays
+# whole-cell — this changes PIXELS + direct shadows only. Gated by _surface_shape
+# (COHERONIA_SURFACE_SHAPE=1 or a config surface_shape_version>=1); off => identical
+# to today. Profiles quantize to a small reusable set keyed L*9+M*3+R.
+const SURFACE_T := 16
+const SURFACE_MAX_D := 2
+const SURFACE_LAM := 11.0
+const SURFACE_BASE := 1.0
+const SURFACE_AMP := 1.15
+const SURFACE_SEED_OFFSET := 90111          # own noise channel
+const SURFACE_MATERIALS := {"grass": true, "dirt": true, "stone": true}
+var _surface_shape := false
+var _surface_shape_version := 1
+var _shaped_sids: Dictionary = {}           # material -> { profile_key:int -> source_id }
+var _surface_refreshing := false
 # LQ-2: liquid block_id -> Array of LIQUID_FILL_LEVELS bottom-anchored fill-tile
 # source-id pools (bucket 1 = thinnest .. last = full). Each fill level retains
 # all authored variants so _set_tile can pick by fill level and deterministic cell hash.
@@ -362,6 +380,11 @@ func setup(new_seed: int, saved_deltas: Dictionary = {}, saved_regrow: Dictionar
 	var config: WorldConfig = GameState.current_config
 	if config == null:
 		config = WorldConfig.new()
+	# Terrain surface shaping gate (render-only). Opt-in: an explicit dev flag or a
+	# world stamped with surface_shape_version>=1; default off -> identical to today.
+	_surface_shape = OS.get_environment("COHERONIA_SURFACE_SHAPE") == "1" \
+		or int(config.data.get("surface_shape_version", 0)) >= 1
+	_surface_shape_version = maxi(1, int(config.data.get("surface_shape_version", 1)))
 	var gen := WorldGen.generate(world_seed, config)
 	cells = gen["cells"]
 	surface = gen["surface"]
@@ -935,8 +958,10 @@ func world_bounds() -> Rect2:
 
 func _redraw_all() -> void:
 	_tilemap.clear()
+	_surface_refreshing = true
 	for cell in cells:
 		_set_tile(cell, cells[cell])
+	_surface_refreshing = false
 
 
 # ---------- FQ-09W: backing walls and column skylight ----------
@@ -1364,6 +1389,10 @@ func _set_tile(cell: Vector2i, block_id: String) -> void:
 			_tilemap.set_cell(cell, _leaf_tone_sids[1], Vector2i.ZERO)
 		else:
 			_tilemap.set_cell(cell, _trunk_sid, Vector2i.ZERO)
+	elif _surface_shape and _shaped_sids.has(block_id) and block_at(cell + Vector2i(0, -1)) == "air":
+		# Exposed natural top: 0-2px inward micro-relief (render-only; square collision
+		# unchanged). Profile read from the shared world boundary -> seam-free.
+		_tilemap.set_cell(cell, _shaped_sids[block_id][_surface_profile_key(cell.x)], Vector2i.ZERO)
 	else:
 		# FQ-09V: blocks with a variant pool pick one deterministically from
 		# world seed + cell position — the same world always renders the same
@@ -1374,6 +1403,14 @@ func _set_tile(cell: Vector2i, block_id: String) -> void:
 			var variant_cell := _visual_variant_anchor(cell, block_id)
 			idx = posmod(hash(Vector3i(variant_cell.x, variant_cell.y, world_seed)), sids.size())
 		_tilemap.set_cell(cell, sids[idx], Vector2i.ZERO)
+	# Surface shaping: an edit flips the EXPOSURE of the cell below (newly exposed ->
+	# shaped, newly covered -> square); re-tile it once, guarded (no cascade).
+	if _surface_shape and not _surface_refreshing:
+		_surface_refreshing = true
+		var _bcell := cell + Vector2i(0, 1)
+		if cells.has(_bcell):
+			_set_tile(_bcell, cells[_bcell])
+		_surface_refreshing = false
 	_update_light(cell, block_id)
 
 
@@ -1556,7 +1593,81 @@ func _build_tileset() -> TileSet:
 					wtd.set_occluder_polygon(0, 0, wocc)
 				else:
 					wtd.set_occluder(0, wocc)
+		# Terrain surface shaping: pre-build the small reusable set of TOP-shaved
+		# tiles per exposed material (one per quantized L/M/R profile). Each keeps the
+		# SAME square collision + occluder -- only the top 0-2px go transparent, so
+		# collision/shelter/lighting are unchanged.
+		if SURFACE_MATERIALS.has(block_id):
+			var base_img: Image = _block_textures(block_id, t)[0].get_image()
+			var variants := {}
+			for sl in range(SURFACE_MAX_D + 1):
+				for sm in range(SURFACE_MAX_D + 1):
+					for sr in range(SURFACE_MAX_D + 1):
+						var simg := base_img.duplicate()
+						for sx in range(t):
+							for sy in range(_profile_seg(sl, sm, sr, sx)):
+								simg.set_pixel(sx, sy, Color(0, 0, 0, 0))
+						var ssrc := TileSetAtlasSource.new()
+						ssrc.texture = ImageTexture.create_from_image(simg)
+						ssrc.texture_region_size = Vector2i(t, t)
+						ssrc.create_tile(Vector2i.ZERO)
+						var ssid := ts.add_source(ssrc)
+						var std := ssrc.get_tile_data(Vector2i.ZERO, 0)
+						std.add_collision_polygon(0)
+						std.set_collision_polygon_points(0, 0, square)
+						if BlockRegistry.blocks_light(block_id):
+							var socc := OccluderPolygon2D.new()
+							socc.polygon = square
+							if std.has_method("add_occluder_polygon"):
+								std.add_occluder_polygon(0)
+								std.set_occluder_polygon(0, 0, socc)
+							else:
+								std.set_occluder(0, socc)
+						variants[sl * 9 + sm * 3 + sr] = ssid
+			_shaped_sids[block_id] = variants
 	return ts
+
+
+## Terrain surface shaping (render-only): quantized inward displacement (px) at local
+## column `u` for a tile with left/mid/right endpoint displacements, joined by two
+## straight segments. Shared definition with the offline prototype's `_d_at`.
+static func _profile_seg(sl: int, sm: int, sr: int, u: int) -> int:
+	var half := SURFACE_T / 2.0
+	var d: float
+	if float(u) < half:
+		d = sl + (sm - sl) * (float(u) / half)
+	else:
+		d = sm + (sr - sm) * ((float(u) - half) / half)
+	return int(round(d))
+
+
+## The reusable-profile key (L*9+M*3+R) for the tile in world column `col`. Endpoints
+## are read from the SHARED world-pixel boundary so neighbours meet exactly (no crack);
+## deterministic from world_seed + surface_shape_version on an independent channel.
+func _surface_profile_key(col: int) -> int:
+	var dl := _surface_d_boundary(float(col) * SURFACE_T)
+	var dr := _surface_d_boundary(float(col + 1) * SURFACE_T)
+	var dm := _surface_d_boundary(float(col) * SURFACE_T + SURFACE_T / 2.0)
+	return dl * 9 + dm * 3 + dr
+
+
+func _surface_d_boundary(xw: float) -> int:
+	var n := 2.0 * _surface_vnoise(xw / SURFACE_LAM + _surface_shape_version * 7.0) - 1.0
+	return clampi(int(round(SURFACE_BASE + SURFACE_AMP * n)), 0, SURFACE_MAX_D)
+
+
+func _surface_vnoise(x: float) -> float:
+	var xi := int(floor(x))
+	var f := x - xi
+	var s := 0.5 * (1.0 - cos(PI * f))
+	return lerpf(_surface_svn(xi), _surface_svn(xi + 1), s)
+
+
+func _surface_svn(xi: int) -> float:
+	var h := (world_seed * 668265263) ^ ((xi + SURFACE_SEED_OFFSET) * 374761393)
+	h = (h ^ (h >> 13)) * 1274126177
+	h = h ^ (h >> 16)
+	return float(absi(h) % 100000) / 100000.0
 
 
 ## FQ-09V: the ordered textures a block renders with — its variant pool when
@@ -1639,6 +1750,7 @@ func rebuild_tileset() -> void:
 	_liquid_source_ids.clear()   # LQ-2: rebuilt with fresh fill-tile sources below
 	_leaf_tone_sids.clear()
 	_trunk_sid = -1
+	_shaped_sids.clear()
 	_opaque_masks.clear()
 	_tilemap.tile_set = _build_tileset()
 	_redraw_all()
