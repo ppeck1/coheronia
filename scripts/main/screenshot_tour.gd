@@ -54,6 +54,11 @@ func _run() -> void:
 		print("SHOTS complete (trees) -> user://shots")
 		get_tree().quit(0)
 		return
+	if OS.get_environment("COHERONIA_SHOTS_FOCUS") == "surface":
+		await _shoot_surface(root, world, player)
+		print("SHOTS complete (surface) -> user://shots")
+		get_tree().quit(0)
+		return
 	# Canonical shots reflect a CURRENT new world — gen_version 6, so the fuller
 	# v6 trees appear. Preserve the rest of the active config (size/preset/seed).
 	var _tour_cfg: Dictionary = GameState.current_config.data.duplicate(true) \
@@ -1076,6 +1081,34 @@ func _shoot_trees(root: Node2D, world: Node2D, player: CharacterBody2D) -> void:
 	cam.global_position = Vector2((float(base_x + 14) + 0.5) * tile, (float(gy0) - 6.0) * tile)
 	cam.reset_smoothing()
 	await _shot("trees_v6_wide")
+
+
+## Terrain surface shaping preview (COHERONIA_SHOTS_FOCUS=surface): a close, zoomed
+## surface stretch with the 0-2px inward micro-relief ON (surface_shape_version=1)
+## vs OFF, so the render-only shaping can be judged in the real engine before the
+## default is flipped. Cosmetic staging only; never saved.
+func _shoot_surface(root: Node2D, world: Node2D, player: CharacterBody2D) -> void:
+	var tile: float = float(world.tile_size())
+	var cfg: Dictionary = GameState.current_config.data.duplicate(true) 		if GameState.current_config != null else WorldConfig.from_preset("folk_kingdom")
+	cfg["gen_version"] = WorldGen.CURRENT_GEN_VERSION
+	cfg["surface_shape_version"] = 1
+	GameState.current_config = WorldConfig.new(cfg)
+	world.setup(4242)
+	root._position_actors()
+	player.get_node("Camera2D").reset_smoothing()
+	get_viewport().warp_mouse(Vector2(8, 8))
+	var cam: Camera2D = player.get_node("Camera2D")
+	var hc: Vector2i = world.hall_info["center_cell"]
+	var gy0: int = int(world.hall_info["ground_y"])
+	root.time_of_day = 0.30
+	root.is_night = false
+	root.canvas_modulate.color = root.DAY_TINT
+	cam.zoom = Vector2(3.0, 3.0)
+	cam.global_position = Vector2((float(hc.x) + 14.0) * tile, (float(gy0) - 3.0) * tile)
+	cam.reset_smoothing()
+	for _f in range(8):
+		await get_tree().physics_frame
+	await _shot("surface_shaped")
 
 
 func _shot(shot_name: String) -> void:

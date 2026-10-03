@@ -404,6 +404,7 @@ func create_world(config_dict: Dictionary) -> String:
 	# World Depths: stamp the current generation version so this world always
 	# regenerates the same terrain its deltas assume, even as WorldGen evolves.
 	config.data["gen_version"] = WorldGen.CURRENT_GEN_VERSION
+	config.data["surface_shape_version"] = WorldGen.CURRENT_SURFACE_SHAPE_VERSION
 	var world_id := _make_id("world")
 	var payload := {
 		"world_version": SHELL_VERSION,

@@ -1480,7 +1480,7 @@ func _draw() -> void:
 		# trunks, leaves, bushes, torches).
 		var stage := mine_damage_stage()
 		if stage > 0:
-			var mask: BitMap = world.block_opaque_mask(world.block_at(mine_target))
+			var mask: BitMap = world.surface_crack_mask(mine_target)
 			_crack_rng.seed = hash(mine_target)
 			for i in range(stage * 3):
 				var from := Vector2(

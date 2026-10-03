@@ -844,6 +844,52 @@ func _run() -> void:
 		"det=%s rooted=%s(%d/%d) trunks=%d leaves=%d" % [str(_v6_det), str(_v6_rooted),
 			_v6_seen.size(), _v6_cells.size(), _v6_trunks, _v6_leaves])
 
+	# Terrain surface shaping (S2, RENDER-ONLY): the exposed-top profile is
+	# deterministic, bounded (keys 0..26), seam-free (a tile's right endpoint ==
+	# the next tile's left: key%3 == next_key/9), varied, and the shaped tile
+	# sources are built (27 per material). Crucially it is GENERATION-INERT:
+	# surface_shape_version never changes the generated cells (visual-only).
+	var _ss_keys: Array = []
+	for _sc in range(0, 64):
+		_ss_keys.append(world._surface_profile_key(_sc))
+	var _ss_bounded := true
+	var _ss_seam := true
+	var _ss_varied := false
+	for _si in range(_ss_keys.size()):
+		if int(_ss_keys[_si]) < 0 or int(_ss_keys[_si]) > 26:
+			_ss_bounded = false
+		if _si > 0 and int(_ss_keys[_si]) != int(_ss_keys[0]):
+			_ss_varied = true
+		if _si + 1 < _ss_keys.size() and (int(_ss_keys[_si]) % 3) != int(int(_ss_keys[_si + 1]) / 9):
+			_ss_seam = false
+	var _ss_det: bool = world._surface_profile_key(7) == world._surface_profile_key(7)
+	var _ss_sources: bool = world._shaped_sids.has("grass") \
+		and int(world._shaped_sids["grass"].size()) == 27 \
+		and world._shaped_sids.has("dirt") and world._shaped_sids.has("stone")
+	var _ss_on: Dictionary = WorldGen.generate(2024,
+		WorldConfig.new({"size": "medium", "gen_version": 6, "surface_shape_version": 1}))
+	var _ss_off: Dictionary = WorldGen.generate(2024,
+		WorldConfig.new({"size": "medium", "gen_version": 6}))
+	var _ss_gen_inert: bool = str(_ss_on["cells"]) == str(_ss_off["cells"])
+	# Render path: with shaping ON, an exposed natural cell actually draws a SHAPED
+	# source (definitive in-engine proof the micro-relief renders).
+	var _ss_render_ok := false
+	var _ss_prev: bool = world._surface_shape
+	world._surface_shape = true
+	for _rc in world.cells:
+		var _rbid: String = world.cells[_rc]
+		if world._shaped_sids.has(_rbid) and world.block_at(_rc + Vector2i(0, -1)) == "air":
+			world._set_tile(_rc, _rbid)
+			if int(world._tilemap.get_cell_source_id(_rc)) in world._shaped_sids[_rbid].values():
+				_ss_render_ok = true
+			world._set_tile(_rc, _rbid)
+			break
+	world._surface_shape = _ss_prev
+	_check("surface_shape_deterministic_seamfree_gen_inert",
+		_ss_bounded and _ss_seam and _ss_varied and _ss_det and _ss_sources and _ss_gen_inert and _ss_render_ok,
+		"bounded=%s seam=%s varied=%s det=%s sources=%s gen_inert=%s render=%s" % [str(_ss_bounded),
+			str(_ss_seam), str(_ss_varied), str(_ss_det), str(_ss_sources), str(_ss_gen_inert), str(_ss_render_ok)])
+
 	# Harvest: mining a trunk yields wood via the normal drop path; clearing
 	# leaves yields no economy resource — its ONLY possible drop is a renewable
 	# tree_seed (Item-wiring Phase 3), at a low chance, and nothing else.

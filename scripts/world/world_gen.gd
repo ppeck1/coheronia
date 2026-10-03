@@ -32,6 +32,11 @@ const LIQUID_BLOCK_IDS := ["lava", "water"]
 ## (new shape gated on gen_version >= 6; existing worlds load their stamped version).
 const CURRENT_GEN_VERSION := 6
 
+## Terrain surface shaping (RENDER-ONLY) version stamp. New worlds get the
+## 0-2px exposed-top micro-relief; worlds without the stamp render flat. Purely
+## visual + gated -- it never changes generated cells, collision, or saves.
+const CURRENT_SURFACE_SHAPE_VERSION := 1
+
 ## v4: a generated liquid pocket (lava or water) smaller than this many connected
 ## same-liquid cells is removed at gen time, so the caves keep only real pools
 ## instead of scattered single blocks. Overridable via world_settings `liquids`.
