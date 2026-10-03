@@ -64,6 +64,7 @@ func _run() -> void:
 	var _tour_cfg: Dictionary = GameState.current_config.data.duplicate(true) \
 		if GameState.current_config != null else WorldConfig.from_preset("folk_kingdom")
 	_tour_cfg["gen_version"] = WorldGen.CURRENT_GEN_VERSION
+	_tour_cfg["surface_shape_version"] = WorldGen.CURRENT_SURFACE_SHAPE_VERSION
 	GameState.current_config = WorldConfig.new(_tour_cfg)
 	world.setup(4242)
 	root._position_actors()
