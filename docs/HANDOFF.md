@@ -74,13 +74,18 @@ shipped as `v0.7-alpha`. Remaining visual polish (panel art-language consistency
 grading, resonance art, and wooden-platform art) and large controller extractions remain
 focused follow-up work. **S-08.0 Enemy Expansion Foundation is MERGED** to `main` (merge
 `29fee40`, PR #15) — see [`WORK_ORDER_S08_ENEMY_FOUNDATION.md`](WORK_ORDER_S08_ENEMY_FOUNDATION.md).
-The current mode is **single-enemy activation slices** on the foundation:
-**S-08.1 Lantern Leech** (merged, `17a9bdd`, PR #16 —
+Four single-enemy activation slices have landed on the foundation, all **merged** to `main`:
+**S-08.1 Lantern Leech** (`17a9bdd`, PR #16 —
 [`WORK_ORDER_S08_1_LANTERN_LEECH.md`](WORK_ORDER_S08_1_LANTERN_LEECH.md)),
-**S-08.2 Sporekin** (merged, `abedccd`, PR #17 —
-[`WORK_ORDER_S08_2_SPOREKIN.md`](WORK_ORDER_S08_2_SPOREKIN.md)), and now
-**S-08.3 Stoneback Beetle**
-([`WORK_ORDER_S08_3_STONEBACK_BEETLE.md`](WORK_ORDER_S08_3_STONEBACK_BEETLE.md)).
+**S-08.2 Sporekin** (`abedccd`, PR #17 —
+[`WORK_ORDER_S08_2_SPOREKIN.md`](WORK_ORDER_S08_2_SPOREKIN.md)),
+**S-08.3 Stoneback Beetle** (`07303b8`, PR #18 —
+[`WORK_ORDER_S08_3_STONEBACK_BEETLE.md`](WORK_ORDER_S08_3_STONEBACK_BEETLE.md)), and
+**S-08.4 Hollow Stag** (`04e34b5`, PR #22 —
+[`WORK_ORDER_S08_4_HOLLOW_STAG.md`](WORK_ORDER_S08_4_HOLLOW_STAG.md)) — the twelfth live
+enemy and the first surface activation. **Enemy creation is now PAUSED** (operator): further
+planned enemies move to a separate future work order, against the §10–§11 completion contract
+and decisions-required list in the foundation work order.
 
 ## S-08.0 status — MERGED (`29fee40`, PR #15)
 
@@ -133,9 +138,14 @@ report stays deterministic. Windowed smoke **635/635**; `SAVE_VERSION` (`0.6`)/`
 as live drop materials with real sinks; the retired `spores`/`fungal_thread` planned hooks were
 removed.)
 
-## Pixel trees + scenic backdrop (branch `feat/pixel-trees-and-backdrop`)
+## Pixel trees + scenic backdrop + terrain surface shaping — MERGED (PRs #19/#20/#21)
 
-Art/presentation + a gated world-gen bump. Independent of the S-08 enemy slices.
+A presentation + gated world-gen arc that landed on `main` **after** the enemy foundation,
+independent of the S-08 enemy slices: pixel trees + scenic backdrop (PR #19, merge `6e57544`,
+carrying the `gen_version` 5 → 6 bump), render-only terrain surface shaping (PR #20, merge
+`47472b6`), and a screenshot refresh to the current new-world defaults (PR #21, merge
+`6aef4ff`). Surface shaping is render-only micro-relief on exposed tops, gated by its own
+`surface_shape_version` with collision unchanged. Details of the trees/backdrop bump:
 
 - **Scenic backdrop rework**: `scripts/art/gen_backgrounds.py` rewritten so sky/clouds/
   ranges/hills read as one coherent pixel-art scene (tileable ring-noise masses, elongated
@@ -158,8 +168,9 @@ Art/presentation + a gated world-gen bump. Independent of the S-08 enemy slices.
     tree) — accepted; revisit in a measure-first balance pass. Follow-ups: re-tone mined-cell
     neighbours for crisp edges; optional `windswept` archetype.
 
-Verified at each step: windowed source smoke **642/642**, fixed-seed balance report
-deterministic, static gate + VERIFY PASS.
+Each of these PRs was gated green on merge (the trees PR baseline was windowed source smoke
+**642/642**, fixed-seed balance report deterministic, static gate + VERIFY PASS); the later
+S-08.3/S-08.4 enemy slices raised the current `main` smoke baseline further (**648/648**).
 
 ## S-08.3 Stoneback Beetle — MERGED (`07303b8`, PR #18)
 
