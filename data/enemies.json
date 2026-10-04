@@ -125,7 +125,11 @@
       "id": "hollow_stag",
       "display_name": "Hollow Stag",
       "family": "surface",
-      "status": "planned",
+      "status": "live",
+      "contact_damage": 2,
+      "speed": 44,
+      "hp": 5,
+      "hp_mult": 1.5,
       "location": "Deep forest",
       "density": {
         "count_min": 1,
@@ -135,18 +139,10 @@
       "drops": [
         {
           "item_id": "venison",
-          "chance": 0.7
-        },
-        {
-          "item_id": "hide",
-          "chance": 0.25
-        },
-        {
-          "item_id": "antlers",
-          "chance": 0.05
+          "chance": 0.9
         }
       ],
-      "role": "Rare forest encounter, premium food and crafting source"
+      "role": "Rare forest encounter, premium food source"
     },
     {
       "id": "cave_crawler",

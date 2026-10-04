@@ -242,7 +242,7 @@ them *possible*, never *active*.
 | --- | --- | --- | --- | --- |
 | `ash_wasp` | planned | surface | nest spawner (deferred) | burned-forest nest |
 | `mudling` | planned | surface | swamp biome/spawn context | swamp construction/weaving loot |
-| `hollow_stag` | planned | surface | rare-spawn tuning | premium food source |
+| `hollow_stag` | **live (S-08.4)** | surface | rare surface-spawn gate (no new RNG) | first SURFACE activation; non-aggressive premium-food quarry, recedes at dawn; loot = `venison` → `cook_venison` → 2 food (premium); PR pending |
 | `lantern_leech` | **live (S-08.1)** | underground | carried-light reuse | cave-pool dweller; PR #16 |
 | `stoneback_beetle` | **live (S-08.3)** | underground | armored/rare cavern spawn | rare stone-cavern bruiser; armored = high HP + low speed (no defense stat); loot = `stone` + occasional ore (existing sinks) |
 | `sporekin` | **live (S-08.2)** | underground | cluster spawn | fungal-cave cluster; PR #17 |

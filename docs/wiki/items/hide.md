@@ -17,13 +17,12 @@ Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for
 
 ## Summary
 
-Hide is a planned item hook. Referenced by planned Burrow Maw and Hollow Stag drops only.
+Hide is a planned item hook. Referenced by planned Burrow Maw drops only.
 
 ## Acquisition
 
 | Source type | Source | Quantity / chance | Notes |
 |---|---|---|---|
-| Enemy drop | [Hollow Stag](../enemies/hollow_stag.md) | 25% drop chance; planned only | Live acquisition only if the enemy is live. |
 | Enemy drop | [Burrow Maw](../enemies/burrow_maw.md) | 50% drop chance; planned only | Live acquisition only if the enemy is live. |
 
 ## Current Uses

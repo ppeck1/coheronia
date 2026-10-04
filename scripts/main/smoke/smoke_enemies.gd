@@ -29,7 +29,7 @@ func run(ctx) -> void:
 
 	# Fix 16: use root's shared registry instances instead of creating duplicates.
 	var enemy_reg = root._enemy_registry
-	harness._check("enemies_json_loads", enemy_reg.live_defs().size() == 11,
+	harness._check("enemies_json_loads", enemy_reg.live_defs().size() == 12,
 		"%d live defs" % enemy_reg.live_defs().size())
 
 	# S-07.1c: every FRESH enemy spawns at full health — hp == max_hp and the hurt
@@ -870,7 +870,7 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 	var _sk_hp: int = maxi(1, int(round(float(root.threat_hp()) * 0.7)))
 	harness._check("s08_2_sporekin_activated",
 		enemy_reg.is_spawnable("sporekin") and enemy_reg.is_valid("sporekin")
-		and enemy_reg.live_defs().size() == 11
+		and enemy_reg.live_defs().size() == 12
 		and _sk != null and str(_sk.enemy_id) == "sporekin"
 		and str(_sk.family) == "underground"
 		and _sk.hp == _sk_hp and _sk.max_hp == _sk_hp
@@ -1025,7 +1025,7 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 	var _bt_hp: int = maxi(1, int(round(float(root.threat_hp()) * 1.8)))
 	harness._check("s08_3_stoneback_beetle_activated",
 		enemy_reg.is_spawnable("stoneback_beetle") and enemy_reg.is_valid("stoneback_beetle")
-		and enemy_reg.live_defs().size() == 11
+		and enemy_reg.live_defs().size() == 12
 		and _bt != null and str(_bt.enemy_id) == "stoneback_beetle"
 		and str(_bt.family) == "underground"
 		and _bt.hp == _bt_hp and _bt.max_hp == _bt_hp
@@ -1140,4 +1140,131 @@ func _s08_enemy_foundation_baseline(ctx) -> void:
 	for _bt6 in get_tree().get_nodes_in_group("threats"):
 		if is_instance_valid(_bt6):
 			_bt6.queue_free()
+	await get_tree().process_frame
+
+	# --- S-08.4: Hollow Stag vertical slice ------------------------------------
+	# (31) hollow_stag is the twelfth live enemy: a rare, NON-aggressive SURFACE
+	# premium-food quarry (low contact, nimble, no carried light) that — unlike the three
+	# underground slices — RECEDES at dawn (surface family). The eleven earlier enemies are
+	# unchanged (parity checked above).
+	for _hs0 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_hs0):
+			_hs0.queue_free()
+	await get_tree().process_frame
+	var _hs: Node = root.spawn_enemy_for_test("hollow_stag")
+	await get_tree().process_frame
+	var _hs_diff: float = root.config().difficulty("enemy")
+	var _hs_hp: int = maxi(1, int(round(float(root.threat_hp()) * 1.5)))
+	harness._check("s08_4_hollow_stag_activated",
+		enemy_reg.is_spawnable("hollow_stag") and enemy_reg.is_valid("hollow_stag")
+		and enemy_reg.live_defs().size() == 12
+		and _hs != null and str(_hs.enemy_id) == "hollow_stag"
+		and str(_hs.family) == "surface"
+		and _hs.hp == _hs_hp and _hs.max_hp == _hs_hp
+		and is_equal_approx(float(_hs.contact_damage), 2.0 * _hs_diff)
+		and is_equal_approx(float(_hs.move_speed), 44.0)
+		and _hs.visual_light.is_empty() and not _hs.has_carried_light()
+		and not _hs.persists_through_dawn(),
+		"spawnable=%s live=%d hp=%d/%d(exp %d) speed=%s no_light=%s recedes=%s" % [
+			str(enemy_reg.is_spawnable("hollow_stag")), enemy_reg.live_defs().size(),
+			(_hs.hp if _hs != null else -1), (_hs.max_hp if _hs != null else -1), _hs_hp,
+			(str(_hs.move_speed) if _hs != null else "n/a"),
+			str(_hs != null and _hs.visual_light.is_empty()),
+			str(_hs != null and not _hs.persists_through_dawn())])
+
+	# (32) surface selection: a rare forest-edge night (stag_rare + spawnable) is the stag;
+	# otherwise the baseline surface slime. Fail-closed, mirroring select_cave_enemy_id.
+	var _hs_sel_ok: bool = \
+		EnemySpawnDirector.select_surface_enemy_id(enemy_reg, true) == "hollow_stag" \
+		and EnemySpawnDirector.select_surface_enemy_id(enemy_reg, false) == "surface_slime"
+	harness._check("s08_4_hollow_stag_surface_selection", _hs_sel_ok,
+		"stag_rare=hollow_stag; otherwise surface_slime")
+
+	# (33) the generalized rarity gate is deterministic and portable (no RNG draw):
+	# rarity<=0 disables, rarity==1 marks every cell, the same cell is stable, and a real
+	# rarity yields BOTH stag and non-stag cells. The S-08.3 stone_cavern_rare alias must
+	# delegate byte-identically so the shipped beetle gate is unchanged.
+	var _hs_r_off: bool = not EnemySpawnDirector.rare_cell(Vector2i(3, 7), 0) \
+		and not EnemySpawnDirector.rare_cell(Vector2i(3, 7), -4)
+	var _hs_r_all: bool = EnemySpawnDirector.rare_cell(Vector2i(3, 7), 1) \
+		and EnemySpawnDirector.rare_cell(Vector2i(-9, 2), 1)
+	var _hs_r_det: bool = EnemySpawnDirector.rare_cell(Vector2i(11, 5), 6) \
+		== EnemySpawnDirector.rare_cell(Vector2i(11, 5), 6)
+	var _hs_true := 0
+	var _hs_false := 0
+	var _hs_alias_ok := true
+	for _hx in range(0, 40):
+		for _hd in range(1, 41):
+			if EnemySpawnDirector.rare_cell(Vector2i(_hx, _hd), 6):
+				_hs_true += 1
+			else:
+				_hs_false += 1
+			if EnemySpawnDirector.stone_cavern_rare(Vector2i(_hx, _hd), 6) \
+					!= EnemySpawnDirector.rare_cell(Vector2i(_hx, _hd), 6):
+				_hs_alias_ok = false
+	var _hs_mixed: bool = _hs_true > 0 and _hs_false > 0 and _hs_true < _hs_false
+	harness._check("s08_4_hollow_stag_rarity_gate",
+		_hs_r_off and _hs_r_all and _hs_r_det and _hs_mixed and _hs_alias_ok,
+		"off=%s all=%s deterministic=%s mixed(true=%d<false=%d)=%s alias_identical=%s" % [
+			str(_hs_r_off), str(_hs_r_all), str(_hs_r_det), _hs_true, _hs_false,
+			str(_hs_mixed), str(_hs_alias_ok)])
+
+	# (34) venison is REAL loot with a PREMIUM food use (operator: premium food only): a
+	# killed stag drops venison, the player collects it, and cook_venison turns 1 venison
+	# into 2 food at the Town Hall (premium vs the mushroom's 2 -> 1). Stockpile state is
+	# restored so no cross-module state leaks.
+	for _hs1 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_hs1):
+			_hs1.queue_free()
+	await get_tree().process_frame
+	var _ven_before: int = _pl.inventory.count("venison")
+	var _hs_kill: Node = root.spawn_enemy_for_test("hollow_stag")
+	_hs_kill.global_position = _pl.global_position
+	_hs_kill.drop_chance_override = 1.0
+	_hs_kill.take_hit(99)
+	await get_tree().process_frame
+	_pl.collect_ground_drops()
+	var _ven_dropped: bool = _pl.inventory.count("venison") > _ven_before
+	var _ven_sp_prev: Variant = _hall.stockpile.get("venison", null)
+	_hall.stockpile["venison"] = 1
+	var _food_before2: int = _pl.inventory.count("food")
+	var _ven_cooked: bool = _hall.craft_from_stockpile("cook_venison", _pl)
+	var _ven_cook_ok: bool = _ven_cooked \
+		and _pl.inventory.count("food") == _food_before2 + 2 \
+		and int(_hall.stockpile.get("venison", 0)) == 0
+	if _ven_sp_prev == null:
+		_hall.stockpile.erase("venison")
+	else:
+		_hall.stockpile["venison"] = _ven_sp_prev
+	harness._check("s08_4_hollow_stag_loot_food",
+		_ven_dropped and _ven_cook_ok and BlockRegistry.item_icon("venison") != null,
+		"dropped=%s cooked=%s premium_food(+2)=%s" % [str(_ven_dropped), str(_ven_cooked),
+			str(_ven_cook_ok)])
+
+	# (35) hollow_stag id + hp/max_hp round-trip through save; a restored stag still RECEDES
+	# at dawn (surface lifecycle preserved across save/load).
+	for _hs2 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_hs2):
+			_hs2.queue_free()
+	await get_tree().process_frame
+	var _hs3: Node = root.spawn_enemy_for_test("hollow_stag")
+	_hs3.hp = 1
+	await get_tree().process_frame
+	root.apply_threats(root.serialize_threats())
+	await get_tree().process_frame
+	var _hs_restored: Node = null
+	for _hs4 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_hs4) and str(_hs4.enemy_id) == "hollow_stag":
+			_hs_restored = _hs4
+	harness._check("s08_4_hollow_stag_saves",
+		_hs_restored != null and _hs_restored.hp == 1 and _hs_restored.max_hp == _hs_hp
+		and not _hs_restored.persists_through_dawn(),
+		"restored=%s hp=%s max=%s(exp %d) recedes=%s" % [str(_hs_restored != null),
+			(str(_hs_restored.hp) if _hs_restored != null else "n/a"),
+			(str(_hs_restored.max_hp) if _hs_restored != null else "n/a"), _hs_hp,
+			str(_hs_restored != null and not _hs_restored.persists_through_dawn())])
+
+	for _hs5 in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(_hs5):
+			_hs5.queue_free()
 	await get_tree().process_frame

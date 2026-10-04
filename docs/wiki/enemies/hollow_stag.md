@@ -2,23 +2,27 @@
 
 Generated from repo data by `scripts/wiki/generate_wiki.py` (see git history for dates).
 
-> `Enemy` page. Current status: `planned`.
+> `Enemy` page. Current status: `live`.
 
 | Field | Value |
 |---|---|
 | ID | `hollow_stag` |
 | Page type | Enemy |
-| Status | planned |
+| Status | live |
 | Family | surface |
 | Location | Deep forest |
-| Role | Rare forest encounter, premium food and crafting source |
+| Role | Rare forest encounter, premium food source |
 | Image path | `art/generated/enemies/hollow_stag.png` |
 | Visual family | No authored image. |
 | Fallback / placeholder | Code-drawn hostile shape fallback when authored sprite art is absent. |
+| hp | 5 |
+| contact_damage | 2 |
+| speed | 44 |
+| hp_mult | 1.5 |
 
 ## Summary
 
-Hollow Stag is a planned enemy entry loaded from `data/enemies.json`.
+Hollow Stag is a live enemy entry loaded from `data/enemies.json`.
 
 ## Visual Family
 
@@ -30,9 +34,7 @@ No authored art is currently attached to this visual family.
 
 | Drop | Chance | Notes |
 |---|---|---|
-| [Venison](../items/venison.md) | 70% | Planned drop only. |
-| [Hide](../items/hide.md) | 25% | Planned drop only. |
-| [Antlers](../items/antlers.md) | 5% | Planned drop only. |
+| [Venison](../items/venison.md) | 90% | Live drop table. |
 
 ## Related Pages
 

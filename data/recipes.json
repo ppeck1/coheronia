@@ -93,6 +93,19 @@
       "station": "town_hall"
     },
     {
+      "recipe_id": "cook_venison",
+      "display_name": "Cook Venison",
+      "inputs": {
+        "venison": 1
+      },
+      "outputs": {
+        "food": 2
+      },
+      "icon": "food",
+      "note": "S-08.4: cooks Hollow Stag venison into premium food at the Town Hall (1 -> 2, versus the mushroom's 2 -> 1), giving the drop a live food consumer.",
+      "station": "town_hall"
+    },
+    {
       "recipe_id": "basic_pick_upgrade",
       "display_name": "Basic Pick Upgrade",
       "inputs": {
