@@ -104,6 +104,12 @@ const SPOREKIN_CLUSTER := 3
 ## so it is an occasional stone-cavern sighting that never draws from the cave-spawn RNG.
 const STONEBACK_BEETLE_CAP := 1
 const STONEBACK_BEETLE_RARITY := 8
+## S-08.4: Hollow Stag — a rare, non-aggressive surface premium-food quarry. The forest-edge
+## spawn x is fixed, so the rarity gate keys on (x, day_count): ~1-in-N NIGHTS yields a stag
+## in place of the first surface slime, drawing zero from the RNG stream. Cap 1 + the
+## index==0 gate + surface dawn-recede mean a world never holds more than one.
+const HOLLOW_STAG_CAP := 1
+const HOLLOW_STAG_RARITY := 6
 ## Minimum connected open-air cells a cave spawn point must sit in, so underground
 ## enemies only appear in real chambers/tunnels, never in a 1-2 cell rock pocket.
 const CAVE_MIN_OPEN_CELLS := 6
@@ -1557,20 +1563,41 @@ func _update_population(meal: Dictionary, coherence_at_dawn: float) -> void:
 	town_hall.stockpile_changed.emit()
 
 
-## Spawn a surface_slime at night (replaces hardcoded night threat).
+## S-08.4: count live (not freed) threats with a given enemy id — used for per-enemy caps.
+func _live_enemy_count(enemy_id: String) -> int:
+	var n := 0
+	for t in get_tree().get_nodes_in_group("threats"):
+		if is_instance_valid(t) and not t.is_queued_for_deletion() and str(t.enemy_id) == enemy_id:
+			n += 1
+	return n
+
+
+## Spawn a surface threat at night. Baseline is a surface_slime; S-08.4 lets a rare
+## forest-edge night substitute a Hollow Stag for the FIRST spawn (index 0) only. The
+## selection + fail-closed check live in EnemySpawnDirector; game_root positions + logs.
 func _spawn_surface_slime(index: int) -> void:
-	var def: Dictionary = {}
-	if _enemy_registry != null:
-		def = _enemy_registry.def_for_spawn("surface_slime")
-	# Fail closed: def_for_spawn returns {} if surface_slime is not spawnable
-	# (missing/invalid), mirroring the raid loop and _advance_cave_spawns guards.
-	if def.is_empty():
+	if _enemy_registry == null:
 		return
 	var side := -1 if index % 2 == 0 else 1
 	var hall_cell: Vector2i = world.hall_info["center_cell"]
 	var spawn_x: int = hall_cell.x + side * 22
+	# S-08.4: only the first surface spawn of the night can be a stag, so at most one
+	# appears per night by construction (combined with cap 1 and surface dawn-recede). The
+	# gate keys on (spawn_x, day_count) — the fixed forest-edge column is rare across nights
+	# — and draws no RNG, keeping the balance report byte-identical.
+	var stag_rare: bool = index == 0 \
+		and _live_enemy_count("hollow_stag") < HOLLOW_STAG_CAP \
+		and EnemySpawnDirectorClass.rare_cell(Vector2i(spawn_x, day_count), HOLLOW_STAG_RARITY)
+	var eid: String = EnemySpawnDirectorClass.select_surface_enemy_id(_enemy_registry, stag_rare)
+	var def: Dictionary = _enemy_registry.def_for_spawn(eid)
+	# Fail closed: def_for_spawn returns {} if the id is not spawnable (missing/invalid),
+	# mirroring the raid loop and _advance_cave_spawns guards.
+	if def.is_empty():
+		return
 	var surf_y: int = world.surface.get(spawn_x, hall_cell.y)
 	_spawn_enemy_at(def, world.cell_center(Vector2i(spawn_x, surf_y - 2)))
+	if eid == "hollow_stag":
+		log_event("A Hollow Stag emerges at the forest edge.", "Hollow Stag", "night")
 
 
 ## S-08.0: night-raid candidates in roll order (thornrat, then the three raiders).

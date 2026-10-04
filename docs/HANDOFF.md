@@ -17,7 +17,8 @@ rules live in [`CLAUDE.md`](../CLAUDE.md).
   Resonance feature content shipped in PR #13 via the `--no-ff` merge `e210b3d`; only the
   deliberately-excluded debug-only F3 overlay commit (`d008589`) was left behind.
 - Save compatibility remains frozen: `SAVE_VERSION` is unchanged (`0.6`).
-- Terrain generation is at `gen_version` 5, using the gated compatibility pattern.
+- Terrain generation is at `gen_version` 6 (the pixel-trees bump), using the gated
+  compatibility pattern; worlds stamped ≤ 5 load their own version byte-identically.
 
 The branch integrates the S-07 stabilization work with the completed Perception and
 Resonance feature arc. It includes fog-of-war memory, Attunement resonance, dark-sight
@@ -160,7 +161,7 @@ Art/presentation + a gated world-gen bump. Independent of the S-08 enemy slices.
 Verified at each step: windowed source smoke **642/642**, fixed-seed balance report
 deterministic, static gate + VERIFY PASS.
 
-## S-08.3 status (on `s08.3-stoneback-beetle`)
+## S-08.3 Stoneback Beetle — MERGED (`07303b8`, PR #18)
 
 **Stoneback Beetle is activated** — the eleventh live enemy (rare, armored, slow underground
 stone-cavern bruiser). It spawns on a deterministic-rare stone-cavern cell via the director's
@@ -176,13 +177,43 @@ items with existing sinks only** — `stone` (primary) + a lower chance of `coal
 in smoke. No new item, recipe, or mechanic. Code-drawn fallback sprite (canonical art deferred,
 documented). The ten earlier live enemies are unchanged (`s08_enemy_runtime_parity`,
 `s08_live_set_is_the_eight`) and the fixed-seed balance report stays deterministic.
-`SAVE_VERSION` (`0.6`)/`gen_version` (`5`) unchanged.
+`SAVE_VERSION` (`0.6`)/`gen_version` (`6`) unchanged.
+
+## S-08.4 status (on `s08.4-hollow-stag`)
+
+**Hollow Stag is activated** — the twelfth live enemy and the **first surface** activation of
+the arc (the three prior slices were underground): a rare, **non-aggressive premium-food
+quarry** that appears at the forest edge during night surface pressure. It rides the existing
+night surface-spawn seam — on a rare night the **first** surface spawn (`index == 0`) becomes a
+stag instead of a surface slime via the director's new
+`EnemySpawnDirector.select_surface_enemy_id`, gated by a generalized spatial-hash
+`rare_cell(Vector2i(forest_edge_x, day_count), HOLLOW_STAG_RARITY=6)`. The forest-edge x is
+fixed, so folding in `day_count` makes it ~1-in-6 **nights** and draws **no new RNG** (the
+S-08.3 `stone_cavern_rare` is now a thin delegator to `rare_cell`, byte-identical), keeping the
+balance report deterministic. Cap `HOLLOW_STAG_CAP`=1 + the `index == 0` gate + surface
+**dawn-recede** (`persists_through_dawn()` → false, unlike the underground slices) mean a world
+never holds more than one. `actor_kind: simple_ground` (no new controller), no carried light,
+contact 2 (prey, not an aggressor), speed 44 (nimble), `hp_mult` 1.5 (premium quarry).
+
+Loot is **premium food only** (operator decision): the new `venison` item → the new
+`cook_venison` recipe at the Town Hall yields **2 food from 1 venison** (premium versus the
+mushroom's 2 → 1), demonstrated live in smoke. The design's placeholder `hide`/`antlers`
+(never defined items, no consumers) were dropped — the same cleanup S-08.3 did for
+`stone_plates`. Code-drawn fallback sprite (canonical art + `venison` icon deferred,
+documented). The eleven earlier live enemies are unchanged (`s08_enemy_runtime_parity`,
+`s08_live_set_is_the_eight`) and the fixed-seed balance report stays deterministic.
+`SAVE_VERSION` (`0.6`)/`gen_version` (`6`) unchanged.
+
+**This is the last planned-enemy activation for now** — per the operator, enemy creation pauses
+after Hollow Stag; further enemies (mini-boss/boss/encounter tiers, new-mechanic enemies) move
+to a separate future work order.
 
 ## Recommended next
 
-1. Review + merge the S-08.3 implementation PR.
-2. Later planned-enemy activations (incl. Broodmother Crawler) against the per-enemy
-   completion contract and the decisions-required list in the foundation work order §10–§11.
+1. Review + merge the S-08.4 implementation PR.
+2. **Enemy creation is paused.** Later planned-enemy activations (incl. Broodmother Crawler)
+   resume under a new work order, against the per-enemy completion contract and the
+   decisions-required list in the foundation work order §10–§11.
 
 Calling-balance tuning remains measure-first: record the worst-case conditional stacking
 results in [`PLAYTEST_CHECKLIST.md`](PLAYTEST_CHECKLIST.md) before making data changes.

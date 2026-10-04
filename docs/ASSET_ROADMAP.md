@@ -189,10 +189,11 @@ Keep meaningful action above the lower-quarter text band.
 | Ancestry sprites (deep/planned) | deep_dwarf, deep_elf, deep_goblin, gnome, deep_gnome, lizardfolk, dragonkin (6 dragonkin types) | phase C-E ancestries | 16x32 |
 | UI replacement art | native dock chrome and framed panels | current HUD polish pass via HUD Asset Replacement Studio | contract-specific native canvases |
 
-`lantern_leech` (S-08.1), `sporekin` (S-08.2), and `stoneback_beetle` (S-08.3)
-were activated and are **live** with a code-drawn fallback (plus the leech's
-carried light), so their canonical 16x16 sprites are a deferred art follow-up,
-not a runtime gap — they are no longer on the planned "do not produce early"
+`lantern_leech` (S-08.1), `sporekin` (S-08.2), `stoneback_beetle` (S-08.3), and
+`hollow_stag` (S-08.4) were activated and are **live** with a code-drawn fallback
+(plus the leech's carried light), so their canonical 16x16 sprites — and the new
+`venison` item icon — are a deferred art follow-up, not a runtime gap; they are no
+longer on the planned "do not produce early"
 list. `raider_sapper` is likewise live and already ships authored art.
 
 ## Prompt Packs

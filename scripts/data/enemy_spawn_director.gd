@@ -106,18 +106,34 @@ static func cluster_size(existing_underground: int, cap: int, desired: int) -> i
 	return maxi(0, mini(desired, cap - existing_underground))
 
 
-## S-08.3: deterministic "rare stone cavern" gate for the Stoneback Beetle. A stable
-## integer hash of the spawn cell is bucketed 1-in-`rarity`, so a genuinely uncommon
-## subset of cave cells are beetle nooks WITHOUT drawing from the RNG stream — the
-## fixed-seed balance report and every other cave-spawn roll stay byte-identical
-## (S-08.1/S-08.2 added zero new RNG draws; this preserves that). `rarity <= 0`
-## disables the gate; `rarity == 1` marks every cell (tuning/testing convenience).
-## Pure and portable (explicit hash + posmod, not the engine `hash()`), so the smoke
-## outcome is identical on the Linux and Windows CI targets.
-static func stone_cavern_rare(cell: Vector2i, rarity: int) -> bool:
+## S-08.3/S-08.4: deterministic "rare cell" gate. A stable integer hash of the cell is
+## bucketed 1-in-`rarity`, so a genuinely uncommon subset of cells qualify WITHOUT drawing
+## from the RNG stream — the fixed-seed balance report and every other spawn roll stay
+## byte-identical (S-08.1/S-08.2 added zero new RNG draws; this preserves that). `rarity <= 0`
+## disables the gate; `rarity == 1` marks every cell (tuning/testing convenience). Pure and
+## portable (explicit hash + posmod, not the engine `hash()`), so the smoke outcome is
+## identical on the Linux and Windows CI targets. S-08.3 keys it on a cave cell (rare stone
+## nooks); S-08.4 keys it on (forest-edge x, day_count) so a fixed surface column is rare
+## across NIGHTS instead.
+static func rare_cell(cell: Vector2i, rarity: int) -> bool:
 	if rarity <= 0:
 		return false
 	if rarity == 1:
 		return true
 	var h: int = (cell.x * 73856093) ^ (cell.y * 19349663)
 	return posmod(h, rarity) == 0
+
+
+## S-08.3 compatibility alias: the Stoneback Beetle's rare stone-cavern gate, now a thin
+## delegator to the generalized `rare_cell` so the shipped behavior is byte-identical.
+static func stone_cavern_rare(cell: Vector2i, rarity: int) -> bool:
+	return rare_cell(cell, rarity)
+
+
+## S-08.4: which surface enemy belongs at a night surface spawn. A rare forest-edge night
+## (`stag_rare`) yields a Hollow Stag; otherwise the baseline surface slime. Fail-closed:
+## the stag only appears when the registry can spawn it, mirroring `select_cave_enemy_id`.
+static func select_surface_enemy_id(registry, stag_rare := false) -> String:
+	if stag_rare and registry.is_spawnable("hollow_stag"):
+		return "hollow_stag"
+	return "surface_slime"

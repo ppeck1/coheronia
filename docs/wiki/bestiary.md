@@ -10,6 +10,7 @@ This page groups the current enemy definitions into live and planned slices, sim
 |---|---|---|---|---|
 | [Surface Slime](enemies/surface_slime.md) | surface | Grass, ponds | Early surface nuisance, basic crafting source | 1 canonical image + 3 variants |
 | [Thornrat](enemies/thornrat.md) | surface | Grasslands, farms | Pressures early agriculture, provides leather materials | 1 canonical image + 3 variants |
+| [Hollow Stag](enemies/hollow_stag.md) | surface | Deep forest | Rare forest encounter, premium food source | No authored image. |
 | [Cave Crawler](enemies/cave_crawler.md) | underground | Early caves | Underground ambush enemy, chitin and silk source | 1 canonical image + 3 variants |
 | [Ore Tick](enemies/ore_tick.md) | underground | Ore veins | Ore pocket nuisance, provides metal residue | 1 canonical image + 3 variants |
 | [Lava Slime](enemies/lava_slime.md) | underground | Lava pools in the hell layer | Molten dweller of the lava layer; leaves obsidian and hellstone | 1 canonical image + 3 variants |
@@ -26,7 +27,6 @@ This page groups the current enemy definitions into live and planned slices, sim
 |---|---|---|---|---|
 | [Ash Wasp](enemies/ash_wasp.md) | surface | Burned forest | Nest-based enemy in burned areas, supplies crafting materials | No authored image. |
 | [Mudling](enemies/mudling.md) | surface | Swamps | Swamp dweller, provides construction and weaving materials | No authored image. |
-| [Hollow Stag](enemies/hollow_stag.md) | surface | Deep forest | Rare forest encounter, premium food and crafting source | No authored image. |
 | [Burrow Maw](enemies/burrow_maw.md) | underground | Mine shafts | Rare mine shaft threat, provides bone and leather materials | No authored image. |
 | [Hungry Deserter](enemies/hungry_deserter.md) | raider | Raider camps and raid waves | Moral choice encounter, potential recruitment opportunity | No authored image. |
 | [False Taxman](enemies/false_taxman.md) | raider | Raider camps and raid waves | Governance event encounter, supplies authority-related items | No authored image. |

@@ -33,16 +33,14 @@ These pages exist because planned enemy data references them. They are not live 
 
 | Item | Referenced by | Planning note |
 |---|---|---|
-| [Antlers](items/antlers.md) | Hollow Stag | Trophy, ritual focus, or prestige trade. |
 | [Clay](items/clay.md) | Mudling | Bricks, pottery, or furnace upgrade. |
 | [Forged Seal](items/forged_seal.md) | False Taxman | Civic quest or treasury sink. |
 | [Fuse Cord](items/fuse_cord.md) | Raider Sapper | Demolition or trap recipes. |
-| [Hide](items/hide.md) | Burrow Maw; Hollow Stag | Medium armor or packs. |
+| [Hide](items/hide.md) | Burrow Maw | Medium armor or packs. |
 | [Mud](items/mud.md) | Mudling | Clay prep or farming amendment. |
 | [Picks](items/picks.md) | Raider Sapper | Tool repair or iron salvage. |
 | [Reed Fiber](items/reed_fiber.md) | Mudling | Rope, nets, or matting. |
 | [Teeth](items/teeth.md) | Burrow Maw | Dagger, charm, or trophy. |
-| [Venison](items/venison.md) | Hollow Stag | Feast or trade good. |
 | [Venom](items/venom.md) | Ash Wasp | Toxin, trap, or advanced craft. |
 | [Wax](items/wax.md) | Ash Wasp | Candles, seals, or polish. |
 | [Wings](items/wings.md) | Ash Wasp | Fletching or charm craft. |

@@ -82,14 +82,12 @@ This page is the item landing page for the current Coheronia wiki tree. It is me
 
 | Item | Status | Referenced by | First sink note |
 |---|---|---|---|
-| [Antlers](items/antlers.md) | planned | [Hollow Stag](enemies/hollow_stag.md) | Recommended first implementation sink: trophy, ritual focus, or prestige trade. |
 | [Clay](items/clay.md) | planned | [Mudling](enemies/mudling.md) | Recommended first implementation sink: bricks, pottery, or furnace upgrade. |
 | [Forged Seal](items/forged_seal.md) | planned | [False Taxman](enemies/false_taxman.md) | Recommended first implementation sink: civic quest or treasury sink. |
-| [Hide](items/hide.md) | planned | [Hollow Stag](enemies/hollow_stag.md), [Burrow Maw](enemies/burrow_maw.md) | Recommended first implementation sink: medium armor or packs. |
+| [Hide](items/hide.md) | planned | [Burrow Maw](enemies/burrow_maw.md) | Recommended first implementation sink: medium armor or packs. |
 | [Mud](items/mud.md) | planned | [Mudling](enemies/mudling.md) | Recommended first implementation sink: clay prep or farming amendment. |
 | [Reed Fiber](items/reed_fiber.md) | planned | [Mudling](enemies/mudling.md) | Recommended first implementation sink: rope, nets, or matting. |
 | [Teeth](items/teeth.md) | planned | [Burrow Maw](enemies/burrow_maw.md) | Recommended first implementation sink: dagger, charm, or trophy. |
-| [Venison](items/venison.md) | planned | [Hollow Stag](enemies/hollow_stag.md) | Recommended first implementation sink: feast or trade good. |
 | [Venom](items/venom.md) | planned | [Ash Wasp](enemies/ash_wasp.md) | Recommended first implementation sink: toxin, trap, or advanced craft. |
 | [Wax](items/wax.md) | planned | [Ash Wasp](enemies/ash_wasp.md) | Recommended first implementation sink: candles, seals, or polish. |
 | [Wings](items/wings.md) | planned | [Ash Wasp](enemies/ash_wasp.md) | Recommended first implementation sink: fletching or charm craft. |
